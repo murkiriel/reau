@@ -18,10 +18,17 @@ object DayNight {
     private const val DEGREES_PER_HOUR = 15.0
     private const val MS_PER_HOUR = 3_600_000.0
 
-    fun isNight(theme: MapTheme, epochMs: Long, place: Place?, utcOffsetMs: Long, wasNight: Boolean): Boolean = when (theme) {
-        MapTheme.DAY -> false
-        MapTheme.NIGHT -> true
-        MapTheme.AUTO -> {
+    @Suppress("LongParameterList") // the rider's theme and what each theme goes by: the sun's facts and the dash's light
+    fun isNight(
+        theme: MapTheme,
+        epochMs: Long,
+        place: Place?,
+        utcOffsetMs: Long,
+        wasNight: Boolean,
+    ): Boolean = when {
+        theme == MapTheme.DAY -> false
+        theme == MapTheme.NIGHT -> true
+        else -> {
             val where = place ?: standIn(utcOffsetMs)
             !SolarClock.resolveIsLight(SolarClock.elevationDeg(where.lat, where.lng, epochMs), previouslyLight = !wasNight)
         }

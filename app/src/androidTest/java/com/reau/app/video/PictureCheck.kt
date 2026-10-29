@@ -51,7 +51,11 @@ object PictureCheck {
         for (py in 2 until DashGlass.FRAME_H step 6) {
             for (px in 2 until DashGlass.FRAME_W step 6) {
                 val insideBy = minOf(px - d.x, d.right - 1 - px, py - d.y, d.bottom - 1 - py)
-                val expected = when {
+                // The rider's black bands: deep inside one it is black, near its edge nothing is said (the codec blurs it)
+                val c = mapping.cover
+                val into = maxOf(c.top - py, py - (DashGlass.FRAME_H - c.bottom) + 1, c.left - px, px - (DashGlass.FRAME_W - c.right) + 1)
+                if (into > -BORDER_PX && into < BORDER_PX && !c.none) continue
+                val expected = if (into >= BORDER_PX) "black".also { outside++ } else when {
                     insideBy >= BORDER_PX -> {
                         val sx = s.x + (px + 0.5 - d.x) * s.w / d.w
                         val sy = s.y + (py + 0.5 - d.y) * s.h / d.h

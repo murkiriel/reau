@@ -59,6 +59,7 @@ class FocusClearerTest {
     fun `the call keys are the phone's, not Android Auto's input`() {
         assertFalse(FocusClearer.toAndroidAuto(listOf(AaCommand.AnswerCall)))
         assertFalse(FocusClearer.toAndroidAuto(listOf(AaCommand.EndCall)))
+        assertFalse("the picture's zoom is not an input either", FocusClearer.toAndroidAuto(listOf(AaCommand.PanelZoom(1))))
         assertFalse(FocusClearer.toAndroidAuto(emptyList()))
         assertTrue(FocusClearer.toAndroidAuto(listOf(AaCommand.Scroll(1))))
         assertTrue(FocusClearer.toAndroidAuto(listOf(AaCommand.Key(23))))

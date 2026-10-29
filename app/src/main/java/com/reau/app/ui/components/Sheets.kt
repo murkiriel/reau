@@ -59,7 +59,7 @@ fun InfoSheet(info: Info, onDismiss: () -> Unit) {
     }
 }
 
-/** A list to pick one from in a sheet (the joystick's 16 actions): radio rows of 48 dp, each [options]' label and tag. */
+/** A list to pick one from in a sheet (the joystick's actions): radio rows of 48 dp, each [options]' label and tag. */
 @Composable
 fun PickSheet(title: String, options: List<Pair<String, String>>, selected: Int, onPick: (Int) -> Unit, onDismiss: () -> Unit, tag: String = "pick_sheet") {
     REauSheet(onDismiss, tag) {

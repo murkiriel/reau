@@ -3,6 +3,7 @@ package com.reau.app.web
 import java.net.InetAddress
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -57,5 +58,27 @@ class LocalNetworkTest {
         assertEquals(false, allowed("0.0.0.0"))
         assertEquals(false, allowed("224.0.0.1"))
         assertEquals(false, allowed("::"))
+    }
+
+    @Test
+    fun `the Host that names the server by a local number or localhost is local, any other name is not`() {
+        for (ok in listOf("192.168.1.50:8780", "10.0.0.7:8781", "172.16.4.2:8780", "127.0.0.1:8780", "169.254.3.4:8780", "localhost:8780", "LOCALHOST", "[fd12:3456::9]:8780", "[::1]:8780", "192.168.1.50")) {
+            assertTrue(ok, LocalNetwork.isLocalHost(ok))
+        }
+        for (bad in listOf("attacker.example:8780", "phone.local:8780", "8.8.8.8:8780", "[2001:4860:4860::8888]:8780", "192.168.1.50.evil.example:8780", "1.2.3:8780", "999.1.1.1:8780", "", ":8780", "::1:8780", "[::1", "example.com")) {
+            assertFalse(bad, LocalNetwork.isLocalHost(bad))
+        }
+    }
+
+    /** The PIN guard counts by this: one IPv6 host holds many addresses in the same /64. */
+    @Test
+    fun `the guard counts an IPv4 host by its address and an IPv6 host by its 64`() {
+        fun key(text: String) = LocalNetwork.clientKey(InetAddress.getByName(text))
+        assertEquals("192.168.1.50", key("192.168.1.50"))
+        assertNotEquals(key("192.168.1.50"), key("192.168.1.51"))
+        assertEquals("the stable and a temporary address of one host", key("fd00:1:2:3::1"), key("fd00:1:2:3:aaaa:bbbb:cccc:dddd"))
+        assertNotEquals("another /64", key("fd00:1:2:3::1"), key("fd00:1:2:4::1"))
+        assertEquals("fd0000010002000" + "3/64", key("fd00:1:2:3::1"))
+        assertEquals("an IPv4 address in IPv6 clothes is the IPv4 one", "192.168.1.5", key("::ffff:192.168.1.5"))
     }
 }

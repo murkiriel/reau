@@ -64,4 +64,14 @@ class LogAgeTest {
         assertNull(LogAge.trim(listOf(d), keepDays = 0, nowMs = now, open = emptySet()))
         assertTrue(old.exists())
     }
+
+    @Test
+    fun `a file exactly as old as the limit stays, one millisecond older goes`() {
+        val dir = tmp.newFolder("diag")
+        val atLimit = File(dir, "ride-a.log").apply { writeText("x"); setLastModified(now - 7 * day) }
+        val older = File(dir, "ride-b.log").apply { writeText("x"); setLastModified(now - 7 * day - 1) }
+        LogAge.trim(listOf(dir), keepDays = 7, nowMs = now, open = emptySet())
+        assertTrue(atLimit.exists())
+        assertFalse(older.exists())
+    }
 }

@@ -33,20 +33,23 @@ class AboutDataTextTest {
     fun `the page says what the web server sends, to whom, and that it is not encrypted`() {
         val web = text("about_data_web")
         assertTrue(web, web.contains("Ligar o servidor de rede") && web.contains("desligado de fábrica"))
-        assertTrue(web, web.contains("PIN") && web.contains("mesma rede") && web.contains("criptografado"))
+        assertTrue(web, web.contains("PIN") && web.contains("mesma rede") && web.contains("sem criptografia"))
         assertTrue("the paragraph that says what leaves the phone points to the panel only, the web has its own part", !text("about_data_leaves").contains("Só para o painel"))
         assertTrue(text("about_data_web_title"), text("about_data_web_title").contains("navegador"))
-        assertTrue(text("permissions_intro"), text("permissions_intro").contains("Ligar o servidor de rede"))
+        assertTrue(text("permissions_intro"), text("permissions_intro").contains("servidor de rede"))
     }
 
     @Test
     fun `the shorter texts keep what the privacy answer says`() {
         val leaves = text("about_data_leaves")
-        assertTrue(leaves, leaves.contains("Open-Meteo") && leaves.contains("11 km") && leaves.contains("Clima no painel"))
-        assertTrue(leaves, leaves.contains("senha"))
-        assertTrue(text("about_data_stays"), text("about_data_stays").contains("WhatsApp"))
+        // One short sentence (28/10/2026): the dash, with the switches that are on, and on the internet only the weather and the update check
+        // on a tap; the details (Open-Meteo, 11 km, the Wi-Fi's password, GitHub) are in the privacy page of the site, which has them.
+        assertTrue(leaves, leaves.contains("painel") && leaves.contains("clima") && leaves.contains("verificação de atualização") && leaves.contains("ao tocar"))
+        assertTrue(text("about_data_stays"), text("about_data_stays").contains("registro de diagnóstico") && text("about_data_stays").contains("posição"))
+        // 28/10/2026: the optional recordings, off in the app you ride with, are said to hold what the log does not.
+        assertTrue(text("about_data_stays"), text("about_data_stays").contains("gravações opcionais") && text("about_data_stays").contains("desligadas"))
         val kept = text("about_data_kept")
         assertTrue(kept, kept.contains("senha") && kept.contains("Wi-Fi") && kept.contains("cifrados") && kept.contains("posição") && kept.contains("clima"))
-        assertTrue(text("about_data_control"), text("about_data_control").contains("\\\"Apagar\\\""))
+        assertTrue(text("about_data_control"), text("about_data_control").contains("Depuração") && text("about_data_control").contains("apaga"))
     }
 }

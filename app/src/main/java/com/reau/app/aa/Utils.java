@@ -16,6 +16,8 @@ public class Utils {
             Thread.sleep(ms);
             return (ms);
         } catch (InterruptedException e) {
+            // The interruption is the caller's to see: swallowing it left a thread that was told to stop running on.
+            Thread.currentThread().interrupt();
             AaLog.INSTANCE.e("Exception e: " + e);
             return (0);
         }

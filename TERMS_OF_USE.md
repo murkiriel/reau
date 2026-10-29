@@ -1,6 +1,6 @@
 # Terms of Use
 
-Version 2, October 18, 2026
+Version 3, October 28, 2026
 
 ## In short
 
@@ -17,7 +17,7 @@ REau takes the Android Auto of your phone to the motorcycle's dash over the dash
 
 REau is free software under the GNU Affero General Public License, version 3 (AGPL-3.0). The full text is in the LICENSE file of the project's repository, and the app shows the credits of each open project it incorporates.
 
-These terms do not take away or limit any right the AGPL-3.0 gives you: to use, study, copy, modify and redistribute REau, including for commercial purposes, under the license's conditions. If anything in these terms conflicts with the AGPL-3.0, the AGPL-3.0 prevails.
+These terms do not take away or limit any right the AGPL-3.0 gives you: to use, study, copy, modify and redistribute REau, including for commercial purposes, under the license's conditions. If anything in these terms conflicts with the AGPL-3.0, the AGPL-3.0 prevails. The license's English text is the one that applies; any translation is only an aid.
 
 Anyone who receives REau may ask for the Corresponding Source, which is in the project's public repository.
 
@@ -38,7 +38,7 @@ REau uses features that were not made for this purpose and that nobody supports:
 
 - It presents itself to Android Auto as a car's head unit, using the head unit server of Android Auto's developer mode and third-party reference credentials. This can stop working at any time, after an update of Android Auto, Google Play Services or the phone, and may go against third parties' terms of use.
 - It talks to the dash through a protocol that the maker neither documents nor supports, reconstructed by open community projects and by compatibility testing. Compatibility was verified with the Tripper Dash, firmware 13.10. On another dash or firmware, nothing is guaranteed.
-- It uses the dash's Wi-Fi network, the microphone (if you turn Gemini on), call data and, if you turn it on, the location; the full edition also uses an accessibility service (the Lite edition does not).
+- It uses the dash's Wi-Fi network, the microphone (for Gemini, which is on by default), call data and the location (also on by default), each only once you allow its permission; the full edition also uses an accessibility service, to turn the Android Auto server on and, while "Answer calls" is on, to see the call notifications of WhatsApp, Telegram and Signal (the Lite edition does not).
 
 So using REau may, among other things: drain the battery and heat the phone; change the Wi-Fi network the phone is connected to; interfere with other apps; make the dash behave unexpectedly, freeze, show wrong information or show nothing; affect the warranty or support of the phone, the dash or the motorcycle; and lead third-party companies to limit or suspend accounts, apps or services. You take these risks.
 
@@ -46,8 +46,9 @@ So using REau may, among other things: drain the battery and heat the phone; cha
 
 REau has no account, no ads and no data collection, and it sends nothing to its author. The screen "REau and your data" shows what stays on the phone and what leaves it, and why. In short:
 
-- The diagnostic log stays on the phone only (and deletes itself after a period you choose). The debug recordings are optional and exist only if you turn them on.
-- The weather on the dash is optional and is off by default. When on, it queries the internet with your rounded position.
+- By default REau sends the dash, over the dash's Wi-Fi, the picture, the song that is playing (with its album art), who is calling and the phone's battery, GPS and signal; each of these can be switched off in the settings.
+- The diagnostic log is on by default, stays on the phone only and deletes itself after the number of days you choose (30 by default; "never" is one of the options); you can switch it off. The recordings of the video and of the sessions are optional: off by default in the app you install to ride and on in the test build, they stay on the phone only and are deleted by the same rules as the log (the days you choose, a size cap). They hold what the dash shows (the map, the route and your positions) and Android Auto's messages, so share them only knowing that.
+- The weather on the dash and the info ring are on by default and can be switched off; once the location is allowed, they query the internet with your rounded position.
 - "Turn on the network server" is optional and is off by default. When on, it shows your Android Auto to other devices on the same network, protected by a PIN but without encryption. Do not turn it on on a stranger's network.
 - What Android Auto, Waze, Google Maps, Gemini and other apps do with your data follows the terms and policies of each one, out of REau's reach.
 
@@ -57,11 +58,15 @@ The following passage is section 15 of the AGPL-3.0, word for word, and is part 
 
 > THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM IS WITH YOU. SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL NECESSARY SERVICING, REPAIR OR CORRECTION.
 
+In plain words: there is no warranty at all on the program. It is offered "as is", without warranty of any kind, nor that it is fit for a particular purpose. The entire risk as to quality and operation is yours. If the program turns out defective, the cost of any repair is yours.
+
 ## 8. Limitation of liability
 
 The following passage is section 16 of the AGPL-3.0, word for word, and is part of these terms:
 
 > IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MODIFIES AND/OR CONVEYS THE PROGRAM AS PERMITTED ABOVE, BE LIABLE TO YOU FOR DAMAGES, INCLUDING ANY GENERAL, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OR INABILITY TO USE THE PROGRAM (INCLUDING BUT NOT LIMITED TO LOSS OF DATA OR DATA BEING RENDERED INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD PARTIES OR A FAILURE OF THE PROGRAM TO OPERATE WITH ANY OTHER PROGRAMS), EVEN IF SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+In plain words: no author, rights holder or person who modifies or distributes REau is liable to you for damages, whether general, special, incidental or consequential, arising from using or being unable to use the program. That includes loss of data, data becoming wrong, losses of yours or of third parties and the program failing to work with other programs, even if the possibility of such damages was advised.
 
 In addition, and as far as possible, the author is also not responsible for damage to the phone, the dash, the motorcycle, accessories or any other equipment, for loss of warranty, for third parties' actions on your accounts or apps, for accidents, injuries, deaths, fines or other consequences of using REau, nor for anything else connected to it.
 

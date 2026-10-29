@@ -19,7 +19,8 @@ object AaVideo {
  * [navigation] announces the navigation status channel: Android Auto then sends turn-by-turn guidance.
  * [media] announces the music status channel: Android Auto then sends what is playing. [phone] announces the
  * phone status channel: Android Auto then sends the calls, with the caller. [protocolMinor] is the protocol
- * version asked in the handshake, 1.[protocolMinor] (1.7 behind a test switch, else 1.2).
+ * version asked in the handshake, 1.[protocolMinor] (1.7 behind a test switch, else 1.2). [versionRequests] is how many times that request
+ * may be sent while no answer comes ([VERSION_REQUESTS]; fewer only in the transport's tests).
  */
 data class AaConfig(
     val density: Int = 160,
@@ -34,4 +35,10 @@ data class AaConfig(
     /** For the web server: announce the media and guidance sinks, so Android Auto sends those sounds to REau. */
     val audio: Boolean = false,
     val protocolMinor: Int = Messages.MINOR_DEFAULT,
-)
+    val versionRequests: Int = VERSION_REQUESTS,
+) {
+    companion object {
+        /** The version request is sent up to this many times, 2 s apart, before the handshake gives up. */
+        const val VERSION_REQUESTS = 3
+    }
+}

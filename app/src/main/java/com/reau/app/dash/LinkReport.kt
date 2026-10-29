@@ -55,8 +55,19 @@ object LinkReport {
         return "last ${samples.size * everySeconds} s, every $everySeconds s: rssi $rssi | tx $tx"
     }
 
-    /** What the log writes when a watchdog fires: the moment of the failure and the minute before it. */
-    fun atFailure(now: LinkSample?, history: List<LinkSample?>): String = "link at failure: ${describe(now)} | ${trend(history)}"
+    /**
+     * What the log writes when a watchdog fires: the moment of the failure and the minute before it. With the dash's network
+     * already gone the probe at that moment reads the phone's active Wi-Fi (the rider's home network, at another speed and band),
+     * which says nothing of the dash: then the last sample of the dash's own network stands for the moment, said so.
+     */
+    fun atFailure(now: LinkSample?, history: List<LinkSample?>): String {
+        val moment = if (now != null && now.viaDashNetwork) {
+            describe(now)
+        } else {
+            history.lastOrNull { it != null && it.viaDashNetwork }?.let { "last sample of the dash network: ${describe(it)}" } ?: describe(now)
+        }
+        return "link at failure: $moment | ${trend(history)}"
+    }
 
     private fun flag(v: Boolean?, yes: String = "on", no: String = "off") = when (v) {
         null -> "?"

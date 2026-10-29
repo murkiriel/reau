@@ -152,4 +152,12 @@ class WebSocketCodecTest {
         assertEquals("two", String(WebSocketCodec.read(input, 4096)!!.payload))
         assertNull(WebSocketCodec.read(input, 4096))
     }
+
+    @Test
+    fun `65535 bytes still take 16 bits, the last size that does`() {
+        val frame = WebSocketCodec.encode(2, ByteArray(65_535))
+        assertEquals(126, frame[1].toInt() and 0xFF)
+        assertEquals(4 + 65_535, frame.size)
+        assertEquals(127, WebSocketCodec.encode(2, ByteArray(65_536))[1].toInt() and 0xFF)
+    }
 }

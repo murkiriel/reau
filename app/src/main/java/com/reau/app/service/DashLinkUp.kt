@@ -7,7 +7,9 @@ import com.reau.app.dash.DashPairing
 import com.reau.app.dash.WifiConnStatus
 import com.reau.app.dash.WifiState
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
@@ -99,6 +101,13 @@ internal class WifiDashLinkUp(
 
     private var watch: Job? = null
 
+    // While a first approval waits for the dash to show up in the scan, the scan is looked at every [sightingPollMs]: the news goes
+    // to the projection, which tries the dash at once instead of at the end of its 2, 4, 8, 16 s wait (11:47:38 seen, 11:47:45 asked).
+    private var sightingWatch: Job? = null
+
+    /** How often the scan is looked at while waiting for a sighting; a test makes it short. */
+    @Volatile var sightingPollMs: Long = SIGHTING_POLL_MS
+
     // The log line about waiting for a sighting is said once per wait, not at every retry (the first ones are seconds apart).
     @Volatile private var waitingForSighting = false
 
@@ -135,6 +144,10 @@ internal class WifiDashLinkUp(
         fun linkAfterFailure(why: String): DashLink = if (why == FULL_NAME_NEEDED) DashLink.NAME_NEEDED else DashLink.DROPPED
 
         /** Why a start fails when the network to approve is not asked for yet: the dash is not in the recent Wi-Fi scan. */
+        /** How often, and for how long at most, the scan is looked at while a first approval waits for the dash. */
+        const val SIGHTING_POLL_MS = 2_000L
+        const val SIGHTING_WATCH_MAX_MS = 60_000L
+
         const val DASH_NOT_SEEN_YET = "painel ainda não visto na varredura do Wi-Fi: esperando ele aparecer"
 
         /** Why a start fails when the reconnection it joined has not come back in time. */
@@ -190,6 +203,7 @@ internal class WifiDashLinkUp(
         if (firstApproval && !seen) {
             if (!waitingForSighting) joining.log("first approval pending and the dash is not in the recent scan: not asking Android yet, only looking")
             waitingForSighting = true
+            watchForSighting(wanted, known == null)
             onFailed(DASH_NOT_SEEN_YET)
         } else {
             waitingForSighting = false
@@ -197,10 +211,28 @@ internal class WifiDashLinkUp(
         }
     }
 
+    /** Looks at the scan until the dash is in it (then [com.reau.app.dash.DashSighting] says so), the wait ends, or a minute passes. */
+    private fun watchForSighting(wanted: String, isPrefix: Boolean) {
+        sightingWatch?.cancel()
+        sightingWatch = scope.launch {
+            var waited = 0L
+            while (waitingForSighting && waited < SIGHTING_WATCH_MAX_MS) {
+                delay(sightingPollMs)
+                waited += sightingPollMs
+                if (waitingForSighting && pairing.seenInScan(wanted, isPrefix)) {
+                    com.reau.app.dash.DashSighting.sighted()
+                    return@launch
+                }
+            }
+        }
+    }
+
     /** Asks the Wi-Fi manager for the bike's network, by the exact [known] name or, with none, by the prefix. */
     private fun ask(known: String?, onReady: (String, Network?) -> Unit, onFailed: (String) -> Unit) {
         // Listening before asking: whatever the Wi-Fi says from here on is about this attempt.
-        watch = scope.launch {
+        // Started on the spot (not dispatched): it takes the state as it stands, which `drop(1)` leaves out, before connect() changes
+        // it. Dispatched, a Wi-Fi manager that reached its final state first had it dropped and the link waited for ever.
+        watch = scope.launch(start = CoroutineStart.UNDISPATCHED) {
             val outcome = wifiState.drop(1).first { it.status == WifiConnStatus.CONNECTED || it.status == WifiConnStatus.ERROR }
             report(outcome, onReady, onFailed)
         }
@@ -218,6 +250,8 @@ internal class WifiDashLinkUp(
     override fun stop() {
         watch?.cancel()
         watch = null
+        sightingWatch?.cancel()
+        sightingWatch = null
         waitingForSighting = false
         disconnect()
     }

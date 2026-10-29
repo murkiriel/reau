@@ -16,8 +16,17 @@ data class WeatherUnits(val fahrenheit: Boolean = false, val miles: Boolean = fa
     /** "24 °C" or "75 °F". */
     fun temp(celsius: Double): String = "${number(celsius)} ${if (fahrenheit) "°F" else "°C"}"
 
+    /** What REau sent the dash, in Celsius (`06 10`), written in the unit the dash shows: "24 °C" or "75 °F". The message itself stays Celsius. */
+    fun sentTemp(sentCelsius: Int): String = temp(sentCelsius.toDouble())
+
     /** "12 km/h" or "8 mph". */
     fun speed(kmh: Double): String = if (miles) "${(kmh * KM_TO_MILES).roundToInt()} mph" else "${kmh.roundToInt()} km/h"
+
+    /** A speed as the number only ("66" or "41"), for a place where the unit is written apart ([speedUnit]). */
+    fun speedNumber(kmh: Double): String = (if (miles) kmh * KM_TO_MILES else kmh).roundToInt().toString()
+
+    /** The unit of [speedNumber]. */
+    fun speedUnit(): String = if (miles) "mph" else "km/h"
 
     companion object {
         private const val KM_TO_MILES = 0.621371

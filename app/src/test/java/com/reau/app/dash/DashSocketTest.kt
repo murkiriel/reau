@@ -122,6 +122,47 @@ class DashSocketTest {
     }
 
     @Test
+    fun `a suppressed channel really sends one call in twenty, to see whether the link is back`() {
+        val tx = DashSocket().apply { close() }
+        repeat(5) { tx.send(byteArrayOf(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)) } // the fifth failure suppresses it
+        repeat(40) { tx.send(byteArrayOf(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)) }
+        assertEquals("40 calls, the 20th and the 40th went out: 38 held back", 38, tx.testOnlyTxSuppressedTotal())
+
+        val rtp = DashSocket().apply { close() }
+        repeat(5) { rtp.sendRtp(byteArrayOf(1, 2, 3)) }
+        repeat(40) { rtp.sendRtp(byteArrayOf(1, 2, 3)) }
+        assertEquals(38, rtp.testOnlyRtpSuppressedTotal())
+    }
+
+    @Test
+    fun `a suppressed RTP channel whose probe goes out is no longer suppressed`() {
+        val loopback = java.net.InetSocketAddress(java.net.InetAddress.getLoopbackAddress(), 45_123)
+        val s = DashSocket(rtpDest = loopback)
+        try {
+            s.testOnlySuppressRtp()
+            repeat(19) { s.sendRtp(byteArrayOf(1, 2, 3)) }
+            org.junit.Assert.assertTrue("held back until the probe", s.testOnlyRtpSuppressed())
+            s.sendRtp(byteArrayOf(1, 2, 3)) // the 20th is the probe, and it goes out
+            assertEquals("the link is back: no more holding back", false, s.testOnlyRtpSuppressed())
+            assertEquals(0, s.testOnlyRtpSuppressedTotal())
+        } finally {
+            s.close()
+        }
+    }
+
+    @Test
+    fun `sends from several threads keep the suppression counters whole`() {
+        val s = DashSocket().apply { close() }
+        val packet = byteArrayOf(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        val threads = List(4) { Thread { repeat(5_000) { s.send(packet) } }.apply { start() } }
+        threads.forEach { it.join() }
+        org.junit.Assert.assertTrue(s.testOnlyTxSuppressed())
+        // every call of a suppressed link is counted once, and all of them are held back but the probe, the 20th, 40th...
+        val calls = s.testOnlyTxProbeCounter()
+        assertEquals("held back = calls - probes: $calls calls", calls - calls / 20, s.testOnlyTxSuppressedTotal())
+    }
+
+    @Test
     fun `suppressed send still never throws, including on its periodic probe attempts`() {
         val s = DashSocket()
         s.close()
@@ -129,5 +170,24 @@ class DashSocketTest {
         // (suppressed or the real probe attempt) must be silent, per DashSocket's fire-and-forget contract.
         repeat(45) { s.send(byteArrayOf(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)) }
         org.junit.Assert.assertTrue(s.testOnlyTxSuppressed())
+    }
+
+    @Test
+    fun `a batch counts its packets in the same streak as single sends, and never throws`() {
+        val s = DashSocket()
+        s.close()
+        val packet = byteArrayOf(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        s.sendBatch(listOf(packet, packet))
+        s.sendBatch(listOf(packet, packet))
+        org.junit.Assert.assertFalse("four failures are still under the threshold of five", s.testOnlyTxSuppressed())
+        s.sendBatch(listOf(packet))
+        org.junit.Assert.assertTrue("the fifth, in a batch of one, crosses it", s.testOnlyTxSuppressed())
+    }
+
+    @Test
+    fun `an empty batch sends nothing and fails nothing`() {
+        val s = DashSocket().also { socket = it }
+        s.sendBatch(emptyList())
+        org.junit.Assert.assertFalse(s.testOnlyTxSuppressed())
     }
 }

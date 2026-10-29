@@ -19,6 +19,7 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import com.reau.app.phone.PhoneCalls
 import com.reau.app.aa.AndroidAuto
@@ -58,6 +59,9 @@ import kotlin.concurrent.thread
 @Suppress("TooManyFunctions") // one small function per case; splitting them would only scatter the same thing
 class MainActivity : ComponentActivity() {
     private var androidAutoVersion by mutableStateOf<String?>(null)
+
+    // Whether REau is on screen (between onResume and onPause), for what opens Android Auto's settings by itself (Lite).
+    private var onScreen by mutableStateOf(false)
 
     // REau's accessibility service, read again at each return to the screen.
     private var accessibility by mutableStateOf(AaServerStarter.Accessibility.OFF)
@@ -101,6 +105,7 @@ class MainActivity : ComponentActivity() {
 
     // Whether REau's own traffic goes into a VPN (read at each return to the screen), for the main screen's card.
     private var vpnHoldsREau by mutableStateOf(false)
+    private var locationOff by mutableStateOf(false)
 
     // Whether the other edition of REau is installed (read at each return to the screen), for the main screen's card.
     private var otherEditionInstalled by mutableStateOf(false)
@@ -162,10 +167,14 @@ class MainActivity : ComponentActivity() {
         super.attachBaseContext(com.reau.app.settings.AppLanguages.wrap(newBase))
     }
 
+    private var resumedAtMs = 0L
+
     @Suppress("LongMethod") // one straight run of setup/serialization; cutting it adds indirection and no clarity
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.reau.app.util.FrameJank.watch(this, com.reau.app.util.MonotonicClock.nowMs()) { resumedAtMs }
         lifecycle.addObserver(dashSearch)
+        if (savedInstanceState == null) quickStart(intent)
         // The accessibility service connects some seconds after the app starts (after an install): the state is read again then.
         lifecycleScope.launch {
             repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
@@ -185,6 +194,7 @@ class MainActivity : ComponentActivity() {
             var inAndroidAuto by rememberSaveable { mutableStateOf(false) }
             var inJoystick by rememberSaveable { mutableStateOf(false) }
             var page by rememberSaveable { mutableStateOf(SettingsPage.NONE) }
+            androidx.compose.runtime.SideEffect { com.reau.app.util.FrameJank.settingsOpen = inSettings || page != SettingsPage.NONE }
             // A screen under another keeps its place (its scroll) until it is left.
             val kept = rememberSaveableStateHolder()
             val store = remember { SettingsStore.open(this) }
@@ -192,6 +202,15 @@ class MainActivity : ComponentActivity() {
             var settings by remember(settingsVersion) { mutableStateOf(store.load()) }
             var pairing by remember(pairingVersion) { mutableStateOf(pairingStore.toUi()) }
             com.reau.app.ui.BatteryWatch.Follow(this) { battery = it }
+            // Lite: the server is switched on by hand, so Android Auto's settings open by themselves, once for each projection.
+            var aaSettingsOpened by remember(startedAt) { mutableStateOf(false) }
+            androidx.compose.runtime.LaunchedEffect(projection.androidAuto, startedAt, onScreen, androidAutoVersion) {
+                if (AndroidAuto.opensSettingsByItself(projection.androidAuto, aaSettingsOpened, onScreen, androidAutoVersion != null)) {
+                    aaSettingsOpened = true
+                    RideDiagnostics.log("aa-server", "the head unit server is off: Android Auto's settings open by themselves")
+                    openAndroidAutoSettings()
+                }
+            }
 
             val saveSettings: (REauSettings) -> Unit = { settings = saved(store, settings, it) }
             val reload = { settings = store.load(); pairing = pairingStore.toUi() }
@@ -222,7 +241,10 @@ class MainActivity : ComponentActivity() {
                 AndroidAutoFromSettings(settings, saveSettings) { inAndroidAuto = false }
             } else if (page == SettingsPage.WIFI) {
                 BackHandler { page = SettingsPage.NONE }
-                com.reau.app.ui.WifiScreen(settings, pairing, actions, scanAllowed) { page = SettingsPage.NONE }
+                com.reau.app.ui.WifiScreen(
+                    settings, pairing, actions, scanAllowed,
+                    projectionRunning = projection.phase != com.reau.app.service.Phase.STOPPED,
+                ) { page = SettingsPage.NONE }
             } else if (page == SettingsPage.WEATHER) {
                 BackHandler { page = SettingsPage.NONE }
                 com.reau.app.ui.WeatherScreen(settings.dashWeather, { saveSettings(settings.copy(dashWeather = it)) }) { page = SettingsPage.NONE }
@@ -276,7 +298,22 @@ class MainActivity : ComponentActivity() {
     ) = SettingsActions(
         onSettings = saveSettings,
         onPairing = { setPairing(savePairing(pairingStore, it)) },
-        onForgetDash = { setPairing(forgetDash(this, pairingStore).toUi()) },
+        // With the projection on, it is switched off first: the pairing is not cleared in the middle of a reconnection.
+        onForgetDash = {
+            if (ProjectionService.projection.value.phase == Phase.STOPPED) {
+                setPairing(forgetDash(this, pairingStore).toUi())
+            } else {
+                ProjectionService.stop(this)
+                // The app's own scope, not the screen's: the rider confirmed, and turning the phone or leaving the app during the
+                // wait must not cancel the forgetting (the projection would be off and the dash still paired).
+                val app = applicationContext
+                forgetScope.launch {
+                    kotlinx.coroutines.withTimeoutOrNull(FORGET_WAIT_STOP_MS) { ProjectionService.projection.first { it.phase == Phase.STOPPED } }
+                    val forgotten = forgetDash(app, pairingStore).toUi()
+                    runOnUiThread { if (!isDestroyed) setPairing(forgotten) }
+                }
+            }
+        },
         onBack = onBack,
         onPickCardImage = { pickCardImage.launch(arrayOf("image/*")) },
         onShareLogs = { DiagnosticsExport.shareFrom(this, withRecordings = it) },
@@ -297,6 +334,7 @@ class MainActivity : ComponentActivity() {
             ),
             battery,
             startedAtMs = startedAt, dashName = dashName, permissionsMissing = permissionsMissing(settings), vpnHoldsREau = vpnHoldsREau,
+            locationOff = locationOff,
             otherEditionInstalled = otherEditionInstalled,
             weatherOn = settings.dashWeather,
         )
@@ -362,6 +400,22 @@ class MainActivity : ComponentActivity() {
         if (phase == Phase.STOPPED) start(card = false) else ProjectionService.stop(this)
     }
 
+    // The launcher shortcut and the Quick Settings tile (QuickStart) arrive here: REau opens and, if it is off, switches on.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        quickStart(intent)
+    }
+
+    private fun quickStart(intent: Intent?) {
+        val projection = ProjectionService.projection.value
+        if (!com.reau.app.service.QuickStart.switchesOn(intent?.action, projection, termsAcceptedNow())) return
+        // Handled once: a rotation or a recreation of the activity must not switch it on again.
+        intent?.action = null
+        RideDiagnostics.log("ui", "the rider switched the projection on from the shortcut or the tile")
+        start(card = false)
+    }
+
     // When the rider left for Android Auto's settings (elapsed realtime), 0 if not: only for the log.
     private var leftForAaSettingsAtMs = 0L
 
@@ -379,18 +433,28 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onPause() {
+        onScreen = false
+        super.onPause()
+    }
+
     override fun onResume() {
         super.onResume()
+        onScreen = true
+        resumedAtMs = com.reau.app.util.MonotonicClock.nowMs()
         if (leftForAaSettingsAtMs != 0L) {
             val away = (android.os.SystemClock.elapsedRealtime() - leftForAaSettingsAtMs) / 1_000
             RideDiagnostics.log("aa-server", "rider back from Android Auto settings after $away s")
             leftForAaSettingsAtMs = 0L
+            // The server may have been switched on there: dial now, not at the end of the wait (a refused dial costs nothing).
+            AaServerStarter.dialNow()
         }
         // Read again each time: the rider may have just installed or updated Android Auto.
         androidAutoVersion = AndroidAuto.installedVersion(this)
         accessibility = AaServerStarter.accessibility(this)
         battery = com.reau.app.ui.BatteryWatch.read(this)
         vpnHoldsREau = com.reau.app.dash.NetworkBlock.vpnHolds(this)
+        locationOff = com.reau.app.ui.LocationSwitch.read(this)
         otherEditionInstalled = OtherEdition.installed(this)
         permissionRows = PermissionRows.read(this, accessibility)
         learnDashName()
@@ -405,12 +469,13 @@ class MainActivity : ComponentActivity() {
      * REau near the bike, and is already known by then. Off the main thread: it reads the system's last scan.
      */
     private fun learnDashName() {
-        // By the location permission only with the rider's switch "Usar a localização" on.
+        // By the location permission alone, whatever the rider's switch "Usar a localização" says (LocationUse).
         scanAllowed = com.reau.app.service.PhonePlace.mayScan(this)
         if (!scanAllowed) return
-        val pairing = DashPairing.open(this)
         val wifi = DashWifiManager(this, lifecycleScope)
         thread(name = "dash-name") {
+            // Opened here, not on the main thread: it reads the keystore-backed preferences.
+            val pairing = DashPairing.open(this)
             DashName.Learner({ pairing.ssid }, { pairing.ssidPrefix }, wifi::findDashSsid, { pairing.ssid = it }).learn()?.let {
                 RideDiagnostics.log("wifi", "the dash's whole name found by the search on screen")
                 DashWifiSuggestions.sync(this)
@@ -491,6 +556,11 @@ private fun forgetDash(context: android.content.Context, pairingStore: DashPairi
  * permissions page shows the rows read at the last onResume, read again whenever REau comes back to the front.
  */
 private enum class SettingsPage { NONE, PERMISSIONS, ABOUT_DATA, CREDITS, TERMS, LOGS, WIFI, WEATHER, SERVER }
+
+private val forgetScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
+
+/** How long "Esquecer o painel" waits for the projection it switched off to stop before it clears the pairing anyway. */
+private const val FORGET_WAIT_STOP_MS = 5_000L
 
 /** The keys under which the main screen and the settings keep their place while another screen is over them. */
 private const val MAIN_SCREEN = "main"
@@ -593,6 +663,7 @@ private fun AndroidAutoFromSettings(settings: REauSettings, save: (REauSettings)
         onBack = onBack, touch = settings.phoneTouch, mask = maskOf(settings, save, screen),
         fit = com.reau.app.ui.AaScreenFit(settings, screen, save),
         stats = settings.overlay,
+        button = settings.buttonLook,
     )
 }
 

@@ -5,15 +5,21 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 
 /**
- * The terms of use: their version, the text in the two languages (assets/terms/) and what a screen needs to draw it.
- * The same text is the file TERMS_OF_USE.pt-br.md at the root of the repository (TermsTest holds the two together). A new
+ * The terms of use: their version, the text in the three languages (assets/terms/) and what a screen needs to draw it.
+ * The same text is the file TERMS_OF_USE.pt-br.md (and TERMS_OF_USE.md, TERMS_OF_USE.es.md) at the root of the repository (TermsTest holds them together). A new
  * version asks the rider to accept again: raise [VERSION] together with the "Versão N" and "Version N" lines of the texts.
  */
 object Terms {
-    const val VERSION = 2
+    const val VERSION = 3
 
     const val ASSET_PT = "terms/termos.pt.md"
     const val ASSET_EN = "terms/terms.en.md"
+    const val ASSET_ES = "terms/terminos.es.md"
+
+    /** The tabs of the terms screen, in order: the index [tabOf] gives. */
+    const val TAB_PT = 0
+    const val TAB_EN = 1
+    const val TAB_ES = 2
 
     /** A piece of the text, as the screen draws it. */
     sealed interface Block {
@@ -26,8 +32,15 @@ object Terms {
 
     fun needsAcceptance(acceptedVersion: Int): Boolean = acceptedVersion < VERSION
 
-    /** The tab the screen opens on: the text in the language the app speaks (Portuguese for pt, English for anything else). */
+    /** Whether the screen opens in Portuguese: the app speaks Portuguese. */
     fun opensInPortuguese(appLanguage: String): Boolean = appLanguage.startsWith("pt", ignoreCase = true)
+
+    /** The tab the screen opens on: the text in the language the app speaks (Portuguese for pt, Spanish for es, English for anything else). */
+    fun tabOf(appLanguage: String): Int = when {
+        opensInPortuguese(appLanguage) -> TAB_PT
+        appLanguage.startsWith("es", ignoreCase = true) -> TAB_ES
+        else -> TAB_EN
+    }
 
     /** The asset's text: `# ` a title, `## ` a heading, `- ` a bullet, `> ` a quote; lines up to a blank one are one paragraph. */
     fun parse(markdown: String): List<Block> {

@@ -436,4 +436,23 @@ class WebViewersTest {
             override fun read(): Int = throw IOException("Connection reset")
         })
     }
+
+    /** Audit of 20/10/2026 (bug on the WebSocket): a Close from the browser was not answered, so the browser saw a lost connection. */
+    @Test
+    fun `a close from the browser is answered with a close that has the same status code, before the viewer ends`() {
+        val v = newViewers()
+        val (viewer, socket) = v.take(write = false)
+        listen(v, viewer, masked(WebSocketCodec.CLOSE, byteArrayOf(0x03, 0xE8.toByte())))
+        val reply = WebSocketCodec.encode(WebSocketCodec.CLOSE, byteArrayOf(0x03, 0xE8.toByte()))
+        assertArrayEquals(reply, socket.await(reply.size))
+    }
+
+    @Test
+    fun `a close with no status code is answered with an empty close`() {
+        val v = newViewers()
+        val (viewer, socket) = v.take(write = false)
+        listen(v, viewer, masked(WebSocketCodec.CLOSE, ByteArray(0)))
+        val reply = WebSocketCodec.encode(WebSocketCodec.CLOSE, ByteArray(0))
+        assertArrayEquals(reply, socket.await(reply.size))
+    }
 }

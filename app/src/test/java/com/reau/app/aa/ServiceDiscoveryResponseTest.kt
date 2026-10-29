@@ -25,6 +25,13 @@ class ServiceDiscoveryResponseTest {
     private fun Control.ServiceDiscoveryResponse.service(channel: Int) = servicesList.single { it.id == channel }
 
     @Test
+    fun `the software version it tells Android Auto is the app's own, in both places the message carries it`() {
+        val r = response()
+        assertEquals(com.reau.app.BuildConfig.VERSION_NAME, r.headUnitSoftwareVersion)
+        assertEquals(com.reau.app.BuildConfig.VERSION_NAME, r.headunitInfo.headUnitSoftwareVersion)
+    }
+
+    @Test
     fun `it advertises exactly five services, on the channels the receiver handles`() {
         assertEquals(
             listOf(Channel.ID_SEN, Channel.ID_VID, Channel.ID_INP, Channel.ID_AU2, Channel.ID_MIC),

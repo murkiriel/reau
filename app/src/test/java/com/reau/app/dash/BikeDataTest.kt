@@ -216,6 +216,15 @@ class BikeDataTest {
         assertEquals("Avenida Brigadeiro ", String(v, 0, 19, Charsets.ISO_8859_1))
         assertEquals("São João".toByteArray(Charsets.ISO_8859_1).toList(), DashCommands.latin1("São João", 19).toList())
         assertEquals('?'.code.toByte(), DashCommands.latin1("a→b", 19)[1])
+        fun shown(text: String, max: Int = 19) = String(DashCommands.latin1(text, max), Charsets.ISO_8859_1)
+        assertEquals("a decomposed accent is composed", "S\u00E3o", shown("Sa\u0303o"))
+        assertEquals("curly apostrophe and quotes", "Don't \"Go\"", shown("Don\u2019t \u201CGo\u201D"))
+        assertEquals("dashes and ellipsis", "a-b-c...", shown("a\u2013b\u2014c\u2026"))
+        assertEquals("Devanagari and Arabic: a mark each", "?????", shown("\u0939\u093F\u0928\u094D\u0926"))
+        assertEquals("Arabic", "????", shown("\u0645\u0631\u062D\u0628"))
+        assertEquals("an emoji is one mark", "a?b", shown("a\uD83C\uDFB5b"))
+        assertEquals("cut by code point, not in the middle of a pair", "12?", shown("12\uD83C\uDFB534", 3))
+        assertEquals("plain Latin-1 as it was", "Caf\u00E9 \u00FF\u00A0\u00AE", shown("Caf\u00E9 \u00FF\u00A0\u00AE"))
         assertNull(valueOf(DashCommands.activeNavPacket(road = "  "), 0x05, 0x01))
     }
 

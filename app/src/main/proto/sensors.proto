@@ -1,0 +1,216 @@
+// sensors.proto: Android Auto protocol messages of the headunit lineage, as REau's generated class Sensors.java has them.
+//
+// Origin: headunit-revived (AGPL-3.0), https://github.com/andreknieriem/headunit-revived, from Michael A. Reid's "headunit"
+// (AGPL-3.0). REau took the generated classes from OpenCfMoto (AGPL-3.0), app/src/main/java/dev/zanderp/opencfmoto/aa/proto/Sensors.java,
+// commit 0abbe2a (protoc 3.25.1); OpenCfMoto has no .proto files, and headunit-revived's originals did not come with the classes.
+//
+// What this file is: the .proto source of app/src/main/java/com/reau/app/aa/proto/Sensors.java, REBUILT from the descriptor embedded in
+// that class (its file name, package, messages, fields, numbers, labels, types, defaults, options and order, as embedded). The
+// comments and the layout of the originals are not kept: the descriptor holds none. The package stays headunit-revived's
+// (com.andrerinas.headunitrevived.aap.protocol.proto) because the classes carry it. protoc 3.13 compiles this file, one file at
+// a time, to a descriptor equal to the embedded one (checked on 28/10/2026; only json_name, which protoc adds, differs).
+//
+// REau's build has no protoc step: the Java classes are kept in the source and this file is not compiled. It is here so that the
+// classes' preferred form for modification is in the repository (AGPL-3.0, section 1). Changing it changes nothing until the class
+// is generated again. Later upstream versions differ (open-headunit, commit 93c065dd, renamed the package and added fields and
+// messages); none of that is applied here. License: AGPL-3.0, like the rest of REau (LICENSE, NOTICE).
+
+syntax = "proto2";
+
+package com.andrerinas.headunitrevived.aap.protocol.proto;
+option java_outer_classname = "Sensors";
+
+import "common.proto";
+
+enum SensorsMsgType {
+  SENSOR_STARTREQUEST = 32769;
+  SENSOR_STARTRESPONSE = 32770;
+  SENSOR_EVENT = 32771;
+}
+
+enum SensorType {
+  LOCATION = 1;
+  COMPASS = 2;
+  CAR_SPEED = 3;
+  RPM = 4;
+  ODOMETER = 5;
+  FUEL_LEVEL = 6;
+  PARKING_BRAKE = 7;
+  GEAR = 8;
+  DIAGNOSTICS = 9;
+  NIGHT = 10;
+  ENVIRONMENT = 11;
+  HVAC = 12;
+  DRIVING_STATUS = 13;
+  DEAD_RECONING = 14;
+  PASSENGER = 15;
+  DOOR = 16;
+  LIGHT = 17;
+  TIRE = 18;
+  ACCEL = 19;
+  GYRO = 20;
+  GPS = 21;
+}
+
+message SensorBatch {
+  message LocationData {
+    required uint64 timestamp = 1;
+    required int32 latitude = 2;
+    required int32 longitude = 3;
+    required uint32 accuracy = 4;
+    optional int32 altitude = 5;
+    optional int32 speed = 6;
+    optional int32 bearing = 7;
+  }
+  message RpmData {
+    required int32 rpm = 1;
+  }
+  message FuelData {
+    required int32 fuellevel = 1;
+    optional int32 range = 2;
+    optional bool lowfuel = 3;
+  }
+  message DeadReckoningData {
+    optional int32 steering_angel = 1;
+    optional int32 wheel_speed = 2;
+  }
+  message NightData {
+    required bool is_night_mode = 1;
+  }
+  message ParkingBrakeData {
+    required bool is_engaged = 1;
+  }
+  message DrivingStatusData {
+    enum Status {
+      UNRESTRICTED = 0;
+      NO_VIDEO = 1;
+      NO_KEYBOARD_INPUT = 2;
+      NO_VOICE_INPUT = 4;
+      NO_CONFIG = 8;
+      LIMIT_MESSAGE_LEN = 16;
+      FULLY_RESTRICTED = 31;
+    }
+    required int32 status = 1;
+  }
+  message GpsSatelliteData {
+    message GpsSatellite {
+      optional int32 prn = 1;
+      optional int32 snr_e3 = 2;
+      optional bool used_in_fix = 3;
+      optional int32 azimuth_e3 = 4;
+      optional int32 elevation_e3 = 5;
+    }
+    optional int32 number_in_use = 1;
+    optional int32 number_in_view = 2;
+    repeated SensorBatch.GpsSatelliteData.GpsSatellite satellites = 3;
+  }
+  message GearData {
+    enum GEAR {
+      DRIVE = 100;
+      EIGHTH = 8;
+      FIFTH = 5;
+      FIRST = 1;
+      FOURTH = 4;
+      NEUTRAL = 0;
+      NINTH = 9;
+      PARK = 101;
+      REVERSE = 102;
+      SECOND = 2;
+      SEVENTH = 7;
+      SIXTH = 6;
+      TENTH = 10;
+      THIRD = 3;
+    }
+    required SensorBatch.GearData.GEAR gear = 1;
+  }
+  message CompassData {
+    required int32 bearing_e6 = 1;
+    required int32 pitch_e6 = 2;
+    required int32 roll_e6 = 3;
+  }
+  message SpeedData {
+    required int32 speed_e6 = 1;
+    optional bool cruise_engaged = 2;
+    optional bool cruise_set_speed = 3;
+  }
+  message OdometerData {
+    optional int32 kms_el = 1;
+    optional int32 trip_kms_el = 2;
+  }
+  message DiagnosticsData {
+    required bytes diagnostics_byte = 1;
+  }
+  message EnvironmentData {
+    optional int32 temperature_e3 = 1;
+    optional int32 pressure_e3 = 2;
+    optional int32 rain = 3;
+  }
+  message HvacData {
+    optional int32 target_temperature_e3 = 1;
+    optional int32 current_temperature_e3 = 2;
+  }
+  message AccelerometerData {
+    optional int32 acceleration_x_e3 = 1;
+    optional int32 acceleration_y_e3 = 2;
+    optional int32 acceleration_z_e3 = 3;
+  }
+  message GyroscopeData {
+    optional int32 rotation_speed_x_e3 = 1;
+    optional int32 rotation_speed_y_e3 = 2;
+    optional int32 rotation_speed_z_e3 = 3;
+  }
+  message DoorData {
+    required bool hood_open = 1;
+    required bool boot_open = 2;
+    repeated bool door_open = 3;
+  }
+  message LightData {
+    enum HeadlightState {
+      HEADLIGHT_0 = 0;
+      HEADLIGHT_1 = 1;
+      HEADLIGHT_2 = 2;
+      HEADLIGHT_3 = 3;
+    }
+    enum TurnIndicatorState {
+      INDICATOR_0 = 0;
+      INDICATOR_1 = 1;
+      INDICATOR_2 = 2;
+      INDICATOR_3 = 3;
+    }
+    optional SensorBatch.LightData.HeadlightState headlight = 1;
+    optional SensorBatch.LightData.TurnIndicatorState turn_indicator = 2;
+    optional bool hazard_light_on = 3;
+  }
+  message PassengerData {
+    optional bool passenger_present = 1;
+  }
+  repeated SensorBatch.LocationData location_data = 1;
+  repeated SensorBatch.CompassData compass_data = 2;
+  repeated SensorBatch.SpeedData speed_data = 3;
+  repeated SensorBatch.RpmData rpm = 4;
+  repeated SensorBatch.OdometerData odometer_data = 5;
+  repeated SensorBatch.FuelData fuel_data = 6;
+  repeated SensorBatch.ParkingBrakeData parkingbrake_data = 7;
+  repeated SensorBatch.GearData gear_data = 8;
+  repeated SensorBatch.DiagnosticsData diagnostics_data = 9;
+  repeated SensorBatch.NightData night_mode = 10;
+  repeated SensorBatch.EnvironmentData enviorment_data = 11;
+  repeated SensorBatch.HvacData hvac_data = 12;
+  repeated SensorBatch.DrivingStatusData driving_status = 13;
+  repeated SensorBatch.DeadReckoningData dead_reckoning = 14;
+  repeated SensorBatch.PassengerData passenger_data = 15;
+  repeated SensorBatch.DoorData door_data = 16;
+  repeated SensorBatch.LightData light_data = 17;
+  repeated SensorBatch.AccelerometerData accel_data = 19;
+  repeated SensorBatch.GyroscopeData gyro_data = 20;
+  repeated SensorBatch.GpsSatelliteData gps_satellite_data = 21;
+}
+
+message SensorRequest {
+  required SensorType type = 1;
+  required int64 min_update_period = 2;
+}
+
+message SensorResponse {
+  required MessageStatus status = 1;
+}

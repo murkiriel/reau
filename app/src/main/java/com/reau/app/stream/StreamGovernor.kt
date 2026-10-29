@@ -32,15 +32,17 @@ import java.util.Locale
  * A window is judged only if the stream ran at its full rate for all of it AND the compositor had a frame for
  * (nearly) every tick: a source slower than the rate says nothing about what the phone or the dash can take.
  */
-@Suppress("TooManyFunctions") // one small function per case; splitting them would only scatter the same thing
+@Suppress("TooManyFunctions", "LongParameterList") // one small function per case; the parameters are the knobs of one stream
 internal class StreamGovernor(
-    plan: AutoFpsController.Plan,
+    private val plan: AutoFpsController.Plan,
     private val clockSlowPercent: Int = 0,
     private val windowMs: Long = WINDOW_MS,
     private val bitrateCeilingBps: Int = DashConfig.MAX_STREAM_BITRATE_BPS,
     private val fixedKeyframeSec: Int = DashConfig.KEYFRAME_INTERVAL_AUTO,
     /** The bitrate of profile 2 (REDUCED), set live with its pace; profile 1's is [bitrateCeilingBps]. */
     private val reducedBitrateBps: Int = DashConfig.PROFILE_REDUCED_BPS,
+    /** The pace on a light screen of Android Auto ([LightScreen]); 0: off, the pace is always the profile's. */
+    private val lightScreenFps: Int = 0,
 ) {
     /** What happened since the previous poll ([dashAcks] is the dash's running total). */
     data class Poll(
@@ -61,6 +63,8 @@ internal class StreamGovernor(
         val link: LinkSample? = null,
         /** The navigation profiles' input: the distance to the next maneuver and the route's speed, read every poll. */
         val navSample: NavSample? = null,
+        /** Android Auto's screen in front is a light one (its app menu). */
+        val lightScreen: Boolean = false,
     )
 
     /**
@@ -98,6 +102,7 @@ internal class StreamGovernor(
         var drawn = 0
         var repeated = 0
         var composeNs = 0L
+        val tickWaits = ArrayList<Double>()
         var encodeNs = 0L
         var late = 0
         var keyframes = 0
@@ -114,6 +119,7 @@ internal class StreamGovernor(
             drawn += p.compositor.drawn
             repeated += p.compositor.repeated
             composeNs += p.compositor.composeNs
+            tickWaits += p.compositor.tickWaitsMs
             encodeNs += p.encodeNs
             late += p.lateFrames
             keyframes += p.keyframes
@@ -130,6 +136,8 @@ internal class StreamGovernor(
     private val maneuverProfile = ManeuverProfile()
     private val speedProfile = SpeedProfile()
     private var navTier: QualityTier? = null
+    private val lightScreen = LightScreen()
+    private var lightOn = false
 
     // The last verdict a profile gave and when, held while its data is missing (NAV_HOLD_MS).
     private var heldTier: QualityTier? = null
@@ -145,7 +153,10 @@ internal class StreamGovernor(
     private var builtFps = autoFps.currentFps
 
     /** The navigation profiles: the tier's fps/bitrate override [fps]/[activeBitrateBps], or null for autoFps. */
-    val fps: Int get() = navTier?.let(::tierFps) ?: autoFps.currentFps
+    val fps: Int get() = if (lightOn) LightScreen.fps(profileFps, lightScreenFps) else profileFps
+
+    /** The pace of the profile (the automatic rate or the navigation tier), without the light-screen pace: what the heat is judged against. */
+    val profileFps: Int get() = navTier?.let(::tierFps) ?: autoFps.currentFps
     val keyframeSec: Int get() = fixedKeyframeSec.takeIf { it > 0 } ?: autoKeyframe.currentSec
 
     /**
@@ -160,12 +171,12 @@ internal class StreamGovernor(
 
     /** The most the live bitrate goes to now: [activeBitrateBps], or [reducedBitrateBps] in the REDUCED tier. */
     private val tierBitrateBps: Int
-        get() = if (navTier == QualityTier.REDUCED) minOf(activeBitrateBps, reducedBitrateBps) else activeBitrateBps
+        // On the app menu the reduced profile's half bitrate goes too: the menu is nearly still, and 8 fps of it fit in the full one.
+        get() = if (navTier == QualityTier.REDUCED && !lightOn) minOf(activeBitrateBps, reducedBitrateBps) else activeBitrateBps
 
     /**
-     * FULL is [AutoFpsController.ceiling] — already the Settings' own ceiling, lowered by anything this session
-     * learned the dash cannot take (AutoFpsController.plan) — never above what the dash has already shown it can
-     * hold, and never whatever fps autoFps happens to be sitting at. REDUCED is half of it, snapped to an even
+     * FULL is [AutoFpsController.ceiling] — the Settings' own ceiling (AutoFpsController.plan) — never above what the dash has
+     * already shown it can hold, and never whatever fps autoFps happens to be sitting at. REDUCED is half of it, snapped to an even
      * step — allowed down to [NAV_MIN_FPS] (2, REau's idle pace too,
      * `DashEncoder.kt`'s "4 fps active / 2 fps idle"), below [DashConfig.MIN_STREAM_FPS] on purpose: that floor is
      * about autoFps's own climb, not this deliberate, bounded reduction.
@@ -192,6 +203,13 @@ internal class StreamGovernor(
     private var statsBytes = 0L
     private val syncReasons = LinkedHashMap<String, Int>()
 
+    /**
+     * The encoder to build when the running one failed (not when the plan changed): the rate it is built for and the bitrate
+     * that is applied now. It used to be built for the pace's fps and the full bitrate, so a stream that was still (or in the
+     * reduced profile) came back at the full bitrate with the pace unchanged, and nothing set it right (audit of 20/10/2026).
+     */
+    fun rebuildAction(): Action.Rebuild = Action.Rebuild(encoderFps, keyframeSec, bitrateBps.takeIf { it > 0 } ?: activeBitrateBps)
+
     /** A stream to the dash begins: the still pace, the still bitrate, and a keyframe. */
     fun start(nowMs: Long): List<Action> {
         pace = null
@@ -210,11 +228,13 @@ internal class StreamGovernor(
 
     fun onPoll(p: Poll): List<Action> {
         if (p.compositor.drawn > 0) lastPictureAtMs = p.nowMs
+        val lightChange = updateLight(p)
         val moving = lastPictureAtMs?.let { p.nowMs - it < MOTION_HOLD_MS } ?: false
         val full = DashLogic.fullRate(moving, p.firstFrameConfirmed)
         val tierChange = updateNavOverride(p.navSample, p.nowMs)
         val actions = mutableListOf<Action>()
         tierChange?.let { actions += it }
+        lightChange?.let { actions += it }
         actions += paceChange(p.firstFrameConfirmed)
         actions += bitrateChange(full)
         // A tier change moves the pace only. The encoder is replaced only when what it is built for moves: a profile
@@ -305,6 +325,19 @@ internal class StreamGovernor(
             tiers.any { it == wins } -> wins
             else -> loses
         }
+    }
+
+    /** Whether the light-screen pace is on after this poll; a line in the log when it changes. */
+    private fun updateLight(p: Poll): Action? {
+        if (lightScreenFps <= 0) return null
+        val was = lightOn
+        // With the first frame confirmed only: before the dash has shown it takes the picture the pace is the profile's. The reduced
+        // profile (far from a maneuver, or fast) does not hold it back: it is where the rider's menu was a 2 fps picture (21/10/2026).
+        val light = p.lightScreen && p.firstFrameConfirmed
+        lightOn = lightScreen.update(light, p.thermalOk, p.nowMs)
+        if (lightOn == was) return null
+        val said = if (lightOn) "up to $fps fps (the app menu or an app of Android Auto)" else "back to the profile's $fps fps"
+        return Action.Log("light screen: pace $said")
     }
 
     private fun paceChange(firstFrameConfirmed: Boolean): List<Action> {
@@ -401,12 +434,12 @@ internal class StreamGovernor(
         val line = String.format(
             Locale.US,
             "video fps target=%d sent=%.1f (%dframes/%.1fs) composed=%.1f%s kbps=%.0f set=%dk frame=%dB " +
-                "source=%d drawn=%d repeated=%d compose=%.1fms encode=%.1fms late=%d full=%s thermal=%s %s kf=%ds " +
+                "source=%d drawn=%d repeated=%d compose=%.1fms encode=%.1fms late=%d tickwait=%s full=%s thermal=%s %s kf=%ds " +
                 "idr=%d(max %dB/%dpkt) sync=%s auto=%dfps [%s]",
             target, sentFps, w.frames, elapsedMs / 1000.0, composedFps, dashPart(decodedFps, p.dashAcks - w.ackStart), kbps, bitrateBps / 1000,
             if (w.frames > 0) w.bytes / w.frames else 0L,
             w.source, w.drawn, w.repeated, perFrame(w.composeNs, w.drawn + w.repeated), perFrame(w.encodeNs, w.frames), w.late,
-            judged, if (w.thermalOk) "OK" else "HOT", w.link.text(), keyframe.intervalSec,
+            com.reau.app.video.TickWait.text(w.tickWaits), judged, if (w.thermalOk) "OK" else "HOT", w.link.text(), keyframe.intervalSec,
             w.keyframes, w.keyBytesMax, w.keyPacketsMax, syncSummary(), rate.fps, rate.reason,
         )
         val actions = mutableListOf<Action>(Action.Log(line))

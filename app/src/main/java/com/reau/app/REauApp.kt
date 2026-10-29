@@ -38,13 +38,23 @@ class REauApp : Application() {
         // The phone's events (screen, doze, saver, charger, networks, background) to the log.
         SystemEvents.start(this)
         CrashHandler.install(this)
-        // The detailed log as the rider left it (off by default).
+        // The debug build tells the Closeable and the receiver that a screen leaves to the garbage collector (`Cleared Reference was only
+        // reachable from finalizer`, 10:59:56 and 12:00:30 on 20/10/2026), to find which one.
+        if (BuildConfig.DEBUG) {
+            android.os.StrictMode.setVmPolicy(
+                android.os.StrictMode.VmPolicy.Builder().detectLeakedClosableObjects().detectLeakedRegistrationObjects().penaltyLog().build(),
+            )
+        }
+        // The detailed log as the rider left it (on by default in a debug build, off in a release).
         DetailedLog.enabled = settings.detailedLog
         // What the dash told REau the last times, for the screen "Dados da moto" (decrypts, so off the main thread).
         kotlin.concurrent.thread(name = "dash-readings") {
             com.reau.app.dash.DashReadings.attach(com.reau.app.dash.DashReadingsStore.open(this))
         }
+        // The dash's name and password decrypted here, so the main screen finds them ready (its first reads were on the main thread).
+        kotlin.concurrent.thread(name = "dash-pairing") { runCatching { com.reau.app.dash.DashPairing.open(this).warm() } }
         // The bike Wi-Fi suggestion, in step with the switch and the dash's name (Android keeps it otherwise).
-        DashWifiSuggestions.sync(this)
+        // (off the main thread: binder calls to the Wi-Fi service)
+        DashWifiSuggestions.syncSoon(this)
     }
 }

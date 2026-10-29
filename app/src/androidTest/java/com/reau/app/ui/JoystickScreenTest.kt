@@ -4,6 +4,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertContentDescriptionContains
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
@@ -24,8 +27,8 @@ import org.junit.runner.RunWith
 /**
  * The joystick page, mapping every control of the joystick, as the redesign draws it:
  * the dash's two modes in tabs, the map mode first; the cross with what each control does; a tap on a
- * control, then on its action, opens the 16 actions. One tap only: no "held". In the map mode,
- * up (the dash's own back) and the centre (it puts the dash in the media mode) are locked.
+ * control, then on its action, opens the list of actions. One tap only: no "held". In the map mode,
+ * up (the dash's own back) and the centre (it puts the dash in the media mode) are locked; down is REau's info ring switch, and can be given another action.
  */
 @RunWith(AndroidJUnit4::class)
 class JoystickScreenTest {
@@ -44,11 +47,12 @@ class JoystickScreenTest {
     private fun media() = compose.onNodeWithTag("joystick_mode_media").performClick()
 
     @Test
-    fun theMapModeComesFirstWithUpAndTheCentreLocked() {
+    fun theMapModeComesFirstWithUpAndTheCentreLockedAndDownTheInfoRing() {
         compose.onNodeWithTag("joystick_mode_map").assertIsSelected()
         pad("up").assertContentDescriptionContains("Travado", substring = true)
         pad("up").assertTextContains("Sair da navegação?")
         pad("center").assertContentDescriptionContains("Travado", substring = true)
+        pad("down").assertTextContains("Anel info.")
         pad("right").assertTextContains("Próximo item")
         pad("left").assertTextContains("Item anterior")
     }
@@ -62,6 +66,39 @@ class JoystickScreenTest {
         compose.onNodeWithTag("pick_sheet").assertDoesNotExist()
         pad("center").performClick()
         compose.onNodeWithTag("joystick_action_row").assertTextContains("controle de mídia", substring = true)
+    }
+
+    @Test
+    fun theLockOnTheCardOfALockedControlHasALabelAndTheOpenOneHasNone() {
+        pad("up").performClick()
+        compose.onNodeWithTag("joystick_action_row").performScrollTo().assertContentDescriptionContains("Travado", substring = true)
+        pad("center").performClick()
+        compose.onNodeWithTag("joystick_action_row").assertContentDescriptionContains("Travado", substring = true)
+        pad("left").performClick()
+        compose.onNodeWithTag("joystick_action_row").assertContentDescriptionDoesNotContain("Travado")
+        callTab()
+        callPad("left").performClick()
+        compose.onNodeWithTag("joystick_action_row").performScrollTo().assertContentDescriptionContains("Travado", substring = true)
+    }
+
+    private fun SemanticsNodeInteraction.assertContentDescriptionDoesNotContain(text: String) {
+        val descriptions = fetchSemanticsNode().config.getOrNull(SemanticsProperties.ContentDescription).orEmpty()
+        assertEquals("content descriptions with '$text'", emptyList<String>(), descriptions.filter { text in it })
+    }
+
+    @Test
+    fun downInTheMapModeIsTheInfoRingAndTakesAnotherActionOnlyThere() {
+        pad("down").performClick()
+        compose.onNodeWithTag("joystick_action_row").performScrollTo().assertTextContains("anel de informações", substring = true)
+        compose.onNodeWithTag("joystick_action_row").performClick()
+        compose.onNodeWithTag("action_INFO_RING").performScrollTo().assertExists()
+        compose.onNodeWithTag("action_BACK").performScrollTo().performClick()
+        assertEquals("map.down.once=BACK", settings.joystick.split(';').first { it.startsWith("map.down") })
+        pad("down").assertTextContains("Voltar")
+        media()
+        pad("down").performClick()
+        compose.onNodeWithTag("joystick_action_row").performScrollTo().performClick()
+        compose.onNodeWithTag("action_INFO_RING").assertDoesNotExist()
     }
 
     @Test
@@ -83,6 +120,20 @@ class JoystickScreenTest {
     }
 
     @Test
+    fun theMediaTabSaysWhetherTheDashShowsTheSong() {
+        // the test settings' page has no music control (like the new install's); they have the switch off, so it is turned on here
+        settings = settings.copy(dashMusic = true)
+        media()
+        compose.onNodeWithTag("joystick_music").performScrollTo().assertTextContains("não mostra a música", substring = true)
+        pad("up").performClick()
+        compose.onNodeWithTag("joystick_action_row").performScrollTo().performClick()
+        compose.onNodeWithTag("action_PLAY_PAUSE").performScrollTo().performClick()
+        compose.onNodeWithTag("joystick_music").performScrollTo().assertTextContains("mostra a música que toca", substring = true)
+        settings = settings.copy(dashMusic = false)
+        compose.onNodeWithTag("joystick_music").performScrollTo().assertTextContains("desligado em Ajustes", substring = true)
+    }
+
+    @Test
     fun thereIsNoHeldNorTwice() {
         media()
         compose.onAllNodesWithText("segurando", substring = true).assertCountEquals(0)
@@ -90,8 +141,25 @@ class JoystickScreenTest {
     }
 
     @Test
-    fun theCallsAboveThePageAreExplained() {
-        compose.onNodeWithTag("joystick_calls").performScrollTo().assertIsDisplayed()
+    fun theCallsAreExplainedOnTheirOwnTabOnlyNotUnderTheMapAndMediaButtons() {
+        compose.onNodeWithTag("joystick_calls").assertDoesNotExist()
+        media()
+        compose.onNodeWithTag("joystick_calls").assertDoesNotExist()
+        callTab()
+        compose.onNodeWithTag("joystick_calls").assertDoesNotExist()
+        callPad("left").assertTextContains("Atende")
+    }
+
+    @Test
+    fun aNewInstallStartsWithTheOwnersPageAndTheZoomButtonsAreNamedWithoutAnExplanation() {
+        settings = com.reau.app.settings.REauSettings()
+        pad("left").assertTextContains("Afastar")
+        pad("right").assertTextContains("Aproximar")
+        pad("down").assertTextContains("Anel info.")
+        compose.onAllNodesWithText("borda de baixo", substring = true).assertCountEquals(0)
+        media()
+        // the owner's page has no music control: the media tab says the dash shows no song
+        compose.onNodeWithTag("joystick_music").performScrollTo().assertTextContains("não mostra a música", substring = true)
     }
 
     private fun callTab() = compose.onNodeWithTag("joystick_mode_call").performClick()
@@ -127,10 +195,10 @@ class JoystickScreenTest {
     }
 
     @Test
-    fun backToTheDefaultsForgetsEveryChoice() {
+    fun backToTheDefaultsGivesTheNewInstallsPageAndForgetsEveryOtherChoice() {
         settings = settings.copy(joystick = "media.center.once=HOME;map.right.once=NEXT_SONG")
         compose.onNodeWithTag("reset_joystick").performScrollTo().performClick()
-        assertEquals("", settings.joystick)
+        assertEquals(com.reau.app.settings.REauSettings.DEFAULT_JOYSTICK, settings.joystick)
     }
 
     @Test

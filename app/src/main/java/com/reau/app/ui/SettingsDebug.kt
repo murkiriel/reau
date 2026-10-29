@@ -91,27 +91,16 @@ private fun debugRows(s: REauSettings, change: (REauSettings) -> Unit, actions: 
             actions.onDeleteLogs(withRecordings) { files, kb -> say(deleted(files, kb)) }
         }
     }
-    return listOfNotNull(
+    // The order is the owner's (28/10/2026), the same in both editions: the ride log, the detailed log under it, then the
+    // two recordings (off by default in a release, on in a debug build); DebugRowsOrderTest holds it.
+    return listOf<@Composable () -> Unit>(
         { RideLog(s, change) },
-        {
-            SwitchRow(
-                stringResource(R.string.record_video), s.recordVideo, { change(s.copy(recordVideo = it)) }, "record_video",
-                sub = stringResource(R.string.record_video_sub),
-                info = Info(stringResource(R.string.record_video), stringResource(R.string.record_video_info)),
-            )
-        },
-        {
-            SwitchRow(
-                stringResource(R.string.record_sessions_title), s.recordSessions, { change(s.copy(recordSessions = it)) }, "record_sessions",
-                sub = stringResource(R.string.record_sessions_sub),
-                info = Info(stringResource(R.string.record_sessions_title), stringResource(R.string.record_sessions_info)),
-            )
-        },
         {
             SettingSwitch(R.string.detailed_title, R.string.detailed_sub, R.string.detailed_log, s.detailedLog, "detailed_log", now = true) {
                 change(s.copy(detailedLog = it))
             }
         },
+    ) + recordingRows(s, change) + listOf<@Composable () -> Unit>(
         { NavRow(stringResource(R.string.action_view_logs), actions.onViewLogs, "view_logs") },
         { ShareRow(actions) },
         { DeleteRow { asking = it } },
@@ -147,6 +136,10 @@ private fun RideLog(s: REauSettings, change: (REauSettings) -> Unit) {
     )
 }
 
+/** The ceilings of this build in MB, the logs' and the recordings' (1024 in a debug build, 200 in a release): what the screen says and the cleaning keeps. */
+internal fun logCapsMb(debugBuild: Boolean = com.reau.app.BuildConfig.DEBUG): Pair<Int, Int> =
+    (com.reau.app.data.DiagSpace.capBytes(debugBuild) / BYTES_PER_MB).toInt() to (com.reau.app.data.RecordingsSpace.capBytes(debugBuild) / BYTES_PER_MB).toInt()
+
 /** Log retention: what is older than the days chosen goes by itself. */
 @Composable
 private fun LogKeepDays(s: REauSettings, change: (REauSettings) -> Unit) {
@@ -154,11 +147,12 @@ private fun LogKeepDays(s: REauSettings, change: (REauSettings) -> Unit) {
         val label = if (days == 0) stringResource(R.string.log_keep_never) else pluralStringResource(R.plurals.log_keep_days_n, days, days)
         label to "log_keep_$days"
     }
+    val (logsMb, recordingsMb) = logCapsMb()
     SegmentedRow(
         stringResource(R.string.log_keep_title), options, REauSettings.LOG_KEEP_DAYS.indexOf(s.logKeepDays),
         { change(s.copy(logKeepDays = REauSettings.LOG_KEEP_DAYS[it])) },
-        sub = stringResource(if (s.logKeepDays == 0) R.string.log_keep_sub_never else R.string.log_keep_sub),
-        now = true, info = Info(stringResource(R.string.log_keep_title), stringResource(R.string.log_keep_days)), tag = "log_keep",
+        sub = if (s.logKeepDays == 0) stringResource(R.string.log_keep_sub_never, logsMb, recordingsMb) else stringResource(R.string.log_keep_sub),
+        now = true, info = Info(stringResource(R.string.log_keep_title), stringResource(R.string.log_keep_days, logsMb, recordingsMb)), tag = "log_keep",
     )
 }
 
@@ -220,4 +214,30 @@ internal fun TermsRow(onOpen: () -> Unit) {
 internal fun deletedText(): (Int, Long) -> String {
     val resources = LocalResources.current
     return { files, kb -> resources.getString(R.string.logs_deleted, files, kb) }
+}
+
+private const val BYTES_PER_MB = 1024L * 1024
+
+/**
+ * The two recordings (a recording keeps what the dash shows and the Android Auto session decrypted, on the phone only). Decided on 28/10/2026:
+ * they exist in a release too, off by default there and on in a debug build ([REauSettings.recordVideo]); no build type decides whether the
+ * rows are shown (DebugRowsOrderTest).
+ */
+private fun recordingRows(s: REauSettings, change: (REauSettings) -> Unit): List<@Composable () -> Unit> {
+    return listOf<@Composable () -> Unit>(
+        {
+            SwitchRow(
+                stringResource(R.string.record_video), s.recordVideo, { change(s.copy(recordVideo = it)) }, "record_video",
+                sub = stringResource(R.string.record_video_sub),
+                info = Info(stringResource(R.string.record_video), stringResource(R.string.record_video_info)),
+            )
+        },
+        {
+            SwitchRow(
+                stringResource(R.string.record_sessions_title), s.recordSessions, { change(s.copy(recordSessions = it)) }, "record_sessions",
+                sub = stringResource(R.string.record_sessions_sub),
+                info = Info(stringResource(R.string.record_sessions_title), stringResource(R.string.record_sessions_info)),
+            )
+        },
+    )
 }

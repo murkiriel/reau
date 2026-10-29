@@ -52,6 +52,9 @@ object ScreenText {
     }
 
     /** The cover over Android Auto's menu while a walk goes on: switching the server on or off. */
+    /** What the cover says while it holds Android Auto in front, waiting for the server to answer. */
+    fun coverWaiting(): Int = R.string.aa_server_cover_waiting
+
     fun cover(mode: com.reau.app.aa.ServerMenuRun.Mode): Int =
         if (mode == com.reau.app.aa.ServerMenuRun.Mode.STOP) R.string.aa_server_cover_stopping else R.string.aa_server_cover
 
@@ -73,6 +76,7 @@ object ScreenText {
         ServerResult.ALREADY_RUNNING -> R.string.aa_server_already_running
         ServerResult.NOT_UP -> R.string.aa_server_not_up
         ServerResult.INTERRUPTED -> R.string.aa_server_interrupted
+        ServerResult.AA_GONE -> R.string.aa_server_aa_gone
         ServerResult.STOPPED -> R.string.aa_server_stopped
         ServerResult.LEFT_ON -> R.string.aa_server_left_on
     }

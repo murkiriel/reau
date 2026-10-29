@@ -12,8 +12,7 @@ import org.junit.runner.RunWith
 /**
  * The projection turned off and on again in under 2 s. Each
  * projection has its own hooks ([AaServerStarter.hooks], made in LiveSides.forPhone); the old one's end, arriving after
- * the new one's start, must leave the new one's dial and server alone. The switch "Ligar e desligar o servidor" stays
- * off here (the default), so nothing walks Android Auto's menu.
+ * the new one's start, must leave the new one's dial and server alone.
  */
 @RunWith(AndroidJUnit4::class)
 class AaServerStarterProjectionsTest {

@@ -37,6 +37,52 @@ class VideoDecoder {
 
         /** The key the H.264 decoder's name is remembered under ([CodecNames]); a test pre-seeds it to pick the software decoder. */
         internal const val AVC_DECODER_KEY = "decoder video/avc hardware"
+
+        /** Output exceptions in a row after which the decoder is restarted. */
+        private const val RESTART_AFTER_ERRORS = 3
+
+        /**
+         * Whether the first NAL unit found in the first 32 bytes of [data] (from [offset], [size] bytes) is an SPS or a PPS (types 7 and 8).
+         * (A picture too short for a start code and a NAL header has no place to look at: the range is empty.)
+         */
+        internal fun isCodecConfigData(data: ByteArray, offset: Int, size: Int): Boolean {
+            for (i in offset until (offset + size - 4).coerceAtMost(offset + 32)) {
+                val header = nalHeaderAfterStartCode(data, i)
+                if (header >= 0) return header < offset + size && data[header].toInt() and 0x1F in SPS_AND_PPS
+            }
+            return false
+        }
+
+        /** Where the NAL header is when a start code (00 00 00 01, or 00 00 01) begins at [i], or -1 when none does. */
+        private fun nalHeaderAfterStartCode(data: ByteArray, i: Int): Int = when {
+            data[i].toInt() != 0 || data[i + 1].toInt() != 0 -> -1
+            data[i + 2].toInt() == 0 && data[i + 3].toInt() == 1 -> i + 4
+            data[i + 2].toInt() == 1 -> i + 3
+            else -> -1
+        }
+
+        private val SPS_AND_PPS = 7..8
+
+        /** Chips whose decoders need every parameter-set buffer flagged as codec config (by the name of the codec). */
+        internal fun alwaysFlagsConfig(codecName: String?): Boolean {
+            val name = codecName?.lowercase(Locale.ROOT) ?: return false
+            return name.contains(".rk.") || name.contains("allwinner") || name.contains(".tcc.")
+        }
+
+        /** Whether an input buffer goes to the codec flagged as codec config: it holds an SPS/PPS and the codec wants it, or has none yet. */
+        internal fun flagsAsConfig(isConfig: Boolean, alwaysFlags: Boolean, configured: Boolean): Boolean = isConfig && (alwaysFlags || !configured)
+
+        /** A picture that does not fit the codec's input buffer is dropped whole (and a keyframe asked for), never cut. */
+        internal fun tooBig(remaining: Int, capacity: Int): Boolean = remaining > capacity
+
+        /** The pictures a second, from [frames] counted in [elapsedMs]. */
+        internal fun fpsOf(frames: Int, elapsedMs: Long): Int = (frames * 1000 / elapsedMs).toInt()
+
+        /** Whether the fps count of the window is due: a second passed. */
+        internal fun fpsWindowOver(elapsedMs: Long): Boolean = elapsedMs >= 1000
+
+        /** The output thread asks for a restart from the third exception in a row. */
+        internal fun restartAfterErrors(consecutive: Int): Boolean = consecutive >= RESTART_AFTER_ERRORS
     }
 
     private var codec: MediaCodec? = null
@@ -70,6 +116,9 @@ class VideoDecoder {
      *  (no input) during a UI transition or call. */
     private val stallWatch = DecoderStallWatch()
 
+    /** Spaces out the starts after a failed one, and asks for the software decoder when the hardware one keeps failing. */
+    private val startGuard = DecoderStartGuard()
+
     /** Invoked when the decoder must be re-primed — the transport requests a fresh keyframe. */
     var onDecoderError: (() -> Unit)? = null
 
@@ -97,6 +146,7 @@ class VideoDecoder {
             if (mSurface === surface) return
             AaLog.i("New surface set: $surface")
             if (codec != null) stop("New surface")
+            startGuard.reset()
             mSurface = surface
             lastFrameRenderedMs = 0L
         }
@@ -167,23 +217,7 @@ class VideoDecoder {
                 onDecoderError?.invoke()
             }
 
-            if (codec == null) {
-                if (!codecConfigured) {
-                    scanAndApplyConfig(buffer, offset, size)
-                    if (mWidth == 0 && fallbackWidth > 0 && fallbackHeight > 0) {
-                        AaLog.i("Fallback to negotiated dimensions: ${fallbackWidth}x$fallbackHeight")
-                        mWidth = fallbackWidth
-                        mHeight = fallbackHeight
-                        dimensionsListener?.onVideoDimensionsChanged(mWidth, mHeight)
-                    }
-                }
-
-                if (mSurface == null || !mSurface!!.isValid) return
-                if (mWidth == 0 || mHeight == 0) return
-
-                start(mWidth, mHeight)
-            }
-
+            if (codec == null) startWith(buffer, offset, size)
             if (codec == null) return
 
             val buf = ByteBuffer.wrap(buffer, offset, size)
@@ -193,40 +227,24 @@ class VideoDecoder {
         }
     }
 
-    private fun forEachNalUnit(buffer: ByteArray, offset: Int, size: Int, callback: (ByteArray, Int) -> Unit) {
-        var currentPos = offset
-        val limit = offset + size
-
-        while (currentPos < limit - 3) {
-            var nalStart = -1
-            var startCodeLen = 0
-            for (i in currentPos until limit - 3) {
-                if (buffer[i].toInt() == 0 && buffer[i + 1].toInt() == 0) {
-                    if (buffer[i + 2].toInt() == 0 && buffer[i + 3].toInt() == 1) { nalStart = i; startCodeLen = 4; break }
-                    else if (buffer[i + 2].toInt() == 1) { nalStart = i; startCodeLen = 3; break }
-                }
+    /** No decoder yet: reads the stream's parameters from this picture and starts one when the surface, the size and the wait after a failure allow. */
+    private fun startWith(buffer: ByteArray, offset: Int, size: Int) {
+        if (!codecConfigured) {
+            scanAndApplyConfig(buffer, offset, size)
+            if (mWidth == 0 && fallbackWidth > 0 && fallbackHeight > 0) {
+                AaLog.i("Fallback to negotiated dimensions: ${fallbackWidth}x$fallbackHeight")
+                mWidth = fallbackWidth
+                mHeight = fallbackHeight
+                dimensionsListener?.onVideoDimensionsChanged(mWidth, mHeight)
             }
-            if (nalStart != -1) {
-                var nalEnd = limit
-                for (j in (nalStart + startCodeLen) until limit - 3) {
-                    if (buffer[j].toInt() == 0 && buffer[j + 1].toInt() == 0 &&
-                        (buffer[j + 2].toInt() == 1 || (buffer[j + 2].toInt() == 0 && buffer[j + 3].toInt() == 1))) {
-                        nalEnd = j; break
-                    }
-                }
-                val rawNal = buffer.copyOfRange(nalStart, nalEnd)
-                val fixedNal = if (startCodeLen == 3) {
-                    ByteArray(rawNal.size + 1).apply { this[0] = 0; System.arraycopy(rawNal, 0, this, 1, rawNal.size) }
-                } else rawNal
-                callback(fixedNal, 4)
-                currentPos = nalEnd
-            } else break
         }
+        val sized = mWidth != 0 && mHeight != 0
+        if (mSurface?.isValid == true && sized && startGuard.mayTry(SystemClock.elapsedRealtime())) start(mWidth, mHeight)
     }
 
     @Suppress("TooGenericExceptionCaught") // a bad SPS is logged and ignored
     private fun scanAndApplyConfig(buffer: ByteArray, offset: Int, size: Int) {
-        forEachNalUnit(buffer, offset, size) { nalData, headerLen ->
+        val empty = NalSplitter.forEachNalUnit(buffer, offset, size) { nalData, headerLen ->
             val nalFirstByte = nalData[headerLen].toInt()
             val nalType = nalFirstByte and 0x1F
             if (nalType == 7) { // SPS
@@ -244,15 +262,23 @@ class VideoDecoder {
             } else if (nalType == 8) pps = nalData
             if (sps != null) codecConfigured = true
         }
+        if (empty > 0 && !emptyNalLogged) {
+            emptyNalLogged = true
+            AaLog.w("H.264: a NAL unit with no bytes after its start code was skipped (said once)")
+        }
     }
+
+    /** Said once: an empty NAL unit is skipped every time, and one a frame would fill the log. */
+    private var emptyNalLogged = false
 
     @Suppress("TooGenericExceptionCaught") // any codec failure is logged and leaves the decoder stopped
     private fun start(width: Int, height: Int) {
         try {
             startTime = System.nanoTime()
             val mimeType = "video/avc"
-            val bestCodec = CodecNames.pick(AVC_DECODER_KEY) { findBestCodec(mimeType, true) }
-                ?: error("No decoder available for $mimeType")
+            val bestCodec = (
+                if (startGuard.useSoftware) findBestCodec(mimeType, false) else CodecNames.pick(AVC_DECODER_KEY) { findBestCodec(mimeType, true) }
+                ) ?: error("No decoder available for $mimeType")
             this.currentCodecName = bestCodec
 
             codec = MediaCodec.createByCodecName(bestCodec)
@@ -262,16 +288,20 @@ class VideoDecoder {
             if (sps != null) format.setByteBuffer("csd-0", ByteBuffer.wrap(sps!!))
             if (pps != null) format.setByteBuffer("csd-1", ByteBuffer.wrap(pps!!))
             format.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 2 * 1024 * 1024)
+            // Hands each picture out without holding frames back for reordering (the stream has none): the joystick's answer comes sooner.
+            val lowLatency = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R && startGuard.lowLatency
+            if (lowLatency) format.setInteger(MediaFormat.KEY_LOW_LATENCY, 1)
 
             check(mSurface!!.isValid) { "Surface not valid" }
 
-            AaLog.i("Configuring decoder: $bestCodec for ${width}x${height}")
+            AaLog.i("Configuring decoder: $bestCodec for ${width}x${height} (low latency: $lowLatency)")
             codec?.configure(format, mSurface, null, 0)
             try { codec?.setVideoScalingMode(MediaCodec.VIDEO_SCALING_MODE_SCALE_TO_FIT) } catch (_: Exception) {}
             codec?.start()
             stallWatch.reset()
 
             running = true
+            startGuard.worked()
             outputThread = Thread {
                 android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_DISPLAY)
                 outputThreadLoop()
@@ -279,32 +309,15 @@ class VideoDecoder {
 
             AaLog.i("Codec initialized: $bestCodec")
         } catch (e: Exception) {
-            AaLog.e("Failed to start decoder", e)
+            startGuard.failed(SystemClock.elapsedRealtime())
+            AaLog.e("Failed to start decoder (${startGuard.failuresInARow} in a row; next try in ${DecoderStartGuard.backoffMs(startGuard.failuresInARow)} ms" +
+                "${if (startGuard.useSoftware) ", software decoder next" else ""})", e)
+            try { codec?.release() } catch (_: Exception) {}
             codec = null; running = false
         }
     }
 
-    private fun shouldAlwaysFlagConfig(): Boolean {
-        val name = currentCodecName?.lowercase(Locale.ROOT) ?: return false
-        return name.contains(".rk.") || name.contains("allwinner") || name.contains(".tcc.")
-    }
-
-    private fun isCodecConfigData(data: ByteArray, offset: Int, size: Int): Boolean {
-        if (size < 5) return false
-        for (i in offset until (offset + size - 4).coerceAtMost(offset + 32)) {
-            if (data[i].toInt() == 0 && data[i + 1].toInt() == 0) {
-                val headerPos: Int
-                if (data[i + 2].toInt() == 0 && data[i + 3].toInt() == 1) headerPos = i + 4
-                else if (data[i + 2].toInt() == 1) headerPos = i + 3
-                else continue
-                if (headerPos >= offset + size) return false
-                val b = data[headerPos].toInt()
-                val nalType = b and 0x1F
-                return nalType == 7 || nalType == 8
-            }
-        }
-        return false
-    }
+    private fun shouldAlwaysFlagConfig(): Boolean = alwaysFlagsConfig(currentCodecName)
 
     @Suppress("TooGenericExceptionCaught") // any codec failure is logged; the frame is dropped
     private fun feedInputBuffer(buffer: ByteBuffer): Boolean {
@@ -327,19 +340,20 @@ class VideoDecoder {
             val capacity = inputBuffer.capacity()
 
             val isConfig = buffer.hasArray() && isCodecConfigData(buffer.array(), buffer.position(), buffer.remaining())
-            val flags = if (isConfig && (shouldAlwaysFlagConfig() || !codecConfigured)) {
+            val flags = if (flagsAsConfig(isConfig, shouldAlwaysFlagConfig(), codecConfigured)) {
                 MediaCodec.BUFFER_FLAG_CODEC_CONFIG
             } else 0
 
-            if (buffer.remaining() <= capacity) {
-                inputBuffer.put(buffer)
-            } else {
-                AaLog.w("Frame too large: ${buffer.remaining()} > $capacity. Truncating!")
-                val limit = buffer.limit()
-                buffer.limit(buffer.position() + capacity)
-                inputBuffer.put(buffer)
-                buffer.limit(limit)
+            if (tooBig(buffer.remaining(), capacity)) {
+                // Cut, it would reach the codec as a broken picture and the rest as another (A-15): the whole unit goes, the buffer
+                // goes back empty, and a keyframe is asked for, as AapVideo does with any other loss.
+                AaLog.w("Frame too large: ${buffer.remaining()} > $capacity, dropped; asking for a keyframe")
+                buffer.position(buffer.limit())
+                currentCodec.queueInputBuffer(inputIndex, 0, 0, 0, 0)
+                onDecoderError?.invoke()
+                return false
             }
+            inputBuffer.put(buffer)
 
             inputBuffer.flip()
             val pts = (System.nanoTime() - startTime) / 1000
@@ -376,8 +390,8 @@ class VideoDecoder {
                     frameCount++
                     val now = System.currentTimeMillis()
                     val elapsed = now - lastFpsLogTime
-                    if (elapsed >= 1000) {
-                        if (lastFpsLogTime != 0L) onFpsChanged?.invoke((frameCount * 1000 / elapsed).toInt())
+                    if (fpsWindowOver(elapsed)) {
+                        if (lastFpsLogTime != 0L) onFpsChanged?.invoke(fpsOf(frameCount, elapsed))
                         frameCount = 0
                         lastFpsLogTime = now
                     }
@@ -403,7 +417,7 @@ class VideoDecoder {
                 if (running) {
                     consecutiveErrors++
                     AaLog.w("Codec exception in output thread (attempt $consecutiveErrors): ${e.message}")
-                    if (consecutiveErrors >= 3) {
+                    if (restartAfterErrors(consecutiveErrors)) {
                         AaLog.e("Too many consecutive exceptions in output thread. Forcing restart.")
                         scheduleRestart("sync_consecutive_errors")
                         break

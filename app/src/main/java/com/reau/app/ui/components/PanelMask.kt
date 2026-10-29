@@ -5,6 +5,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -39,6 +41,8 @@ fun PanelMaskOverlay(mask: AaScreenMask, modifier: Modifier = Modifier) {
         drawPath(Path().apply { op(all, inFrame, PathOperation.Difference) }, Grafite.copy(alpha = OUTSIDE_SHADE))
         drawPath(Path().apply { op(inFrame, seen, PathOperation.Difference) }, Grafite.copy(alpha = OFF_GLASS_SHADE))
         drawPath(seen, Marfim.copy(alpha = GLASS_EDGE_ALPHA), style = Stroke(1.5.dp.toPx()))
+        // The rider's black bands, as the dash draws them over the picture
+        for (b in m.covers) drawRect(Color.Black, Offset(b.left, b.top), Size(b.right - b.left, b.bottom - b.top))
         val ringWidth = RING_WIDTH * m.bubble.r / DashMask.BUBBLE_R
         clipPath(seen) {
             drawCircle(Marfim, m.bubble.r, Offset(m.bubble.cx, m.bubble.cy))

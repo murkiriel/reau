@@ -60,7 +60,8 @@ class ServiceDiscoveryResponse(config: AaConfig) :
         private const val YEAR = "2026"
         private const val VEHICLE_ID = "reau"
         private const val SOFTWARE_BUILD = "1"
-        private const val SOFTWARE_VERSION = "0.1.0"
+        /** The app's own version (28/10/2026: it was a fixed "0.1.0"), so what Android Auto logs about this head unit says which REau it was. */
+        private val SOFTWARE_VERSION = com.reau.app.BuildConfig.VERSION_NAME
 
         private fun makeProto(config: AaConfig): Message = Control.ServiceDiscoveryResponse.newBuilder().apply {
             make = MAKE

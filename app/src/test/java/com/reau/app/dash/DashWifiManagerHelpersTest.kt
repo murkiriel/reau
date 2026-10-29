@@ -126,4 +126,22 @@ class DashWifiManagerHelpersTest {
         val seen = listOf(ScanSeen("RE_1234ABCD", -61, 2437, now + 5_000_000L))
         assertTrue(scanEvidence(seen, "RE_", true, now).endsWith("seen 0 s ago"))
     }
+
+    @Test
+    fun `a request answered and lost afterwards is not told as let go unanswered`() {
+        // The ride of 357 720 ms: the network came, was lost, the state went back to REQUESTING, then the request was let go.
+        assertEquals(
+            "released request #1 after 357720 ms (status=REQUESTING, answered=true, unanswered=false)",
+            releaseLine(1, 357_720, WifiConnStatus.REQUESTING, answered = true),
+        )
+    }
+
+    @Test
+    fun `a request that expired without an answer is told as unanswered`() {
+        assertEquals(
+            "released request #3 after 30000 ms (status=REQUESTING, answered=false, unanswered=true)",
+            releaseLine(3, 30_000, WifiConnStatus.REQUESTING, answered = false),
+        )
+        assertTrue(releaseLine(2, 800, WifiConnStatus.ERROR, answered = false).endsWith("unanswered=true)"))
+    }
 }

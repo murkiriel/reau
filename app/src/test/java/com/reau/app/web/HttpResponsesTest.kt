@@ -85,6 +85,78 @@ class HttpResponsesTest {
     }
 
     @Test
+    fun `a pagina leva uma politica de conteudo que fecha o que ela nao usa`() {
+        val head = split(run { HttpResponses.page(it, ByteArray(0), "abc123") }).first
+        val policy = headers(head)["Content-Security-Policy"]!!
+        assertEquals(HttpResponses.policy("abc123"), policy)
+        for (closed in listOf("object-src 'none'", "base-uri 'none'", "form-action 'none'", "frame-ancestors 'none'")) {
+            assertTrue("$closed em: $policy", closed in policy)
+        }
+        // o que a pagina usa continua aberto: o video em blob, o favicon em data:, o socket
+        for (open in listOf("blob:", "data:", "ws:")) assertTrue("$open em: $policy", open in policy)
+        // e nenhum site de fora entra: nada de * nem de endereco http(s)
+        assertTrue("sem curinga: $policy", " * " !in " $policy " && "http" !in policy)
+    }
+
+    @Test
+    fun `a politica nao tem unsafe-inline, o script e o estilo da pagina so rodam com o nonce da resposta`() {
+        val nonce = "Zm9vYmFyMTIzNDU2Nzg"
+        val policy = headers(split(run { HttpResponses.page(it, ByteArray(0), nonce) }).first)["Content-Security-Policy"]!!
+        assertFalse("sem unsafe-inline: $policy", "unsafe-inline" in policy)
+        assertFalse("sem unsafe-eval: $policy", "unsafe-eval" in policy)
+        val directives = policy.split("; ").associate { it.substringBefore(' ') to it.substringAfter(' ') }
+        assertEquals("'nonce-$nonce'", directives["script-src"])
+        assertEquals("'nonce-$nonce'", directives["style-src"])
+        // as outras diretivas ficam como estavam
+        assertEquals("'self' data: blob: ws: wss:", directives["default-src"])
+        assertEquals("'none'", directives["object-src"])
+        assertEquals("'none'", directives["base-uri"])
+        assertEquals("'none'", directives["form-action"])
+        assertEquals("'none'", directives["frame-ancestors"])
+    }
+
+    @Test
+    fun `cada resposta da pagina tem um nonce novo, de 128 bits, no cabecalho`() {
+        val nonces = (1..50).map { n ->
+            val policy = headers(split(run { HttpResponses.page(it, ByteArray(0)) }).first)["Content-Security-Policy"]!!
+            val nonce = Regex("script-src 'nonce-([^']+)'").find(policy)!!.groupValues[1]
+            assertTrue("o nonce $n tem de ser base64 de URL, 128 bits: $nonce", Regex("[A-Za-z0-9_-]{22}").matches(nonce))
+            assertTrue("style-src com o mesmo nonce: $policy", "style-src 'nonce-$nonce'" in policy)
+            nonce
+        }
+        assertEquals("nenhum nonce se repete", nonces.size, nonces.toSet().size)
+    }
+
+    @Test
+    fun `as tags de dentro da pagina levam o mesmo nonce do cabecalho, em todo lugar onde a pagina o marca`() {
+        val html = "<html><style nonce=\"${HttpResponses.NONCE_MARK}\">a{}</style>ação — 日本" +
+            "<script nonce=\"${HttpResponses.NONCE_MARK}\">var a=1;</script><script nonce=\"${HttpResponses.NONCE_MARK}\">var b=2;</script></html>"
+        val (head, body) = split(run { HttpResponses.page(it, html.toByteArray(Charsets.UTF_8), "N0nce_x-Y9") })
+        val text = String(body, Charsets.UTF_8)
+        assertFalse("nenhuma marca sobra: $text", HttpResponses.NONCE_MARK in text)
+        assertEquals(3, Regex("""<(script|style) nonce="N0nce_x-Y9">""").findAll(text).count())
+        assertTrue(text.contains("ação — 日本"))
+        assertTrue(headers(head)["Content-Security-Policy"]!!.contains("script-src 'nonce-N0nce_x-Y9'"))
+        assertEquals(body.size.toString(), headers(head)["Content-Length"])
+    }
+
+    @Test
+    fun `a pagina sem marca sai como veio, byte a byte`() {
+        val bytes = byteArrayOf(0x40, 0x4e, 0x4f, -61, -93, 0x40)   // "@NO" cortado, "ã" e "@": nao e a marca
+        assertArrayEquals(bytes, split(run { HttpResponses.page(it, bytes, "x") }).second)
+    }
+
+    @Test
+    fun `a pagina so usa o que a politica deixa abrir, nenhum script ou estilo de fora`() {
+        val root = generateSequence(java.io.File("").absoluteFile) { it.parentFile }.first { java.io.File(it, "settings.gradle.kts").isFile }
+        val html = java.io.File(root, "app/src/main/assets/web/index.html").readText()
+        assertFalse("script de fora", Regex("<script[^>]+src=", RegexOption.IGNORE_CASE).containsMatchIn(html))
+        assertFalse("estilo de fora", Regex("<link[^>]+rel=[\"']stylesheet", RegexOption.IGNORE_CASE).containsMatchIn(html))
+        assertFalse("import de fora", Regex("""\bimport\s*\(|\bimportScripts\(""").containsMatchIn(html))
+        assertFalse("rede de fora", Regex("""fetch\(\s*["']https?:|new WebSocket\(\s*["']wss?://""").containsMatchIn(html))
+    }
+
+    @Test
     fun `o tamanho declarado e o dos bytes, nao o dos caracteres`() {
         val body = "ação — 日本".toByteArray(Charsets.UTF_8)
         assertTrue("o teste precisa de texto multibyte", body.size > "ação — 日本".length)

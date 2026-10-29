@@ -2,6 +2,7 @@ package com.reau.app.video
 
 import com.reau.app.stream.DashLogic
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -131,10 +132,59 @@ class CompositorMathTest {
         assertEquals(listOf(58L, 117L, 176L, 235L), stamps(5)) // 58.9, 117.8, 176.7, 235.6
     }
 
+    /** A new picture while the rider's input is fresh is drawn at once, never closer than the gap to the last frame. */
+    @Test
+    fun `a burst draw waits only for the gap since the last frame`() {
+        assertEquals("the gap has passed: at once", 0L, CompositorMath.burstWaitMs(true, lastFrameAtMs = 1_000, nowMs = 1_500, gapMs = 80))
+        assertEquals("a frame 30 ms ago: the other 50", 50L, CompositorMath.burstWaitMs(true, 1_000, 1_030, 80))
+        assertEquals("a frame just now: the whole gap", 80L, CompositorMath.burstWaitMs(true, 1_000, 1_000, 80))
+    }
+
+    @Test
+    fun `no burst draw without a new picture, a first frame or the option`() {
+        assertNull(CompositorMath.burstWaitMs(false, 1_000, 1_500, 80))
+        assertNull("no frame drawn yet: the tick sends the first", CompositorMath.burstWaitMs(true, 0, 1_500, 80))
+        assertNull("off", CompositorMath.burstWaitMs(true, 1_000, 1_500, 0))
+    }
+
+    /** The black bands are rectangles of the dash's frame in GL pixels, the origin at the bottom left. */
+    @Test
+    fun `the cover's bands are rectangles at the frame's edges, empty ones left out`() {
+        assertEquals(emptyList<RectPx>(), CompositorMath.coverRects(FrameFit.Cover.NONE))
+        val all = CompositorMath.coverRects(FrameFit.Cover(top = 10, bottom = 20, left = 30, right = 40))
+        assertEquals(
+            listOf(
+                RectPx(0, DashGlass.FRAME_H - 10, DashGlass.FRAME_W, 10), RectPx(0, 0, DashGlass.FRAME_W, 20),
+                RectPx(0, 0, 30, DashGlass.FRAME_H), RectPx(DashGlass.FRAME_W - 40, 0, 40, DashGlass.FRAME_H),
+            ),
+            all,
+        )
+        assertEquals(listOf(RectPx(DashGlass.FRAME_W - 5, 0, 5, DashGlass.FRAME_H)), CompositorMath.coverRects(FrameFit.Cover(right = 5)))
+    }
+
     private fun assertWindow(offsetU: Float, offsetV: Float, scaleU: Float, scaleV: Float, actual: CompositorMath.TexWindow) {
         assertEquals("offsetU", offsetU, actual.offsetU, 1e-6f)
         assertEquals("offsetV", offsetV, actual.offsetV, 1e-6f)
         assertEquals("scaleU", scaleU, actual.scaleU, 1e-6f)
         assertEquals("scaleV", scaleV, actual.scaleV, 1e-6f)
+    }
+
+    @Test
+    fun `a redraw for the info ring waits what is left of the gap since the last frame, none before the first`() {
+        assertEquals(0L, CompositorMath.redrawWaitMs(lastFrameAtMs = 0, nowMs = 1_000))
+        assertEquals("a frame just went", 80L, CompositorMath.redrawWaitMs(lastFrameAtMs = 1_000, nowMs = 1_000))
+        assertEquals(50L, CompositorMath.redrawWaitMs(lastFrameAtMs = 1_000, nowMs = 1_030))
+        assertEquals("the gap is over", 0L, CompositorMath.redrawWaitMs(lastFrameAtMs = 1_000, nowMs = 1_080))
+        assertEquals(0L, CompositorMath.redrawWaitMs(lastFrameAtMs = 1_000, nowMs = 5_000))
+        assertEquals("never more than the gap", 80L, CompositorMath.redrawWaitMs(lastFrameAtMs = 9_000, nowMs = 1_000))
+        assertEquals(80L, CompositorMath.RING_REDRAW_GAP_MS)
+    }
+
+    @Test
+    fun `the clock reads the screen from the picture every 50 ms only while somebody listens and there is a picture`() {
+        assertEquals(50L, CompositorMath.lookPollMs(listening = true, hasImage = true))
+        assertEquals("the card mode has nobody listening", 250L, CompositorMath.lookPollMs(listening = false, hasImage = true))
+        assertEquals("no picture yet", 250L, CompositorMath.lookPollMs(listening = true, hasImage = false))
+        assertEquals(250L, CompositorMath.lookPollMs(listening = false, hasImage = false))
     }
 }

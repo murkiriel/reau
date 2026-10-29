@@ -43,6 +43,8 @@ internal class VideoLoop(
     private val link: () -> LinkSample? = { null },
     /** The navigation profiles' input: maneuver distance and route speed, read every poll (same pattern as [link]). */
     private val navSample: () -> StreamGovernor.NavSample? = { null },
+    /** Whether Android Auto's screen in front is a light one (its app menu), read every poll. */
+    private val lightScreen: () -> Boolean = { false },
     /** The stats text on the dash's video: told when the stream starts and stops, and its numbers each second. */
     private val stats: StatsFeed? = null,
 ) {
@@ -62,8 +64,8 @@ internal class VideoLoop(
      * [ceilingFps] how high it may climb. [clockSlowPercent] is the video clock knob. [bitrateBps], [bitrateMode] and
      * [keyframeSec] (0: automatic) are the rider's; their defaults here are what the stream had before.
      *
-     * Debug option: with [recordFrames] above zero and a [recordDir], the first [recordFrames] units of every
-     * stream are also written to a file there ([H264Recorder]).
+     * Optional recording: with [recordFrames] above zero and a [recordDir], the first [recordFrames] units of every
+     * stream are also written to a file there ([H264Recorder]); with [recordRolling] the stream goes on in further parts, to its end.
      */
     data class Settings(
         val startFps: Int = DashConfig.AUTO_FPS_START,
@@ -75,6 +77,9 @@ internal class VideoLoop(
         val windowMs: Long = StreamGovernor.WINDOW_MS,
         val recordFrames: Int = 0,
         val recordDir: File? = null,
+        val recordRolling: Boolean = false,
+        /** The pace on a light screen of Android Auto ([LightScreen]); 0: off. */
+        val lightScreenFps: Int = 0,
     )
 
     private var encoder: DashEncoder? = null
@@ -95,13 +100,22 @@ internal class VideoLoop(
         val status = thermalStatus()
         lastThermal = status
         val ceiling = ThermalCeiling.capFor(status, settings.ceilingFps)
-        if (ceiling < DashConfig.snapStreamFps(settings.ceilingFps)) logThermal(status)
-        val plan = AutoFpsController.plan(settings.startFps, null, null, ceiling)
-        val g = StreamGovernor(plan, settings.clockSlowPercent, settings.windowMs, settings.bitrateBps, settings.keyframeSec)
-        val rec = settings.recordDir?.takeIf { settings.recordFrames > 0 }?.let {
-            H264Recorder(it, settings.recordFrames, H264Recorder.nameFor(System.currentTimeMillis()), log)
+        if (thermalCapped(ceiling, settings.ceilingFps)) logThermal(status)
+        val plan = AutoFpsController.plan(settings.startFps, ceiling)
+        val g = StreamGovernor(
+            plan, settings.clockSlowPercent, settings.windowMs, settings.bitrateBps, settings.keyframeSec, lightScreenFps = settings.lightScreenFps,
+        )
+        val rec = recordInto(settings.recordDir, settings.recordFrames)?.let {
+            H264Recorder(it, settings.recordFrames, H264Recorder.nameFor(System.currentTimeMillis()), settings.recordRolling, log)
         }
-        val out = RtpOutput(tap = rec?.let { it::write }, sendRtp = dash::sendRtp)
+        val out = RtpOutput(
+            tap = rec?.let { it::write },
+            sendRtp = { packet ->
+                dash.sendRtp(packet)
+                // Cheap when no touch is being followed (a flag): the line of a touch is written when its first packet goes out.
+                InputLatency.packetSent({ g.fps }, { com.reau.app.aa.AaScreens.watch.screen.value.name })
+            },
+        )
         val fresh = buildEncoder(out, g.encoderFps, g.keyframeSec, g.activeBitrateBps) ?: return false
         out.switchTo(fresh)
         outputFailing = false
@@ -120,7 +134,7 @@ internal class VideoLoop(
         stats?.stream(settings.bitrateMode, g.keyframeSec, settings.keyframeSec > 0)
         apply(g.start(SystemClock.elapsedRealtime()))
         com.reau.app.data.ProjectionSummary.current.streaming(on = true, SystemClock.elapsedRealtime())
-        compositor.setOutput(checkNotNull(fresh.inputSurface), fresh::frameSubmitted)
+        compositor.setOutput(checkNotNull(fresh.inputSurface), onFrameSubmitted = fresh::frameSubmitted)
         poller = Executors.newSingleThreadScheduledExecutor { Thread(it, "video-loop") }.also {
             it.scheduleWithFixedDelay(::poll, POLL_MS, POLL_MS, TimeUnit.MILLISECONDS)
         }
@@ -148,9 +162,10 @@ internal class VideoLoop(
         poller?.shutdownNow()
         poller = null
         stats?.panelStopped()
-        compositor.clearOutput()
-        encoder?.release()
+        // The encoder is released on the GL thread, after the output is let go: never while a frame can still be drawn on its surface.
+        val stopping = encoder
         encoder = null
+        compositor.clearOutput { stopping?.release() }
         recorder?.close()
         recorder = null
         log("video loop stop (${output?.heldBack ?: 0} frames held back before a keyframe, ${output?.idrWithheld ?: 0} keyframes withheld for lack of SPS/PPS)")
@@ -166,11 +181,11 @@ internal class VideoLoop(
             outputFailing = encoded.isFailure
             // A codec that failed stays failed (the output thread is gone), and the poll only logged it once: the dash
             // kept the last picture and the app said "streaming". A few seconds of it, and a new encoder takes over.
-            failedPolls = if (encoded.isFailure) failedPolls + 1 else 0
-            if (failedPolls >= REBUILD_AFTER_FAILED_POLLS) {
+            failedPolls = failedPollsAfter(failedPolls, encoded.isFailure)
+            if (rebuildDue(failedPolls)) {
                 failedPolls = 0
                 log("${RideDiagnostics.WARN}encoder failed for ${REBUILD_AFTER_FAILED_POLLS * POLL_MS} ms: rebuilding it")
-                rebuild(StreamGovernor.Action.Rebuild(g.fps, g.keyframeSec, g.activeBitrateBps))
+                rebuild(g.rebuildAction())
             }
             val timed = encoded.getOrNull()
             val counts = out.takeCounts()
@@ -180,6 +195,7 @@ internal class VideoLoop(
                 lastThermal = status
                 logThermal(status)
             }
+            compositor.burstGapMs = burstGap(status)
             apply(
                 g.onPoll(
                     StreamGovernor.Poll(
@@ -195,14 +211,22 @@ internal class VideoLoop(
                         dashAcks = dash.decodedFrameCount,
                         firstFrameConfirmed = dash.firstFrameConfirmed,
                         // Over the hot ceiling the windows count as short, and the automatic rate comes down to it.
-                        thermalOk = ThermalCeiling.allows(status, g.fps, settings.ceilingFps),
+                        thermalOk = ThermalCeiling.allows(status, g.profileFps, settings.ceilingFps),
                         link = runCatching { link() }.getOrNull(),
                         navSample = runCatching { navSample() }.getOrNull(),
+                        // The heat stops the faster pace from the first sign of it ('moderate'): the ceiling of a stream fixed at 4 fps has no step under it.
+                        lightScreen = lightScreenOn(settings.lightScreenFps, status, lightScreen),
                     ),
                 ),
             )
         }.onFailure { log("video loop poll failed: $it") }
     }
+
+    /**
+     * The compositor draws a new picture at once while the rider's input is fresh ([InputBurst]) ([REauSettings.lightScreenFps]), a phone cooler
+     * than 'moderate' and the dash showing pictures; 0: off.
+     */
+    private fun burstGap(thermalStatus: Int): Long = burstGapFor(settings.lightScreenFps, thermalStatus, dash.firstFrameConfirmed)
 
     private fun apply(actions: List<StreamGovernor.Action>) {
         for (action in actions) {
@@ -234,8 +258,8 @@ internal class VideoLoop(
         val old = encoder
         out.switchTo(fresh)
         encoder = fresh
-        compositor.setOutput(checkNotNull(fresh.inputSurface), fresh::frameSubmitted)
-        old?.release()
+        // The old encoder goes on the GL thread, after the new surface is attached and the old one let go (see clearOutput).
+        compositor.swapOutputThen(checkNotNull(fresh.inputSurface), onFrameSubmitted = fresh::frameSubmitted, after = { old?.release() })
         stats?.stream(settings.bitrateMode, wanted.keyframeSec, settings.keyframeSec > 0)
         log("encoder rebuilt: ${wanted.fps} fps, keyframe ${wanted.keyframeSec}s, ${wanted.bitrateBps / 1000} kbps")
     }
@@ -253,6 +277,29 @@ internal class VideoLoop(
     }
 
     companion object {
+        /** The stream's rate is held under the ceiling the phone's heat allows: [ceiling] is under the rate the rider [wanted]. */
+        internal fun thermalCapped(ceiling: Int, wanted: Int): Boolean = ceiling < DashConfig.snapStreamFps(wanted)
+
+        /** The folder the first frames of the stream are recorded into: only when a folder is given and some frames are asked for. */
+        internal fun recordInto(dir: File?, frames: Int): File? = dir?.takeIf { frames > 0 }
+
+        /** The polls in a row with the encoder's output failing, after this poll: a poll that went well starts the count over. */
+        internal fun failedPollsAfter(failedBefore: Int, failedNow: Boolean): Int = if (failedNow) failedBefore + 1 else 0
+
+        /** Whether the encoder has failed for long enough to be rebuilt. */
+        internal fun rebuildDue(failedPolls: Int): Boolean = failedPolls >= REBUILD_AFTER_FAILED_POLLS
+
+        /**
+         * The gap the compositor draws a new picture at once with while the rider's input is fresh ([InputBurst]): only with the faster
+         * pace set, a phone cooler than 'moderate' and the dash showing pictures; 0: off.
+         */
+        internal fun burstGapFor(lightScreenFps: Int, thermalStatus: Int, firstFrameConfirmed: Boolean): Long =
+            if (lightScreenFps > 0 && thermalStatus < THERMAL_MODERATE && firstFrameConfirmed) InputBurst.GAP_MS else 0L
+
+        /** Whether the faster pace for a light screen applies now: it is set, the phone is cooler than 'moderate', and the screen says light. */
+        internal fun lightScreenOn(lightScreenFps: Int, thermalStatus: Int, lightScreenNow: () -> Boolean): Boolean =
+            lightScreenFps > 0 && thermalStatus < THERMAL_MODERATE && runCatching { lightScreenNow() }.getOrDefault(false)
+
         private const val POLL_MS = 250L
 
         /** Polls in a row with the encoder's output failing before it is rebuilt (8 × 250 ms = 2 s). */
@@ -260,5 +307,6 @@ internal class VideoLoop(
 
         /** No thermal status known: counts as cool. */
         const val THERMAL_UNKNOWN = -1
+        private const val THERMAL_MODERATE = 2
     }
 }

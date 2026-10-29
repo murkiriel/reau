@@ -139,7 +139,7 @@ object OwnLogcat {
         out = runCatching { PrintWriter(f.outputStream().bufferedWriter(), false) }.getOrNull()
         d.listFiles { x -> x.name.startsWith("logcat-") && x.name.endsWith(".txt") }
             ?.sortedBy { it.lastModified() }?.dropLast(KEEP_FILES)?.forEach { runCatching { it.delete() } }
-        DiagSpace.trim(d, DiagSpace.CAP_BYTES, setOfNotNull(f.name, RideDiagnostics.currentFileName()))
+        DiagSpace.trim(d, DiagSpace.capBytes(), setOfNotNull(f.name, RideDiagnostics.currentFileName()))
             ?.let { RideDiagnostics.log("diag", "space: $it") }
     }
 }

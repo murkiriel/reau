@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Stub of Android Auto for the emulator's instrumented tests. Not part of the REau app or its Gradle build.
+     It has no code, no settings screen and no receiver, like the stub the google_apis image carries
+     (the tests expect exactly that: version 1.2.551000-stub, and DefaultSettingsActivity absent). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.google.android.projection.gearhead"
+    android:versionCode="12551000"
+    android:versionName="1.2.551000-stub">
+    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
+    <application android:label="Android Auto (stub)" android:hasCode="false" />
+</manifest>

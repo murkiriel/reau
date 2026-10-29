@@ -1,0 +1,25 @@
+# The app's own baseline profile (the libraries bring theirs): what runs at the start of the app, on the main screen, and what runs for every
+# picture, packet and button while a projection is up. AGP packs it into the APK; the system compiles these methods ahead of time at install,
+# so the first tap on Ligar and the first joystick press do not run in the interpreter (audit of 26/10/2026: 87 ms for the first tap, 19 ms later).
+# H = hot, S = runs at startup, P = runs after startup, L = the class is loaded. A rule that names a package that does not exist is a mistake:
+# BaselineProfileTest reads this file.
+
+# The start of the process and the main screen.
+HSPLcom/reau/app/REauApp;->**(**)**
+HSPLcom/reau/app/MainActivity;->**(**)**
+HSPLcom/reau/app/settings/**;->**(**)**
+HSPLcom/reau/app/ui/MainScreenKt;->**(**)**
+HSPLcom/reau/app/ui/components/**;->**(**)**
+HSPLcom/reau/app/ui/theme/**;->**(**)**
+HSPLcom/reau/app/data/KeystoreBackedPrefs**;->**(**)**
+HSPLcom/reau/app/dash/DashPairing;->**(**)**
+
+# The projection service and the machine that drives it.
+HSPLcom/reau/app/service/**;->**(**)**
+
+# The projection: Android Auto's side (read, decrypt, reassemble, decode), the compositor and the encoder, the dash's packets and buttons.
+HSPLcom/reau/app/aa/**;->**(**)**
+HSPLcom/reau/app/video/**;->**(**)**
+HSPLcom/reau/app/stream/**;->**(**)**
+HSPLcom/reau/app/dash/**;->**(**)**
+HSPLcom/reau/app/weather/InfoRing**;->**(**)**

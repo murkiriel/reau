@@ -42,4 +42,39 @@ class DashWifiReconnectUnderWayTest {
     fun `the window is one request of the reconnection and its pause, with some slack`() {
         assertEquals(10_000L + 4_000L + 2_000L, RECONNECT_WINDOW_MS)
     }
+
+    // ── the pause grows when the dash stays away ────────────────────────────────────────────────────────
+
+    @Test
+    fun `the pause between requests is 4 s at first and 35 s once the dash has been away for 3 minutes`() {
+        assertEquals(4_000L, ReconnectPace.pauseMs(0))
+        assertEquals(4_000L, ReconnectPace.pauseMs(ReconnectPace.BACKOFF_AFTER_MS - 1))
+        assertEquals(35_000L, ReconnectPace.pauseMs(ReconnectPace.BACKOFF_AFTER_MS))
+        assertEquals("18 minutes away, as in the log", 35_000L, ReconnectPace.pauseMs(18 * 60_000L))
+    }
+
+    @Test
+    fun `eighteen minutes away cost less than half the requests of a fixed 4 s pause`() {
+        fun requestsIn(minutes: Int, pause: (Long) -> Long): Int {
+            var requests = 0
+            var t = 0L
+            while (t < minutes * 60_000L) {
+                requests++
+                t += 10_000L + pause(t) // the request (10 s) and the pause after it
+            }
+            return requests
+        }
+        val fixed = requestsIn(18) { 4_000L }
+        val paced = requestsIn(18) { ReconnectPace.pauseMs(it) }
+        assertEquals(78, fixed)
+        assertTrue("$paced of $fixed", paced * 2 < fixed)
+    }
+
+    @Test
+    fun `the reconnection stays under way through the long pause, so the projection does not make a fresh connect`() {
+        val longPause = ReconnectPace.BACKOFF_PAUSE_MS
+        assertTrue(reconnectUnderWay(true, true, WifiConnStatus.REQUESTING, sinceMs = 40_000, pauseMs = longPause))
+        assertFalse("with the short pause that moment would be stuck", reconnectUnderWay(true, true, WifiConnStatus.REQUESTING, sinceMs = 40_000))
+        assertFalse(reconnectUnderWay(true, true, WifiConnStatus.REQUESTING, sinceMs = 10_000 + longPause + 2_001, pauseMs = longPause))
+    }
 }

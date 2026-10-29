@@ -7,10 +7,11 @@
     </queries>
 
     <application>
-        <!-- Only to switch Android Auto's head unit server on and off: the accessibility service walks Android
-             Auto's settings menu behind a cover, and keeps the "Stop" of the server's notification. It hears Android
-             Auto alone (res/xml/aa_server_accessibility.xml) and works only with the switch "Ligar e desligar o
-             servidor do Android Auto sozinho" on. Its cover is an accessibility overlay: no SYSTEM_ALERT_WINDOW. -->
+        <!-- To switch Android Auto's head unit server on and off: the accessibility service walks Android
+             Auto's settings menu behind a cover, and keeps the "Stop" of the server's notification. That walk works only with the
+             switch "Ligar e desligar o servidor do Android Auto sozinho" on. Besides Android Auto it hears Google Maps' window
+             changes and, for their call notifications only, the voice apps (res/xml/aa_server_accessibility.xml). Its cover is an
+             accessibility overlay: no SYSTEM_ALERT_WINDOW. -->
         <service
             android:name=".service.AaServerAccessibilityService"
             android:exported="false"

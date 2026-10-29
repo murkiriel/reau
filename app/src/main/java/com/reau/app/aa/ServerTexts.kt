@@ -25,6 +25,11 @@ class ServerTexts(
     val notificationText: Set<String>,
     /** How many of [RESOURCES] Android Auto answered, for the log. */
     val fromAndroidAuto: Int = 0,
+    /**
+     * Android Auto itself gave the words of the server's items or of the developer menu in the phone's language (any language it
+     * has), so a menu with none of them is known not to have them; without that only the fixed tables speak, for three languages.
+     */
+    val developerKnown: Boolean = false,
 ) {
     /** What the menu's items say, as [read] tells it. */
     enum class Reading {
@@ -60,6 +65,9 @@ class ServerTexts(
             stops && !starts -> Reading.STOP_SHOWN
             starts || items.any(::isDeveloper) -> Reading.UNKNOWN_DEVELOPER_MENU
             items.any { it.isNotBlank() && normalize(it) in help } -> Reading.DEVELOPER_MODE_OFF
+            // In any language: the menu opened, has items, and none of them is the server's or the developer menu's, whose words
+            // Android Auto gave us for this phone. German, French, Italian and Japanese had no help table and read as "nothing known".
+            developerKnown && items.any { it.isNotBlank() } && items.size <= MAX_PLAIN_MENU_ITEMS -> Reading.DEVELOPER_MODE_OFF
             else -> Reading.UNREADABLE
         }
     }
@@ -77,6 +85,12 @@ class ServerTexts(
         val RESOURCES = listOf(
             RES_START, RES_STOP, RES_DEVELOPER_SETTINGS, RES_QUIT_DEVELOPER, RES_MORE_OPTIONS, RES_NOTIFICATION_STOP, RES_NOTIFICATION_TEXT,
         )
+
+        /**
+         * The menu without the developer mode is short (help and feedback: two or three items). A longer list of texts that none of
+         * Android Auto's server or developer words is not that menu (a dialog or another screen of Android Auto): not taken for it.
+         */
+        const val MAX_PLAIN_MENU_ITEMS = 6
 
         // The fixed tables (Android Auto 17.7 and 17.9: pt-BR, pt-PT, en, es, es-419).
         val START_TABLE = listOf(
@@ -128,6 +142,7 @@ class ServerTexts(
                 notificationStop = set(NOTIFICATION_STOP_TABLE, RES_NOTIFICATION_STOP),
                 notificationText = set(NOTIFICATION_TEXT_TABLE, RES_NOTIFICATION_TEXT),
                 fromAndroidAuto = own.values.count { it != null },
+                developerKnown = listOf(RES_START, RES_STOP, RES_DEVELOPER_SETTINGS, RES_QUIT_DEVELOPER).any { own[it] != null },
             )
         }
     }

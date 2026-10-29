@@ -20,10 +20,34 @@ object FrameFit {
     const val CENTER_MAX = 200
 
 
+    /**
+     * Black bands over the dash's frame, [top], [bottom], [left] and [right] pixels wide, drawn over the picture to hide what the rider
+     * does not want to see (the app column, say). Part of the mapping, so each screen of Android Auto has its own.
+     */
+    data class Cover(val top: Int = 0, val bottom: Int = 0, val left: Int = 0, val right: Int = 0) {
+        val none: Boolean get() = this == NONE
+
+        /** Each band within what is offered ([MAX_COVER_X], [MAX_COVER_Y]), so the picture never disappears. */
+        fun clamped(): Cover = Cover(
+            top.coerceIn(0, MAX_COVER_Y), bottom.coerceIn(0, MAX_COVER_Y), left.coerceIn(0, MAX_COVER_X), right.coerceIn(0, MAX_COVER_X),
+        )
+
+        companion object {
+            val NONE = Cover()
+        }
+    }
+
+    /** The widest a side band may be, and the tallest a top or bottom one: together they leave 126 × 60 px of the 526 × 300 frame. */
+    const val MAX_COVER_X = 200
+    const val MAX_COVER_Y = 120
+
+    /** The zoom's range in %, 100 being the fit as it is: under it the picture shrinks (black around), over it the picture is nearer. */
+    val ZOOM = 50..200
+
     /** [source] in the pixels of Android Auto's frame, [dest] in the pixels of the dash's 526×300 frame. */
     /** [pastEdge]: the crop's window was slid past the picture's edge on purpose; only then may [source] leave
      *  Android Auto's frame, and the outside goes black. */
-    data class Mapping(val source: RectPx, val dest: RectPx, val pastEdge: Boolean = false) {
+    data class Mapping(val source: RectPx, val dest: RectPx, val pastEdge: Boolean = false, val cover: Cover = Cover.NONE) {
         /** Dash pixels per source pixel: 0.375 means text drawn 24 px tall arrives 9 px tall. */
         val scale: Double get() = if (source.w > 0) dest.w.toDouble() / source.w else 0.0
     }
@@ -127,6 +151,24 @@ object FrameFit {
         return mapping.copy(dest = d.copy(x = x, y = y))
     }
 
+    /**
+     * [mapping] zoomed to [percent] (100: as it is) keeping the bottom edge of the picture where it is: under 100 the destination
+     * shrinks (the picture is farther, black around it, its bottom edge and its middle sideways kept); over 100 the source shrinks
+     * ([LiveZoom.fromBottom]: nearer, the top and the sides of the source go, its bottom edge stays). The shape never changes, so
+     * the mapping stays valid; the cover is kept.
+     */
+    fun zoomed(mapping: Mapping, percent: Int): Mapping {
+        val z = percent.coerceIn(ZOOM)
+        val d = mapping.dest
+        val w = (d.w * z / 100).coerceAtLeast(1)
+        val h = (w * d.h.toDouble() / d.w).roundToInt().coerceAtLeast(1)
+        return when {
+            z == 100 -> mapping
+            z > 100 -> LiveZoom.fromBottom(mapping, z)
+            else -> mapping.copy(dest = RectPx(d.x + (d.w - w) / 2, d.y + d.h - h, w, h))
+        }
+    }
+
     /** What is wrong with a mapping, in this order; empty when it can go to the compositor. */
     enum class Problem {
         /** The source rectangle is not inside Android Auto's frame; for a crop slid past the edge ([Mapping.pastEdge]),
@@ -153,7 +195,8 @@ object FrameFit {
 
     /** Checks a mapping (one typed into the settings, say) against a [frameW]×[frameH] Android Auto frame. */
     fun problems(mapping: Mapping, frameW: Int, frameH: Int): List<Problem> = buildList {
-        val (s, d) = mapping
+        val s = mapping.source
+        val d = mapping.dest
         val sourceOk = if (mapping.pastEdge) s.touches(frameW, frameH) else s.isInside(frameW, frameH)
         if (!sourceOk) add(Problem.SOURCE_OUTSIDE_FRAME)
         if (!d.isInside(DashGlass.FRAME_W, DashGlass.FRAME_H)) add(Problem.DEST_OUTSIDE_FRAME)

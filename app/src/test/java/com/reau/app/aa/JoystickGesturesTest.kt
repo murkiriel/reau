@@ -67,6 +67,46 @@ class JoystickGesturesTest {
     }
 
     @Test
+    fun `the map's sides can zoom the picture`() {
+        val m = JoystickMap(
+            JoystickBindings.DEFAULT
+                .with(Slot(Mode.MAP, Control.RIGHT, Gesture.ONCE), Action.ZOOM_IN)
+                .with(Slot(Mode.MAP, Control.LEFT, Gesture.ONCE), Action.ZOOM_OUT),
+        )
+        assertEquals(listOf(AaCommand.PanelZoom(1)), m.press(mapRight, 0).sent)
+        assertEquals(listOf(AaCommand.PanelZoom(-1)), m.press(mapLeft, 1_000).sent)
+    }
+
+    @Test
+    fun `the dash's right that comes with a press of the map's centre does not leave the zoom changed (6 of 38 presses, 22 10 2026)`() {
+        val m = JoystickMap(JoystickBindings.DEFAULT.with(Slot(Mode.MAP, Control.RIGHT, Gesture.ONCE), Action.ZOOM_IN))
+        assertEquals(listOf(AaCommand.PanelZoom(1)), m.press(mapRight, 0).sent)
+        val centre = m.press(joystickIn, 130)
+        assertEquals("the zoom step is taken back", listOf(AaCommand.PanelZoomUndo), centre.sent)
+        assertTrue(centre.lines.toString(), "taken back" in centre.lines.single())
+        // only once
+        assertTrue(m.press(joystickIn, 800).sent.isEmpty())
+    }
+
+    @Test
+    fun `a centre press long after a side, or in the media mode, takes nothing back`() {
+        val m = JoystickMap(JoystickBindings.DEFAULT.with(Slot(Mode.MAP, Control.RIGHT, Gesture.ONCE), Action.ZOOM_IN))
+        m.press(mapRight, 0)
+        assertTrue("400 ms later is a press of its own", m.press(joystickIn, 400).sent.isEmpty())
+        m.press(mapRight, 5_000)
+        assertEquals("the media mode's centre does not undo the map's side", listOf(AaCommand.Key(23)), m.press(center, 5_150).sent)
+    }
+
+    @Test
+    fun `a side that is not a zoom stays, since a skipped song or a moved focus cannot be taken back`() {
+        val m = JoystickMap(JoystickBindings.DEFAULT.with(Slot(Mode.MAP, Control.RIGHT, Gesture.ONCE), Action.NEXT_SONG))
+        assertEquals(listOf(AaCommand.Key(87)), m.press(mapRight, 0).sent)
+        val centre = m.press(joystickIn, 150)
+        assertTrue(centre.sent.isEmpty())
+        assertTrue(centre.lines.single(), "the side stays" in centre.lines.single())
+    }
+
+    @Test
     fun `the map mode follows its own slots`() {
         val chosen = JoystickMap(
             JoystickBindings.DEFAULT
@@ -88,11 +128,13 @@ class JoystickGesturesTest {
     }
 
     @Test
-    fun `0x15 is down in the map mode, and 0x0B is the dash's notice, ignored`() {
-        val m = JoystickMap(JoystickBindings.DEFAULT.with(Slot(Mode.MAP, Control.DOWN, Gesture.ONCE), Action.HOME))
+    fun `0x15 is down in the map mode and sends nothing to Android Auto by default, and 0x0B is the dash's notice, ignored`() {
+        val m = JoystickMap(JoystickBindings.DEFAULT)
         val down = m.press(DashButtonEvent.Unknown(0x15), 0)
-        assertEquals(listOf(AaCommand.Key(3)), down.sent)
-        assertEquals(listOf("map down once -> Key(keycode=3)"), down.lines)
+        assertTrue("by default it is the info ring's switch, which sends Android Auto nothing", down.sent.isEmpty())
+        assertEquals(listOf("map down once -> info ring"), down.lines)
+        val chosen = JoystickMap(JoystickBindings.DEFAULT.with(Slot(Mode.MAP, Control.DOWN, Gesture.ONCE), Action.HOME))
+        assertEquals("with another action chosen, that is what it sends", listOf(AaCommand.Key(ServiceDiscoveryResponse.KEY_HOME)), chosen.press(DashButtonEvent.Unknown(0x15), 0).sent)
         val notice = m.press(DashButtonEvent.Unknown(0x0B), 1_000)
         assertTrue(notice.sent.isEmpty())
         assertEquals(listOf("the dash's notice, ignored"), notice.lines)
@@ -140,6 +182,18 @@ class JoystickGesturesTest {
         assertEquals(listOf("left: on a call, nothing"), leftTap.lines)
         assertEquals(listOf(AaCommand.EndCall), m.press(right, 4_000).sent)
         assertEquals(listOf(AaCommand.EndCall), JoystickMap(callState = { CallState.IN_CALL }).press(mapRight, 0).sent)
+    }
+
+    @Test
+    fun `a tap asks for the call state once, however many of its rules look at it, and the log line reuses it`() {
+        var reads = 0
+        val m = JoystickMap(callState = { reads++; CallState.IDLE })
+        m.press(center, 0)
+        assertEquals("one read for the whole tap", 1, reads)
+        assertEquals(CallState.IDLE, m.callForLog())
+        assertEquals("the log line of that tap reads nothing more", 1, reads)
+        m.press(left, 2_000)
+        assertEquals("the next tap reads it again", 2, reads)
     }
 
     // ── the dash's own call screen while the phone rings: the first tap on a side is 0x02 (left) or 0x01 (right) ──

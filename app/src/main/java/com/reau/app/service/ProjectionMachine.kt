@@ -158,6 +158,12 @@ sealed interface ProjectionEvent {
     data object BikeNetworkAvailable : ProjectionEvent
 
     /**
+     * The dash was found in the Wi-Fi scan. A dash dropped and waiting out its retry is tried at once, like [BikeNetworkAvailable]
+     * but the pace of the waits goes on (the sighting does not say the dash is staying): with no retry waiting, it changes nothing.
+     */
+    data object DashSighted : ProjectionEvent
+
+    /**
      * The Wi-Fi link says whether the dash's network being asked for was never approved by the rider ([on]; Android's dialog is
      * expected), or that it is joined or no longer in question (false).
      */
@@ -191,6 +197,9 @@ sealed interface ProjectionEffect {
 
     /** The wait asked for by [RetryDashIn] is not wanted any more: the dash is being tried now. */
     data object CancelDashRetry : ProjectionEffect
+
+    /** The projection is stopping by itself because the dash has been gone for [afterMs] (the rider's limit): say so to the rider. */
+    data class NotifyNoDash(val afterMs: Long) : ProjectionEffect
 }
 
 data class Step(val state: Projection, val effects: List<ProjectionEffect>)
@@ -206,6 +215,8 @@ data class Step(val state: Projection, val effects: List<ProjectionEffect>)
  *   video meanwhile (the compositor repeats the last picture). The dash is connected again here, after a wait that
  *   doubles each time up to [MAX_DASH_RETRY_MS]; its video stops while it is away.
  * - The video to the dash runs while the dash is ready, whether Android Auto is there or not.
+ * - A dash gone for the rider's limit ([NO_DASH_STOP_MS] unless the settings say otherwise; none, if they say so) stops the
+ *   projection by itself, as the rider's Desligar would, and the rider is told.
  * - Reconnecting happens only while the rider has the projection on: nothing starts by itself.
  * - With the network server on, the dash is not looked for at all: switched on, the dash is let
  *   go and nothing about it is heard; switched off, it is looked for again.
@@ -215,11 +226,19 @@ object ProjectionMachine {
     private const val FIRST_DASH_RETRY_MS = 2_000L
     private const val MAX_DASH_RETRY_MS = 30_000L
 
-    // Five minutes trying at most every half minute, then once a minute, no end.
+    // Five minutes trying at most every half minute, then once a minute until the rider's limit (NO_DASH_STOP_MS by default).
     private const val SLOW_AFTER_MS = 5 * 60_000L
     private const val SLOW_DASH_RETRY_MS = 60_000L
 
-    fun step(state: Projection, event: ProjectionEvent, nowMs: Long = 0L): Step = when (event) {
+    /**
+     * How long a dash may stay gone, by default, before the projection stops by itself (the settings offer 5, 10 and 20 minutes
+     * or no limit: [step] takes the rider's choice, 0 being none). Observed in the ride logs: the bike was switched
+     * off and the phone kept Android Auto, the decoder and the locks for minutes until the rider tapped Desligar; a dash
+     * that came back after a stop of the bike did so within six minutes. It is checked when a retry is due (at most a minute apart).
+     */
+    const val NO_DASH_STOP_MS = 20 * 60_000L
+
+    fun step(state: Projection, event: ProjectionEvent, nowMs: Long = 0L, noDashStopMs: Long = NO_DASH_STOP_MS): Step = when (event) {
         ProjectionEvent.Start -> start(state, card = false)
         ProjectionEvent.StartCard -> start(state, card = true)
         ProjectionEvent.Prepared -> prepared(state)
@@ -232,8 +251,9 @@ object ProjectionMachine {
             if (event.state != AaLinkState.ACTIVE) next.copy(state = next.state.copy(aaImageStale = false)) else next
         }
         is ProjectionEvent.DashChanged -> dashChanged(state, event.link, nowMs)
-        ProjectionEvent.DashRetryDue -> dashRetryDue(state)
-        ProjectionEvent.BikeNetworkAvailable -> bikeNetworkAvailable(state)
+        ProjectionEvent.DashRetryDue -> dashRetryDue(state, nowMs, noDashStopMs)
+        ProjectionEvent.BikeNetworkAvailable -> bikeNetworkAvailable(state, nowMs)
+        ProjectionEvent.DashSighted -> dashSighted(state, nowMs)
         is ProjectionEvent.DashFirstJoin -> Step(state.copy(dashFirstJoin = event.on && state.phase == Phase.RUNNING), emptyList())
         is ProjectionEvent.NetworkServer -> ProjectionNetworkRule.switched(state, event.on)
         is ProjectionEvent.AndroidAutoVideo -> Step(state.copy(aaNoVideo = event.silent && state.phase == Phase.RUNNING), emptyList())
@@ -332,16 +352,43 @@ object ProjectionMachine {
         }
     }
 
-    private fun dashRetryDue(state: Projection): Step =
-        // Only a running projection has a dropped dash: stopping clears the state, and the dash is not heard before.
-        if (state.dash != DashLink.DROPPED && state.dash != DashLink.TAKEN) {
-            Step(state, emptyList())
-        } else if (!state.card && state.androidAuto != AaLinkState.ACTIVE) {
-            // Android Auto is down: the dash waits for it again (AndroidAutoChanged in step starts it).
-            Step(state.copy(dash = DashLink.OFF), emptyList())
-        } else {
-            Step(state.copy(dash = DashLink.CONNECTING), listOf(ProjectionEffect.StartDash))
+    private fun dashRetryDue(state: Projection, nowMs: Long, noDashStopMs: Long): Step {
+        if (goneForTooLong(state, nowMs, noDashStopMs)) {
+            val stopped = stop(state)
+            return Step(stopped.state, listOf(ProjectionEffect.NotifyNoDash(noDashStopMs)) + stopped.effects)
         }
+        return tryDash(state, nowMs)
+    }
+
+    /**
+     * The dash dropped and has not been back for [limitMs] (one taken by another app is not gone); a limit of 0 or less is none. A dropped
+     * dash waiting for Android Auto to come back ([tryDash]) is as gone: the bike is off whether Android Auto is up or not.
+     */
+    private fun goneForTooLong(state: Projection, nowMs: Long, limitMs: Long): Boolean {
+        val goneAt = state.dashGoneAtMs ?: return false
+        val gone = state.dash == DashLink.DROPPED || state.dash == DashLink.OFF
+        return limitMs > 0 && state.phase == Phase.RUNNING && gone && nowMs - goneAt >= limitMs
+    }
+
+    private fun tryDash(state: Projection, nowMs: Long): Step = when {
+        // Only a running projection has a dropped dash: stopping clears the state, and the dash is not heard before.
+        state.dash == DashLink.OFF && state.dashGoneAtMs != null && state.phase == Phase.RUNNING -> waitingForAndroidAuto(state, nowMs)
+        state.dash != DashLink.DROPPED && state.dash != DashLink.TAKEN -> Step(state, emptyList())
+        // Android Auto is down: the dash waits for it again (AndroidAutoChanged in step starts it).
+        !state.card && state.androidAuto != AaLinkState.ACTIVE -> waitingForAndroidAuto(state.copy(dash = DashLink.OFF), nowMs)
+        else -> Step(state.copy(dash = DashLink.CONNECTING), listOf(ProjectionEffect.StartDash))
+    }
+
+    /**
+     * The dropped dash waits for Android Auto, and the clock of its absence keeps going: a retry is still planned, so the "no dash for
+     * twenty minutes" stop comes even when Android Auto went down too (26/10/2026 review: the bike off and Android Auto's server closed
+     * left the projection, its locks and the dialling to Android Auto every 2 s running all night).
+     */
+    private fun waitingForAndroidAuto(state: Projection, nowMs: Long): Step {
+        val goneAt = state.dashGoneAtMs ?: return Step(state, emptyList())
+        val wait = dashRetryDelayMs(state.dashRetries.coerceAtLeast(1), goneMs = nowMs - goneAt)
+        return Step(state, listOf(ProjectionEffect.RetryDashIn(wait)))
+    }
 
     /**
      * The bike's Wi-Fi is back while a dropped dash waits for its retry: the wait is cut and the dash is tried now,
@@ -349,13 +396,20 @@ object ProjectionMachine {
      * A dash being connected, ready, taken by another app (the Wi-Fi is not what it waits for) or not running at
      * all is none of this event's business.
      */
-    private fun bikeNetworkAvailable(state: Projection): Step {
+    private fun bikeNetworkAvailable(state: Projection, nowMs: Long): Step {
         if (state.phase != Phase.RUNNING || state.dash != DashLink.DROPPED) return Step(state, emptyList())
-        val due = dashRetryDue(state)
+        val due = tryDash(state.copy(dashRetries = 0, dashGoneAtMs = null), nowMs)
         return Step(
             due.state.copy(dashRetries = 0, dashGoneAtMs = null),
             listOf(ProjectionEffect.CancelDashRetry) + due.effects,
         )
+    }
+
+    /** The dash was seen in the scan while it waits for its retry: the wait is cut and it is tried now (the retries and the gone-since stay). */
+    private fun dashSighted(state: Projection, nowMs: Long): Step {
+        if (state.phase != Phase.RUNNING || state.dash != DashLink.DROPPED) return Step(state, emptyList())
+        val due = tryDash(state, nowMs)
+        return Step(due.state, listOf(ProjectionEffect.CancelDashRetry) + due.effects)
     }
 
     // 2 s doubled four times is past the ceiling already.

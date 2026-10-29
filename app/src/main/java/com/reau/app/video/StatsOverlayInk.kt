@@ -23,7 +23,7 @@ object StatsOverlayInk {
     /** The border's width: a seventh of the letters' height, never thinner than 2 px. */
     private fun border(size: Float) = maxOf(2f, size / 7f)
 
-    private fun paint(size: Float, stroke: Boolean) = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private fun paint(size: Float, stroke: Boolean, fill: Int = RED) = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = Typeface.DEFAULT_BOLD
         textSize = size
         if (stroke) {
@@ -32,7 +32,7 @@ object StatsOverlayInk {
             strokeJoin = Paint.Join.ROUND
             color = Color.BLACK
         } else {
-            color = RED
+            color = fill
         }
     }
 
@@ -49,20 +49,27 @@ object StatsOverlayInk {
     private fun lineHeight(size: Float): Float = paint(size, stroke = false).fontMetrics.let { it.descent - it.ascent }
 
     /** The box the text takes at [size] (frame pixels): its width and height, border included. */
-    fun measure(text: StatsText, size: Int): Pair<Int, Int> {
-        val rows = lines(text, size.toFloat())
-        val pad = pad(size.toFloat())
+    fun measure(text: StatsText, size: Int): Pair<Int, Int> = measureRows(lines(text, size.toFloat()), size.toFloat())
+
+    /** Draws [text] with its box's top-left corner at ([left], [top]), everything multiplied by [scale]. */
+    @Suppress("LongParameterList") // the parameters are the fields of what it builds (wire format / the data it carries)
+    fun draw(canvas: Canvas, text: StatsText, size: Int, left: Float, top: Float, scale: Float = 1f) =
+        drawRows(canvas, lines(text, size * scale), size * scale, left, top, RED)
+
+    /** The box of [rows] (each a line and the height of its letters) around letters of [size]: width and height, border included. Shared with [ButtonOverlayInk]. */
+    internal fun measureRows(rows: List<Pair<String, Float>>, size: Float): Pair<Int, Int> {
+        val pad = pad(size)
         val width = rows.maxOf { (line, px) -> paint(px, stroke = false).measureText(line) }
         return ceil(width + 2 * pad).toInt() to ceil(rows.sumOf { (_, px) -> lineHeight(px).toDouble() } + 2 * pad).toInt()
     }
 
-    /** Draws [text] with its box's top-left corner at ([left], [top]), everything multiplied by [scale]. */
+    /** Draws [rows] in [color] with a black border, the box's top-left corner at ([left], [top]); [size] is the height of the first row's letters. */
     @Suppress("LongParameterList") // the parameters are the fields of what it builds (wire format / the data it carries)
-    fun draw(canvas: Canvas, text: StatsText, size: Int, left: Float, top: Float, scale: Float = 1f) {
-        val pad = pad(size * scale)
+    internal fun drawRows(canvas: Canvas, rows: List<Pair<String, Float>>, size: Float, left: Float, top: Float, color: Int) {
+        val pad = pad(size)
         var y = top + pad
-        for ((line, px) in lines(text, size * scale)) {
-            val fill = paint(px, stroke = false)
+        for ((line, px) in rows) {
+            val fill = paint(px, stroke = false, fill = color)
             val baseline = y - fill.fontMetrics.ascent
             canvas.drawText(line, left + pad, baseline, paint(px, stroke = true))
             canvas.drawText(line, left + pad, baseline, fill)

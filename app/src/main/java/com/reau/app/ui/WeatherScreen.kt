@@ -67,7 +67,7 @@ import java.time.format.TextStyle
  * The weather on a screen of its own (not loose on the main screen), from a shortcut of the main screen: the switch
  * "Clima no painel", and, with it on: now, the next 8 hours and the next 8 days (one under another, with the coloured
  * icons), the 14-day chart, the wind, the UV index, the air quality, and the sun and the moon. Off, nothing of it
- * shows, and nothing is fetched or kept.
+ * shows, and nothing is fetched or kept unless the info ring (also on by default) needs it.
  *
  * [enabled] is the switch as the settings say it; [onToggle] saves it; [onBack] leaves the screen. The keeper fetches when the
  * screen is shown with the switch on (and when REau is opened, and while the projection runs).
@@ -107,7 +107,8 @@ private fun WeatherContent(enabled: Boolean, onToggle: (Boolean) -> Unit) {
                 {
                     // Saved first, so an answer still on its way sees the switch off and keeps nothing; then what was kept goes.
                     onToggle(it)
-                    if (!it) WeatherKeeper.clear(context)
+                    // The info ring (its own switch, on the Android Auto screen) keeps using the weather kept.
+                    if (!it && !SettingsStore.open(context).load().infoRing) WeatherKeeper.clear(context)
                 },
                 "dash_weather", sub = stringResource(R.string.weather_sub),
                 info = Info(stringResource(R.string.weather_title), stringResource(R.string.weather_info)),
@@ -129,7 +130,7 @@ private fun WeatherContent(enabled: Boolean, onToggle: (Boolean) -> Unit) {
                 ValueRow(
                     stringResource(R.string.weather_sent_title),
                     if (sent == null) stringResource(R.string.weather_sent_none)
-                    else stringResource(R.string.weather_sent, sent.tempC, iconName(sent.icon)),
+                    else stringResource(R.string.weather_sent, u.sentTemp(sent.tempC), iconName(sent.icon)),
                     "weather_sent", mono = false,
                 )
             }

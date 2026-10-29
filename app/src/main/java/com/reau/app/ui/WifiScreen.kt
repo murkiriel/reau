@@ -1,14 +1,21 @@
 package com.reau.app.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -38,7 +45,10 @@ import com.reau.app.ui.components.SwitchRow
  * joining by itself. [onBack] leaves it; the rest goes through [actions], as in the settings.
  */
 @Composable
-fun WifiScreen(settings: REauSettings, pairing: PairingUi, actions: SettingsActions, scanAllowed: Boolean = true, onBack: () -> Unit) {
+fun WifiScreen(
+    settings: REauSettings, pairing: PairingUi, actions: SettingsActions, scanAllowed: Boolean = true, projectionRunning: Boolean = false,
+    onBack: () -> Unit,
+) {
     AppTheme {
         Column(Modifier.fillMaxSize()) {
             REauTopBar(stringResource(R.string.tile_wifi), onBack, titleTag = "wifi_title")
@@ -47,7 +57,7 @@ fun WifiScreen(settings: REauSettings, pairing: PairingUi, actions: SettingsActi
                     .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
-                WifiGroup(settings, pairing, actions, scanAllowed)
+                WifiGroup(settings, pairing, actions, scanAllowed, projectionRunning)
                 // Everything the dash says goes on this screen.
                 BikeDataGroups()
             }
@@ -60,8 +70,11 @@ fun WifiScreen(settings: REauSettings, pairing: PairingUi, actions: SettingsActi
  * ([scanAllowed] false), with the way to allow the location (only for that list), and a field for the name.
  */
 @Composable
-private fun WifiGroup(s: REauSettings, pairing: PairingUi, actions: SettingsActions, scanAllowed: Boolean) {
+private fun WifiGroup(s: REauSettings, pairing: PairingUi, actions: SettingsActions, scanAllowed: Boolean, projectionRunning: Boolean) {
     val known = pairing.ssid.isNotBlank()
+    // Forgetting the dash with the projection on cuts it mid-reconnection: it asks first.
+    var confirmForget by rememberSaveable { mutableStateOf(false) }
+    if (confirmForget) ForgetDashDialog({ confirmForget = false }) { confirmForget = false; actions.onForgetDash() }
     // What the rider types stays on screen while they type (the name is known from the first letter on).
     var typed by rememberSaveable { mutableStateOf("") }
     // The name hidden until the rider asks to see it.
@@ -93,7 +106,12 @@ private fun WifiGroup(s: REauSettings, pairing: PairingUi, actions: SettingsActi
                 ) { shown = !shown }
                 ActionsRow(
                     stringResource(R.string.pairing_known_title),
-                    listOf(show, RowAction(stringResource(R.string.action_forget), "forget_dash", onClick = actions.onForgetDash)),
+                    listOf(
+                        show,
+                        RowAction(stringResource(R.string.action_forget), "forget_dash") {
+                            if (projectionRunning) confirmForget = true else actions.onForgetDash()
+                        },
+                    ),
                     sub = if (shown) pairing.ssid else SsidMask.of(pairing.ssid), tag = "ssid_known",
                     info = Info(stringResource(R.string.pairing_known_title), stringResource(R.string.pairing_known_info)),
                 )
@@ -102,7 +120,7 @@ private fun WifiGroup(s: REauSettings, pairing: PairingUi, actions: SettingsActi
             }
         },
         {
-            // Off by default; switching it on suggests the bike's Wi-Fi to Android.
+            // On by default; the switch makes Android suggest the bike's Wi-Fi to join by itself.
             SwitchRow(
                 stringResource(R.string.auto_join_title), s.autoJoinWifi, { actions.onSettings(s.copy(autoJoinWifi = it).sanitized()) }, "auto_join_wifi",
                 info = Info(stringResource(R.string.auto_join_title), stringResource(R.string.auto_join_wifi)),
@@ -130,4 +148,28 @@ private fun FindDashHelp(onAskWifiList: () -> Unit) {
         )
         SupportButton(CardAction(stringResource(R.string.action_allow_wifi_list), "allow_wifi_list", onAskWifiList))
     }
+}
+
+/** Asks before forgetting the dash while the projection runs: the projection is switched off first and Android's approval is asked again. */
+@Composable
+private fun ForgetDashDialog(onCancel: () -> Unit, onForget: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text(stringResource(R.string.forget_dash_running_title), style = MaterialTheme.typography.titleLarge) },
+        text = { Text(stringResource(R.string.forget_dash_running_text)) },
+        confirmButton = {
+            OutlinedButton(
+                onForget, Modifier.heightIn(min = 44.dp).testTag("forget_confirm"), shape = MaterialTheme.shapes.small,
+                border = BorderStroke(1.dp, colors.error), colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.error),
+            ) { Text(stringResource(R.string.action_forget)) }
+        },
+        dismissButton = {
+            TextButton(onCancel, Modifier.heightIn(min = 44.dp).testTag("forget_cancel")) {
+                Text(stringResource(R.string.action_cancel), color = colors.onSurfaceVariant)
+            }
+        },
+        containerColor = colors.surfaceContainer,
+        shape = RoundedCornerShape(24.dp),
+    )
 }

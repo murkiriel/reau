@@ -18,7 +18,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** The "Registro detalhado" switch: off until the rider switches it on. */
+/** The "Registro detalhado" switch: on in the debug build (what a new install starts with there), off in a release; the rider switches it. */
 @RunWith(AndroidJUnit4::class)
 class SettingsScreenDetailedLogTest {
     @get:Rule val compose = createComposeRule()
@@ -32,17 +32,17 @@ class SettingsScreenDetailedLogTest {
     }
 
     @Test
-    fun offUntilSwitchedOnAndSaysWhatItDoes() {
-        compose.onNodeWithTag("detailed_log").performScrollTo().assertIsOff()
+    fun onInTheDebugBuildFromTheStartAndSaysWhatItDoes() {
+        compose.onNodeWithTag("detailed_log").performScrollTo().assertIsOn()
             .assertTextContains("Registro detalhado", substring = true)
     }
 
     @Test
     fun switchingItOnAndOff() {
         compose.onNodeWithTag("detailed_log").performScrollTo().tapSwitch()
-        assertEquals(true, settings.detailedLog)
-        compose.onNodeWithTag("detailed_log").assertIsOn()
-        compose.onNodeWithTag("detailed_log").tapSwitch()
         assertEquals(false, settings.detailedLog)
+        compose.onNodeWithTag("detailed_log").assertIsOff()
+        compose.onNodeWithTag("detailed_log").tapSwitch()
+        assertEquals(true, settings.detailedLog)
     }
 }

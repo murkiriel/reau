@@ -14,9 +14,9 @@ import org.junit.Test
 
 /**
  * The retry pace of a dash gone: with the bike switched off and the projection on, REau once asked for the dash's
- * network about once a minute for 40 minutes, with no end. Within the first five minutes no wait passes half a minute
+ * network about once a minute for 40 minutes, with no end (it now stops by itself after 20). Within the first five minutes no wait passes half a minute
  * (the short ones of a quick drop stay, so a dash that comes back at once is back at once); from five minutes on, one
- * try a minute, for as long as the projection is on.
+ * try a minute, until the dash has been gone for [ProjectionMachine.NO_DASH_STOP_MS] and the projection stops by itself.
  */
 class ProjectionMachinePaceTest {
     private var state = Projection()
@@ -63,11 +63,12 @@ class ProjectionMachinePaceTest {
     }
 
     @Test
-    fun `from five minutes gone the dash is tried once a minute, with no end`() {
+    fun `from five minutes gone the dash is tried once a minute, until the projection stops by itself`() {
         running()
-        val waits = waitsWhileGone(0, 3 * 60 * MINUTE)
+        // Up to a few minutes short of the stop (ProjectionMachineNoDashStopTest has the stop itself).
+        val waits = waitsWhileGone(0, ProjectionMachine.NO_DASH_STOP_MS - 3 * MINUTE)
         val late = waits.filter { (at, _) -> at >= 5 * MINUTE }.map { it.second }
-        assertTrue("there are tries after five minutes", late.size > 100)
+        assertTrue("there are tries after five minutes", late.size > 5)
         assertTrue("all once a minute: ${late.distinct()}", late.all { it == 60_000L })
     }
 

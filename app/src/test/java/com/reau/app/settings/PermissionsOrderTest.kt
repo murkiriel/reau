@@ -43,6 +43,7 @@ class PermissionsOrderTest {
                 "INTERNET", "FOREGROUND_SERVICE", "FOREGROUND_SERVICE_CONNECTED_DEVICE", // no socket or no service without them
                 "CHANGE_NETWORK_STATE", "ACCESS_NETWORK_STATE", "ACCESS_WIFI_STATE", "CHANGE_WIFI_STATE", // the link to the dash
                 "WAKE_LOCK", "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS", // staying alive with the screen off
+                "FOREGROUND_SERVICE_LOCATION", // only for the info ring's GPS card
                 "FOREGROUND_SERVICE_MICROPHONE", "MODIFY_AUDIO_SETTINGS", // only for Gemini
             ),
             rowsOf(AppPermissions.Kind.INSTALL),

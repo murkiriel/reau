@@ -1,18 +1,27 @@
 package com.reau.app.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.reau.app.R
@@ -21,9 +30,11 @@ import com.reau.app.dash.DashReading
 import com.reau.app.dash.DashReport
 import com.reau.app.ui.components.ActionsRow
 import com.reau.app.ui.components.Info
+import com.reau.app.ui.components.MsIcon
 import com.reau.app.ui.components.RowAction
 import com.reau.app.ui.components.SettingsGroup
 import com.reau.app.ui.components.ValueRow
+import kotlinx.coroutines.delay
 
 /**
  * What the dash says, on the screen "Dados da moto": everything the dash reports goes to this screen. It only tells:
@@ -66,11 +77,13 @@ private fun RangeGroup(all: Map<String, DashReading>) {
     val km = DashReport.rangeKm(reading?.hex)
     val unit = DashReport.settings(all).distance
     val title = stringResource(R.string.bike_range)
+    val fuel = DashReport.lowFuel(all["0C05"]?.hex)
     SettingsGroup(null, stringResource(R.string.bike_group_range), listOfNotNull<@Composable () -> Unit>(
         {
             ValueRow(
                 title, if (km == null) stringResource(R.string.bike_not_said) else DashReport.rangeText(km, unit), "bike_range",
                 mono = km != null, info = Info(title, stringResource(R.string.bike_range_info)),
+                valuePrefix = { FuelWarningIcon(fuel) },
             )
         },
         if (km == null || reading == null) {
@@ -80,6 +93,42 @@ private fun RangeGroup(all: Map<String, DashReading>) {
         },
     ), tag = "group_bike_range")
 }
+
+/**
+ * The fuel pump before the range, as on the bike: the dash's low-fuel reminder ([FuelIconLook]). On, it blinks yellow, a second shown and a second
+ * hidden, whatever Android's animation setting says: the reminder is information, not decoration, and a blink of half a hertz is far under the
+ * three flashes a second that can harm. (With "remove animations" the blink used to stop, and a rider with it on saw the pump still: 23/10/2026.)
+ * Off or never said, it is the pump in the text colour. The row reads it to a screen reader ("Low fuel warning: On").
+ */
+@Composable
+private fun FuelWarningIcon(warning: Boolean?) {
+    var lit by remember { mutableStateOf(true) }
+    LaunchedEffect(warning) {
+        lit = true
+        while (warning == true) {
+            delay(FuelIconLook.BLINK_MS.toLong())
+            lit = !lit
+        }
+    }
+    val look = FuelIconLook.of(warning, lit, MaterialTheme.colorScheme.onSurface)
+    val state = when (warning) {
+        true -> stringResource(R.string.bike_fuel_on)
+        false -> stringResource(R.string.bike_fuel_off)
+        null -> stringResource(R.string.bike_not_said)
+    }
+    Box(
+        Modifier.size(FUEL_BOX).alpha(if (look.hidden) 0f else 1f).semantics { fuelBlinkHidden = look.hidden }.testTag("bike_fuel_box")
+            .let { m -> look.chip?.let { m.background(it, CircleShape) } ?: m },
+        contentAlignment = Alignment.Center,
+    ) {
+        val size = if (look.chip == null) FUEL_ICON_OFF else FUEL_ICON_ON
+        MsIcon(R.drawable.ic_ms_local_gas_station, size, look.tint, Modifier.testTag("bike_fuel"), "${stringResource(R.string.bike_fuel)}: $state")
+    }
+}
+
+private val FUEL_BOX = 28.dp
+private val FUEL_ICON_OFF = 22.dp
+private val FUEL_ICON_ON = 18.dp
 
 /** The firmware (the second partition of `0B02`, the version a rider knows), the whole list, the variant, the safe mode. */
 @Composable
@@ -166,11 +215,10 @@ private fun SettingsReadGroup(all: Map<String, DashReading>) {
     ), tag = "group_bike_settings")
 }
 
-/** What the bike says by group 0C when something changes: the ABS and the low-fuel reminder (the only two known), on or off, and when. */
+/** What the bike says by group 0C when something changes: the ABS, on or off (the low-fuel reminder is the pump beside the range). */
 @Composable
 private fun StateGroup(all: Map<String, DashReading>) {
     val abs = DashReport.abs(all["0C14"]?.hex)
-    val fuel = DashReport.lowFuel(all["0C05"]?.hex)
     val said = stringResource(R.string.bike_not_said)
     SettingsGroup(null, stringResource(R.string.bike_group_state), listOf(
         {
@@ -178,13 +226,6 @@ private fun StateGroup(all: Map<String, DashReading>) {
                 stringResource(R.string.bike_abs),
                 abs?.let { stringResource(if (it.on) R.string.bike_fuel_on else R.string.bike_fuel_off) } ?: said,
                 "bike_abs", mono = false,
-            )
-        },
-        {
-            ValueRow(
-                stringResource(R.string.bike_fuel),
-                fuel?.let { stringResource(if (it) R.string.bike_fuel_on else R.string.bike_fuel_off) } ?: said,
-                "bike_fuel", mono = false,
             )
         },
     ), tag = "group_bike_state")

@@ -3,32 +3,11 @@ package com.reau.app.stream
 import com.reau.app.dash.DashConfig
 
 /**
- * Pure decision helpers of the video stream to the dash: pace, bitrate, keyframes, the video clock and what a
- * dash failure says about the rate. None touch instance state, so they run in a plain JVM unit test
+ * Pure decision helpers of the video stream to the dash: pace, bitrate, keyframes and the video clock. None touch instance state, so they run in a plain JVM unit test
  * ([DashLogicTest]). Their values were found on a real dash.
  */
 @Suppress("TooManyFunctions") // flat set of pure helpers, each tested alone
 internal object DashLogic {
-
-    /**
-     * Whether the stream that ended at [watchdogFailMs] (a watchdog found the dash silent, or never decoding; 0 =
-     * none did) says something about the RATE: only if a new stream is starting within [DASH_ALIVE_WINDOW_MS] of
-     * it. Ignition off looks the same to the watchdog, but then the dash's Wi-Fi is gone and nothing reconnects;
-     * a dash that choked authenticates again in a couple of seconds (about 3 s, measured on a real dash).
-     * [countedFailMs] is the failure already acted on: one drop lowers the rate once, however many streams start
-     * inside that window.
-     */
-    internal fun dashFailedWhileReachable(watchdogFailMs: Long, streamStartMs: Long, countedFailMs: Long = 0L): Boolean =
-        watchdogFailMs > 0L && watchdogFailMs != countedFailMs && streamStartMs - watchdogFailMs in 0..DASH_ALIVE_WINDOW_MS
-
-    private const val DASH_ALIVE_WINDOW_MS = 30_000L
-
-    /** The limit learned from a dash failure, while it is still in force: it is forgotten after
-     *  [DASH_LIMIT_LIFE_MS], so one bad evening (or a false alarm) does not hold the rate down for good. */
-    internal fun liveDashLimit(limit: Int, learnedAtMs: Long, nowMs: Long): Int? =
-        limit.takeIf { it > 0 && nowMs - learnedAtMs < DASH_LIMIT_LIFE_MS }
-
-    private const val DASH_LIMIT_LIFE_MS = 24 * 60 * 60 * 1000L
 
     /**
      * Whether the stream runs at its full rate: only with the map changing AND the dash having confirmed the

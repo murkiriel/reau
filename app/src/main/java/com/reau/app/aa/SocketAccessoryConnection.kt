@@ -4,6 +4,7 @@
 // Adapted from headunit-revived (AGPLv3): connection/SocketAccessoryConnection.kt
 // Trimmed to a pre-connected loopback socket (self-mode): no network binding, no outbound
 // connect() of its own.
+// Changed since: a failed send is one warning line (the link's end has its own line), not an error with a stack.
 package com.reau.app.aa
 
 import java.io.DataInputStream
@@ -11,6 +12,12 @@ import java.io.IOException
 import java.io.OutputStream
 import java.net.Socket
 import java.net.SocketTimeoutException
+
+/**
+ * The warning for a send that failed: one line with the reason and no stack. Android Auto closing a connection it does not accept yet
+ * (a broken pipe at the first message) was an `E:` with a stack at every try (20/10/2026); the end of the link has its own line.
+ */
+internal fun sendFailedLine(e: IOException): String = "send failed: ${e.javaClass.simpleName}: ${e.message}"
 
 class SocketAccessoryConnection(private val socket: Socket) : AccessoryConnection {
     private var output: OutputStream? = null
@@ -47,7 +54,7 @@ class SocketAccessoryConnection(private val socket: Socket) : AccessoryConnectio
             }
             length
         } catch (e: IOException) {
-            AaLog.e("send failed", e)
+            AaLog.w(sendFailedLine(e))
             -1
         }
     }

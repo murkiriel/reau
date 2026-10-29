@@ -1,8 +1,8 @@
 package com.reau.app.data
 
 /**
- * The detailed log, behind the "Registro detalhado" switch, off by default. Switched on, each line goes to the ride log
- * under the `detail` tag; switched off, the message is not even built. At most [maxPerSecond] lines a second: the rest
+ * The detailed log, behind the "Registro detalhado" switch, on by default in a debug build and off in a release. Switched on, each line
+ * goes to the ride log under the `detail` tag; switched off, the message is not even built. At most [maxPerSecond] lines a second: the rest
  * is dropped and counted, and the count is said when the next second starts.
  */
 class DetailedLogger(private val maxPerSecond: Int, private val nowMs: () -> Long, private val write: (String, String) -> Unit) {

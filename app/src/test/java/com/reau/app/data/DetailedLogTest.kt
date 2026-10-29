@@ -5,7 +5,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The detailed log, behind the "Registro detalhado" switch (off by default), with a ceiling of lines a second so it
+ * The detailed log, behind the "Registro detalhado" switch (on by default in a debug build, off in a release), with a ceiling of lines a second so it
  * never drowns the file.
  */
 class DetailedLogTest {

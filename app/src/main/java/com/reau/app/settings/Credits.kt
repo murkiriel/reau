@@ -6,11 +6,14 @@ import com.reau.app.R
 /**
  * The credits page: one project per line, the name, "© holder · licence", and its role. The list holds every project
  * whose code or published facts REau uses, directly or through another project in it, grouped by the side of the app
- * it serves. Names and holders are as each project states them in its own LICENSE or NOTICE. What each project gave to REau ([Entry.role]) is a text of the resources, in both languages; the few names and
+ * it serves. Names and holders are as each project states them in its own LICENSE or NOTICE. What each project gave to REau ([Entry.role]) is a text of the resources, in the three languages; the few names and
  * holders with a word of the language in them have a resource too ([Entry.nameText], [Entry.holderText]), and the
  * [Entry.name] and [Entry.holder] given are then the language-free keys (the tag of the line, the order of the list).
  */
 object Credits {
+    /** The licence of a work in the public domain: shown in the rider's language (the other licences are names that need no translation). */
+    const val PUBLIC_DOMAIN = "Public domain"
+
     enum class Side { ANDROID_AUTO, DASH, LIBRARIES }
 
     data class Entry(
@@ -28,6 +31,7 @@ object Credits {
     data class Group(val side: Side, val entries: List<Entry>)
 
     private const val AGPL = "AGPL-3.0"
+    private const val GPL2 = "GPL-2.0"
     private const val APACHE = "Apache-2.0"
     private const val OFL = "OFL-1.1"
     private const val MIT = "MIT"
@@ -53,6 +57,13 @@ object Credits {
                     R.string.credit_role_headunit, "https://github.com/mikereidis/headunit"),
                 Entry("MOTO-HUB", "© 2026 Vincenzo Buonomano", AGPL,
                     R.string.credit_role_moto_hub, "https://github.com/vincenzobpt/MOTO-HUB", holderText = R.string.credit_holder_moto_hub),
+                // A fork of open-headunit for a car's screen; its own address is not known to this repository, so its line has no address
+                // to copy (the NOTICE says why). REau took one value and an order from it, no code.
+                Entry("HeadQLink", "© Michael A. Reid and the open-headunit authors", AGPL,
+                    R.string.credit_role_headqlink, "", holderText = R.string.credit_holder_headqlink),
+                // Protocol facts only (GPL-2.0 does not combine with the AGPL-3.0, so no code is taken from it).
+                Entry("aa-proxy-rs", "© Mariusz Białończyk", GPL2,
+                    R.string.credit_role_aa_proxy_rs, "https://github.com/manio/aa-proxy-rs"),
             ),
         ),
         Group(
@@ -98,6 +109,9 @@ object Credits {
                     "JetBrains Mono", "© 2020 The JetBrains Mono Project Authors", OFL, R.string.credit_role_jetbrains_mono,
                     "https://github.com/JetBrains/JetBrainsMono",
                 ),
+                // The equations behind the day/night theme (data/SolarClock.kt, REau's own code); NOAA's pages are public domain.
+                Entry("NOAA solar position equations", "NOAA Global Monitoring Laboratory", PUBLIC_DOMAIN, R.string.credit_role_noaa,
+                    "https://gml.noaa.gov/grad/solcalc/azel.html"),
                 // CC BY 4.0 asks for the credit; the free API asks for "Weather data by Open-Meteo.com" with a link.
                 Entry("Open-Meteo", "© Open-Meteo.com", "CC-BY-4.0", R.string.credit_role_open_meteo, "https://open-meteo.com"),
                 // MIT asks for the notice to travel with the code: the licence text is in assets/web/jmuxer.LICENSE, inside the APK.

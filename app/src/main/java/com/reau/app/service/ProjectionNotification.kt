@@ -17,12 +17,16 @@ import com.reau.app.R
  */
 object ProjectionNotification {
     const val ID = 5301
+    private const val ID_NO_DASH = 5302
     private const val CHANNEL_ID = "reau_projection"
 
-    /** [muteByRider]: the rider, not REau, has to restart a mute Android Auto server ([AaServerStarter.muteServerByRider]). */
-    fun contentFor(headline: Headline, muteByRider: Boolean = false): Pair<Int, Int> = when (headline) {
+    /**
+     * [muteByRider]: the rider, not REau, has to restart a mute Android Auto server ([AaServerStarter.muteServerByRider]). [card]: the wallpaper
+     * mode, which waits for the dash alone (there is no Android Auto in it).
+     */
+    fun contentFor(headline: Headline, muteByRider: Boolean = false, card: Boolean = false): Pair<Int, Int> = when (headline) {
         Headline.PREPARING -> R.string.notif_title_preparing to R.string.notif_text_preparing
-        Headline.CONNECTING -> R.string.notif_title_connecting to R.string.notif_text_connecting
+        Headline.CONNECTING -> R.string.notif_title_connecting to (if (card) R.string.notif_text_connecting_wallpaper else R.string.notif_text_connecting)
         Headline.ANDROID_AUTO_SERVER_OFF -> R.string.notif_title_server_off to R.string.notif_text_server_off
         Headline.ANDROID_AUTO_UNRESPONSIVE ->
             R.string.notif_title_unresponsive to if (muteByRider) R.string.notif_text_unresponsive_by_hand else R.string.notif_text_unresponsive
@@ -75,10 +79,10 @@ object ProjectionNotification {
         )
     }
 
-    fun build(context: Context, headline: Headline, subText: String? = null, startedElapsed: Long? = null): Notification {
+    fun build(context: Context, headline: Headline, subText: String? = null, startedElapsed: Long? = null, card: Boolean = false): Notification {
         // Who restarts a mute server is only worked out (settings read) for the headline that needs it.
         val byRider = headline == Headline.ANDROID_AUTO_UNRESPONSIVE && AaServerStarter.muteServerByRider(context)
-        val (title, text) = contentFor(headline, byRider)
+        val (title, text) = contentFor(headline, byRider, card)
         val open = PendingIntent.getActivity(
             context, 0, Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE,
         )
@@ -91,6 +95,8 @@ object ProjectionNotification {
         return Notification.Builder(context, CHANNEL_ID)
             .setContentTitle(context.getString(title))
             .setContentText(context.getString(text))
+            // The longer texts (the dash lost: what to do after a minute) are shown whole when the notification is opened.
+            .setStyle(Notification.BigTextStyle().bigText(context.getString(text)))
             .setSmallIcon(R.drawable.ic_stat_reau)
             .setOngoing(true)
             .setContentIntent(open)
@@ -108,9 +114,25 @@ object ProjectionNotification {
             .build()
     }
 
+    /** Told once, apart from the ongoing one (which goes with the service): the projection stopped because the dash stayed gone. */
+    fun showStoppedNoDash(context: Context, minutes: Int) {
+        createChannel(context)
+        val open = PendingIntent.getActivity(
+            context, 0, Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE,
+        )
+        val notification = Notification.Builder(context, CHANNEL_ID)
+            .setContentTitle(context.getString(R.string.notif_title_no_dash_stopped))
+            .setContentText(context.resources.getQuantityString(R.plurals.notif_text_no_dash_stopped, minutes, minutes))
+            .setSmallIcon(R.drawable.ic_stat_reau)
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .build()
+        context.getSystemService(NotificationManager::class.java).notify(ID_NO_DASH, notification)
+    }
+
     /** Shows [headline] in place of the last one; nothing for a stopped projection, whose service is going. */
-    fun show(context: Context, headline: Headline, subText: String? = null, startedElapsed: Long? = null) {
+    fun show(context: Context, headline: Headline, subText: String? = null, startedElapsed: Long? = null, card: Boolean = false) {
         if (headline == Headline.STOPPED || headline == Headline.PROBLEM) return
-        context.getSystemService(NotificationManager::class.java).notify(ID, build(context, headline, subText, startedElapsed))
+        context.getSystemService(NotificationManager::class.java).notify(ID, build(context, headline, subText, startedElapsed, card))
     }
 }

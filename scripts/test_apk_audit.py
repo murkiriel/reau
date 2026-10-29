@@ -8,6 +8,7 @@ Run from the repo root:  python -m unittest discover -s scripts -p "test_apk_aud
 import io
 import json
 import os
+import struct
 import sys
 import tempfile
 import unittest
@@ -21,17 +22,75 @@ sys.path.insert(0, HERE)
 import apk_audit  # noqa: E402
 
 
-def make_apk(folder: str, dex: bytes = b"", extra: dict | None = None) -> str:
+def fake_dex(types: list[str] | None = None, payload: bytes = b"") -> bytes:
+    """A dex with just what the audit reads: the header's string and type tables, and `payload` after them."""
+    types = ["Lcom/reau/app/MainActivity;"] if types is None else types
+    header_size = 0x70
+    strings_off = header_size
+    types_off = strings_off + 4 * len(types)
+    data_off = types_off + 4 * len(types)
+    string_data = b""
+    offsets = []
+    for descriptor in types:
+        raw = descriptor.encode("utf-8")
+        assert len(raw) < 128
+        offsets.append(data_off + len(string_data))
+        string_data += bytes([len(raw)]) + raw + b"\x00"
+    header = bytearray(b"dex\n035\x00" + bytes(header_size - 8))
+    struct.pack_into("<IIII", header, 0x38, len(types), strings_off, len(types), types_off)
+    return (bytes(header) + b"".join(struct.pack("<I", o) for o in offsets)
+            + b"".join(struct.pack("<I", i) for i in range(len(types))) + string_data + payload)
+
+
+def make_apk(folder: str, dex: bytes = b"", extra: dict | None = None, types: list[str] | None = None,
+             profile: bool = True) -> str:
     path = os.path.join(folder, "app.apk")
     with zipfile.ZipFile(path, "w") as z:
         z.writestr("META-INF/androidx.core_core.version", "1.13.0")
         z.writestr("kotlin-tooling-metadata.properties", "x=1")
         z.writestr("res/raw/notes.properties", "not a library: not at the root")
         z.writestr("lib/arm64-v8a/libexample.so", b"\x7fELF")
-        z.writestr("classes.dex", b"dex\n" + dex)
+        z.writestr("classes.dex", fake_dex(types, dex))
+        if profile:
+            z.writestr(apk_audit.BASELINE_PROFILE, b"prof")
         for name, content in (extra or {}).items():
             z.writestr(name, content)
     return path
+
+
+def xmltree(components: list[tuple], debuggable: bool = False, package: str = "com.reau.app") -> str:
+    """A manifest as `aapt2 dump xmltree` prints it (the indentation and the attribute lines of the real one).
+    A component is (tag, name, exported or None, with an intent-filter?)."""
+    ns = "http://schemas.android.com/apk/res/android"
+    lines = ["N: android=http://schemas.android.com/apk/res/android (line=3)", "  E: manifest (line=3)",
+             f'    A: package="{package}" (Raw: "{package}")', "      E: uses-sdk (line=8)",
+             f"        A: {ns}:minSdkVersion(0x0101020c)=29", "      E: application (line=80)",
+             f'        A: {ns}:name(0x01010003)="com.reau.app.REauApp" (Raw: "com.reau.app.REauApp")']
+    if debuggable:
+        lines.append(f"        A: {ns}:debuggable(0x0101000f)=true")
+    for tag, name, exported, with_filter in components:
+        lines += [f"          E: {tag} (line=100)", f'            A: {ns}:name(0x01010003)="{name}" (Raw: "{name}")']
+        if exported is not None:
+            lines.append(f"            A: {ns}:exported(0x01010010)={'true' if exported else 'false'}")
+        if with_filter:
+            lines += ["              E: intent-filter (line=107)", "                  E: action (line=108)",
+                      f'                    A: {ns}:name(0x01010003)="android.intent.action.MAIN" (Raw: "x")']
+    lines += ["          E: uses-library (line=177)", f'            A: {ns}:name(0x01010003)="androidx.window.sidecar"']
+    return "\n".join(lines) + "\n"
+
+
+# The components of the two real release manifests (28/10/2026): the Completa has the accessibility service, both have the rest.
+RELEASE_COMPONENTS = [
+    ("service", "com.reau.app.service.AaServerAccessibilityService", False, True),
+    ("activity", "com.reau.app.MainActivity", True, True),
+    ("service", "com.reau.app.service.QuickStartTile", True, True),
+    ("service", "com.reau.app.service.ProjectionService", False, False),
+    ("provider", "androidx.core.content.FileProvider", False, False),
+    ("provider", "androidx.startup.InitializationProvider", False, False),
+    ("receiver", "androidx.profileinstaller.ProfileInstallReceiver", True, True),
+]
+RELEASE_MANIFEST = xmltree(RELEASE_COMPONENTS)
+RELEASE_ENTRIES = ["classes.dex", apk_audit.BASELINE_PROFILE]
 
 
 class ScanZipTest(unittest.TestCase):
@@ -76,9 +135,11 @@ class AgainstTheBaselineTest(unittest.TestCase):
         self.apk = make_apk(self.tmp.name, dex=b"https://raw.githubusercontent.com/x")
         self.baseline = os.path.join(self.tmp.name, "baseline.json")
         self.perms = ["android.permission.INTERNET"]
+        self.manifest = RELEASE_MANIFEST
         for name, value in (("BASELINE", self.baseline), ("find_sdk", lambda: "sdk"),
                             ("build_tool", lambda sdk, name: name), ("certificate", lambda signer, apk: "cert"),
-                            ("permissions", lambda aapt2, apk: list(self.perms))):
+                            ("permissions", lambda aapt2, apk: list(self.perms)),
+                            ("manifest_text", lambda aapt2, apk: self.manifest)):
             patcher = mock.patch.object(apk_audit, name, value)
             patcher.start()
             self.addCleanup(patcher.stop)
@@ -116,6 +177,155 @@ class AgainstTheBaselineTest(unittest.TestCase):
     def test_no_baseline_or_no_apk_exits_2(self):
         self.assertEqual(2, self.run_main(self.apk)[0])
         self.assertEqual(2, self.run_main(os.path.join(self.tmp.name, "missing.apk"))[0])
+
+    def test_a_release_shape_problem_exits_1_even_with_nothing_new_and_is_not_recorded(self):
+        self.run_main(self.apk, "--gravar")
+        self.manifest = xmltree(RELEASE_COMPONENTS, debuggable=True)
+        code, out = self.run_main(self.apk)
+        self.assertEqual(1, code)
+        self.assertIn("Nada novo", out)
+        self.assertIn("FORMA DE RELEASE ERRADA", out)
+        self.assertIn("depurável", out)
+        before = os.path.getmtime(self.baseline)
+        code, out = self.run_main(self.apk, "--gravar")
+        self.assertEqual(1, code)
+        self.assertIn("Nada gravado", out)
+        self.assertEqual(before, os.path.getmtime(self.baseline))
+
+    def test_a_debug_apk_can_be_audited_without_the_release_shape(self):
+        self.run_main(self.apk, "--gravar")
+        self.manifest = xmltree(RELEASE_COMPONENTS, debuggable=True)
+        code, out = self.run_main(self.apk, "--apk-debug")
+        self.assertEqual(0, code)
+        self.assertNotIn("FORMA DE RELEASE", out)
+
+    def test_an_apk_that_cannot_be_read_for_its_shape_is_a_problem_not_a_pass(self):
+        self.run_main(self.apk, "--gravar")
+        self.manifest = "isto não é um manifesto\n"
+        code, out = self.run_main(self.apk)
+        self.assertEqual(1, code)
+        self.assertIn("manifesto ilegível", out)
+
+
+class DexClassesTest(unittest.TestCase):
+
+    def test_the_types_a_dex_declares_come_out_as_internal_names(self):
+        dex = fake_dex(["Lcom/reau/app/MainActivity;", "Landroidx/compose/ui/tooling/PreviewActivity;", "I", "[Lcom/x/Y;"])
+        # primitive and array descriptors are not classes
+        self.assertEqual(["com/reau/app/MainActivity", "androidx/compose/ui/tooling/PreviewActivity"], apk_audit.dex_classes(dex))
+
+    def test_not_a_dex_or_a_cut_one_is_refused(self):
+        with self.assertRaises(ValueError):
+            apk_audit.dex_classes(b"not a dex at all" * 20)
+        with self.assertRaises(ValueError):
+            apk_audit.dex_classes(fake_dex(["Lcom/x/Y;"] * 3)[:0x72])
+
+    def test_every_classes_dex_of_the_apk_is_read(self):
+        with tempfile.TemporaryDirectory() as d:
+            apk = make_apk(d, types=["Lcom/a/One;"], extra={"classes2.dex": fake_dex(["Lcom/b/Two;"])})
+            self.assertEqual(["com/a/One", "com/b/Two"], sorted(apk_audit.apk_classes(apk)))
+
+
+class ParseManifestTest(unittest.TestCase):
+
+    def test_the_components_and_whether_they_are_really_exported(self):
+        parsed = apk_audit.parse_manifest(xmltree([
+            ("activity", "com.reau.app.MainActivity", True, True),
+            ("service", "com.reau.app.service.ProjectionService", False, False),
+            ("service", ".service.NoAttribute", None, True),       # an intent-filter and no attribute: exported
+            ("service", "Bare", None, False),                       # no filter: not exported; a bare name gets the package
+            ("provider", "androidx.core.content.FileProvider", None, True),   # a provider is never exported by default
+        ]))
+        self.assertEqual("com.reau.app", parsed["package"])
+        self.assertFalse(parsed["debuggable"])
+        self.assertEqual([
+            ("activity", "com.reau.app.MainActivity", True),
+            ("service", "com.reau.app.service.ProjectionService", False),
+            ("service", "com.reau.app.service.NoAttribute", True),
+            ("service", "com.reau.app.Bare", False),
+            ("provider", "androidx.core.content.FileProvider", False),
+        ], parsed["components"])
+
+    def test_debuggable_is_read(self):
+        self.assertTrue(apk_audit.parse_manifest(xmltree([], debuggable=True))["debuggable"])
+
+    def test_uses_library_is_no_component(self):
+        self.assertEqual([], apk_audit.parse_manifest(xmltree([]))["components"])
+
+
+class ReleaseShapeTest(unittest.TestCase):
+    """The production APK's shape (28/10/2026): each check fails on a fake APK that breaks only it."""
+
+    GOOD_CLASSES = ["com/reau/app/MainActivity", "androidx/compose/ui/Modifier"]
+
+    def shape(self, components=None, debuggable=False, classes=None, entries=None) -> list[str]:
+        return apk_audit.release_shape(
+            xmltree(RELEASE_COMPONENTS if components is None else components, debuggable=debuggable),
+            self.GOOD_CLASSES if classes is None else classes, RELEASE_ENTRIES if entries is None else entries)
+
+    def test_the_real_release_shape_passes(self):
+        self.assertEqual([], self.shape())
+
+    def test_the_Lite_edition_has_no_accessibility_service_and_passes(self):
+        self.assertEqual([], self.shape(components=[c for c in RELEASE_COMPONENTS if "Accessibility" not in c[1]]))
+
+    def test_a_debuggable_apk_fails(self):
+        problems = self.shape(debuggable=True)
+        self.assertEqual(1, len(problems))
+        self.assertIn("depurável", problems[0])
+
+    def test_a_class_of_the_debug_package_fails(self):
+        problems = self.shape(classes=self.GOOD_CLASSES + ["com/reau/app/debug/CrashTestActivity"])
+        self.assertEqual(["classe que só o debug tem: com/reau/app/debug/CrashTestActivity"], problems)
+
+    def test_any_compose_tooling_class_fails_the_preview_annotations_included(self):
+        for name in ("androidx/compose/ui/tooling/PreviewActivity", "androidx/compose/ui/tooling/ComposeViewAdapter",
+                     "androidx/compose/ui/tooling/data/Group", "androidx/compose/ui/tooling/preview/Preview",
+                     "androidx/compose/ui/tooling/preview/Preview$Container"):
+            self.assertEqual([f"classe que só o debug tem: {name}"], self.shape(classes=self.GOOD_CLASSES + [name]), name)
+
+    def test_the_compose_test_library_fails(self):
+        for name in ("androidx/compose/ui/test/junit4/ComposeTestRule", "androidx/compose/ui/test/manifest/R"):
+            self.assertEqual([f"classe que só o debug tem: {name}"], self.shape(classes=[name]), name)
+
+    def test_the_preview_library_marker_in_the_zip_fails(self):
+        problems = self.shape(entries=RELEASE_ENTRIES + ["androidx/compose/ui/tooling/preview/x.kotlin_module"])
+        self.assertEqual(["arquivo que só o debug tem: androidx/compose/ui/tooling/preview/x.kotlin_module"], problems)
+
+    def test_a_debug_only_file_in_the_zip_fails(self):
+        problems = self.shape(entries=RELEASE_ENTRIES + ["androidx/compose/ui/tooling/data/x.kotlin_module"])
+        self.assertEqual(["arquivo que só o debug tem: androidx/compose/ui/tooling/data/x.kotlin_module"], problems)
+
+    def test_a_component_outside_the_list_fails_exported_or_not(self):
+        for exported in (True, False):
+            problems = self.shape(components=RELEASE_COMPONENTS + [("activity", "com.reau.app.debug.CrashTestActivity", exported, False)])
+            self.assertEqual(["componente fora da lista (activity): com.reau.app.debug.CrashTestActivity"], problems)
+
+    def test_a_listed_component_that_became_exported_fails(self):
+        for name in ("com.reau.app.service.ProjectionService", "androidx.core.content.FileProvider",
+                     "com.reau.app.service.AaServerAccessibilityService"):
+            components = [(t, n, True if n == name else e, f) for t, n, e, f in RELEASE_COMPONENTS]
+            self.assertEqual([f"componente exportado que não devia ser ({dict((c[1], c[0]) for c in components)[name]}): {name}"],
+                             self.shape(components=components), name)
+
+    def test_a_service_exported_by_its_intent_filter_alone_fails(self):
+        components = [(t, n, None if n.endswith("ProjectionService") else e, True if n.endswith("ProjectionService") else f)
+                      for t, n, e, f in RELEASE_COMPONENTS]
+        self.assertEqual(["componente exportado que não devia ser (service): com.reau.app.service.ProjectionService"],
+                         self.shape(components=components))
+
+    def test_the_main_activity_must_stay_exported(self):
+        components = [(t, n, False if n.endswith("MainActivity") else e, f) for t, n, e, f in RELEASE_COMPONENTS]
+        self.assertEqual(["componente que devia ser exportado e não é (activity): com.reau.app.MainActivity"],
+                         self.shape(components=components))
+
+    def test_a_missing_baseline_profile_fails(self):
+        problems = self.shape(entries=["classes.dex"])
+        self.assertEqual(["falta o perfil de base (assets/dexopt/baseline.prof)"], problems)
+
+    def test_the_exported_list_is_the_owners(self):
+        self.assertEqual({"com.reau.app.MainActivity", "com.reau.app.service.QuickStartTile",
+                          "androidx.profileinstaller.ProfileInstallReceiver"}, set(apk_audit.EXPORTED_COMPONENTS))
 
 
 if __name__ == "__main__":

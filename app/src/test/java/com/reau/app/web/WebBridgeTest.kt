@@ -153,7 +153,10 @@ class WebBridgeTest {
         assertEquals("4821", first.pin)
         assertEquals("1234", second.pin)
         val log = logs.joinToString("\n")
-        assertFalse(log, log.contains(first.pin) || log.contains(second.pin))
+        // The port is a random number and may contain the four digits of the PIN ("port 34821" holds "4821": it failed one run
+        // in a few thousand), so it is left out of the look for the PIN.
+        val withoutPort = log.replace(Regex("""port \d+"""), "port")
+        assertFalse(log, withoutPort.contains(first.pin) || withoutPort.contains(second.pin))
         assertTrue(log, log.contains("web: server on port"))
         b.release()
     }
@@ -460,5 +463,41 @@ class WebBridgeTest {
         WebAccess.kickAll()
         assertNull(c.frame())
         b.release()
+    }
+
+    /** Audit of 20/10/2026: Android Auto's read loop gives the sound to `audio()`, which waited behind a server that was starting or stopping. */
+    @Test
+    fun `the sound is handed over at once even while the server is being started`() {
+        val starting = java.util.concurrent.CountDownLatch(1)
+        val letGo = java.util.concurrent.CountDownLatch(1)
+        val slow = WebBridge(
+            WebBridge.Env(
+                page = { page },
+                // The server's video source is built inside start(), under the bridge's lock: here it takes its time.
+                video = { out -> pushOutput = out; starting.countDown(); letGo.await(10, TimeUnit.SECONDS); source },
+                sendTouch = { touches += it },
+                delayer = delayer,
+                log = { logs += it },
+                network = WebBridge.Network(freePorts(), allowed = { true }, draw = { draws.removeFirst() }, thePhone = { false }),
+            ),
+        )
+        val applying = Thread { slow.apply(webView = true, webTouch = false, webAudio = WebAudioMode.BROWSER) }.apply { start() }
+        try {
+            assertTrue("the server never began to start", starting.await(5, TimeUnit.SECONDS))
+            val took = measureNanos { slow.audio(AaAudioFeed.Pcm(AaAudioFeed.Stream.MEDIA, ByteArray(960))) }
+            assertTrue("audio() waited ${took / 1_000_000} ms behind the starting server", took < TimeUnit.MILLISECONDS.toNanos(500))
+            val told = measureNanos { slow.androidAutoChanged(true) }
+            assertTrue("androidAutoChanged() waited ${told / 1_000_000} ms behind the starting server", told < TimeUnit.MILLISECONDS.toNanos(500))
+        } finally {
+            letGo.countDown()
+            applying.join(10_000)
+            slow.release()
+        }
+    }
+
+    private fun measureNanos(block: () -> Unit): Long {
+        val begun = System.nanoTime()
+        block()
+        return System.nanoTime() - begun
     }
 }

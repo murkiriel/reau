@@ -47,8 +47,11 @@ class SettingsScreenLogsTest {
     }
 
     @Test
-    fun theLogsAreKeptThirtyDaysUntilTheRiderPicksAnother() {
-        compose.onNodeWithTag("log_keep_30").performScrollTo().assertIsSelected()
+    fun theLogsAreKeptNeverInTheDebugBuildUntilTheRiderPicksAnother() {
+        // The screen is the debug build's: never, with its ceilings (1024 MB of logs and of recordings) in the line.
+        compose.onNodeWithTag("log_keep_0").performScrollTo().assertIsSelected()
+        compose.onNodeWithText("1024 MB de registros e 1024 MB de gravações", substring = true).assertExists()
+        compose.infoSays("log_keep", "Passando de 1024 MB")
         compose.onNodeWithTag("log_keep_7").performScrollTo().assertTextContains("7 dias").performClick()
         assertEquals(7, settings.logKeepDays)
         compose.onNodeWithTag("log_keep_0").performScrollTo().assertTextContains("Nunca", substring = true).performClick()
@@ -56,10 +59,10 @@ class SettingsScreenLogsTest {
     }
 
     @Test
-    fun theLocationSwitchIsOffUntilSwitchedOn() {
-        compose.onNodeWithTag("use_location").performScrollTo().assertIsOff()
+    fun theLocationSwitchIsOnUntilSwitchedOff() {
+        compose.onNodeWithTag("use_location").performScrollTo().assertIsOn()
         compose.onNodeWithTag("use_location").tapSwitch()
-        assertEquals(true, settings.useLocation)
+        assertEquals(false, settings.useLocation)
     }
 
     @Test

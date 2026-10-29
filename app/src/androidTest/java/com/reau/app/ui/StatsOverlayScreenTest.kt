@@ -89,8 +89,8 @@ class StatsOverlayScreenTest {
     fun theStatsStepsAreAlignedAndSpacedLikeTheFitOnes() {
         settings = settings.copy(statsOverlay = true)
         compose.waitForIdle()
-        assertEquals("same inner edge", position("margin_w_minus10").x, position("stats_x_minus10").x, 1f)
-        val fit = position("margin_h_minus10").y - position("margin_w_minus10").y
+        assertEquals("same inner edge", position("move_x_minus10").x, position("stats_x_minus10").x, 1f)
+        val fit = position("move_y_minus10").y - position("move_x_minus10").y
         assertEquals("X to Y as width to height", fit, position("stats_y_minus10").y - position("stats_x_minus10").y, 1f)
         assertEquals("Y to size likewise", fit, position("stats_size_minus10").y - position("stats_y_minus10").y, 1f)
     }

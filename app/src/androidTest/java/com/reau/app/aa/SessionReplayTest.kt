@@ -26,6 +26,8 @@ import java.net.Socket
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicReference
 
+private const val READER_JOIN_MS = 2_000L
+
 /**
  * The session recording, end to end: a session with the fake Android Auto is recorded by the receiver, and the
  * recording, replayed into a fresh handler on a second session, gets from it the answers the live one got.
@@ -54,8 +56,11 @@ class SessionReplayTest {
     @After
     fun tearDown() {
         receiver?.stop()
-        closeables.reversed().forEach { runCatching { it.close() } }
+        // The readers are closed only once the thread that reads their pictures has stopped (see AaVideoSinkTest).
+        readerListenersOff()
         readerThread.quitSafely()
+        readerThread.join(READER_JOIN_MS)
+        closeables.reversed().forEach { runCatching { it.close() } }
         folder.deleteRecursively()
         AaLog.sink = null
     }
@@ -67,6 +72,11 @@ class SessionReplayTest {
         reader.setOnImageAvailableListener({ r -> r.acquireLatestImage()?.use { last.set(H264TestDecoder.pictureOf(it)) } }, Handler(readerThread.looper))
         closeables += reader
         return reader to last
+    }
+
+    /** The readers stop calling the test back, so none is read while it is closed. */
+    private fun readerListenersOff() {
+        closeables.filterIsInstance<ImageReader>().forEach { runCatching { it.setOnImageAvailableListener(null, null) } }
     }
 
     private fun await(what: String, timeoutMs: Long = 15_000, condition: () -> Boolean) {
@@ -102,6 +112,28 @@ class SessionReplayTest {
             seen += "${received.channel}/${received.type}"
         }
         return seen.groupingBy { it }.eachCount().toSortedMap()
+    }
+
+    @Test
+    fun theKeysReauSendsAreInTheRecordingToo() {
+        val port = ServerSocket(0).use { it.localPort }
+        val livePeer = FakeAndroidAutoPeer(listenOn = port).also { closeables += it }
+        val (liveReader, _) = surface()
+        receiver = AaReceiver(
+            context, config, liveReader.surface, { states += it },
+            AaReceiver.Options(port, recording = AaReceiver.Recording(folder)),
+        ).also { it.start() }
+        await("the live session") { states.lastOrNull() == AaLinkState.ACTIVE }
+        val got = play(livePeer)
+
+        receiver!!.sendInput(AaCommand.Key(ServiceDiscoveryResponse.KEY_ENTER))
+        receiver!!.stop()
+
+        val recording = SessionRecorder.read(folder.listFiles().orEmpty().single())
+        val sent = recording.messages.filter { it.sent }
+        assertEquals("the key's down and up (log: $log)", 2, sent.size)
+        assertTrue(sent.all { it.channel == Channel.ID_INP })
+        assertEquals("what Android Auto sent is as it was", got, recording.messages.size - sent.size)
     }
 
     @Test
@@ -177,12 +209,13 @@ class SessionReplayTest {
     }
 
     @Test
-    fun theLimitOfTheOptionIsTheLimitOfTheFile() {
+    fun theLimitOfTheOptionIsKeptByRollingOverTwoFilesOfHalfOfIt() {
         val port = ServerSocket(0).use { it.localPort }
         val peer = FakeAndroidAutoPeer(listenOn = port).also { closeables += it }
         val (reader, _) = surface()
-        // A ping is 14 bytes in the file, after 13 of header: three fit in 60, the fourth does not.
-        val options = AaReceiver.Options(port, recording = AaReceiver.Recording(folder, maxBytes = 60))
+        // The app's recording is a ring: two files of half the limit. A ping is 14 bytes in the file, after 13 of header: three fit in the
+        // 60 of a half, the fourth rolls it over into the older file and begins a new one.
+        val options = AaReceiver.Options(port, recording = AaReceiver.Recording(folder, maxBytes = 120))
         receiver = AaReceiver(context, config, reader.surface, { states += it }, options).also { it.start() }
         await("the session") { states.lastOrNull() == AaLinkState.ACTIVE }
 
@@ -192,10 +225,14 @@ class SessionReplayTest {
         }
         receiver!!.stop()
 
-        val file = folder.listFiles().orEmpty().single()
-        assertEquals(55L, file.length())
-        assertEquals(3, SessionRecorder.read(file).messages.size)
-        assertTrue("got $log", log.any { "session recording full: 3 messages" in it })
+        val files = folder.listFiles().orEmpty().sortedBy { it.name }
+        assertEquals("the older half and the current one: ${files.map { it.name }}", 2, files.size)
+        val (older, current) = files.partition { ".1." in it.name }.let { it.first.single() to it.second.single() }
+        assertEquals(55L, older.length())
+        assertEquals(3, SessionRecorder.read(older).messages.size)
+        assertEquals(2, SessionRecorder.read(current).messages.size)
+        assertTrue("got $log", log.any { "session recording rolled over (#1)" in it })
+        assertTrue("a ring never says it is full: $log", log.none { "session recording full" in it })
     }
 
     @Test

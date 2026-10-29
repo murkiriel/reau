@@ -34,15 +34,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.reau.app.Edition
 import com.reau.app.R
 import com.reau.app.aa.AaScreen
 import com.reau.app.aa.AaVideo
 import com.reau.app.settings.Fit
 import com.reau.app.settings.FitParams
 import com.reau.app.settings.REauSettings
-import com.reau.app.settings.withMenuFitOwn
-import com.reau.app.settings.withMenuFitReset
 import com.reau.app.ui.components.FineStepper
 import com.reau.app.ui.components.GhostButton
 import com.reau.app.ui.components.GroupLabel
@@ -50,13 +47,18 @@ import com.reau.app.ui.components.Info
 import com.reau.app.ui.components.InfoButton
 import com.reau.app.ui.components.MsIcon
 import com.reau.app.ui.components.StatusKind
+import com.reau.app.ui.components.CheckRow
+import com.reau.app.ui.components.StepperRow
 import com.reau.app.ui.components.SwitchRow
+import com.reau.app.weather.RingData
+import com.reau.app.weather.RingOptions
 import com.reau.app.ui.components.TabOption
 import com.reau.app.ui.components.TabRail
 import com.reau.app.ui.components.color
 import com.reau.app.ui.components.hairline
 import com.reau.app.ui.theme.LocalREauDark
 import com.reau.app.ui.theme.REauMono
+import com.reau.app.video.ButtonOverlay
 import com.reau.app.video.FrameFit
 import com.reau.app.video.RectPx
 import com.reau.app.video.StatsOverlay
@@ -64,27 +66,47 @@ import com.reau.app.video.StatsOverlay
 /**
  * The fit on the dome ("Encaixe na cúpula"): on the "Tela do Android Auto", under the picture and the mask, so each
  * step is seen as it is taken. The density and the margins asked of Android Auto (on the same screen where Android Auto
- * is touched) are one for the menu and the apps; then the two tabs, the mode, the fine and coarse counters, what is
+ * is touched) are one for the menu and the apps; then the two tabs (the navigation apps and the rest, the menu with them), the mode, the fine and coarse counters, what is
  * wrong with the fit, the rectangles it gives and the way back to the default.
  */
 @Composable
 internal fun FitPanel(s: REauSettings, change: (REauSettings) -> Unit, screen: AaScreen = AaScreen.APPS) {
-    // Which screen Android Auto shows is read by the accessibility service: without it (the Lite edition) there is
-    // only the apps' fit, and no tab for the menu's own.
-    var menuTab by remember(screen) { mutableStateOf(Edition.hasAccessibility && screen == AaScreen.MENU) }
+    // Which screen Android Auto shows is read by the accessibility service where there is one, and by the picture alone (the little
+    // neural net, PictureLook) in the Lite edition: both editions have the two tabs.
+    var tab by remember(screen) { mutableStateOf(FitTab.opening(screen)) }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(SECTION_GAP)) {
         Column(verticalArrangement = Arrangement.spacedBy(LABEL_GAP)) {
             GroupLabel(null, stringResource(R.string.section_fit))
-            Column(verticalArrangement = Arrangement.spacedBy(BLOCK_GAP)) { FitBlocks(menuTab, { menuTab = it }, s, change) }
+            Column(verticalArrangement = Arrangement.spacedBy(BLOCK_GAP)) { FitBlocks(tab, { tab = it }, s, change) }
         }
-        // The stats text and its switch (here, not in the debug settings).
-        StatsSection(s, change)
+        // The info ring's switch, over the stats text's: in a release build, where there is no stats text, it ends the panel.
+        InfoRingSection(s, change)
+        // The stats text and its switch (here, not in the debug settings), on a debug build only.
+        if (com.reau.app.BuildConfig.DEBUG) {
+            StatsSection(s, change)
+            ButtonSection(s, change)
+        }
     }
 }
 
-/** The fit's blocks (the density, the margins, the tabs, the mode and its counters, the way back), [BLOCK_GAP] apart. */
+/** The tabs of the fit, one per kind of screen Android Auto shows (the navigation apps, and all the rest); they need the accessibility service to be followed. */
+internal enum class FitTab(val tag: String) {
+    NAV("fit_tab_nav"),
+    APPS("fit_tab_apps"),
+    ;
+
+    companion object {
+        /** The tab the fit opens on: that of the screen shown now; the apps' with none known. */
+        fun opening(screen: AaScreen): FitTab = when {
+            screen == AaScreen.NAV -> NAV
+            else -> APPS
+        }
+    }
+}
+
+/** The fit's blocks (the density, the tabs, the mode and its counters, the way back), [BLOCK_GAP] apart. */
 @Composable
-private fun FitBlocks(menuTab: Boolean, onMenuTab: (Boolean) -> Unit, s: REauSettings, change: (REauSettings) -> Unit) {
+private fun FitBlocks(tab: FitTab, onTab: (FitTab) -> Unit, s: REauSettings, change: (REauSettings) -> Unit) {
     Card {
         FineStepper(
             stringResource(R.string.density_title), stringResource(R.string.density_hint), s.density, REauSettings.DENSITY,
@@ -92,32 +114,146 @@ private fun FitBlocks(menuTab: Boolean, onMenuTab: (Boolean) -> Unit, s: REauSet
         )
         Text(stringResource(R.string.density_sub), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
-    Margins(s, change)
-    if (Edition.hasAccessibility) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            TabRail(
-                listOf(
-                    TabOption(stringResource(R.string.tab_apps), stringResource(R.string.tab_apps_sub), "fit_tab_apps"),
-                    TabOption(stringResource(R.string.tab_menu), stringResource(R.string.tab_menu_sub), "fit_tab_menu"),
-                ),
-                if (menuTab) 1 else 0, { onMenuTab(it == 1) },
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        TabRail(
+            listOf(
+                TabOption(stringResource(R.string.tab_nav), stringResource(R.string.tab_nav_sub), FitTab.NAV.tag),
+                TabOption(stringResource(R.string.tab_apps), stringResource(R.string.tab_apps_sub), FitTab.APPS.tag),
+            ),
+            tab.ordinal, { onTab(FitTab.entries[it]) },
+        )
+    }
+    TabFit(tab, s, change)
+    GhostButton(R.drawable.ic_ms_restart_alt, stringResource(R.string.fit_reset), "fit_reset", {
+        val defaults = REauSettings()
+        change(
+            when (tab) {
+                FitTab.NAV -> s.copy(navFit = REauSettings.DEFAULT_NAV_FIT)
+                FitTab.APPS -> s.withAppsFit(defaults.appsFit)
+            },
+        )
+    })
+}
+
+/** The chosen tab's fit steps: the apps', or the navigation's own. */
+@Composable
+private fun TabFit(tab: FitTab, s: REauSettings, change: (REauSettings) -> Unit) {
+    when (tab) {
+        FitTab.APPS -> FitSteps(s.appsFit, s.mapping, s) { change(s.withAppsFit(it)) }
+        FitTab.NAV -> FitSteps(s.navFit, s.navMapping, s) { change(s.copy(navFit = it)) }
+    }
+}
+
+/**
+ * The info ring on the dash's video ([com.reau.app.weather.InfoRing]): one switch, in a card of its own over the stats text's. With it
+ * on and "Usar a localização" off a line says what it needs. Switching it off with "Clima no painel" off too deletes the weather kept.
+ */
+@Composable
+private fun InfoRingSection(s: REauSettings, change: (REauSettings) -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val shape = MaterialTheme.shapes.medium
+    Column(verticalArrangement = Arrangement.spacedBy(LABEL_GAP)) {
+        GroupLabel(null, stringResource(R.string.section_info_ring))
+        Column(Modifier.fillMaxWidth().clip(shape).background(MaterialTheme.colorScheme.surfaceContainer)) {
+            SwitchRow(
+                stringResource(R.string.info_ring_title), s.infoRing,
+                { on ->
+                    change(s.copy(infoRing = on))
+                    if (!on && !s.dashWeather) com.reau.app.weather.WeatherKeeper.clear(context)
+                },
+                "info_ring", sub = stringResource(R.string.info_ring_sub),
+                info = Info(stringResource(R.string.info_ring_title), stringResource(R.string.info_ring_info)),
+            )
+            if (s.infoRing && !s.useLocation) {
+                Text(
+                    stringResource(R.string.info_ring_needs_location),
+                    Modifier.padding(CARD_PADDING).testTag("info_ring_needs_location"),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (s.infoRing) {
+                HorizontalDivider(thickness = 1.dp, color = hairline(0.14f, 0.6f))
+                InfoRingChoices(s, change)
+            }
+        }
+    }
+}
+
+/** What the info ring says (a checkbox for each kind of data) and how it turns from one to the next (the carousel and its time). */
+@Composable
+private fun InfoRingChoices(s: REauSettings, change: (REauSettings) -> Unit) {
+    Column(Modifier.fillMaxWidth().testTag("info_ring_choices")) {
+        SwitchRow(
+            stringResource(R.string.info_ring_place_title), s.infoRingInPlace, { change(s.copy(infoRingInPlace = it)) },
+            "info_ring_in_place", sub = stringResource(R.string.info_ring_place_sub),
+            info = Info(stringResource(R.string.info_ring_place_title), stringResource(R.string.info_ring_place_info)),
+        )
+        HorizontalDivider(thickness = 1.dp, color = hairline(0.14f, 0.6f))
+        Text(
+            stringResource(R.string.info_ring_data_title),
+            Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp),
+            style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        for (data in RingData.entries) {
+            val label = stringResource(ringDataLabel(data))
+            CheckRow(
+                label, RingData.shown(s.infoRingData, data),
+                { on -> change(s.copy(infoRingData = if (on) s.infoRingData or data.bit else s.infoRingData and data.bit.inv())) },
+                "info_ring_data_${data.name.lowercase()}",
+                info = Info(label, stringResource(ringDataInfo(data))),
+            )
+        }
+        if (s.infoRingData and RingData.ALL == 0) {
+            Text(
+                stringResource(R.string.info_ring_data_none),
+                Modifier.padding(CARD_PADDING).testTag("info_ring_data_none"),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        HorizontalDivider(thickness = 1.dp, color = hairline(0.14f, 0.6f))
+        SwitchRow(
+            stringResource(R.string.info_ring_carousel_title), s.infoRingCarousel, { change(s.copy(infoRingCarousel = it)) },
+            "info_ring_carousel", sub = stringResource(R.string.info_ring_carousel_sub),
+        )
+        if (s.infoRingCarousel) {
+            HorizontalDivider(thickness = 1.dp, color = hairline(0.14f, 0.6f))
+            StepperRow(
+                stringResource(R.string.info_ring_seconds_title), stringResource(R.string.info_ring_seconds_value, s.infoRingSeconds),
+                { change(s.copy(infoRingSeconds = (s.infoRingSeconds - 1).coerceIn(RingOptions.SECONDS))) },
+                { change(s.copy(infoRingSeconds = (s.infoRingSeconds + 1).coerceIn(RingOptions.SECONDS))) },
+                "info_ring_seconds", sub = stringResource(R.string.info_ring_seconds_sub),
             )
         }
     }
-    val menu = s.menuFit
-    if (menuTab) MenuOwn(s, change)
-    when {
-        !menuTab -> FitSteps(s.appsFit, s.mapping, s) { change(s.withAppsFit(it)) }
-        menu == null -> Text(
-            stringResource(R.string.menu_fit_same), style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("menu_fit_same"),
-        )
-        else -> FitSteps(menu, s.menuMapping, s) { change(s.copy(menuFit = it)) }
-    }
-    GhostButton(R.drawable.ic_ms_restart_alt, stringResource(R.string.fit_reset), "fit_reset", {
-        val defaults = REauSettings()
-        change(if (menuTab) s.withMenuFitReset() else s.withAppsFit(defaults.appsFit))
-    })
+}
+
+/** What the (i) of a kind of data says: how it works, what it shows and its criteria. */
+private fun ringDataInfo(data: RingData): Int = when (data) {
+    RingData.RAIN -> R.string.info_ring_data_rain_info
+    RingData.WIND -> R.string.info_ring_data_wind_info
+    RingData.STORM -> R.string.info_ring_data_storm_info
+    RingData.UV -> R.string.info_ring_data_uv_info
+    RingData.AIR -> R.string.info_ring_data_air_info
+    RingData.SUN -> R.string.info_ring_data_sun_info
+    RingData.SKY -> R.string.info_ring_data_sky_info
+    RingData.TEMPS -> R.string.info_ring_data_temps_info
+    RingData.BATTERY -> R.string.info_ring_data_battery_info
+    RingData.LINK -> R.string.info_ring_data_link_info
+    RingData.GPS -> R.string.info_ring_data_gps_info
+}
+
+private fun ringDataLabel(data: RingData): Int = when (data) {
+    RingData.RAIN -> R.string.info_ring_data_rain
+    RingData.WIND -> R.string.info_ring_data_wind
+    RingData.STORM -> R.string.info_ring_data_storm
+    RingData.UV -> R.string.info_ring_data_uv
+    RingData.AIR -> R.string.info_ring_data_air
+    RingData.SUN -> R.string.info_ring_data_sun
+    RingData.SKY -> R.string.info_ring_data_sky
+    RingData.TEMPS -> R.string.info_ring_data_temps
+    RingData.BATTERY -> R.string.info_ring_data_battery
+    RingData.LINK -> R.string.info_ring_data_link
+    RingData.GPS -> R.string.info_ring_data_gps
 }
 
 /**
@@ -144,6 +280,45 @@ private fun StatsSection(s: REauSettings, change: (REauSettings) -> Unit) {
     }
 }
 
+/** The last-button text and its switch, under the stats text's (debug builds only). */
+@Composable
+private fun ButtonSection(s: REauSettings, change: (REauSettings) -> Unit) {
+    val shape = MaterialTheme.shapes.medium
+    Column(verticalArrangement = Arrangement.spacedBy(LABEL_GAP)) {
+        GroupLabel(null, stringResource(R.string.section_button))
+        Column(Modifier.fillMaxWidth().clip(shape).background(MaterialTheme.colorScheme.surfaceContainer)) {
+            SwitchRow(
+                stringResource(R.string.button_title), s.buttonOverlay, { change(s.copy(buttonOverlay = it)) }, "button_overlay",
+                info = Info(stringResource(R.string.button_title), stringResource(R.string.button_overlay)),
+            )
+            if (s.buttonOverlay) {
+                HorizontalDivider(thickness = 1.dp, color = hairline(0.14f, 0.6f))
+                ButtonSteps(s, change)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ButtonSteps(s: REauSettings, change: (REauSettings) -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(CARD_PADDING).testTag("button_steps"), verticalArrangement = Arrangement.spacedBy(CARD_GAP)) {
+        FineStepper(
+            stringResource(R.string.button_x_title), stringResource(R.string.button_x_hint), s.buttonX, ButtonOverlay.X,
+            { change(s.copy(buttonX = it)) }, "button_x", format = { "$it px" },
+        )
+        HorizontalDivider(thickness = 1.dp, color = hairline(0.14f, 0.6f))
+        FineStepper(
+            stringResource(R.string.button_y_title), stringResource(R.string.button_y_hint), s.buttonY, ButtonOverlay.Y,
+            { change(s.copy(buttonY = it)) }, "button_y", format = { "$it px" },
+        )
+        HorizontalDivider(thickness = 1.dp, color = hairline(0.14f, 0.6f))
+        FineStepper(
+            stringResource(R.string.button_size_title), stringResource(R.string.button_size_hint), s.buttonSize, ButtonOverlay.SIZE,
+            { change(s.copy(buttonSize = it)) }, "button_size", format = { "$it px" },
+        )
+    }
+}
+
 @Composable
 private fun StatsSteps(s: REauSettings, change: (REauSettings) -> Unit) {
     Column(Modifier.fillMaxWidth().padding(CARD_PADDING).testTag("stats_steps"), verticalArrangement = Arrangement.spacedBy(CARD_GAP)) {
@@ -160,36 +335,6 @@ private fun StatsSteps(s: REauSettings, change: (REauSettings) -> Unit) {
         FineStepper(
             stringResource(R.string.stats_size_title), stringResource(R.string.stats_size_hint), s.statsSize, StatsOverlay.SIZE,
             { change(s.copy(statsSize = it)) }, "stats_size", format = { "$it px" },
-        )
-    }
-}
-
-/** The margins asked of Android Auto: it draws only in the middle of its 800×480 frame, black around (taken at once). */
-@Composable
-private fun Margins(s: REauSettings, change: (REauSettings) -> Unit) {
-    val marginsInfo = Info(stringResource(R.string.margins_title), stringResource(R.string.margins_info))
-    Card {
-        FineStepper(
-            stringResource(R.string.label_margin_w), stringResource(R.string.margin_sub), s.marginW, 0..AaVideo.WIDTH,
-            { change(s.copy(marginW = it)) }, "margin_w", format = { "$it px" }, info = marginsInfo,
-        )
-        HorizontalDivider(thickness = 1.dp, color = hairline(0.14f, 0.6f))
-        FineStepper(
-            stringResource(R.string.label_margin_h), stringResource(R.string.margin_sub), s.marginH, 0..AaVideo.HEIGHT,
-            { change(s.copy(marginH = it)) }, "margin_h", format = { "$it px" }, info = marginsInfo,
-        )
-    }
-}
-
-/** The app menu's own fit, on as it was kept (the default until one was set; off, the menu uses the apps' fit). */
-@Composable
-private fun MenuOwn(s: REauSettings, change: (REauSettings) -> Unit) {
-    val shape = MaterialTheme.shapes.medium
-    Column(Modifier.fillMaxWidth().clip(shape).background(MaterialTheme.colorScheme.surfaceContainer)) {
-        SwitchRow(
-            stringResource(R.string.menu_own_title), s.menuFit != null, { on -> change(s.withMenuFitOwn(on)) }, "menu_fit_own",
-            sub = stringResource(if (s.menuFit != null) R.string.menu_own_sub_on else R.string.menu_own_sub_off),
-            info = Info(stringResource(R.string.menu_own_title), stringResource(R.string.menu_fit_own)),
         )
     }
 }
@@ -329,7 +474,6 @@ internal val CARD_GAP = 12.dp
 internal val CARD_PADDING = PaddingValues(horizontal = 16.dp, vertical = 14.dp)
 
 private val MODES = listOf(
-    Triple(Fit.FILL_DOME, R.string.fit_fill_dome, R.drawable.ic_ms_fullscreen),
     Triple(Fit.WHOLE_VISIBLE, R.string.fit_whole_short, R.drawable.ic_ms_fit_screen),
     Triple(Fit.CROP, R.string.fit_crop, R.drawable.ic_ms_crop),
 )

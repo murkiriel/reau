@@ -23,6 +23,7 @@ import com.reau.app.data.ExitHistory
 import com.reau.app.data.RideDiagnostics
 import com.reau.app.settings.REauSettings
 import com.reau.app.settings.SettingsInUse
+import com.reau.app.util.DiagnosticsExport
 import com.reau.app.settings.SettingsStore
 import com.reau.app.video.FrameFit
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -104,7 +105,45 @@ class ProjectionService : Service() {
         /** The tag of both locks, as `dumpsys power` and `dumpsys wifi` show it. */
         const val LOCK_TAG = "reau:projection"
 
+        /** What the rider's Ligar (true) or Desligar (false) tells the head unit server's starter at once; null for any other command. */
+        internal fun riderSwitch(action: String?): Boolean? = when (action) {
+            ACTION_START -> true
+            ACTION_STOP -> false
+            else -> null
+        }
+
+        /** What a command found, for the log: a Desligar that begins, or a Ligar that comes while that stop is still carried out. */
+        internal enum class TapNote { NONE, STOP_TAPPED, LIGAR_DURING_STOP }
+
+        internal fun tapNote(action: String?, phase: Phase, stopTappedAtMs: Long): TapNote = when {
+            action == ACTION_STOP && phase != Phase.STOPPED -> TapNote.STOP_TAPPED
+            action == ACTION_START && stopTappedAtMs != 0L -> TapNote.LIGAR_DURING_STOP
+            else -> TapNote.NONE
+        }
+
+        /** The foreground types the projection asks for beyond the connected device: [microphone] for Gemini, [location] for the info ring's GPS card. */
+        internal class ForegroundNeeds(val microphone: Boolean, val location: Boolean)
+
+        /** Gemini on and the permission to record; the ring's GPS card on, with the rider's "Usar a localização" and the precise location permission. */
+        internal fun foregroundNeeds(settings: REauSettings, recordAudioGranted: Boolean, fineLocationGranted: Boolean) = ForegroundNeeds(
+            microphone = settings.gemini && recordAudioGranted,
+            location = settings.infoRing && settings.useLocation &&
+                com.reau.app.weather.RingData.shown(settings.infoRingData, com.reau.app.weather.RingData.GPS) && fineLocationGranted,
+        )
+
+        /** A start builds its sides when the projection is stopped (a start on a running one keeps what it has). */
+        internal fun buildsSides(sidesFor: Boolean?, phase: Phase): Boolean = sidesFor != null && phase == Phase.STOPPED
+
+        /** A mark of the rider's goes in a projection that is on; a refit applies only to one that is running. */
+        internal fun markApplies(phase: Phase): Boolean = phase != Phase.STOPPED
+
+        internal fun refitApplies(phase: Phase): Boolean = phase == Phase.RUNNING
+
+        /** A drop of Android Auto's side, for the summary. */
+        internal fun isAaDrop(event: ProjectionEvent): Boolean = event is ProjectionEvent.AndroidAutoChanged && event.state == AaLinkState.DROPPED
+
         private const val STOP_WAIT_MS = 5_000L
+        private const val MS_PER_MINUTE = 60_000L
         private const val NOTIFICATION_PACE_MS = 250L
 
         /** How often the phone's state is looked at, and how often a line is written with no relevant change. */
@@ -182,6 +221,9 @@ class ProjectionService : Service() {
     private var sides: ProjectionSides? = null
     private var sidesForCard = false
     private var sidesBuilt = 0
+
+    /** Why the sides of this start could not be built, until [Ports.prepare] tells it; the worker only. */
+    private var sidesFailure: String? = null
     private val locks = ProjectionLocks(this)
 
     // The start id of the command the worker is carrying out; only the worker reads and writes it.
@@ -224,25 +266,33 @@ class ProjectionService : Service() {
                 val pending = worker.schedule(action, delayMs, TimeUnit.MILLISECONDS)
                 ({ pending.cancel(false) })
             },
-            { headline -> ProjectionNotification.show(this, headline, markNote(), started.value) },
+            { headline -> ProjectionNotification.show(this, headline, markNote(), started.value, card = controller.state.card) },
         )
-        controller = ProjectionController(Ports(), ::log, onChange = { state ->
-            countDash(current.value.dash, state.dash)
-            current.value = state
-            // "Desligando" goes up at once: the stop blocks this worker, which the pacer's wait runs on. Not when a newer start
-            // already holds the foreground (its notification is the one to keep).
-            if (state.headline == Headline.STOPPING && ForegroundHandover.dropsForeground(command, lastStart)) {
-                pacer.showNow(Headline.STOPPING)
-            } else {
-                pacer.offer(state.headline)
-            }
-        })
+        // The settings are decoded once (the Keystore, the file) and kept; read here, on the worker, the tap on Ligar finds
+        // them warm when goForeground() reads them on the main thread.
+        worker.execute { runCatching { SettingsStore.open(this).load() } }
+        controller = ProjectionController(
+            Ports(), ::log,
+            onNoDashStop = { minutes -> ProjectionNotification.showStoppedNoDash(this, minutes) },
+            noDashStopMs = { SettingsStore.open(this).load().noDashStopMinutes * MS_PER_MINUTE },
+            onChange = { state ->
+                countDash(current.value.dash, state.dash)
+                current.value = state
+                // "Desligando" goes up at once: the stop blocks this worker, which the pacer's wait runs on. Not when a newer start
+                // already holds the foreground (its notification is the one to keep).
+                if (state.headline == Headline.STOPPING && ForegroundHandover.dropsForeground(command, lastStart)) {
+                    pacer.showNow(Headline.STOPPING)
+                } else {
+                    pacer.offer(state.headline)
+                }
+            },
+        )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // The server's cover goes up at the tap, not after the first dial or the session's end.
         val action = intent?.action
-        if (action == ACTION_START || action == ACTION_STOP) AaServerStarter.riderSwitched(this, on = action == ACTION_START)
+        riderSwitch(action)?.let { AaServerStarter.riderSwitched(this, on = it) }
         noteTapDuringStop(action)
         when (action) {
             ACTION_START, ACTION_START_CARD -> if (goForeground()) {
@@ -254,15 +304,15 @@ class ProjectionService : Service() {
             }
             ACTION_STOP -> handle(startId, ProjectionEvent.Stop)
             ACTION_MARK -> worker.execute {
-                if (controller.state.phase == Phase.STOPPED) {
+                if (!markApplies(controller.state.phase)) {
                     stopSelf(startId)
                 } else {
                     RideDiagnostics.log("mark", marks.mark(System.currentTimeMillis()))
-                    ProjectionNotification.show(this, controller.state.headline, markNote(), started.value)
+                    ProjectionNotification.show(this, controller.state.headline, markNote(), started.value, card = controller.state.card)
                 }
             }
             ACTION_REFIT -> worker.execute {
-                if (controller.state.phase == Phase.RUNNING) {
+                if (refitApplies(controller.state.phase)) {
                     val settings = SettingsStore.open(this).load()
                     log("projection: refit from the settings: ${settings.mapping}")
                     runCatching { sides?.retune(settings) }.onFailure { log("${RideDiagnostics.WARN}projection: refit failed: $it") }
@@ -277,15 +327,34 @@ class ProjectionService : Service() {
     }
 
     override fun onDestroy() {
-        // The system stopping the service is a switch-off too; done here, before the worker goes.
-        runCatching { worker.submit { controller.submit(ProjectionEvent.Stop) }.get(STOP_WAIT_MS, TimeUnit.MILLISECONDS) }
-            .onFailure { log("${RideDiagnostics.WARN}projection: stopping in onDestroy failed: $it") }
-        worker.shutdownNow()
-        runCatching { sides?.release() }.onFailure { log("projection: releasing the sides failed: $it") }
-        locks.release()
-        // Also a stop left half-way ("Desligando"): the screen never stays on it once the service is gone.
-        if (current.value != Projection()) current.value = Projection()
-        log("projection: service gone, locks released")
+        // The system stopping the service is a switch-off too. The stop, and what follows it, run off the main thread: waiting here for the
+        // worker (up to 5 s) froze the screen whenever the system destroyed the service during a slow stop (audit of 26/10/2026).
+        val stopping = runCatching { worker.submit { controller.submit(ProjectionEvent.Stop) } }
+        val begun = SystemClock.elapsedRealtime()
+        BackgroundRelease.run("projection-release", { log("${RideDiagnostics.WARN}projection: releasing in onDestroy failed: $it") }) {
+            ReleaseSteps.runAll(
+                listOf<Pair<String, () -> Unit>>(
+                    "stop" to { stopping.getOrThrow().get(STOP_WAIT_MS, TimeUnit.MILLISECONDS) },
+                    // The sides (compositor, codecs, Wi-Fi) are let go here too, off the main thread (BackgroundRelease): once the worker is
+                    // gone nothing else touches them; a next start builds its own.
+                    "worker" to { worker.shutdownNow() },
+                    "sides" to {
+                        val leaving = sides
+                        sides = null
+                        leaving?.release()
+                        log("projection: the sides were let go in ${SystemClock.elapsedRealtime() - begun} ms, off the main thread")
+                    },
+                    "locks" to { locks.release() },
+                    // Also a stop left half-way ("Desligando"): the screen never stays on it once the service is gone. What went wrong with a
+                    // start that was refused (no compositor, no sides) stays to be read: the service leaves at once, and the reason would go with it.
+                    "state" to {
+                        val reason = current.value.problem
+                        if (current.value != Projection(problem = reason)) current.value = Projection(problem = reason)
+                    },
+                ),
+            ) { name, e -> log("${RideDiagnostics.WARN}projection: in onDestroy, $name failed: ${e.javaClass.simpleName}") }
+            log("projection: service gone, locks released")
+        }
         inForeground = false
         super.onDestroy()
     }
@@ -293,10 +362,11 @@ class ProjectionService : Service() {
     /** For the log: a Ligar that finds the last Desligar still being carried out (it waits for it), and when that Desligar began. */
     private fun noteTapDuringStop(action: String?) {
         val now = SystemClock.elapsedRealtime()
-        when {
-            action == ACTION_STOP && current.value.phase != Phase.STOPPED -> stopTappedAtMs = now
-            action == ACTION_START && stopTappedAtMs != 0L ->
+        when (tapNote(action, current.value.phase, stopTappedAtMs)) {
+            TapNote.STOP_TAPPED -> stopTappedAtMs = now
+            TapNote.LIGAR_DURING_STOP ->
                 log("projection: Ligar tapped ${now - stopTappedAtMs} ms after Desligar, while that stop is still being carried out: the start waits behind it")
+            TapNote.NONE -> Unit
         }
     }
 
@@ -306,7 +376,7 @@ class ProjectionService : Service() {
      */
     private fun handle(commandId: Int, event: ProjectionEvent, sidesFor: Boolean? = null) = worker.execute {
         command = commandId
-        if (sidesFor != null && controller.state.phase == Phase.STOPPED) sidesOfKind(card = sidesFor)
+        if (sidesFor != null && buildsSides(sidesFor, controller.state.phase)) buildSides(card = sidesFor)
         controller.submit(event)
         if (event == ProjectionEvent.Stop && stopTappedAtMs != 0L) {
             log("projection: the stop was carried out ${SystemClock.elapsedRealtime() - stopTappedAtMs} ms after Desligar was tapped")
@@ -316,12 +386,28 @@ class ProjectionService : Service() {
     }
 
     /**
+     * [sidesOfKind], with a failure kept to be told: the worker swallows what a task throws, and the service would stay in the
+     * foreground on "Preparando" with no sides and no word. [Ports.prepare] refuses the start with this text instead.
+     */
+    @Suppress("TooGenericExceptionCaught") // whatever a factory throws is the start's problem, said to the rider and the log
+    private fun buildSides(card: Boolean) {
+        sidesFailure = try {
+            sidesOfKind(card)
+            null
+        } catch (e: Exception) {
+            log("${RideDiagnostics.ERROR}projection: the sides could not be built: ${e.javaClass.simpleName}")
+            "${e.javaClass.simpleName}: ${e.message}"
+        }
+    }
+
+    /**
      * Makes sure the sides are of the kind about to be switched on: the card's or Android Auto's. Sides of the other
      * kind are let go first; whatever they report afterwards no longer reaches the machine.
      */
     private fun sidesOfKind(card: Boolean) {
         if (sides != null && sidesForCard == card) return
         sides?.let { old -> runCatching { old.release() }.onFailure { log("projection: releasing the sides failed: $it") } }
+        sides = null // a factory that throws must not leave the sides just released in place
         val built = ++sidesBuilt
         val report: (ProjectionEvent) -> Unit = { event ->
             countDrop(event) // for the summary
@@ -342,16 +428,21 @@ class ProjectionService : Service() {
      */
     private fun goForeground(): Boolean {
         var why = ""
-        // Gemini switched on and the permission to record given.
-        val gemini = SettingsStore.open(this).load().gemini &&
-            checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-        for (types in ForegroundTypes.ladder(microphone = gemini)) {
+        // Gemini switched on and the permission to record given; the info ring's GPS card on, with the precise location permission and the
+        // rider's "Usar a localização": the location type too.
+        val needs = foregroundNeeds(
+            SettingsStore.open(this).load(),
+            recordAudioGranted = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED,
+            fineLocationGranted = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED,
+        )
+        for (types in ForegroundTypes.ladder(microphone = needs.microphone, location = needs.location)) {
             val refusal = try {
                 ProjectionNotification.createChannel(this)
                 startForeground(ProjectionNotification.ID, ProjectionNotification.build(this, Headline.PREPARING), types)
                 inForeground = true
                 worker.execute { pacer.alreadyShown(Headline.PREPARING) }
                 if (types and ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE != 0) log("projection: foreground with the microphone, for Gemini")
+                if (types and ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION != 0) log("projection: foreground with the location, for the info ring's GPS")
                 return true
             } catch (e: IllegalStateException) {
                 e
@@ -375,17 +466,27 @@ class ProjectionService : Service() {
             // A new summary for this projection, written when it is switched off.
             ProjectionSummary.current = RideSummary().apply { start(SystemClock.elapsedRealtime(), batteryPct = null) }
             started.value = SystemClock.elapsedRealtime()
-            // Sides with no compositor cannot project; the start fails here, with the reason, and the
+            // Sides that could not be built, or with no compositor, cannot project; the start fails here, with the reason, and the
             // machine gives the service back (Release) instead of connecting a dash that would never get video.
-            if (sides?.videoReady == false) {
-                log("${RideDiagnostics.ERROR}projection: refused, ${ProjectionSides.COMPOSITOR_NOT_STARTED}")
-                return getString(R.string.problem_compositor)
-            }
+            refusal()?.let { return it }
             // So the server's cover is not slow to appear, the earlier runs' reports and the locks
             // (together once 0.4 to 0.8 s on a phone) follow Android Auto's side, whose first dial starts the walk
             // behind that cover. On this same worker, so they come before any stop asked for after this start.
             worker.execute { housekeeping() }
             return null
+        }
+
+        /** Why this start cannot go on, said to the rider; null when it can. */
+        private fun refusal(): String? = when {
+            sidesFailure != null -> sidesFailure.also {
+                sidesFailure = null
+                log("${RideDiagnostics.ERROR}projection: refused, the sides could not be built")
+            }
+            sides?.videoReady == false -> {
+                log("${RideDiagnostics.ERROR}projection: refused, ${ProjectionSides.COMPOSITOR_NOT_STARTED}")
+                getString(R.string.problem_compositor)
+            }
+            else -> null
         }
 
         /** What a start needs but Android Auto's first dial does not: the earlier runs' reports, the locks, the device look. */
@@ -394,6 +495,8 @@ class ProjectionService : Service() {
             if (testOnlyHousekeepingMs > 0) Thread.sleep(testOnlyHousekeepingMs)
             CrashHandler.reportPrevious(this@ProjectionService)
             ExitHistory.reportPrevious(this@ProjectionService)
+            // the zip of the last share holds logs; it does not wait in the cache
+            DiagnosticsExport.forgetZips(java.io.File(cacheDir, DiagnosticsExport.SHARED_DIR))
             val reported = SystemClock.elapsedRealtime()
             // Switched off before this came (Desligar right after Ligar): nothing to hold.
             if (controller.state.phase == Phase.STOPPED) return
@@ -465,13 +568,13 @@ class ProjectionService : Service() {
 
     /** A drop of Android Auto's side, for the summary. */
     private fun countDrop(event: ProjectionEvent) {
-        if (event is ProjectionEvent.AndroidAutoChanged && event.state == AaLinkState.DROPPED) ProjectionSummary.current.aaDropped()
+        if (isAaDrop(event)) ProjectionSummary.current.aaDropped()
     }
 
     /** The dash side went from [before] to [after], for the summary: a drop, a failed try, or nothing to count. */
     private fun countDash(before: DashLink, after: DashLink) {
         when (DashDrops.of(before, after)) {
-            DashDrops.Kind.DROP -> ProjectionSummary.current.dashDropped()
+            DashDrops.Kind.DROP -> ProjectionSummary.current.dashDropped(SystemClock.elapsedRealtime())
             DashDrops.Kind.FAILED_TRY -> ProjectionSummary.current.dashTryFailed()
             DashDrops.Kind.NONE -> Unit
         }

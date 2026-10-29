@@ -158,4 +158,73 @@ class DashAuthTest {
         assertEquals(pub.modulus, rebuilt.modulus)
         assertEquals(pub.publicExponent, rebuilt.publicExponent)
     }
+
+    @Test
+    fun `the key counts as seen from its first half, and not seen again after a rejection resets the attempt`() {
+        val (pub, _) = rsaKeyPair()
+        val auth = DashAuth("RE_TEST")
+        assertEquals(false, auth.keySeen)
+        auth.ingest(modulusTlv(pub))
+        assertEquals(true, auth.keySeen)
+        auth.ingest(exponentTlv(pub))
+        assertEquals(true, auth.keySeen)
+        auth.reset()
+        assertEquals(false, auth.keySeen)
+    }
+
+    /** The factory password of the dash's Wi-Fi is public: a copy of the key from somebody else must not replace the dash's. */
+    @Test
+    fun `the first key half of each kind in an attempt is kept, a later one does not replace it`() {
+        val (real, realPrivate) = rsaKeyPair()
+        val (forged, _) = rsaKeyPair()
+        val auth = DashAuth("RE_TEST")
+        assertEquals(AuthEvent.None, auth.ingest(modulusTlv(real)))
+        assertEquals(AuthEvent.None, auth.ingest(modulusTlv(forged))) // ignored
+        val event = auth.ingest(exponentTlv(real)) as AuthEvent.SendKey
+        // The session key went out under the dash's own modulus: only its private key opens it.
+        val ciphertext = event.packet.copyOfRange(event.packet.size - 128, event.packet.size)
+        val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding")
+        cipher.init(Cipher.DECRYPT_MODE, realPrivate)
+        val plain = cipher.doFinal(ciphertext)
+        assertArrayEquals(auth.sessionKey, plain.copyOfRange(plain.size - 32, plain.size))
+    }
+
+    @Test
+    fun `after a rejection the attempt starts over and takes the dash's new halves`() {
+        val (first, _) = rsaKeyPair()
+        val (second, _) = rsaKeyPair()
+        val auth = DashAuth("RE_TEST")
+        auth.ingest(modulusTlv(first)); auth.ingest(exponentTlv(first))
+        auth.ingest(confirmTlv(false))
+        auth.reset()
+        assertEquals(AuthEvent.None, auth.ingest(modulusTlv(second)))
+        assertTrue(auth.ingest(exponentTlv(second)) is AuthEvent.SendKey)
+    }
+
+    /** Audit of 20/10/2026: the session key was set before the cipher ran, so a modulus the cipher refused left a key the dash never got. */
+    @Test
+    fun `a modulus the cipher refuses leaves no session key behind`() {
+        val auth = DashAuth("RE_TEST")
+        assertEquals(AuthEvent.None, auth.ingest(Tlv(0x07, 0x00, byteArrayOf(0x01)))) // far too small for RSA
+        assertEquals(AuthEvent.None, auth.ingest(Tlv(0x07, 0x03, byteArrayOf(0x03))))
+        assertNull("a key the dash never received", auth.sessionKey)
+    }
+
+    @Test
+    fun `after a refused modulus the next good key sets the session key, and a rejection takes it away again`() {
+        val (pub, _) = rsaKeyPair()
+        val auth = DashAuth("RE_TEST")
+        auth.ingest(Tlv(0x07, 0x00, byteArrayOf(0x01)))
+        auth.ingest(Tlv(0x07, 0x03, byteArrayOf(0x03)))
+        assertNull(auth.sessionKey)
+
+        auth.ingest(modulusTlv(pub))
+        val sent = auth.ingest(exponentTlv(pub)) as AuthEvent.SendKey
+        val key = auth.sessionKey
+        assertEquals(32, key?.size)
+        assertEquals(true, sent.packet.isNotEmpty())
+
+        auth.reset()
+        assertNull("the key the dash refused is no key", auth.sessionKey)
+    }
 }

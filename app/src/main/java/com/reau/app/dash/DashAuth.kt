@@ -34,15 +34,20 @@ class DashAuth(private val ssid: String) {
     var sessionKey: ByteArray? = null
         private set
 
+    /** The dash has sent (a half of) its public key in this attempt, or the session key already went out. */
+    val keySeen: Boolean get() = keySent || modulus != null || exponent != null
+
     fun ingest(tlv: Tlv): AuthEvent {
         if (tlv.type != 0x07) return AuthEvent.None
         return when (tlv.sub) {
+            // The first half of each kind in an attempt is the one kept: a second one (a copy from somebody else on the
+            // dash's Wi-Fi, racing the dash) does not replace it. A rejection ([reset]) starts the attempt over.
             0x00 -> {
-                modulus = BigInteger(1, tlv.value)
+                if (modulus == null) modulus = BigInteger(1, tlv.value)
                 offerKey()
             }
             0x03 -> {
-                exponent = BigInteger(1, tlv.value)
+                if (exponent == null) exponent = BigInteger(1, tlv.value)
                 offerKey()
             }
             0x01 -> if (tlv.value.firstOrNull() == 0x01.toByte()) AuthEvent.Confirmed else AuthEvent.Rejected
@@ -79,17 +84,22 @@ class DashAuth(private val ssid: String) {
         modulus = null
         exponent = null
         keySent = false
+        // The key the dash refused is no key: the next attempt makes its own.
+        sessionKey = null
     }
 
     private fun buildKeyPacket(modulus: BigInteger, exponent: BigInteger): ByteArray {
         val aes = ByteArray(32).also { SecureRandom().nextBytes(it) }
-        sessionKey = aes
 
         val payload = ssid.toByteArray(Charsets.UTF_8) + aes
         val pubKey = KeyFactory.getInstance("RSA")
             .generatePublic(RSAPublicKeySpec(modulus, exponent))
         val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding")
         cipher.init(Cipher.ENCRYPT_MODE, pubKey)
-        return DashCommands.authSendKey(cipher.doFinal(payload))
+        val packet = DashCommands.authSendKey(cipher.doFinal(payload))
+        // Only now: the key is the dash's once it has gone into a packet. Set before, a modulus the cipher refused left behind a
+        // session key the dash never got, and the call card (encrypted with it) would have been unreadable to it (audit of 20/10/2026).
+        sessionKey = aes
+        return packet
     }
 }

@@ -4,6 +4,8 @@ import com.reau.app.dash.BitrateMode
 import com.reau.app.dash.DashConfig
 import com.reau.app.data.KeystoreBackedPrefsTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -92,5 +94,80 @@ class FixedProfilesTest {
             .putBoolean("speed_fps_profile", false).apply()
         val back = SettingsStore(prefs).load()
         assertEquals(true to true, back.maneuverFpsProfile to back.speedFpsProfile)
+    }
+
+    private fun root(): java.io.File = generateSequence(java.io.File("").absoluteFile) { it.parentFile }.first { java.io.File(it, "settings.gradle.kts").isFile }
+
+    @Test
+    fun `the profiles' bitrates are written once, in DashConfig, and not as a number in other code`() {
+        val main = java.io.File(root(), "app/src/main/java/com/reau/app")
+        val literal = Regex("""\b(?:400_?000|200_?000)\b""")
+        // Relative to the root, so a project under a folder called "proto" is still scanned.
+        val files = main.walkTopDown().filter { it.isFile && it.extension == "kt" && it.name != "DashConfig.kt" }
+            .filter { !("/" + it.relativeTo(main).path).contains("/proto/") }.toList()
+        assertTrue("the guard found only ${files.size} files", files.size > 200)
+        val offenders = files.flatMap { file ->
+            file.readLines().withIndex().filter { (_, line) ->
+                val code = line.trim()
+                !code.startsWith("*") && !code.startsWith("//") && !code.startsWith("/*") && literal.containsMatchIn(code)
+            }.map { (n, _) -> "${file.name}:${n + 1}" }
+        }
+        assertEquals("use DashConfig.PROFILE_*_BPS: $offenders", emptyList<String>(), offenders)
+    }
+
+    /**
+     * Decided on 28/10/2026: the recordings exist in a release too, off by default, and the rider switches them on in Settings > Debug. What is
+     * stored is kept as it is in both builds (it was forced off in a release); only the two texts over the dash's video stay a debug build's.
+     */
+    @Test
+    fun `the recordings are kept as stored in a release as in a debug build`() {
+        val on = REauSettings(recordVideo = true, recordSessions = true)
+        for (debugBuild in listOf(true, false)) {
+            assertTrue("recordVideo stays on (debugBuild=$debugBuild)", on.sanitized(debugBuild = debugBuild).recordVideo)
+            assertTrue("recordSessions stays on (debugBuild=$debugBuild)", on.sanitized(debugBuild = debugBuild).recordSessions)
+        }
+        val off = REauSettings(recordVideo = false, recordSessions = false)
+        assertFalse(off.sanitized(debugBuild = false).recordVideo)
+        assertFalse(off.sanitized(debugBuild = false).recordSessions)
+        val one = REauSettings(recordVideo = true, recordSessions = false).sanitized(debugBuild = false)
+        assertEquals(true to false, one.recordVideo to one.recordSessions)
+    }
+
+    @Test
+    fun `the recordings are off by default in a release and on in a debug build, as the build type says`() {
+        val source = java.io.File(root(), "app/src/main/java/com/reau/app/settings/REauSettings.kt").readText()
+        for (name in listOf("recordVideo", "recordSessions")) {
+            assertTrue("$name's default is the build type (off in a release)", Regex("""val $name: Boolean = com\.reau\.app\.BuildConfig\.DEBUG""").containsMatchIn(source))
+        }
+    }
+
+    @Test
+    fun `the detailed log is no debug option, a release keeps it on when the rider switches it on, and it starts off there`() {
+        assertTrue(REauSettings(detailedLog = true).sanitized(debugBuild = false).detailedLog)
+        assertTrue("the ride log stays on in a release", REauSettings(rideLog = true).sanitized(debugBuild = false).rideLog)
+    }
+
+    @Test
+    fun `the debug build starts with its choices on, and they are written as the build type so a release starts with them off`() {
+        val s = REauSettings()
+        assertEquals("the unit tests run the debug build", com.reau.app.BuildConfig.DEBUG, true)
+        assertEquals(listOf(true, true, true, true), listOf(s.rideLog, s.recordVideo, s.recordSessions, s.detailedLog))
+        val source = java.io.File(root(), "app/src/main/java/com/reau/app/settings/REauSettings.kt").readText()
+        for (name in listOf("recordVideo", "recordSessions", "detailedLog")) {
+            assertTrue("$name's default is the build type", Regex("""val $name: Boolean = com\.reau\.app\.BuildConfig\.DEBUG""").containsMatchIn(source))
+        }
+        assertTrue("the ride log is on in a release too", Regex("""val rideLog: Boolean = true""").containsMatchIn(source))
+    }
+
+    @Test
+    fun `the protocol request always goes up to three times, and the debug options that went are gone`() {
+        assertEquals(3, REauSettings().aaConfig.versionRequests)
+        val names = REauSettings::class.java.declaredFields.map { it.name }
+        assertEquals(emptyList<String>(), names.filter { it in listOf("aaSingleVersionRequest", "diagLinkOnly", "fasterMenu", "diagNoDscp") })
+    }
+
+    @Test
+    fun `the faster picture is always on, in a debug build and in a release, with no switch`() {
+        assertEquals(com.reau.app.dash.DashConfig.LIGHT_SCREEN_FPS, REauSettings.lightScreenFps())
     }
 }

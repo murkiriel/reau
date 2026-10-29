@@ -74,6 +74,10 @@ internal fun Warning(warning: Warning, state: MainUiState, onOpenAndroidAutoSett
             warn, R.drawable.ic_ms_error, stringResource(R.string.warn_vpn_title), stringResource(R.string.warn_vpn),
             null, null, tag = "vpn_warning",
         )
+        Warning.LOCATION_OFF -> WarningCard(
+            warn, R.drawable.ic_ms_error, stringResource(R.string.warn_location_title), stringResource(R.string.warn_location),
+            null, null, tag = "location_warning",
+        )
         Warning.NAME_NEEDED -> WarningCard(
             StatusKind.ERROR, R.drawable.ic_ms_error, stringResource(R.string.warn_name_title), stringResource(R.string.dash_name_warning),
             null, CardAction(stringResource(R.string.action_open_settings_short), "name_open_settings", onOpenSettings),

@@ -42,6 +42,29 @@ class WeatherParserTest {
     }
 
     @Test
+    fun theNextQuartersAndThePlacesOffsetAreRead() {
+        val withQuarters = answer.replaceFirst("{\"current\"", "{\"utc_offset_seconds\":-10800,\"minutely_15\":{\"time\":[\"2030-01-15T15:00\",\"2030-01-15T15:15\",\"2030-01-15T15:30\"]," +
+            "\"precipitation\":[0.0,0.4,null],\"weather_code\":[1,61,null],\"wind_gusts_10m\":[22.5,31.0,null]},\"current\"")
+        val forecast = WeatherParser.parse(withQuarters)
+        assertEquals(-10_800, forecast.utcOffsetSeconds)
+        assertEquals("2030-01-15T15:00", forecast.current?.timeIso)
+        assertEquals(listOf("2030-01-15T15:00", "2030-01-15T15:15", "2030-01-15T15:30"), forecast.minutely.map { it.timeIso })
+        assertEquals(0.4, forecast.minutely[1].precipitationMm!!, 0.001)
+        assertEquals(61, forecast.minutely[1].weatherCode)
+        assertEquals(31.0, forecast.minutely[1].gustsKmh!!, 0.001)
+        assertNull("a quarter with nothing said keeps its time and no values", forecast.minutely[2].precipitationMm)
+        assertNull(forecast.minutely[2].weatherCode)
+        assertNull(forecast.minutely[2].gustsKmh)
+    }
+
+    @Test
+    fun anAnswerWithNoQuartersAndNoOffsetHasNone() {
+        val forecast = WeatherParser.parse(answer)
+        assertEquals(emptyList<MinutelyWeather>(), forecast.minutely)
+        assertNull(forecast.utcOffsetSeconds)
+    }
+
+    @Test
     fun withoutATemperatureThereIsNoCurrentReading() {
         assertNull(WeatherParser.parse("""{"current":{"weather_code":1}}""").current)
         assertNull(WeatherParser.parse("{}").current)

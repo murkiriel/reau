@@ -23,6 +23,7 @@ import com.reau.app.data.RideDiagnostics
  * the default (data) network, and the app going to the background and back. The bike's network and Android Auto's
  * audio focus are written where REau handles them ([bikeNetwork], AapControl). No new permission.
  */
+@Suppress("TooManyFunctions") // one small function per broadcast and per line; splitting them would only scatter the same thing
 object SystemEvents {
     private const val TAG = "system"
     @Volatile private var started = false
@@ -32,7 +33,15 @@ object SystemEvents {
         PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED, PowerManager.ACTION_POWER_SAVE_MODE_CHANGED,
         Intent.ACTION_POWER_CONNECTED, Intent.ACTION_POWER_DISCONNECTED,
         Intent.ACTION_BATTERY_LOW, Intent.ACTION_BATTERY_OKAY,
+        // The unlock: Android Auto was seen to close its link together with the screen going off and on (20/10/2026).
+        Intent.ACTION_USER_PRESENT,
+        // The USB data link (a computer or a car: connected, configured, with which functions): Android Auto was seen to close its
+        // link at each plug and unplug of the cable (26/10/2026), which the charger's own broadcast does not tell apart from a wall charger.
+        USB_STATE,
     )
+
+    /** The system's broadcast of the phone's USB data link (UsbManager.ACTION_USB_STATE, hidden from the SDK). */
+    internal const val USB_STATE = "android.hardware.usb.action.USB_STATE"
 
     /** Starts listening, once per process. */
     @Synchronized
@@ -53,9 +62,11 @@ object SystemEvents {
                     PowerManager.ACTION_POWER_SAVE_MODE_CHANGED -> log(toggles.saver(saver))
                     Intent.ACTION_BATTERY_LOW -> battery.low(batteryLevel(app), saverLevel(app))?.let(::log)
                     Intent.ACTION_BATTERY_OKAY -> log(battery.okay())
+                    USB_STATE -> log(usbLine(intent.extras?.keySet().orEmpty().associateWith { intent.extras?.getBoolean(it) == true }))
                     else -> {
                         if (action == Intent.ACTION_POWER_CONNECTED) battery.charger()
-                        describe(action, dozing, saver)?.let(::log)
+                        // The plug said with the line: what the charger is (USB, a wall charger, wireless), as the sticky battery broadcast says.
+                        describe(action, dozing, saver)?.let { log(it + plugSuffix(action, plugged(app))) }
                     }
                 }
             }
@@ -65,6 +76,39 @@ object SystemEvents {
             .onFailure { log("listening to the phone's broadcasts failed: $it") }
         watchTheDataNetwork(app)
         (app as? Application)?.registerActivityLifecycleCallbacks(Screens(AppVisibility(standing = ::standing, say = ::log)))
+    }
+
+    /** What Android says is plugged in (BatteryManager.EXTRA_PLUGGED), from the sticky battery broadcast; null when it cannot be read. */
+    private fun plugged(app: Context): Int? = runCatching {
+        ContextCompat.registerReceiver(app, null, IntentFilter(Intent.ACTION_BATTERY_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
+            ?.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1)?.takeIf { it >= 0 }
+    }.getOrNull()
+
+    /** The suffix of a charger line: ` (usb)`, ` (ac)`, ` (wireless)` or ` (dock)`, nothing for other lines or an unknown plug. */
+    internal fun plugSuffix(action: String, plugged: Int?): String {
+        if (action != Intent.ACTION_POWER_CONNECTED && action != Intent.ACTION_POWER_DISCONNECTED) return ""
+        return when (plugged) {
+            BatteryManager.BATTERY_PLUGGED_USB -> " (usb)"
+            BatteryManager.BATTERY_PLUGGED_AC -> " (ac)"
+            BatteryManager.BATTERY_PLUGGED_WIRELESS -> " (wireless)"
+            BatteryManager.BATTERY_PLUGGED_DOCK -> " (dock)"
+            else -> ""
+        }
+    }
+
+    /**
+     * The line for the USB data link: `usb connected, configured, adb`, from the extras of the broadcast (each a flag, true when on):
+     * `connected`, `configured` and the functions (`adb`, `mtp`, `ptp`...). `usb disconnected` when the link is not there.
+     */
+    internal fun usbLine(flags: Map<String, Boolean>): String {
+        val on = flags.filterValues { it }.keys
+        val state = when {
+            "connected" !in on -> return "usb disconnected"
+            "configured" in on -> "configured"
+            else -> "not configured"
+        }
+        val functions = on.filter { it != "connected" && it != "configured" }.sorted()
+        return "usb connected, $state" + if (functions.isEmpty()) "" else ", " + functions.joinToString("+")
     }
 
     /** The level Android last announced (the sticky battery broadcast, the same the low-battery mark is checked on). */
@@ -104,6 +148,7 @@ object SystemEvents {
     internal fun describe(action: String, dozing: Boolean?, saver: Boolean?): String? = when (action) {
         Intent.ACTION_SCREEN_ON -> "screen on"
         Intent.ACTION_SCREEN_OFF -> "screen off"
+        Intent.ACTION_USER_PRESENT -> "screen unlocked"
         PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED -> "doze " + onOff(dozing)
         PowerManager.ACTION_POWER_SAVE_MODE_CHANGED -> "saver " + onOff(saver)
         Intent.ACTION_POWER_CONNECTED -> "charger in"

@@ -24,7 +24,8 @@ internal fun ComposeContentTestRule.infoSays(tag: String, vararg texts: String) 
     onNodeWithTag("${tag}_info").performScrollTo().performClick()
     waitForIdle()
     for (text in texts) onNodeWithText(text, substring = true).assertExists()
-    onNodeWithTag("info_sheet_ok").performClick()
+    // A long text pushes "Entendi" below the sheet's visible part: it is scrolled to, as the rider does.
+    onNodeWithTag("info_sheet_ok").performScrollTo().performClick()
     waitForIdle()
     onNodeWithTag("info_sheet").assertDoesNotExist()
 }

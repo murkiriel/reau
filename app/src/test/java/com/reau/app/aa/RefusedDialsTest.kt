@@ -24,6 +24,21 @@ class RefusedDialsTest {
     }
 
     @Test
+    fun `while the dials find nothing a line comes every ten seconds, and none before a refusal or after the connection`() {
+        val dials = RefusedDials(callIn = false)
+        assertNull("nothing refused yet", dials.progress(50_000L))
+        dials.refused(1_000L)
+        dials.refused(3_000L)
+        assertNull("too soon", dials.progress(10_900L))
+        assertEquals("still no connection: 2 dial(s) refused in 10.0 s, going on", dials.progress(11_000L))
+        assertNull("said, the next one in ten seconds", dials.progress(15_000L))
+        dials.refused(17_000L)
+        assertEquals("still no connection: 3 dial(s) refused in 20.0 s, going on", dials.progress(21_000L))
+        dials.connected(22_000L)
+        assertNull("after the connection", dials.progress(40_000L))
+    }
+
+    @Test
     fun `a later streak counts from its own first refusal`() {
         val dials = RefusedDials(callIn = false)
         dials.refused(1_000L)

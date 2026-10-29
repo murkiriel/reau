@@ -1,6 +1,7 @@
 package com.reau.app.data
 
 import android.content.Intent
+import com.reau.app.util.MonotonicClock
 
 /**
  * What the phone is doing as far as the app knows (the charger, the screen, doze), kept from what it
@@ -11,6 +12,7 @@ object PhoneNow {
     @Volatile private var charging: Boolean? = null
     @Volatile private var screenOn: Boolean? = null
     @Volatile private var dozing: Boolean? = null
+    @Volatile private var screenEventMs = -1L
 
     /** The device state just read (a null part leaves what was known). */
     fun update(charging: Boolean?, screenOn: Boolean?, dozing: Boolean?) {
@@ -20,17 +22,32 @@ object PhoneNow {
     }
 
     /** A broadcast of the phone: the screen, the charger or doze changed (the others say nothing about these). */
-    fun heard(action: String, dozing: Boolean?) {
+    fun heard(action: String, dozing: Boolean?, nowMs: Long = MonotonicClock.nowMs()) {
         when (action) {
-            Intent.ACTION_SCREEN_ON -> screenOn = true
-            Intent.ACTION_SCREEN_OFF -> screenOn = false
+            Intent.ACTION_SCREEN_ON -> screenOn = true.also { screenEventMs = nowMs }
+            Intent.ACTION_SCREEN_OFF -> screenOn = false.also { screenEventMs = nowMs }
+            Intent.ACTION_USER_PRESENT -> screenEventMs = nowMs
             Intent.ACTION_POWER_CONNECTED -> charging = true
             Intent.ACTION_POWER_DISCONNECTED -> charging = false
         }
         dozing?.let { this.dozing = it }
     }
 
-    fun text(): String = "charger ${word(charging, "in", "out")}, screen ${word(screenOn, "on", "off")}, doze ${word(dozing, "on", "off")}"
+    /** Whether the charger is in, as last heard (null: not heard yet). */
+    fun chargingNow(): Boolean? = charging
+
+    /** Whether the screen is on, as last heard (null: not heard yet). */
+    fun screenOnNow(): Boolean? = screenOn
+
+    /**
+     * The words for the line that says Android Auto's link ended. The time since the last screen event (on, off, unlocked) is there
+     * once one was heard, to tell a link that closed with the screen (the link closed 0.5 s before the screen went off, 20/10/2026).
+     */
+    fun text(nowMs: Long = MonotonicClock.nowMs()): String =
+        "charger ${word(charging, "in", "out")}, screen ${word(screenOn, "on", "off")}, doze ${word(dozing, "on", "off")}" +
+            if (screenEventMs >= 0) screenEventWords(nowMs - screenEventMs) else ""
+
+    private fun screenEventWords(agoMs: Long) = String.format(java.util.Locale.US, ", screen event %.1f s before", agoMs.coerceAtLeast(0) / MS_PER_S)
 
     private fun word(value: Boolean?, yes: String, no: String) = when (value) {
         true -> yes
@@ -42,5 +59,8 @@ object PhoneNow {
         charging = null
         screenOn = null
         dozing = null
+        screenEventMs = -1L
     }
+
+    private const val MS_PER_S = 1_000.0
 }

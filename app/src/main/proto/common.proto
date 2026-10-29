@@ -1,0 +1,66 @@
+// common.proto: Android Auto protocol messages of the headunit lineage, as REau's generated class Common.java has them.
+//
+// Origin: headunit-revived (AGPL-3.0), https://github.com/andreknieriem/headunit-revived, from Michael A. Reid's "headunit"
+// (AGPL-3.0). REau took the generated classes from OpenCfMoto (AGPL-3.0), app/src/main/java/dev/zanderp/opencfmoto/aa/proto/Common.java,
+// commit 0abbe2a (protoc 3.25.1); OpenCfMoto has no .proto files, and headunit-revived's originals did not come with the classes.
+//
+// What this file is: the .proto source of app/src/main/java/com/reau/app/aa/proto/Common.java, REBUILT from the descriptor embedded in
+// that class (its file name, package, messages, fields, numbers, labels, types, defaults, options and order, as embedded). The
+// comments and the layout of the originals are not kept: the descriptor holds none. The package stays headunit-revived's
+// (com.andrerinas.headunitrevived.aap.protocol.proto) because the classes carry it. protoc 3.13 compiles this file, one file at
+// a time, to a descriptor equal to the embedded one (checked on 28/10/2026; only json_name, which protoc adds, differs).
+//
+// REau's build has no protoc step: the Java classes are kept in the source and this file is not compiled. It is here so that the
+// classes' preferred form for modification is in the repository (AGPL-3.0, section 1). Changing it changes nothing until the class
+// is generated again. Later upstream versions differ (open-headunit, commit 93c065dd, renamed the package and added fields and
+// messages); none of that is applied here. License: AGPL-3.0, like the rest of REau (LICENSE, NOTICE).
+
+syntax = "proto2";
+
+package com.andrerinas.headunitrevived.aap.protocol.proto;
+
+enum MessageStatus {
+  STATUS_SUCCESS = 0;
+  STATUS_UNSOLICITED_MESSAGE = 1;
+  STATUS_NO_COMPATIBLE_VERSION = -1;
+  STATUS_CERTIFICATE_ERROR = -2;
+  STATUS_AUTHENTICATION_FAILURE = -3;
+  STATUS_INVALID_SERVICE = -4;
+  STATUS_INVALID_CHANNEL = -5;
+  STATUS_INVALID_PRIORITY = -6;
+  STATUS_INTERNAL_ERROR = -7;
+  STATUS_MEDIA_CONFIG_MISMATCH = -8;
+  STATUS_INVALID_SENSOR = -9;
+  STATUS_BLUETOOTH_PAIRING_DELAYED = -10;
+  STATUS_BLUETOOTH_UNAVAILABLE = -11;
+  STATUS_BLUETOOTH_INVALID_ADDRESS = -12;
+  STATUS_BLUETOOTH_INVALID_PAIRING_METHOD = -13;
+  STATUS_BLUETOOTH_INVALID_AUTH_DATA = -14;
+  STATUS_BLUETOOTH_AUTH_DATA_MISMATCH = -15;
+  STATUS_BLUETOOTH_HFP_ANOTHER_CONNECTION = -16;
+  STATUS_BLUETOOTH_HFP_CONNECTION_FAILURE = -17;
+  STATUS_KEYCODE_NOT_BOUND = -18;
+  STATUS_RADIO_INVALID_STATION = -19;
+  STATUS_INVALID_INPUT = -20;
+  STATUS_RADIO_STATION_PRESETS_NOT_SUPPORTED = -21;
+  STATUS_RADIO_COMM_ERROR = -22;
+  STATUS_AUTHENTICATION_FAILURE_CERT_NOT_YET_VALID = -23;
+  STATUS_AUTHENTICATION_FAILURE_CERT_EXPIRED = -24;
+  STATUS_PING_TIMEOUT = -25;
+  STATUS_COMMAND_NOT_SUPPORTED = -250;
+  STATUS_FRAMING_ERROR = -251;
+  STATUS_UNEXPECTED_MESSAGE = -253;
+  STATUS_BUSY = -254;
+  STATUS_OUT_OF_MEMORY = -255;
+}
+
+message HeadUnitInfo {
+  optional string head_unit_make = 1;
+  optional string head_unit_model = 2;
+  optional string make = 3;
+  optional string model = 4;
+  optional string year = 5;
+  optional string head_unit_software_build = 6;
+  optional string vehicle_id = 7;
+  optional string head_unit_software_version = 8;
+}

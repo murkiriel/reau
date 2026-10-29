@@ -38,6 +38,7 @@ class UiStateTest {
         assertFalse(state.server.auto)
         assertFalse(state.weatherOn)
         assertFalse(state.vpnHoldsREau)
+        assertFalse(state.locationOff)
         assertEquals("", state.dashName)
         assertEquals(0, state.permissionsMissing)
     }

@@ -32,7 +32,9 @@ class SettingsScreenLookTest {
 
     @Test
     fun theGroupsAreThereInTheirOrder() {
-        for (tag in listOf("group_map", "group_on_dash", "group_joystick", "group_android_auto", "group_video_profiles", "group_card", "debug")) {
+        // The Android Auto group holds the full edition's server switch: the Lite has none.
+        val androidAuto = if (com.reau.app.Edition.hasAccessibility) listOf("group_android_auto") else emptyList()
+        for (tag in listOf("group_map", "group_on_dash", "group_joystick") + androidAuto + listOf("group_video_profiles", "group_card", "debug")) {
             compose.onNodeWithTag(tag).performScrollTo()
         }
         compose.onNodeWithTag("open_credits").assertDoesNotExist() // the credits and the terms are under "O REau e os seus dados" now
@@ -50,9 +52,11 @@ class SettingsScreenLookTest {
 
     @Test
     fun everyLongTextOfTodayIsWholeBehindItsInfo() {
-        compose.infoSays("use_location", "nunca vai ao registro nem sai do celular")
+        compose.infoSays("use_location", "só funciona depois que a permissão de localização")
+        compose.infoSays("use_location", "nunca vai ao registro")
+        compose.infoSays("dash_music", "o joystick padrão não tem")
         compose.infoSays("answer_calls", "WhatsApp e outros apps de voz")
-        compose.infoSays("gemini", "Pede a permissão do microfone")
+        compose.infoSays("gemini", "o microfone fica fechado até a permissão")
         compose.openDebug()
         compose.infoSays("detailed_log", "cada pacote do painel")
         compose.infoSays("log_keep", "vale na hora ao escolher")

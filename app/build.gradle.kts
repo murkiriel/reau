@@ -7,10 +7,10 @@ plugins {
     jacoco
 }
 
-// Semantic version 0.y.z: versionName is "0.1.0" on a release build and "0.1.0-dev+yy.MM.dd-HH.mm" on a debug build, whose
+// Semantic version 0.y.z: versionName is "0.2.0" on a release build and "0.2.0-dev+yy.MM.dd-HH.mm" on a debug build, whose
 // timestamp tells one debug build from another. versionCode is the minutes since the Unix epoch (it never goes down). Both
 // come from the same instant, so they describe one build, and the ride log can say exactly which APK wrote it.
-val appVersionName = "0.1.0"
+val appVersionName = "0.2.0"
 val buildTimestamp: String = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yy.MM.dd-HH.mm"))
 val buildVersionCode = (System.currentTimeMillis() / 60_000L).toInt()
 // The commit the APK was built from, for the ride log header; "?" outside a git checkout.
@@ -61,9 +61,21 @@ android {
     }
 
     // Release signing. The official Releases are signed with the project's own key, which is never in this repository: its
-    // path and passwords come from four environment variables. Without them (or with a path that is not a file) the release
-    // build is signed with the debug key, with no error, so anyone can still build from the source.
+    // path and passwords come from four environment variables. Without them (or with a path that is not a file) packaging a release
+    // stops with an error, so a build meant for the rider never comes out signed with the debug key by accident (it did on 28/10/2026:
+    // a relative path in the variable was not found). Anyone building from the source can ask for the debug key on purpose, with
+    // `-PreauDebugSigned=true`.
     val releaseKeystore: String? = System.getenv("REAU_KEYSTORE")?.takeIf { it.isNotBlank() && file(it).isFile }
+    val debugSignedRelease = providers.gradleProperty("reauDebugSigned").orNull == "true"
+    gradle.taskGraph.whenReady {
+        val packagesRelease = allTasks.any { it.project == project && it.name.startsWith("package") && it.name.endsWith("Release") }
+        if (packagesRelease && releaseKeystore == null && !debugSignedRelease) {
+            throw GradleException(
+                "No release key: REAU_KEYSTORE is not set or is not a file (give its absolute path), with REAU_KEY_ALIAS, " +
+                    "REAU_KEYSTORE_PASSWORD and REAU_KEY_PASSWORD. To build a release signed with the debug key on purpose, add -PreauDebugSigned=true.",
+            )
+        }
+    }
     signingConfigs {
         create("release") {
             if (releaseKeystore != null) {
@@ -104,6 +116,12 @@ android {
 
     testOptions {
         unitTests {
+            // The JUnit Platform runs the fuzz tests (Jazzer) and, through the vintage engine, the JUnit 4 ones. JAZZER_FUZZ=1 makes the fuzz tests
+            // really fuzz (see CONTRIBUTING); without it they only replay their seeds, as a regression test.
+            all { test ->
+                test.useJUnitPlatform()
+                test.outputs.upToDateWhen { System.getenv("JAZZER_FUZZ") != "1" }
+            }
             // Plain JUnit tests run against the android.jar stub, which throws on any framework call. The copied
             // pure-logic classes call android.util.Log here and there; this makes those calls return a default.
             isReturnDefaultValues = true
@@ -124,12 +142,20 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
-    implementation(libs.androidx.compose.ui.tooling.preview)
+    // Only the @Preview annotations, read when the sources compile: a release APK does not carry them (the debug one gets them
+    // through ui-tooling below).
+    compileOnly(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.protobuf.java)
     implementation(libs.conscrypt.android)
     testImplementation(libs.junit)
+    // Jazzer (guided fuzzing of the parsers, app/src/test/java/com/reau/app/fuzz): JUnit 5 for its tests, the vintage engine for the JUnit 4 ones.
+    testImplementation(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter)
+    testImplementation(libs.jazzer.junit)
+    testRuntimeOnly(libs.junit.vintage.engine)
+    testRuntimeOnly(libs.junit.platform.launcher)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -176,20 +202,18 @@ tasks.register<JacocoReport>("jacocoTestReport") {
     }
 }
 
-// The instrumented tests drive the accessibility service and the full edition's screens; they run on "completa" only.
-androidComponents {
-    beforeVariants(selector().withFlavor("edition" to "lite")) { variant ->
-        variant.androidTest.enable = false
-    }
-}
 
 // detekt runs as the stand-alone CLI: the Gradle plugin does not follow Kotlin 2.2 / AGP 9.
 // It fails on any finding that is not in config/detekt/baseline.xml, which holds only the accepted debt (long protocol and decoder routines kept as they are on purpose).
 val detektCli by configurations.creating
 dependencies { detektCli(libs.detekt.cli) }
 
+// What is analysed: the shared code and what only one edition (completa, lite) or the debug build has. The accessibility service of
+// the full edition (src/completa) was left out when only src/main/java was named.
+val detektInputs = listOf("main", "completa", "lite", "debug").map { file("src/$it/java") }.filter { it.isDirectory }
+
 fun detektArgs(extra: List<String>) = listOf(
-    "--input", file("src/main/java").path,
+    "--input", detektInputs.joinToString(",") { it.path },
     "--config", rootProject.file("config/detekt/detekt.yml").path,
     "--build-upon-default-config",
     "--baseline", rootProject.file("config/detekt/baseline.xml").path,
@@ -216,6 +240,21 @@ tasks.register<JavaExec>("detektBaseline") {
 // Unit test failures print their message and stack in the build log, so a failure on a CI runner can be read
 // without the HTML report.
 tasks.withType<Test>().configureEach {
+    // Tests that read files from the disk (DefaultsDocsTest, CreditsTest, NumbersAsciiTest, FixedProfilesTest, TermsTest,
+    // PrivacyGuardTest, SpellingTest, the strings and the manifest ones): Gradle does not know they do, so a changed sentence of
+    // docs/, NOTICE, a README or a comment in a .kt left the test "up to date" without running it. These are what they read.
+    inputs.files(fileTree("src") { exclude("**/build/**") }).withPropertyName("sourcesTheTestsRead").withPathSensitivity(PathSensitivity.RELATIVE)
+    // PrivacyGuardTest reads every file the repository tracks, so the text files of the whole project count (the build's and the
+    // tools' own outputs do not).
+    inputs.files(
+        rootProject.fileTree(rootProject.projectDir) {
+            include("**/*.md", "**/*.html", "**/*.kts", "**/*.toml", "**/*.yml", "**/*.yaml", "**/*.xml", "**/*.json", "**/*.py", "**/*.txt",
+                "**/*.properties", "**/*.sh", "**/*.kt", "LICENSE", "NOTICE", ".gitleaks.toml")
+            exclude("**/build/**", "**/.gradle/**", "**/.git/**", "emu_out/**", "**/__pycache__/**", "local.properties", "**/node_modules/**")
+        },
+    ).withPropertyName("projectFilesTheTestsRead").withPathSensitivity(PathSensitivity.RELATIVE)
+    // WrapperJarTest reads the wrapper's jar, which no pattern above covers.
+    inputs.file(rootProject.file("gradle/wrapper/gradle-wrapper.jar")).withPropertyName("wrapperJarTheTestsRead")
     testLogging {
         events("failed")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL

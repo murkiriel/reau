@@ -3,13 +3,19 @@ package com.reau.app.data
 import java.io.File
 
 /**
- * The diag folder holds at most [CAP_BYTES]. [trim] removes the oldest logs of every
+ * The diag folder holds at most [capBytes]. [trim] removes the oldest logs of every
  * kind (ride, logcat, crash, ANR, native crash) until the folder fits, never one that is open, and never the marks of
  * what was already reported (`crash-reported`, `exit-reported`) nor files of other kinds. Called whenever a new ride
  * or logcat file is opened.
  */
 object DiagSpace {
     const val CAP_BYTES = 200L * 1024 * 1024
+
+    /** A debug build, made to be read after a long test, keeps up to 1 GB of logs. */
+    const val DEBUG_CAP_BYTES = 1024L * 1024 * 1024
+
+    /** The folder's ceiling in this build: [DEBUG_CAP_BYTES] in a debug build, [CAP_BYTES] in a release one. */
+    fun capBytes(debugBuild: Boolean = com.reau.app.BuildConfig.DEBUG): Long = if (debugBuild) DEBUG_CAP_BYTES else CAP_BYTES
     private const val KB = 1024L
     private val LOG = Regex("""^(ride|logcat|crash|anr|native-crash)-.+\.(log|txt)$""")
 

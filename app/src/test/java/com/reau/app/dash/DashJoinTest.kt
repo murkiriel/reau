@@ -156,4 +156,10 @@ class DashJoinTest {
         assertEquals("", pairing().joinedSsid)
         assertTrue(DashJoin.needsApproval(pairing().joinedSsid, "RE_AB12_345678", wantedIsPrefix = false))
     }
+
+    @Test
+    fun `a blank joined name is no memory of a network, even when the wanted name is blank too`() {
+        assertTrue(DashJoin.needsApproval("", "", wantedIsPrefix = true))
+        assertTrue(DashJoin.needsApproval("  ", "", wantedIsPrefix = true))
+    }
 }

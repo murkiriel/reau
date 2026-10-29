@@ -97,7 +97,8 @@ class AapControlTest {
         val video = response.servicesList.single { it.id == Channel.ID_VID }.mediaSinkService.videoConfigsList.single()
         assertEquals("the configuration of this session, not a default", 200, video.density)
         assertEquals(26, video.marginWidth)
-        assertTrue("got $log", log.any { "Service Discovery Request: Fake phone" in it })
+        assertTrue("got $log", log.any { "Service Discovery Request" in it })
+        assertTrue("the phone's name must not be in the log: $log", log.none { "Fake phone" in it })
     }
 
     @Test

@@ -1,8 +1,8 @@
 package com.reau.app.dash.protocol
 
 /**
- * One incoming TLV from the dash, captured for the Telemetry Lab (Settings → debug builds only)
- * — a live decode/correlate tool for whenever an unmapped field needs field-mapping against a
+ * One incoming TLV from the dash, captured for a live decode/correlate tool (the "Telemetry Lab";
+ * no screen of it is in the app now, only [com.reau.app.dash.DashSession.telemetry] feeds it) for whenever an unmapped field needs field-mapping against a
  * known real-world value (odometer, fuel, etc.), instead of only pulling a ride log after the
  * fact. Modelled on another project's `TelemetryPacket`/`TelemetryBus`, adapted onto
  * [com.reau.app.dash.DashSession]'s own

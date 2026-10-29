@@ -40,8 +40,11 @@ class ExperimentalMarkTest {
             .filter { it.endsWith("_sub") || it.endsWith("_title") }
             .filter { ExperimentalMark.marks(text(it)) }
             .toSet()
-        // The album cover works well, it is not experimental any more; only the real route stays red.
-        assertEquals(setOf("route_extras_sub"), marked)
+        // The album cover works, the real route is always on and the maneuver ring is a plain switch (28/10/2026): nothing is red today.
+        assertEquals(emptySet<String>(), marked)
+        // A row becomes red again only by saying so in its own text (a new experiment); the ring's line does not.
+        assertFalse(ExperimentalMark.marks(text("ring_title"), text("ring_sub")))
+        assertFalse("the real route has no row any more", strings.contains("name=\"route_extras_sub\""))
     }
 
     @Test

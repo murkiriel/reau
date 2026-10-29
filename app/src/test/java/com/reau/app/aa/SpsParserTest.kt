@@ -25,7 +25,12 @@ class SpsParserTest {
         /** se(v): valor positivo v vira codeNum 2v-1, zero ou negativo vira -2v. */
         fun se(value: Int) = ue(if (value > 0) 2 * value - 1 else -2 * value)
 
+        /** Quantos bits havia antes do bit de parada, na ultima vez que [bytes] foi chamado. */
+        var lengthBeforeStop = 0
+            private set
+
         fun bytes(): ByteArray {
+            lengthBeforeStop = bits.length
             bit(1) // o bit de parada do RBSP
             while (bits.length % 8 != 0) bit(0)
             return ByteArray(bits.length / 8) { bits.substring(it * 8, it * 8 + 8).toInt(2).toByte() }
@@ -71,8 +76,11 @@ class SpsParserTest {
             crop.forEach { b.ue(it) }
         }
         b.bit(0) // sem VUI
-        return b.bytes()
+        return b.bytes().also { lastRequiredBits = b.lengthBeforeStop - 1 } // o leitor nao le a flag do VUI
     }
+
+    /** Quantos bits o leitor precisa do ultimo SPS montado por [sps]: ate a flag do corte. */
+    private var lastRequiredBits = 0
 
     private fun parse(sps: ByteArray) = SpsParser.parse(sps, 0, sps.size)
 
@@ -233,6 +241,44 @@ class SpsParserTest {
             repeat(12) { b.bit(1).se(-8) } // cada lista presente acaba no primeiro valor (matriz padrao)
         }
         assertEquals(SpsData(800, 480), parse(sps(50, 30, profile = 244, chroma = 3, scaling = scaling)))
+    }
+
+    @Test
+    fun `um SPS de video entrelacado tem a altura em unidades de dois macroblocos`() {
+        assertEquals(SpsData(800, 480), parse(sps(widthMbs = 50, heightMapUnits = 15, frameMbsOnly = false)))
+        assertEquals(SpsData(800, 480), parse(sps(widthMbs = 50, heightMapUnits = 30, frameMbsOnly = true)))
+    }
+
+    @Test
+    fun `faltando um so bit dos que o leitor le, o SPS devolve nulo, nunca um tamanho com bits inventados`() {
+        val full = sps(50, 30)
+        val needed = lastRequiredBits
+        val bytesNeeded = (needed + 7) / 8
+        assertEquals(SpsData(800, 480), SpsParser.parse(full, 0, bytesNeeded))
+        for (cut in 0..(needed - 1) / 8) assertNull("cortado em $cut bytes de $bytesNeeded", SpsParser.parse(full, 0, cut))
+    }
+
+    /** Um SPS de 800x480 cujo seq_parameter_set_id (ue) tem [zeros] zeros antes do primeiro 1. */
+    private fun spsWithBigId(zeros: Int): ByteArray {
+        val b = Bits().u(0x67, 8).u(66, 8).u(0, 8).u(40, 8)
+        repeat(zeros) { b.bit(0) }
+        b.bit(1)
+        repeat(zeros) { b.bit(0) } // o resto do codigo: zeros bits
+        b.ue(0).ue(0).ue(0).ue(1).bit(0).ue(49).ue(29).bit(1).bit(1).bit(0).bit(0)
+        return b.bytes()
+    }
+
+    @Test
+    fun `um Exp-Golomb com ate 30 zeros e lido, com mais que isso nao e um SPS`() {
+        assertEquals(SpsData(800, 480), parse(spsWithBigId(30)))
+        assertNull(parse(spsWithBigId(31)))
+        assertNull(parse(spsWithBigId(33)))
+    }
+
+    @Test
+    fun `o ciclo de contagem de ordem aceita 255 deslocamentos e recusa 256`() {
+        assertEquals(SpsData(800, 480), parse(sps(50, 30, pocType = 1, pocOffsets = List(255) { 1 })))
+        assertNull(parse(sps(50, 30, pocType = 1, pocOffsets = List(256) { 1 })))
     }
 
     @Test

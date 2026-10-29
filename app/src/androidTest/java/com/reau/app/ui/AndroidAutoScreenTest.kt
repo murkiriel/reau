@@ -65,7 +65,7 @@ class AndroidAutoScreenTest {
 
     @Test
     fun withTheSwitchOnATapOnThePictureGoesToAndroidAutoAndWithItOffNothingDoes() {
-        // Interact with Android Auto from the phone, behind a switch (off by default).
+        // Interact with Android Auto from the phone: REauSettings.phoneTouch is fixed on; here the screen's `touch` parameter stands for it.
         PhonePreview.attachTouch(touchTarget)
         try {
             var touch by mutableStateOf(false)

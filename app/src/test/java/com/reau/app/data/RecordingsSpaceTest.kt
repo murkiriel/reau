@@ -11,7 +11,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * The 200 MB ceiling held only for the logs; the debug recordings (`video`, `sessions`) went by age alone and, with
+ * The 200 MB ceiling held only for the logs; the recordings (`video`, `sessions`) went by age alone and, with
  * "Nunca" chosen, never (129 MB of video and 78 MB of sessions were measured on a device). Together they now
  * stay under a ceiling of their own, the oldest going first.
  */
@@ -98,7 +98,9 @@ class RecordingsSpaceTest {
     }
 
     @Test
-    fun `the ceiling is 200 MB`() {
+    fun `the ceiling is 200 MB, and 1 GB in a debug build`() {
         assertEquals(200L * 1024 * 1024, RecordingsSpace.CAP_BYTES)
+        assertEquals(200L * 1024 * 1024, RecordingsSpace.capBytes(debugBuild = false))
+        assertEquals(1024L * 1024 * 1024, RecordingsSpace.capBytes(debugBuild = true))
     }
 }

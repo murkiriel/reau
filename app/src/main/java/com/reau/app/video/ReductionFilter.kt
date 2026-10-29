@@ -14,6 +14,12 @@ data class ReductionFilter(val kernel: Kernel, val sharpen: Float = 0f) {
 
         /** Catmull-Rom over sixteen source pixels. */
         CUBIC,
+
+        /**
+         * Sixteen bilinear samples (4×4) spread evenly over a destination pixel's footprint: very nearly the average of the whole area. For the tiny copy the
+         * picture classifier reads (`CompositorGl.look`), which was trained on area averages; one bilinear fetch of a 12×12 block read only 2×2 of its pixels.
+         */
+        BOX,
     }
 
     /** True for the filter that needs nothing but the plain program. */

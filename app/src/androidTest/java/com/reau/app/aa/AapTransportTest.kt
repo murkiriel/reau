@@ -56,10 +56,11 @@ class AapTransportTest {
     private fun connect(
         script: FakeAndroidAutoPeer.Script = FakeAndroidAutoPeer.Script(),
         minor: Int = Messages.MINOR_DEFAULT,
+        versionRequests: Int = AaConfig.VERSION_REQUESTS,
     ): Triple<FakeAndroidAutoPeer, SocketAccessoryConnection, AapTransport> {
         val fake = FakeAndroidAutoPeer(script).also { peer = it }
         val conn = SocketAccessoryConnection(Socket(fake.address, fake.port)).also { connection = it }
-        val t = AapTransport(context, protocolMinor = minor).also { transport = it }
+        val t = AapTransport(context, protocolMinor = minor, versionRequests = versionRequests).also { transport = it }
         t.onQuit = { clean -> quits += clean }
         return Triple(fake, conn, t)
     }
@@ -348,5 +349,19 @@ class AapTransportTest {
         assertEquals(3, log.count { "No VERSION_RESPONSE within" in it })
         assertTrue("got $log", log.any { "No VERSION_RESPONSE within the handshake budget (attempt 3)" in it })
         assertEquals(listOf(false), quits.toList())
+    }
+
+    /** A single protocol request (a test knob, no setting any more): the one request waits out the whole budget, and is not sent again. */
+    @Test
+    fun withOneVersionRequestAPeerThatNeverAnswersIsAskedOnceAndGivenTheWholeBudget() {
+        val (_, conn, t) = connect(FakeAndroidAutoPeer.Script(silent = true), versionRequests = 1)
+        val startedAt = System.currentTimeMillis()
+
+        assertFalse(t.startHandshake(conn))
+
+        val tookMs = System.currentTimeMillis() - startedAt
+        assertTrue("gave up after $tookMs ms", tookMs in 9_000..13_000)
+        assertEquals("asked once", 1, log.count { "No VERSION_RESPONSE within" in it })
+        assertTrue("got $log", log.any { "No VERSION_RESPONSE within the handshake budget (attempt 1)" in it })
     }
 }

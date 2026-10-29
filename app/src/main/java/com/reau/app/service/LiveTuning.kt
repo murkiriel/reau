@@ -32,13 +32,14 @@ object LiveTuning {
 
         /** The stats text on the dash's video: on or off, its place and size, taken at the next frame. */
         STATS_OVERLAY,
+        BUTTON_OVERLAY,
 
         /** The web server's two switches: the server up or down and the touch allowed or not, at once. */
         WEB,
 
         /**
          * What the dash shows besides the picture, read from the live settings at each beat or event: the phone's state, the album art,
-         * the route's extras and the weather. Nothing is redone: the service only has to be told (it takes the settings), and the
+         * the weather, the info ring and the dash's maneuver ring. Nothing is redone: the service only has to be told (it takes the settings), and the
          * weather, when it is switched on, is fetched at once instead of at the next minute.
          */
         DASH_EXTRAS,
@@ -65,6 +66,7 @@ object LiveTuning {
         if (before.mapTheme != after.mapTheme || before.useLocation != after.useLocation) add(Step.NIGHT_NOW)
         if (before.joystick != after.joystick) add(Step.JOYSTICK)
         if (before.overlay != after.overlay) add(Step.STATS_OVERLAY)
+        if (before.buttonLook != after.buttonLook) add(Step.BUTTON_OVERLAY)
         if (webChanged(before, after)) add(Step.WEB)
         if (dashExtrasChanged(before, after)) add(Step.DASH_EXTRAS)
     }
@@ -74,7 +76,10 @@ object LiveTuning {
 
     private fun dashExtrasChanged(before: REauSettings, after: REauSettings) =
         before.dashPhoneStatus != after.dashPhoneStatus || before.dashAlbumArt != after.dashAlbumArt ||
-            before.dashRouteExtras != after.dashRouteExtras || before.dashWeather != after.dashWeather
+            before.dashWeather != after.dashWeather || before.infoRing != after.infoRing ||
+            before.infoRingData != after.infoRingData || before.infoRingCarousel != after.infoRingCarousel ||
+            before.infoRingSeconds != after.infoRingSeconds || before.infoRingInPlace != after.infoRingInPlace ||
+            before.maneuverRing != after.maneuverRing
 
     /** What a stream to the dash is made with. */
     private val REauSettings.stream get() = listOf(fpsCeiling, clockSlowPercent, streamBitrateBps, bitrateMode, keyframeSec)

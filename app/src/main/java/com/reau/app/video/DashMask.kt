@@ -35,7 +35,15 @@ object DashMask {
      * [frame] the dash's 526×300 frame, [content] the part of it that gets Android Auto's picture (the rest of the
      * frame goes black to the dash), [glass] the round glass and [bubble] the dash's ring.
      */
-    data class Mask(val picture: Box, val frame: Box, val content: Box, val glass: Ring, val bubble: Ring) {
+    data class Mask(
+        val picture: Box,
+        val frame: Box,
+        val content: Box,
+        val glass: Ring,
+        val bubble: Ring,
+        /** The black bands over the dash's frame ([FrameFit.Cover]), on the screen and within the picture. */
+        val covers: List<Box> = emptyList(),
+    ) {
         /** What of the picture the rider can see: inside the frame, the content and the glass. */
         val shownBox: Box get() = picture.meet(frame).meet(content)
 
@@ -62,12 +70,23 @@ object DashMask {
         fun x(dashX: Float) = view.x + (mapping.source.x + (dashX - mapping.dest.x) * sx) * kx
         fun y(dashY: Float) = view.y + (mapping.source.y + (dashY - mapping.dest.y) * sy) * ky
         val perDashPixel = sx * kx
+        val picture = Box(view.x.toFloat(), view.y.toFloat(), view.right.toFloat(), view.bottom.toFloat())
+        val c = mapping.cover
+        val frameW = DashGlass.FRAME_W.toFloat()
+        val frameH = DashGlass.FRAME_H.toFloat()
+        val covers = buildList {
+            if (c.top > 0) add(Box(x(0f), y(0f), x(frameW), y(c.top.toFloat())))
+            if (c.bottom > 0) add(Box(x(0f), y(frameH - c.bottom), x(frameW), y(frameH)))
+            if (c.left > 0) add(Box(x(0f), y(0f), x(c.left.toFloat()), y(frameH)))
+            if (c.right > 0) add(Box(x(frameW - c.right), y(0f), x(frameW), y(frameH)))
+        }.map { it.meet(picture) }.filter { it.right > it.left && it.bottom > it.top }
         return Mask(
             picture = Box(view.x.toFloat(), view.y.toFloat(), view.right.toFloat(), view.bottom.toFloat()),
             frame = Box(x(0f), y(0f), x(DashGlass.FRAME_W.toFloat()), y(DashGlass.FRAME_H.toFloat())),
             content = Box(x(mapping.dest.x.toFloat()), y(mapping.dest.y.toFloat()), x(mapping.dest.right.toFloat()), y(mapping.dest.bottom.toFloat())),
             glass = Ring(x(DashGlass.CENTER_X.toFloat()), y(DashGlass.CENTER_Y.toFloat()), DashGlass.RADIUS * perDashPixel),
             bubble = Ring(x(BUBBLE_X), y(BUBBLE_Y), BUBBLE_R * perDashPixel),
+            covers = covers,
         )
     }
 }

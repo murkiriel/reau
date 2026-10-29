@@ -3,6 +3,7 @@ package com.reau.app.ui
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -17,7 +18,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * The terms of use: as the gate in front of the app (two buttons, the Portuguese text first, the English one in a tab)
+ * The terms of use: as the gate in front of the app (two buttons, the Portuguese text first, the English and the Spanish ones in tabs)
  * and as a page to read from the settings (no buttons).
  */
 @RunWith(AndroidJUnit4::class)
@@ -87,6 +88,17 @@ class TermsScreenTest {
     }
 
     @Test
+    fun theSpanishTextIsOneTapAwayAndHasItsOwnButtons() {
+        show(gate = true)
+        compose.onNodeWithTag("terms_lang_es").performClick()
+        compose.onNodeWithTag("terms_lang_es").assertIsSelected()
+        compose.onAllNodesWithText("Términos de Uso").assertCountEquals(1)
+        readToTheEnd()
+        compose.onNodeWithTag("terms_accept").assertTextContains("Lo leí y acepto")
+        compose.onNodeWithTag("terms_decline").assertTextContains("No acepto")
+    }
+
+    @Test
     fun readFromTheSettingsThereAreNoButtonsAndBackLeaves() {
         show(gate = false)
         compose.onNodeWithTag("terms_accept").assertDoesNotExist()
@@ -94,6 +106,7 @@ class TermsScreenTest {
         // Already accepted: no language tabs, only the app's own language.
         compose.onNodeWithTag("terms_lang_pt").assertDoesNotExist()
         compose.onNodeWithTag("terms_lang_en").assertDoesNotExist()
+        compose.onNodeWithTag("terms_lang_es").assertDoesNotExist()
         compose.onNodeWithTag("back").performClick()
         assertEquals(1, back)
         assertEquals(0 to 0, accepted to declined)

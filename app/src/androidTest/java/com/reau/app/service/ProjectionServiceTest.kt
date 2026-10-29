@@ -164,6 +164,51 @@ class ProjectionServiceTest {
         assertTrue(calls.isEmpty())
     }
 
+    /**
+     * The worker swallows what a task throws: sides that could not be built left the service in the foreground on "Preparando",
+     * with no word to the rider and none in the log. The start is refused with the reason and the service gives itself back.
+     */
+    @Test
+    fun sidesThatCannotBeBuiltRefuseTheStartWithTheReasonAndTheServiceLeaves() {
+        ProjectionService.sidesFactory = { _, _ -> throw IllegalStateException("no sides today") }
+        ProjectionService.start(context)
+
+        await("the service gone") { !serviceRunning() }
+        await("the reason is still there to be read") { ProjectionService.projection.value.problem?.contains("IllegalStateException") == true }
+        assertEquals(Phase.STOPPED, ProjectionService.projection.value.phase)
+        assertEquals("no lock left", 0 to 0, wakeLocks() to wifiLocks())
+    }
+
+    /**
+     * The system destroying the service during a slow stop: onDestroy used to wait for the worker on the main thread (up to 5 s) and the
+     * screen froze. The main thread is watched by a ticker for the whole stop: no gap near the stop's own length.
+     */
+    @Test
+    fun theMainThreadIsNotHeldByAServiceDestroyedDuringASlowStop() {
+        startAndWait()
+        slowStop = true
+        val main = android.os.Handler(android.os.Looper.getMainLooper())
+        var last = android.os.SystemClock.elapsedRealtime()
+        var worstGap = 0L
+        val ticker = object : Runnable {
+            override fun run() {
+                val now = android.os.SystemClock.elapsedRealtime()
+                worstGap = maxOf(worstGap, now - last)
+                last = now
+                main.postDelayed(this, 20)
+            }
+        }
+        main.post { last = android.os.SystemClock.elapsedRealtime(); ticker.run() }
+        context.stopService(Intent(context, ProjectionService::class.java))
+        // The locks go last in onDestroy: by then the main thread has had its turn again, whoever held it. (The system lists the service
+        // as gone while onDestroy still runs, so "gone" alone could be read before the main thread is free.)
+        await("no lock left", timeoutMs = 10_000) { wakeLocks() == 0 && wifiLocks() == 0 }
+        await("the service gone") { !serviceRunning() }
+        Thread.sleep(300)
+        main.removeCallbacks(ticker)
+        assertTrue("the main thread stood still for $worstGap ms during the stop", worstGap < SLOW_STOP_MS / 2)
+    }
+
     @Test
     fun stoppingStopsBothSidesAndLeavesNoLockBehind() {
         startAndWait()
@@ -230,6 +275,8 @@ class ProjectionServiceTest {
 
         await("the service gone") { !serviceRunning() }
         await("stopped") { ProjectionService.projection.value.phase == Phase.STOPPED }
+        // The system's count of the locks follows the release by a moment (one run read the wake lock still held at the instant of "gone")
+        await("the locks released", 3_000) { wakeLocks() == 0 && wifiLocks() == 0 }
         assertEquals(0 to 0, wakeLocks() to wifiLocks())
         assertTrue("got $calls", calls.containsAll(listOf("stopAndroidAuto", "stopDash")))
     }

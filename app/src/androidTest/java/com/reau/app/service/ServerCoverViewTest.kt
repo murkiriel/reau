@@ -69,6 +69,16 @@ class ServerCoverViewTest {
         assertEquals(false, cover.ringDone)
     }
 
+    /** A walk that failed ends at the step that did not finish (2, never 3): the ring is drawn to its third part (360) and stays gold, not green. */
+    @Test
+    fun aFailedWalksRingStaysGoldAtItsLastStep() {
+        lateinit var cover: ServerCoverView
+        onMain { cover = ServerCoverView(context, ServerMenuRun.Mode.START) {} }
+        onMain { cover.setStep(2) }
+        assertEquals("not green: the walk did not finish", false, cover.ringDone)
+        assertEquals(360f, cover.ringSweep)
+    }
+
     @Test
     fun cancelarCallsBack() {
         var cancelled = 0

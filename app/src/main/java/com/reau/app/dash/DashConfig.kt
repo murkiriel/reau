@@ -48,6 +48,9 @@ object DashConfig {
     const val PROFILE_FULL_FPS = 4
     const val PROFILE_FULL_BPS = 400_000
     const val PROFILE_REDUCED_FPS = 2
+
+    /** The pace on the screens of Android Auto that are not the navigation's (its app menu and the other apps) in every build ([com.reau.app.settings.REauSettings.lightScreenFps]); the encoder stays as built. */
+    const val LIGHT_SCREEN_FPS = 6
     const val PROFILE_REDUCED_BPS = 200_000
     const val PROFILE_KEYFRAME_SEC = 1
 

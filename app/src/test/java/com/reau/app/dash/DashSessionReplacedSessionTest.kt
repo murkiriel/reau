@@ -47,7 +47,7 @@ class DashSessionReplacedSessionTest {
     }
 
     private fun await(what: String, condition: () -> Boolean) {
-        val deadline = System.currentTimeMillis() + 3_000
+        val deadline = System.currentTimeMillis() + 10_000   // a loaded machine (the whole suite with detekt and lint) took longer than 3 s once
         while (!condition() && System.currentTimeMillis() < deadline) Thread.sleep(10)
         assertTrue(what, condition())
     }
@@ -90,6 +90,9 @@ class DashSessionReplacedSessionTest {
         val s = heldSession()
         s.connect("RE_TEST_1234")
         await("the session coroutine is running") { "session" in s.testOnlyActiveJobs() }
+        // Running is not yet at the factory: a fail() before the first coroutine got a thread cancels it before its first step, and
+        // the second connect() is then the only one to reach the factory (the test failed once in a few hundred runs of the suite).
+        await("the first session reached its socket factory") { gates.size == 1 }
 
         s.fail("Dash stopped responding — connection lost")
 

@@ -39,8 +39,19 @@ object DashReadings : DashReadingSink {
     @Volatile private var store: DashReadingsStore? = null
     private var publishedAtMs = 0L
     private var savedAtMs = 0L
-    private var unsaved = false
+
+    // The codes whose value changed since the last save: only those are written (each write is an encryption by the Keystore).
+    private val dirty = HashSet<String>()
     private var unpublished = false
+
+    /**
+     * Where the storage work runs: one thread of its own, in order. Saving re-encrypts each value through the Android Keystore
+     * (up to 14 of them), and it used to run on the thread that receives the dash's packets, delaying the joystick's replies and
+     * the frame acknowledgements (audit of 20/10/2026). A test gives it an executor it runs by hand.
+     */
+    @Volatile internal var saver: java.util.concurrent.Executor = java.util.concurrent.Executors.newSingleThreadExecutor { task ->
+        Thread(task, "dash-readings-save").apply { isDaemon = true }
+    }
 
     /** Everything heard so far, from this run and from the last ones. */
     val all: StateFlow<Map<String, DashReading>> get() = state
@@ -61,15 +72,25 @@ object DashReadings : DashReadingSink {
         }
     }
 
+    /** Test-only: no storage, so what a test saved does not follow it into the next. */
+    internal fun testOnlyDetach() {
+        synchronized(lock) { store = null }
+    }
+
     /** Forgets everything, the stored copy too ("Esquecer a moto"). */
     fun clear() {
         synchronized(lock) {
             map.clear()
             state.value = emptyMap()
             settingsState.value = DashReport.Settings()
-            store?.clear()
-            unsaved = false
+            // After any save already queued, so a value saved a moment ago does not come back.
+            val target = store
+            if (target != null) saver.execute { target.clear() }
+            dirty.clear()
             unpublished = false
+            // A new bike starts the pace of publishing and saving over.
+            publishedAtMs = 0L
+            savedAtMs = 0L
         }
     }
 
@@ -85,9 +106,9 @@ object DashReadings : DashReadingSink {
             val before = map[key]
             map[key] = DashReading(hex, nowMs, (before?.count ?: 0) + 1)
             unpublished = true
-            if (before == null || before.hex != hex) unsaved = true
+            if (before == null || before.hex != hex) dirty += key
             if (nowMs - publishedAtMs >= PUBLISH_EVERY_MS) publish(nowMs)
-            if (unsaved && nowMs - savedAtMs >= SAVE_EVERY_MS) save(nowMs)
+            if (dirty.isNotEmpty() && nowMs - savedAtMs >= SAVE_EVERY_MS) save(nowMs)
         }
     }
 
@@ -96,7 +117,7 @@ object DashReadings : DashReadingSink {
         synchronized(lock) {
             val now = System.currentTimeMillis()
             if (unpublished) publish(now)
-            if (unsaved) save(now)
+            if (dirty.isNotEmpty()) save(now)
         }
     }
 
@@ -107,10 +128,15 @@ object DashReadings : DashReadingSink {
         unpublished = false
     }
 
+    /** Hands what changed to the storage's thread; the caller (the dash's receive loop) does not wait for the Keystore. */
     private fun save(nowMs: Long) {
-        store?.save(map)
+        val target = store
+        if (target != null) {
+            val changed = dirty.mapNotNull { key -> map[key]?.let { key to it } }.toMap()
+            if (changed.isNotEmpty()) saver.execute { target.save(changed) }
+        }
         savedAtMs = nowMs
-        unsaved = false
+        dirty.clear()
     }
 
     private const val PUBLISH_EVERY_MS = 1_000L

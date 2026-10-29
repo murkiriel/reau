@@ -73,7 +73,7 @@ class InfoButtonsTest {
             info.performClick()
             compose.waitForIdle()
             compose.onNodeWithTag("info_sheet").assertExists()
-            compose.onNodeWithTag("info_sheet_ok").performClick()
+            compose.onNodeWithTag("info_sheet_ok").performScrollTo().performClick()
             compose.waitForIdle()
             compose.onNodeWithTag("info_sheet").assertDoesNotExist()
         }
@@ -82,15 +82,15 @@ class InfoButtonsTest {
     // ── Ajustes ────────────────────────────────────────────────────────────────────────────────────────────
 
     private val settingsWith = listOf(
-        o("applies_next_time"), o("map_theme"), o("use_location"), o("dash_phone_status"), o("dash_album_art"), o("dash_route_extras"),
-        o("answer_calls"), o("gemini"), o("aa_server_auto"),
+        o("applies_next_time"), o("map_theme"), o("use_location"), o("dash_phone_status"), o("dash_music"), o("dash_album_art"), o("dash_maneuver_ring"),
+        o("answer_calls"), o("gemini"),
         o("fps", "fps_locked"), o("maneuver_fps_profile", "maneuver_fps_profile_locked"), o("speed_fps_profile", "speed_fps_profile_locked"),
         o("card_now"),
-        o("ride_log"), o("record_video"), o("record_sessions"), o("detailed_log"), o("log_keep"),
-    )
+        o("ride_log"), o("record_video"), o("record_sessions"), o("detailed_log"), o("log_keep"), o("no_dash_stop"),
+    ) + if (com.reau.app.Edition.hasAccessibility) listOf(o("aa_server_auto")) else emptyList() // the full edition's server switch
 
     private val settingsWithout = listOf(
-        o("language"), o("dash_caller"), o("dash_music"), o("open_joystick"),
+        o("language"), o("dash_caller"), o("open_joystick"),
         o("bitrate", "bitrate_locked"), o("bitrate_mode", "bitrate_mode_locked"), o("keyframe", "keyframe_locked"),
         o("card_pick"), o("view_logs"), o("share"), o("delete"),
     )
@@ -128,27 +128,14 @@ class InfoButtonsTest {
     }
 
     @Test
-    fun theAndroidAutoScreenHasItsInfoOnTheModeTheMarginsAndTheStatsText() {
+    fun theAndroidAutoScreenHasItsInfoOnTheModeAndTheStatsText() {
         showAndroidAuto()
-        // The apps' tab: the mode and the margins; the stats text, its steps hidden until it is switched on.
+        // The apps' tab: the mode; the info ring; the stats text, its steps hidden until it is switched on.
         check(
-            listOf(o("fit_mode", "fit_FILL_DOME"), o("margin_w", "margin_w_value"), o("margin_h", "margin_h_value"), o("stats_overlay")),
+            listOf(o("fit_mode", "fit_WHOLE_VISIBLE"), o("info_ring"), o("stats_overlay"), o("button_overlay")),
             listOf(o("density", "density_value"), o("move_x", "move_x_value"), o("fit_reset")),
         )
-        everyInfoOpens(listOf("fit_mode", "margin_w", "margin_h", "stats_overlay"))
-    }
-
-    @Test
-    fun theMenuTabAddsTheInfoOfItsOwnFit() {
-        showAndroidAuto()
-        compose.onNodeWithTag("fit_tab_menu").performScrollTo().performClick()
-        compose.waitForIdle()
-        // The menu uses the apps' fit until it is given its own: no mode to explain yet.
-        check(listOf(o("margin_w", "margin_w_value"), o("margin_h", "margin_h_value"), o("stats_overlay"), o("menu_fit_own")))
-        everyInfoOpens(listOf("menu_fit_own"))
-        compose.onNodeWithTag("menu_fit_own").performScrollTo().performClick()
-        compose.waitForIdle()
-        check(listOf(o("fit_mode", "fit_FILL_DOME"), o("margin_w", "margin_w_value"), o("margin_h", "margin_h_value"), o("stats_overlay"), o("menu_fit_own")))
+        everyInfoOpens(listOf("fit_mode", "info_ring", "stats_overlay", "button_overlay"))
     }
 
     @Test
@@ -156,7 +143,7 @@ class InfoButtonsTest {
         settings = settings.copy(statsOverlay = true)
         showAndroidAuto()
         check(
-            listOf(o("fit_mode", "fit_FILL_DOME"), o("margin_w", "margin_w_value"), o("margin_h", "margin_h_value"), o("stats_overlay")),
+            listOf(o("fit_mode", "fit_WHOLE_VISIBLE"), o("info_ring"), o("stats_overlay"), o("button_overlay")),
             listOf(o("stats_x", "stats_x_value"), o("stats_y", "stats_y_value"), o("stats_size", "stats_size_value")),
         )
     }
@@ -243,7 +230,7 @@ class InfoButtonsTest {
     @Test
     fun theJoystickPageHasNoInfoOnAnyOfItsThreeTabs() {
         compose.setContent { JoystickScreen(REauSettings(), {}, {}) }
-        check(emptyList(), listOf(o("joystick_calls"), o("reset_joystick")))
+        check(emptyList(), listOf(o("reset_joystick")))
         compose.onNodeWithTag("joystick_mode_media").performClick()
         check(emptyList(), listOf(o("reset_joystick")))
         compose.onNodeWithTag("joystick_mode_call").performClick()

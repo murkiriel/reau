@@ -35,7 +35,7 @@ class WebPageTest {
         assertFalse("no image from outside", Regex("""<img\b[^>]*\bsrc\s*=\s*["'](?!data:)""", RegexOption.IGNORE_CASE).containsMatchIn(template))
     }
 
-    /** The AGPL asks for the source to be offered to whoever uses the program over the network: the page carries the link, in both languages. */
+    /** The AGPL asks for the source to be offered to whoever uses the program over the network: the page carries the link (checked here in the English and Portuguese texts). */
     @Test
     fun `the page carries the link to the source code, in both languages`() {
         assertTrue("the link is there: $sourceLink", sourceLink.isNotEmpty())
@@ -50,9 +50,47 @@ class WebPageTest {
     fun `composing puts the library in a script and leaves no mark`() {
         val page = WebPage.compose(template, jmuxer)
         assertFalse(page.contains(WebPage.LIBRARY_MARK))
-        assertTrue(page.contains("<script>" + jmuxer.take(60)))
+        assertTrue(page.contains("<script nonce=\"${HttpResponses.NONCE_MARK}\">" + jmuxer.take(60)))
         assertTrue(page.contains(template.substringBefore(WebPage.LIBRARY_MARK).takeLast(40)))
         assertTrue(page.contains(template.substringAfter(WebPage.LIBRARY_MARK).take(40)))
+    }
+
+    /** The policy lets an inline tag run only with the answer's nonce, and an attribute or a handler has none (28/10/2026, A-12). */
+    @Test
+    fun `every inline script and style of the page asks for the nonce, and nothing in it needs unsafe-inline`() {
+        val page = WebPage.compose(template, jmuxer)
+        val tags = Regex("""<(script|style)\b[^>]*>""", RegexOption.IGNORE_CASE).findAll(page).map { it.value }.toList()
+        assertTrue("the page has inline scripts and a style: $tags", tags.count { it.startsWith("<script") } == 2 && tags.count { it.startsWith("<style") } == 1)
+        for (tag in tags) assertEquals(tag, "nonce=\"${HttpResponses.NONCE_MARK}\"", Regex("""nonce="[^"]*"""").find(tag)?.value)
+        assertFalse("a style attribute needs unsafe-inline", Regex("""<[a-z][^>]*\sstyle\s*=""", RegexOption.IGNORE_CASE).containsMatchIn(template))
+        assertFalse("an inline handler needs unsafe-inline", Regex("""<[a-z][^>]*\son[a-z]+\s*=""", RegexOption.IGNORE_CASE).containsMatchIn(template))
+        assertFalse("javascript: needs unsafe-inline", template.contains("javascript:", ignoreCase = true))
+        assertFalse("eval needs unsafe-eval", Regex("""\beval\(|new Function\(""").containsMatchIn(template))
+        assertFalse("the library does not carry the mark", jmuxer.contains(HttpResponses.NONCE_MARK))
+        assertFalse("the page script builds no style attribute", Regex("""setAttribute\(\s*["']style["']""").containsMatchIn(template))
+        assertFalse("the page script writes no markup", Regex("""innerHTML|insertAdjacentHTML|document\.write""").containsMatchIn(template))
+    }
+
+    /** What the browser gets: the header's nonce is the one written in each tag, and the next answer has another. */
+    @Test
+    fun `the answer for the page puts the headers nonce in each inline tag, and a new one next time`() {
+        val body = WebPage.compose(template, jmuxer).toByteArray(Charsets.UTF_8)
+        fun get(): Pair<String, String> {
+            val out = java.io.ByteArrayOutputStream().also { HttpResponses.page(it, body) }.toByteArray()
+            val text = String(out, Charsets.UTF_8)
+            return text.substringBefore("\r\n\r\n") to text.substringAfter("\r\n\r\n")
+        }
+        val (head1, html1) = get()
+        val (head2, html2) = get()
+        for ((head, html) in listOf(head1 to html1, head2 to html2)) {
+            val nonce = Regex("script-src 'nonce-([^']+)'").find(head)!!.groupValues[1]
+            assertFalse("unsafe-inline", head.contains("unsafe-inline"))
+            assertFalse(html.contains(HttpResponses.NONCE_MARK))
+            val tags = Regex("""<(script|style)\b[^>]*>""").findAll(html).map { it.value }.toList()
+            assertEquals(3, tags.size)
+            for (tag in tags) assertTrue("$tag carries $nonce", tag.contains("nonce=\"$nonce\""))
+        }
+        assertFalse("another nonce each time", html1 == html2)
     }
 
     @Test
@@ -178,5 +216,23 @@ class WebPageTest {
         assertEquals("{\"state\":\"live\",\"touch\":true}", WebProtocol.status(WebProtocol.State.LIVE, touch = true))
         assertEquals("{\"state\":\"live\",\"touch\":false}", WebProtocol.status(WebProtocol.State.LIVE, touch = false))
         assertEquals("{\"state\":\"off\",\"touch\":false}", WebProtocol.status(WebProtocol.State.OFF, touch = false))
+    }
+
+    /** Audit of 20/10/2026: the page wrote the accepted PIN back into the address bar, so it stayed in the browser's history. */
+    @Test
+    fun `the PIN is taken off the address bar and never written back to it`() {
+        assertTrue("the PIN is written back to the address", !template.contains("replaceState(null, \"\", \"?k=\""))
+        assertTrue("the address is not cleaned", template.contains("history.replaceState(null, \"\", location.pathname)"))
+        // Cleaned as the page starts, before the PIN is sent anywhere.
+        assertTrue(template.indexOf("history.replaceState(null, \"\", location.pathname)") < template.indexOf("function start()"))
+        // Kept in memory only (the test above forbids any storage): a reload asks for it again.
+        assertTrue(!template.contains("sessionStorage") && !template.contains("localStorage"))
+    }
+
+    @Test
+    fun `no link of the page carries the PIN`() {
+        // The PIN is only ever sent to /auth and /ws, by the page's own script, never put in a link or a form.
+        assertTrue(Regex("""href\s*=\s*["'][^"']*k=""").findAll(template).none())
+        assertTrue(Regex("""<form""", RegexOption.IGNORE_CASE).findAll(template).none())
     }
 }

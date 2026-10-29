@@ -17,6 +17,7 @@ import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.RequiresApi
+import com.reau.app.util.MonotonicClock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -56,8 +57,52 @@ private fun quickRefusal(tookMs: Long, timeoutMs: Int): Boolean = tookMs < timeo
 private const val RECONNECT_TIMEOUT = 10_000
 private const val RECONNECT_DELAY = 4_000L
 
+/** How often an unanswered request looks at the scan for the dash ([DashWifiManager.watchForTheDash]). */
+private const val WATCH_PERIOD_MS = 2_000L
+
 /** How long a reconnection may go without a new request or a new loss before it counts as stuck. */
 internal const val RECONNECT_WINDOW_MS: Long = RECONNECT_TIMEOUT + RECONNECT_DELAY + 2_000L
+
+/**
+ * The pause between the requests for a bike network that stays lost. A ride log of 20/10/2026 had 18 minutes (15:56 to 16:14) of the dash
+ * away with a request every 14 s (10 s of request and the 4 s pause): 25 requests, 0.31 % of battery a minute, as much as streaming, for
+ * a bike that was switched off. After [BACKOFF_AFTER_MS] away the pause is [BACKOFF_PAUSE_MS] (a cycle of about 45 s); a sighting of the dash
+ * in the scan cuts the pause short at any time ([DashJoin.refileAfterLoss]), and a network that comes back starts the count over.
+ */
+internal object ReconnectPace {
+    const val BACKOFF_AFTER_MS = 3 * 60_000L
+    const val BACKOFF_PAUSE_MS = 35_000L
+
+    /** The pause before the next request when the dash has been away for [awayMs] (0: it just went). */
+    fun pauseMs(awayMs: Long): Long = if (awayMs >= BACKOFF_AFTER_MS) BACKOFF_PAUSE_MS else RECONNECT_DELAY
+}
+
+/**
+ * How long the bike network has been lost, for [ReconnectPace]'s pause: [lost] notes the first loss (a second loss while it is still away
+ * does not start the count over), [back] clears it (the network came back, or a new connection began), [pauseMs] is the pause before the
+ * next request, and [backoffStarted] is true once, the first time the long pause is in force, so the log says it once.
+ */
+internal class AbsenceClock {
+    @Volatile private var sinceMs = 0L
+    @Volatile private var said = false
+
+    fun lost(nowMs: Long) {
+        if (sinceMs == 0L) sinceMs = nowMs
+    }
+
+    fun back() {
+        sinceMs = 0L
+        said = false
+    }
+
+    fun pauseMs(nowMs: Long): Long = ReconnectPace.pauseMs(if (sinceMs == 0L) 0L else nowMs - sinceMs)
+
+    fun backoffStarted(nowMs: Long): Boolean {
+        if (pauseMs(nowMs) == RECONNECT_DELAY || said) return false
+        said = true
+        return true
+    }
+}
 
 /**
  * Whether the manager is in the middle of getting a lost bike network back on its own (a
@@ -68,8 +113,21 @@ internal const val RECONNECT_WINDOW_MS: Long = RECONNECT_TIMEOUT + RECONNECT_DEL
  * and giving up on the next refusal) and cancelled the request already out. Pure, as the companion's helpers
  * (DashWifiReconnectUnderWayTest).
  */
-internal fun reconnectUnderWay(wantConnected: Boolean, everConnected: Boolean, status: WifiConnStatus, sinceMs: Long): Boolean =
-    wantConnected && everConnected && status == WifiConnStatus.REQUESTING && sinceMs in 0..RECONNECT_WINDOW_MS
+internal fun reconnectUnderWay(
+    wantConnected: Boolean,
+    everConnected: Boolean,
+    status: WifiConnStatus,
+    sinceMs: Long,
+    pauseMs: Long = RECONNECT_DELAY,
+): Boolean = wantConnected && everConnected && status == WifiConnStatus.REQUESTING && sinceMs in 0..(RECONNECT_TIMEOUT + pauseMs + 2_000L)
+
+/**
+ * The line for a request let go. [answered]: the system gave the network at some point (even if it was lost since, as the
+ * 357 720 ms of a ride); only a request that never was is "let go unanswered". It used to read the state, which a loss had
+ * already put back to REQUESTING.
+ */
+internal fun releaseLine(requestNo: Int, tookMs: Long, status: WifiConnStatus, answered: Boolean): String =
+    "released request #$requestNo after $tookMs ms (status=$status, answered=$answered, unanswered=${!answered})"
 
 /** One network of the last scan, as far as the log needs it ([timestampUs]: microseconds since boot, as ScanResult has it). */
 internal data class ScanSeen(val ssid: String, val level: Int, val frequency: Int, val timestampUs: Long)
@@ -92,15 +150,21 @@ internal fun scanEvidence(seen: List<ScanSeen>?, pendingSsid: String, pendingPre
 }
 
 private const val MICROS_PER_SECOND = 1_000_000L
+
+/** The scan lookups of every manager in the process: one at a time, and not again within a second (the managers of the projection and of the screen). */
+private val dashSearches = RecentSearch<DashFound>()
+
+/** What a scan lookup found: the name and whether the dash was seen recently (the scan list keeps a bike that left for minutes). */
+private data class DashFound(val name: String?, val fresh: Boolean)
 private const val MICROS_PER_MILLI = 1_000L
 
 /**
  * Programmatically connects to the dash's WiFi hotspot using
  * WifiNetworkSpecifier + ConnectivityManager.requestNetwork().
  *
- * bindProcessToNetwork() routes all UDP/TCP from this process through
- * the dash's network so packets reach 192.168.1.1 even if the phone
- * has another network (cellular) available.
+ * The dash's network is not made the process's default (no bindProcessToNetwork: that took routing, geocoding and
+ * link-sharing off the phone's internet). Each dash socket is bound to it on its own (Network.bindSocket), so the packets
+ * reach 192.168.1.1 while everything else keeps the phone's other network (cellular).
  *
  * Auto-reconnects on link loss until disconnect() is called.
  */
@@ -130,6 +194,8 @@ class DashWifiManager(
 
     companion object {
         private const val TAG              = "DashWifiManager"
+        /** WifiInfo's own "no signal reading" (INVALID_RSSI is hidden from the public SDK). */
+        private const val NO_RSSI          = -127
         private const val CONNECT_TIMEOUT  = 30_000  // ms — Android shows system dialog within this
         // RECONNECT_TIMEOUT and RECONNECT_DELAY are at the top of the file (the reconnection rule there reads them).
         // Android returns this sentinel from WifiInfo.getSsid() when it can't read the SSID.
@@ -237,13 +303,22 @@ class DashWifiManager(
     @Volatile var network: Network? = null
         private set
 
-    private var networkCallback: ConnectivityManager.NetworkCallback? = null
-    private var reconnectJob: Job? = null
+    @Volatile private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    // The callback is still registered with Android: false once the system dropped it itself (onUnavailable), when unregistering
+    // it again only makes Android log "NetworkCallback was already unregistered".
+    @Volatile private var callbackRegistered = false
+    // The current request was answered by the system (the network came, even if it was lost since): what "let go unanswered" means.
+    @Volatile private var requestAnswered = false
+    @Volatile private var reconnectJob: Job? = null
     // True once we've successfully connected this session. Lets us tell a MID-RIDE drop (keep
     // retrying — the dash AP may have hung and will return after a power-cycle) apart from a failed
     // INITIAL connect / user-declined dialog (give up, don't spam).
     private var everConnected = false
-    private var wantConnected = false
+    // Read by the system's callback threads and the coroutines, written by the rider's connect() and disconnect().
+    @Volatile private var wantConnected = false
+    // Held by disconnect() and by every request: a request that was due when the rider switched off cannot go out after the
+    // switch-off and be left asking for the bike's Wi-Fi until the process dies (audit of 20/10/2026).
+    private val requestLock = Any()
     private var pendingSsid = ""
     private var pendingPassword = ""
     private var pendingPrefix = false
@@ -265,6 +340,23 @@ class DashWifiManager(
     // only for the log, to see a request that the system leaves "searching" while REau re-issues it.
     private var firstRequestMs = 0L
     private var releasedUnansweredMs = 0L
+    // What the phone knew of the network that is up (the line of its loss), and the channel of the connection that was lost,
+    // to say on which channel the dash came back (LinkLoss).
+    @Volatile private var netFacts: NetFacts? = null
+    @Volatile private var lostMhz: Int? = null
+    // How many times a first connection's request was put out again because the dash was in the scan and had not joined (DashJoin.refileSightedAndSlow).
+    @Volatile private var sightedRefiles = 0
+    // When the bike network was lost and has not come back since (0: it is there), for the pause between requests (ReconnectPace); said once.
+    private val absence = AbsenceClock()
+    // The network in use is one the phone had joined by itself (a suggestion, a saved one), not the answer to REau's own request.
+    @Volatile private var joinedByPhone = false
+    // The tries that found the dash's network unavailable since it was last there (for the line that is not written at every try).
+    private var unavailableInARow = 0
+    @Volatile private var awaitingChannel = false
+    // The loss being got back (microseconds since boot, as the scan's stamps; 0 = none), the watch over it and its last refiling.
+    @Volatile private var lostAtUs = 0L
+    @Volatile private var lossWatch: Job? = null
+    private var lastRefileMs = 0L
 
     /**
      * When we connect by prefix (any RE_* dash), the exact SSID is only known once the
@@ -288,6 +380,13 @@ class DashWifiManager(
     fun connect(ssid: String, password: String = "", prefixMatch: Boolean = false) {
         wantConnected    = true
         everConnected    = false   // fresh user-initiated attempt
+        netFacts = null
+        lostMhz = null
+        awaitingChannel = false
+        unavailableInARow = 0
+        sightedRefiles = 0
+        absence.back()
+        DashHeard.forget()
         pendingSsid      = ssid
         pendingPassword  = password
         pendingPrefix    = prefixMatch
@@ -301,24 +400,30 @@ class DashWifiManager(
      * validates it inside the encrypted auth handshake — and Android 13+ redacts the SSID
      * of the connected network, so we can't read it back after connecting.
      */
+    fun findDashSsid(prefix: String): String? =
+        dashSearches.get(prefix, after = { if (it.fresh) DashSighting.sighted() }) { searchDashSsid(prefix) }.name
+
     @SuppressLint("MissingPermission")
     @Suppress("TooGenericExceptionCaught") // a failed scan lookup is logged and means no SSID
-    fun findDashSsid(prefix: String): String? = try {
+    private fun searchDashSsid(prefix: String): DashFound = try {
         val wifi = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-        wifi.scanResults
-            .mapNotNull { it.SSID?.trim('"')?.takeIf { s -> s.isNotBlank() } }
-            .firstOrNull { it.startsWith(prefix) }
-            .also {
-                val masked = it?.let(::maskSsid) ?: "not found"
-                Log.i(TAG, "Scan lookup for '${maskSsid(prefix)}*' → $masked")
-                // Happens BEFORE any connect attempt is logged -- if the dash is never found here,
-                // nothing else explains why connect() never even started.
-                com.reau.app.data.RideDiagnostics.log("wifi", "scan lookup for '${maskSsid(prefix)}*' → $masked")
-            }
+        val seen = wifi.scanResults.mapNotNull { r ->
+            r.SSID?.trim('"')?.takeIf { it.isNotBlank() }?.let { ScanSeen(it, r.level, r.frequency, r.timestamp) }
+        }
+        // With several dashes in sight (a meet, a parking lot) the one with the best recent signal is taken, not the first listed.
+        val nowUs = SystemClock.elapsedRealtime() * MICROS_PER_MILLI
+        val choice = DashPick.strongest(seen, prefix, nowUs)
+        val said = choice?.describe() ?: "not found"
+        Log.i(TAG, "Scan lookup for '${maskSsid(prefix)}*' → $said")
+        // Happens BEFORE any connect attempt is logged -- if the dash is never found here,
+        // nothing else explains why connect() never even started.
+        com.reau.app.data.RideDiagnostics.log("wifi", "scan lookup for '${maskSsid(prefix)}*' → $said")
+        // Told by findDashSsid, outside the search's lock, and only for a dash seen recently: an old entry of the scan list is no news.
+        DashFound(choice?.name, fresh = choice != null && DashJoin.seenRecently(seen, choice.name, false, nowUs))
     } catch (e: Exception) {
         Log.w(TAG, "Scan lookup failed: ${e.message}")
         com.reau.app.data.RideDiagnostics.warn("wifi", "scan lookup failed: ${e.javaClass.simpleName}: ${e.message}")
-        null
+        DashFound(null, fresh = false)
     }
 
     /**
@@ -340,8 +445,11 @@ class DashWifiManager(
      * True while this manager is getting a lost bike network back by itself, recently enough to be trusted
      * (the rule is the top-level [reconnectUnderWay]). [WifiDashLinkUp] then waits for that instead of asking anew.
      */
-    fun reconnectUnderWay(nowMs: Long = System.currentTimeMillis()): Boolean =
-        reconnectUnderWay(wantConnected, everConnected, _state.value.status, nowMs - reconnectActedMs)
+    fun reconnectUnderWay(nowMs: Long = MonotonicClock.nowMs()): Boolean =
+        reconnectUnderWay(wantConnected, everConnected, _state.value.status, nowMs - reconnectActedMs, currentPauseMs(nowMs))
+
+    /** The pause between requests now: the short one, or the long one once the dash has been away for 3 minutes ([ReconnectPace]). */
+    private fun currentPauseMs(nowMs: Long): Long = absence.pauseMs(nowMs)
 
     fun disconnect() {
         Log.i(TAG, "Disconnect requested")
@@ -349,19 +457,55 @@ class DashWifiManager(
         if (disconnectHasSomethingToLetGo(wantConnected, networkCallback != null, _state.value.status)) {
             com.reau.app.data.RideDiagnostics.log("wifi", "disconnect requested")
         }
-        wantConnected = false
-        reconnectJob?.cancel()
-        release()
-        _state.value = WifiState()
+        synchronized(requestLock) {
+            wantConnected = false
+            reconnectJob?.cancel()
+            lossWatch?.cancel()
+            lostAtUs = 0L
+            release()
+            _state.value = WifiState()
+        }
     }
 
     // ── Internal ──────────────────────────────────────────────────────────
 
+    /** Asks for the bike's network, unless the rider has switched off since this was due (the check and the request are one step). */
+    private fun requestNetwork() = synchronized(requestLock) { if (wantConnected) askForTheNetwork() }
+
+    /**
+     * Some OEM builds (seen on Android 11) suppress the WifiNetworkSpecifier system dialog
+     * entirely when the phone is ALREADY joined to the exact network being requested —
+     * requestNetwork() then just times out instead of returning it. Reusing an already-
+     * connected match sidesteps that: no new dialog, no request, straight to CONNECTED. False when there is none.
+     */
+    private fun useAlreadyConnectedNetwork(): Boolean {
+        val (activeNetwork, activeSsid) = findAlreadyConnectedDashNetwork() ?: return false
+        network = activeNetwork
+        resolvedSsid = activeSsid
+        requestAnswered = true
+        joinedByPhone = true
+        lostAtUs = 0L
+        absence.back()
+        everConnected = true
+        joinedOnce = true
+        quickRefusals = 0
+        // Not remembered as approved: a network the phone joined by itself (a suggestion, a saved one) says nothing
+        // about the dialog of a request for it.
+        Log.i(TAG, "Using already-connected matching WiFi '${maskSsid(activeSsid)}'")
+        com.reau.app.data.RideDiagnostics.log("wifi", "using already-connected WiFi '${maskSsid(activeSsid)}'")
+        noteNetwork(cm.getNetworkCapabilities(activeNetwork))
+        watchJoined(activeNetwork)
+        onSsidResolved?.invoke(activeSsid)
+        _state.value = WifiState(status = WifiConnStatus.CONNECTED, ssid = activeSsid)
+        return true
+    }
+
     @Suppress("TooGenericExceptionCaught") // a failed request is logged and shown as the ERROR state
-    private fun requestNetwork() {
+    private fun askForTheNetwork() {
         release()
+        requestAnswered = false
         requests++
-        requestStartMs = System.currentTimeMillis()
+        requestStartMs = MonotonicClock.nowMs()
         reconnectActedMs = requestStartMs
         val timeout = chooseTimeout()
         Log.i(TAG, "Requesting WiFi: '${maskSsid(pendingSsid)}' " +
@@ -370,25 +514,7 @@ class DashWifiManager(
         logRequestContext(timeout)
         _state.value = WifiState(status = WifiConnStatus.REQUESTING, ssid = pendingSsid)
 
-        // Some OEM builds (seen on Android 11) suppress the WifiNetworkSpecifier system dialog
-        // entirely when the phone is ALREADY joined to the exact network being requested —
-        // requestNetwork() then just times out instead of returning it. Reusing an already-
-        // connected match sidesteps that: no new dialog, no request, straight to CONNECTED.
-        findAlreadyConnectedDashNetwork()?.let { (activeNetwork, activeSsid) ->
-            network = activeNetwork
-            resolvedSsid = activeSsid
-            everConnected = true
-            joinedOnce = true
-            quickRefusals = 0
-            // Not remembered as approved: a network the phone joined by itself (a suggestion, a saved one) says nothing
-            // about the dialog of a request for it.
-            Log.i(TAG, "Using already-connected matching WiFi '${maskSsid(activeSsid)}'")
-            com.reau.app.data.RideDiagnostics.log("wifi", "using already-connected WiFi '${maskSsid(activeSsid)}'")
-            watchJoined(activeNetwork)
-            onSsidResolved?.invoke(activeSsid)
-            _state.value = WifiState(status = WifiConnStatus.CONNECTED, ssid = activeSsid)
-            return
-        }
+        if (useAlreadyConnectedNetwork()) return
 
         val specBuilder = WifiNetworkSpecifier.Builder()
         if (pendingPrefix) specBuilder.setSsidPattern(PatternMatcher(pendingSsid, PatternMatcher.PATTERN_PREFIX))
@@ -423,10 +549,14 @@ class DashWifiManager(
         val cb = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) BikeCallback(DashName.callbackFlags()) else BikeCallback()
 
         networkCallback = cb
+        // Set before the request: its callback can end (onUnavailable) before this thread gets to write it after.
+        callbackRegistered = true
         try {
             cm.requestNetwork(request, cb, timeout)
             startAndroid11SsidPolling()
+            watchForTheDash(requests)
         } catch (e: Exception) {
+            callbackRegistered = false
             Log.e(TAG, "requestNetwork threw: ${e.message}", e)
             com.reau.app.data.RideDiagnostics.error("wifi", "requestNetwork threw: ${e.javaClass.simpleName}: ${e.message}")
             _state.value = WifiState(
@@ -437,11 +567,73 @@ class DashWifiManager(
         }
     }
 
+    /**
+     * While request [request] goes unanswered with the dash not in the scan, looks at the scan every [WATCH_PERIOD_MS] and puts
+     * the request out again once the dash shows up (the rule is [DashJoin.refileOnSighting]). The loop ends by itself when
+     * another request goes out, the request is answered, or the rider switches off.
+     */
+    private fun watchForTheDash(request: Int) {
+        if (everConnected || requestFirstApproval) return
+        // Already in the scan when the request went out: the system should join in a few seconds, and if it has not in
+        // [DashJoin.REFILE_SIGHTED_MS] the request is put out again (a request left 30 s was followed by one that joined in 5.4 s).
+        val seenAtRequest = seenInLastScan(pendingSsid, pendingPrefix)
+        val begun = SystemClock.elapsedRealtime()
+        val hold = JoinHold()
+        scope.launch {
+            while (stillRequesting(request)) {
+                delay(WATCH_PERIOD_MS)
+                val waited = SystemClock.elapsedRealtime() - begun
+                if (!stillRequesting(request)) return@launch
+                val seenNow = seenInLastScan(pendingSsid, pendingPrefix)
+                val sighted = !seenAtRequest && DashJoin.refileOnSighting(requestFirstApproval, everConnected, false, seenNow, waited)
+                val slow = DashJoin.refileSightedAndSlow(requestFirstApproval, everConnected, seenAtRequest, waited, sightedRefiles)
+                if (sighted || slow) {
+                    if (hold.holds(request)) continue
+                    if (slow) sightedRefiles++
+                    com.reau.app.data.RideDiagnostics.log("wifi", "the dash ${refileWhy(slow)} $waited ms into request #$request: asking again")
+                    requestNetwork()
+                    return@launch
+                }
+            }
+        }
+    }
+
+    /** The request numbered [request] is the one out, the rider still wants the dash and the system has not answered it. */
+    private fun stillRequesting(request: Int) = requests == request && wantConnected && _state.value.status == WifiConnStatus.REQUESTING
+
+    private fun refileWhy(slow: Boolean) = if (slow) "was in the scan when it went out and has not joined" else "showed up in the scan"
+
+    /**
+     * The dash's Wi-Fi already joined while a request is still unanswered: that request is holding the network up, and putting
+     * it out again would drop it ([DashJoin.holdWhileJoining]). One per watch; remembers since when it holds.
+     */
+    private inner class JoinHold {
+        private var since = 0L
+
+        fun holds(request: Int): Boolean {
+            val now = SystemClock.elapsedRealtime()
+            val joining = findAlreadyConnectedDashNetwork() != null
+            if (joining && since == 0L) {
+                since = now
+                com.reau.app.data.RideDiagnostics.log("wifi", "the dash's Wi-Fi is already joined in request #$request: leaving it to be answered")
+            }
+            return DashJoin.holdWhileJoining(joining, if (since == 0L) 0L else now - since)
+        }
+    }
+
     private fun scheduleReconnect() {
         reconnectJob?.cancel()
         val scheduledAt = requests
+        val pause = currentPauseMs(MonotonicClock.nowMs())
+        if (absence.backoffStarted(MonotonicClock.nowMs())) {
+            val minutes = ReconnectPace.BACKOFF_AFTER_MS / 60_000
+            val cycle = (RECONNECT_TIMEOUT + pause) / 1_000
+            com.reau.app.data.RideDiagnostics.log(
+                "wifi", "the dash has been away for $minutes min: a request every $cycle s from now; a sighting in the scan brings it back at once",
+            )
+        }
         reconnectJob = scope.launch {
-            delay(RECONNECT_DELAY)
+            delay(pause)
             if (reconnectDue(wantConnected, scheduledAt, requests)) requestNetwork()
         }
     }
@@ -464,7 +656,7 @@ class DashWifiManager(
         val now = SystemClock.elapsedRealtime()
         val power = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
         val keyguard = context.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
-        val sinceFirst = (System.currentTimeMillis() - firstRequestMs) / 1_000
+        val sinceFirst = (MonotonicClock.nowMs() - firstRequestMs) / 1_000
         val gap = if (releasedUnansweredMs == 0L) "first" else "${now - releasedUnansweredMs} ms after the last was let go unanswered"
         val line = "requestNetwork '${maskSsid(pendingSsid)}' everConnected=$everConnected timeout=${timeout}ms; " +
             "request #$requests (${sinceFirst}s since the first, $gap), screen interactive=${power?.isInteractive} " +
@@ -511,14 +703,14 @@ class DashWifiManager(
     private fun release() {
         if (networkCallback != null) {
             val status = _state.value.status
-            val unanswered = status == WifiConnStatus.REQUESTING
             com.reau.app.data.RideDiagnostics.log(
-                "wifi", "released request #$requests after ${System.currentTimeMillis() - requestStartMs} ms (status=$status, unanswered=$unanswered)",
+                "wifi", releaseLine(requests, MonotonicClock.nowMs() - requestStartMs, status, requestAnswered),
             )
             // A request let go while the system had not answered it: the next one starts the system's dialog over.
-            if (unanswered) releasedUnansweredMs = SystemClock.elapsedRealtime()
+            if (!requestAnswered) releasedUnansweredMs = SystemClock.elapsedRealtime()
         }
-        networkCallback?.let { runCatching { cm.unregisterNetworkCallback(it) } }
+        if (callbackRegistered) networkCallback?.let { runCatching { cm.unregisterNetworkCallback(it) } }
+        callbackRegistered = false
         networkCallback = null
         network = null
     }
@@ -534,13 +726,17 @@ class DashWifiManager(
 
     private fun startAndroid11SsidPolling() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) return
+        val request = requests
         scope.launch {
             delay(5_000)
             repeat(6) {
+                // Not for a request that was let go, nor after the rider switched off: it would put CONNECTED back on a disconnected manager.
+                if (!wantConnected || requests != request) return@launch
                 if (_state.value.status == WifiConnStatus.CONNECTED && resolvedSsid != null) return@launch
                 findAlreadyConnectedDashNetwork()?.let { (activeNetwork, activeSsid) ->
                     network = activeNetwork
                     resolvedSsid = activeSsid
+                    requestAnswered = true
                     Log.i(TAG, "Android 11 SSID fallback resolved '${maskSsid(activeSsid)}'")
                     com.reau.app.data.RideDiagnostics.log("wifi", "Android 11 SSID fallback resolved '${maskSsid(activeSsid)}'")
                     onSsidResolved?.invoke(activeSsid)
@@ -591,12 +787,20 @@ class DashWifiManager(
         constructor(flags: Int) : super(flags)
 
         override fun onAvailable(network: Network) {
+            // A late callback of a request that was let go (the rider switched off) must not bring the manager back.
+            if (!wantConnected) return
             this@DashWifiManager.network = network
-            val tookMs = System.currentTimeMillis() - requestStartMs
+            requestAnswered = true
+            joinedByPhone = false
+            lostAtUs = 0L
+            absence.back()
+            unavailableInARow = 0
+            val tookMs = MonotonicClock.nowMs() - requestStartMs
             everConnected = true
             joinedOnce = true
             quickRefusals = 0
             reconnectJob?.cancel()
+            noteNetwork(cm.getNetworkCapabilities(network))
             // SSID is read in onCapabilitiesChanged (transportInfo isn't populated here
             // yet on Android 13+). Try once anyway, else fall back to the pending value.
             val resolved = resolveSsid(network).takeIf { it.isNotBlank() } ?: pendingSsid
@@ -610,40 +814,35 @@ class DashWifiManager(
         }
 
         override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
-            // Canonical place to read the connected SSID — REQUIRED for auth, since the
-            // dash validates the SSID inside the encrypted handshake (DashAuth). Without
-            // the real SSID (prefix-discovery), every auth is rejected.
-            val info = caps.transportInfo as? WifiInfo ?: return
-            val ssid = normalizeSsid(info.ssid)
-            if (ssid.isBlank()) return
-            if (ssid == resolvedSsid) return
-            resolvedSsid = ssid
-            rememberJoined(ssid)
-            this@DashWifiManager.network = network
-            Log.i(TAG, "Resolved dash SSID: '${maskSsid(ssid)}'")
-            com.reau.app.data.RideDiagnostics.log("wifi", "resolved SSID via onCapabilitiesChanged: '${maskSsid(ssid)}'")
-            onSsidResolved?.invoke(ssid)
-            _state.value = WifiState(status = WifiConnStatus.CONNECTED, ssid = ssid)
+            if (!wantConnected) return
+            noteNetwork(caps)
+            resolveSsidFrom(network, caps)
         }
 
         override fun onUnavailable() {
+            // Android has dropped the callback itself, wanted or not.
+            callbackRegistered = false
+            if (!wantConnected) return
             this@DashWifiManager.network = null
-            val tookMs = System.currentTimeMillis() - requestStartMs
+            val tookMs = MonotonicClock.nowMs() - requestStartMs
             // Mid-ride drop where the dash AP went missing (we HAD connected): keep retrying so a
             // dash that's hung — and revived by a bike power-cycle — auto-rejoins with no manual
             // step. The ViewModel's reconnect-giveup timer still bounds this if it never returns.
             if (shouldRetryOnUnavailable(everConnected, wantConnected)) {
                 Log.w(TAG, "WiFi unavailable mid-session (${tookMs}ms) — dash AP missing, retrying in ${RECONNECT_DELAY}ms")
-                com.reau.app.data.RideDiagnostics.warn(
-                    "wifi", "unavailable after ${tookMs}ms (mid-session) — retrying in ${RECONNECT_DELAY}ms; ${lastScanEvidence()}, " +
-                        "approvedBefore=${approvedBefore()}",
-                )
+                // The first of an absence, then every fifth with the count: a long absence wrote a trio of lines at each try.
+                if (unavailableLogDue(++unavailableInARow)) {
+                    com.reau.app.data.RideDiagnostics.warn(
+                        "wifi", "unavailable after ${tookMs}ms (mid-session, #$unavailableInARow of this absence) — retrying in " +
+                            "${RECONNECT_DELAY}ms; ${lastScanEvidence()}, approvedBefore=${approvedBefore()}",
+                    )
+                }
                 _state.value = WifiState(
                     status = WifiConnStatus.REQUESTING,
                     ssid   = pendingSsid,
                     error  = context.getString(com.reau.app.R.string.dash_err_wifi_lost),
                 )
-                reconnectActedMs = System.currentTimeMillis()
+                reconnectActedMs = MonotonicClock.nowMs()
                 scheduleReconnect()
                 return
             }
@@ -674,7 +873,63 @@ class DashWifiManager(
             wantConnected = false
         }
 
+        override fun onLosing(network: Network, maxMsToLive: Int) {
+            if (wantConnected) com.reau.app.data.RideDiagnostics.warn("wifi", LinkLoss.losingLine(maxMsToLive))
+        }
+
         override fun onLost(network: Network) = bikeLost()
+    }
+
+    /**
+     * Canonical place to read the connected SSID — REQUIRED for auth, since the dash validates the SSID inside the encrypted
+     * handshake (DashAuth). Without the real SSID (prefix-discovery), every auth is rejected.
+     */
+    private fun resolveSsidFrom(network: Network, caps: NetworkCapabilities) {
+        val info = caps.transportInfo as? WifiInfo ?: return
+        val ssid = normalizeSsid(info.ssid)
+        if (ssid.isBlank() || ssid == resolvedSsid) return
+        resolvedSsid = ssid
+        rememberJoined(ssid)
+        this.network = network
+        Log.i(TAG, "Resolved dash SSID: '${maskSsid(ssid)}'")
+        com.reau.app.data.RideDiagnostics.log("wifi", "resolved SSID via onCapabilitiesChanged: '${maskSsid(ssid)}'")
+        onSsidResolved?.invoke(ssid)
+        _state.value = WifiState(status = WifiConnStatus.CONNECTED, ssid = ssid)
+    }
+
+    /**
+     * Whether the network came from a request with a specifier. A non-null specifier says yes; a null one is not "no" (Android may
+     * leave it out of a callback that has no privilege to see it), so it says no only for a network the phone joined by itself
+     * ([joinedByPhone]) and is unknown otherwise, and below API 30, which does not say.
+     */
+    private fun hasSpecifier(caps: NetworkCapabilities): Boolean? = when {
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.R -> null
+        caps.networkSpecifier != null -> true
+        joinedByPhone -> false
+        else -> null
+    }
+
+    /**
+     * Keeps what Android says of the network that is up ([NetFacts]); the first time the channel is known after a loss, says whether
+     * the dash came back on it. [caps] null (Android has no snapshot yet) changes nothing.
+     */
+    private fun noteNetwork(caps: NetworkCapabilities?) {
+        val before = netFacts
+        val info = caps?.transportInfo as? WifiInfo
+        val mhz = info?.frequency?.takeIf { it > 0 } ?: before?.mhz
+        val facts = NetFacts(
+            upAtMs = before?.upAtMs ?: MonotonicClock.nowMs(),
+            mhz = mhz,
+            rssiDbm = info?.rssi?.takeIf { it > NO_RSSI } ?: before?.rssiDbm,
+            specifier = caps?.let(::hasSpecifier) ?: before?.specifier,
+            validated = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) ?: before?.validated,
+            notRestricted = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED) ?: before?.notRestricted,
+        )
+        netFacts = facts
+        if (awaitingChannel && mhz != null) {
+            awaitingChannel = false
+            LinkLoss.backLine(lostMhz, mhz)?.let { com.reau.app.data.RideDiagnostics.log("wifi", it) }
+        }
     }
 
     /** The log line for a passphrase Android refused: whatever Android says, the password itself is not in it. */
@@ -683,8 +938,19 @@ class DashWifiManager(
 
     /** The bike network went: forgotten, and asked for again while the rider still wants the dash. */
     private fun bikeLost() {
+        if (!wantConnected) return
         Log.w(TAG, "WiFi link lost — reconnecting in ${RECONNECT_DELAY}ms")
-        com.reau.app.data.RideDiagnostics.warn("wifi", "link lost — reconnecting in ${RECONNECT_DELAY}ms")
+        val now = MonotonicClock.nowMs()
+        absence.lost(now)
+        val screenOn = (context.getSystemService(Context.POWER_SERVICE) as? PowerManager)?.isInteractive
+        com.reau.app.data.RideDiagnostics.warn(
+            "wifi", LinkLoss.lostLine(netFacts, now, DashHeard.agoMs(now), screenOn, RECONNECT_DELAY),
+        )
+        DashHeard.trail?.report("the Wi-Fi was lost", now)?.forEach { com.reau.app.data.RideDiagnostics.log("wifi", it) }
+        // The next connection of this projection is compared with the channel this one had (kept if it is not known now).
+        netFacts?.mhz?.let { lostMhz = it }
+        awaitingChannel = lostMhz != null
+        netFacts = null
         com.reau.app.service.SystemEvents.log(com.reau.app.service.SystemEvents.bikeNetwork(false))
         network = null
         _state.value = WifiState(
@@ -692,9 +958,61 @@ class DashWifiManager(
             ssid   = pendingSsid,
             error  = context.getString(com.reau.app.R.string.dash_err_link_lost),
         )
-        reconnectActedMs = System.currentTimeMillis()
-        if (wantConnected) scheduleReconnect()
+        reconnectActedMs = MonotonicClock.nowMs()
+        if (wantConnected) {
+            scheduleReconnect()
+            watchAfterLoss()
+        }
     }
+
+    /**
+     * While the dash's network stays lost, looks at the scan every [WATCH_PERIOD_MS] and asks for the network at once when the
+     * dash shows up newer than the loss, cutting the 4 s pause or a request already out ([DashJoin.refileAfterLoss]). One watch
+     * for a loss; it ends when the network is back or the rider switches off.
+     */
+    private fun watchAfterLoss() {
+        lostAtUs = SystemClock.elapsedRealtime() * MICROS_PER_MILLI
+        lastRefileMs = 0L
+        if (lossWatch?.isActive == true) return
+        lossWatch = scope.launch {
+            while (stillLost()) {
+                delay(WATCH_PERIOD_MS)
+                if (stillLost() && refileForSighting()) requestNetwork()
+            }
+        }
+    }
+
+    /** The rider still wants the dash and the network lost has not come back. */
+    private fun stillLost() = wantConnected && lostAtUs != 0L && network == null
+
+    /** The decision of [watchAfterLoss] for this moment, with the line that tells it. */
+    private fun refileForSighting(): Boolean {
+        val nowUs = SystemClock.elapsedRealtime() * MICROS_PER_MILLI
+        val nowMs = MonotonicClock.nowMs()
+        val pause = reconnectJob?.isActive == true
+        val refile = DashJoin.refileAfterLoss(
+            requestFirstApproval, lostAtUs, newestSightingUs(), nowUs,
+            requestAgeMs = nowMs - requestStartMs, inPause = pause,
+            sinceLastRefileMs = if (lastRefileMs == 0L) null else nowMs - lastRefileMs,
+        )
+        if (refile) {
+            lastRefileMs = nowMs
+            reconnectJob?.cancel()
+            com.reau.app.data.RideDiagnostics.log(
+                "wifi", "the dash showed up in the scan ${(nowUs - lostAtUs) / MICROS_PER_MILLI} ms after the Wi-Fi was lost: " +
+                    "asking again" + if (pause) " (the pause is cut short)" else "",
+            )
+        }
+        return refile
+    }
+
+    /** The newest stamp of the dash in the last scan; null for none, an empty scan or one that cannot be read. */
+    @SuppressLint("MissingPermission")
+    private fun newestSightingUs(): Long? = runCatching {
+        wifi.scanResults.filter { r ->
+            r.SSID?.trim('"')?.let { it.isNotBlank() && matchesPendingSsid(it, pendingSsid, pendingPrefix) } == true
+        }.maxOfOrNull { it.timestamp }
+    }.getOrNull()
 
     /**
      * A dash network the phone had joined by itself is used without a request of REau's own, so no
@@ -717,6 +1035,7 @@ class DashWifiManager(
         try {
             cm.registerNetworkCallback(anyWifi, watcher)
             networkCallback = watcher // release() lets it go with the rest
+            callbackRegistered = true
         } catch (e: RuntimeException) {
             com.reau.app.data.RideDiagnostics.warn("wifi", "could not watch the joined WiFi: ${e.javaClass.simpleName}: ${e.message}")
         }

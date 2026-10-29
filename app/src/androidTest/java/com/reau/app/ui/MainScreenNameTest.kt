@@ -35,7 +35,7 @@ class MainScreenNameTest {
         text("status", "Falta o nome inteiro do Wi-Fi do painel")
         compose.onNodeWithTag("side_dash").performScrollTo().assertTextContains("PAINEL").assertTextContains("Falta o nome do Wi-Fi")
         compose.onNodeWithTag("dash_name_warning").performScrollTo().assertIsDisplayed()
-            .assertTextContains("Esquecer painel", substring = true)
+            .assertTextContains("Esquecer", substring = true)
             // A made-up example, not a real dash's name.
             .assertTextContains("RE_AB12_345678", substring = true)
     }

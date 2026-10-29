@@ -7,6 +7,7 @@ import android.media.MediaFormat
 import android.util.Log
 import android.view.Surface
 import com.reau.app.dash.BitrateMode
+import com.reau.app.dash.DashConfig
 import com.reau.app.util.CodecNames
 
 /**
@@ -14,10 +15,10 @@ import com.reau.app.util.CodecNames
  *   526 × 300, Baseline L4.1, 1-second IDR interval.
  *
  * Cadence/bitrate are DRIVEN BY THE FRAME LOOP, not fixed here (the stream package's pacing). The
- * dash shows a map well at only **2–4 fps / 100–200 kbps**. A map doesn't need video frame rates, and
+ * dash shows a map well at only **2–4 fps / 200–400 kbps** (the two profiles of [DashConfig]). A map doesn't need video frame rates, and
  * crucially a few fps NEVER overruns the dash decoder — which is the real cause of the blink/stutter seen
- * at 24 fps. So the encoder is configured at the active rate (4 fps hint, ~200 kbps) and the bitrate is
- * dropped live via [requestBitrate] when the map goes static. ([FPS] here is
+ * at 24 fps. So the encoder is configured at the active rate (4 fps hint, 400 kbps, profile 1) and the bitrate is
+ * dropped live via [requestBitrate] to the reduced profile's 200 kbps when the stream goes to profile 2. ([FPS] here is
  * only the encoder's frame-rate HINT; the real rate is the surface feed rate.)
  *
  * History (kept so we don't re-walk it): we'd climbed 4 → 12 → 24 fps and 0.8 → 1.2 Mbps chasing
@@ -41,14 +42,11 @@ class DashEncoder(
     companion object {
         const val WIDTH   = 526
         const val HEIGHT  = 300
-        // Encoder frame-rate HINT only (actual rate = how fast the loop feeds the surface). The loop paces
-        // 4 fps (active) / 2 fps (idle).
-        const val FPS     = 4
-        // ~200 kbps while the map moves. The loop drops this to ~100 kbps via requestBitrate() when the
-        // map is static.
-        // Far under the old 1.2 Mbps that risked overrunning the dash decoder.
-        const val BITRATE = 200_000
-        const val BITRATE_IDLE = 100_000
+        // Encoder frame-rate HINT only (actual rate = how fast the loop feeds the surface); the full profile's, from DashConfig.
+        const val FPS     = DashConfig.PROFILE_FULL_FPS
+        // What prepare() uses when the caller gives no bitrate (the stream always gives the profile's own, and changes it with
+        // requestBitrate()): the reduced profile's, from DashConfig. Far under the old 1.2 Mbps that risked overrunning the dash decoder.
+        const val BITRATE = DashConfig.PROFILE_REDUCED_BPS
         /** Safety net for a compositor that stops: with nothing posted to the input surface for this long, the
          *  codec encodes the last frame again by itself. OpenCfMoto uses the same 900 ms. What keeps the dash fed
          *  when Android Auto pauses is the compositor's own clock, not this. */
@@ -83,6 +81,16 @@ class DashEncoder(
                 RateMode(null, "default (${mode.name} not offered)")
             }
         }
+
+        /**
+         * Whether an output buffer is a frame: it has bytes and is not the SPS/PPS buffer ([MediaCodec.BUFFER_FLAG_CODEC_CONFIG]), which
+         * is passed on all the same (the NAL processor needs it) but takes no entry in the statistics and carries the last frame's time.
+         */
+        internal fun isFrame(hasBuffer: Boolean, size: Int, flags: Int): Boolean =
+            hasBuffer && size > 0 && (flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0
+
+        /** Whether the codec says an output buffer is a sync (IDR) frame. */
+        internal fun isKeyFrame(flags: Int): Boolean = (flags and MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0
 
         private fun constantOf(mode: BitrateMode): Int = when (mode) {
             BitrateMode.CBR -> MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR
@@ -150,27 +158,61 @@ class DashEncoder(
             if (lowLatency) lowLatencyKeys(android.os.Build.VERSION.SDK_INT, fpsHint).forEach { (k, v) -> setInteger(k, v) }
             if (rate != null) setInteger(MediaFormat.KEY_BITRATE_MODE, rate)
         }
-        // Prefer an explicit HARDWARE AVC encoder — a software fallback runs the
-        // CPU hot, which is exactly what this whole project exists to avoid.
-        val name = buildFormat(lowLatency = false).let { f -> CodecNames.pick("encoder $f") { selectHardwareEncoder(f) } }
-        val rate = rateMode(bitrateMode) { mode -> modeOffered(name, mode) }
-        val detail = "fpsHint=$fpsHint bitrateBps=$bitrateBps profile=baseline " +
-            "iFrameIntervalSec=$iFrameIntervalSec repeatAfterUs=$REPEAT_AFTER_US bitrateMode=${rate.label}"
-        // A vendor encoder that rejects the realtime keys outright must not cost the rider the
-        // stream: retry once without them, then once more without the bitrate mode.
-        return runCatching { startCodec(name, buildFormat(lowLatency = true, rate.constant), "$detail lowLatency=on") }
-            .recoverCatching { e ->
-                startCodec(name, buildFormat(lowLatency = false, rate.constant), "$detail lowLatency=fallback (${e.javaClass.simpleName})")
-            }.recoverCatching { e ->
-                if (rate.constant == null) throw e
-                startCodec(name, buildFormat(lowLatency = false), "$detail lowLatency=fallback bitrateMode=fallback (${e.javaClass.simpleName})")
-            }.onFailure { e ->
-            lastPrepareError = "${e.javaClass.simpleName}: ${e.message} (tried ${name ?: "OS-default encoder"})"
-            Log.e(TAG, "prepare() failed: $lastPrepareError")
-        }.onSuccess { c ->
-            lastPrepareError = null
-            codec = c
-        }.isSuccess
+        // Every AVC encoder that can take the size and Baseline, hardware first (a software fallback runs the CPU hot, which
+        // is exactly what this whole project exists to avoid); the system's own pick is the last try.
+        val names: List<String?> = encoderNames() + null
+        val failures = mutableListOf<String>()
+        for (name in names) {
+            val rate = rateMode(bitrateMode) { mode -> modeOffered(name, mode) }
+            val detail = "fpsHint=$fpsHint bitrateBps=$bitrateBps profile=baseline " +
+                "iFrameIntervalSec=$iFrameIntervalSec repeatAfterUs=$REPEAT_AFTER_US bitrateMode=${rate.label}"
+            // A vendor encoder that rejects the realtime keys outright must not cost the rider the
+            // stream: retry once without them, then once more without the bitrate mode.
+            val started = runCatching { startCodec(name, buildFormat(lowLatency = true, rate.constant), "$detail lowLatency=on") }
+                .recoverCatching { e ->
+                    startCodec(name, buildFormat(lowLatency = false, rate.constant), "$detail lowLatency=fallback (${e.javaClass.simpleName})")
+                }.recoverCatching { e ->
+                    if (rate.constant == null) throw e
+                    startCodec(name, buildFormat(lowLatency = false), "$detail lowLatency=fallback bitrateMode=fallback (${e.javaClass.simpleName})")
+                }
+            started.onSuccess { c ->
+                lastPrepareError = null
+                codec = c
+                return true
+            }
+            val why = started.exceptionOrNull()?.let { "${it.javaClass.simpleName}: ${it.message}" }
+            failures += "${name ?: "OS-default encoder"}: $why"
+            if (name != null && name != names.last()) {
+                com.reau.app.data.RideDiagnostics.warn("stream", "encoder $name failed ($why), trying the next one")
+            }
+        }
+        lastPrepareError = "tried " + failures.joinToString("; ")
+        Log.e(TAG, "prepare() failed: $lastPrepareError")
+        return false
+    }
+
+    /**
+     * The phone's AVC encoders in the order to try them ([EncoderOrder]), with what each one's capabilities say about the
+     * stream's size and Baseline. Looked up once per process ([CodecNames]); the names are joined, since it keeps one string.
+     */
+    private fun encoderNames(): List<String> {
+        val joined = CodecNames.pick("dash encoders ${WIDTH}x$HEIGHT baseline") {
+            val candidates = runCatching {
+                MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
+                    .filter { info -> info.isEncoder && info.supportedTypes.any { it.equals(MIME, true) } }
+                    .map { info ->
+                        val caps = runCatching { info.getCapabilitiesForType(MIME) }.getOrNull()
+                        EncoderOrder.Candidate(
+                            name = info.name,
+                            hardware = info.isHardwareAccelerated && !info.isSoftwareOnly,
+                            sizeSupported = caps?.videoCapabilities?.isSizeSupported(WIDTH, HEIGHT),
+                            baselineSupported = caps?.profileLevels?.any { it.profile == MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline },
+                        )
+                    }
+            }.getOrDefault(emptyList())
+            EncoderOrder.names(candidates).joinToString("|")
+        }
+        return joined.orEmpty().split('|').filter { it.isNotEmpty() }
     }
 
     /** Creates, configures and starts one codec instance; releases it again if any step throws. */
@@ -195,19 +237,6 @@ class DashEncoder(
         val info = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.firstOrNull { it.name == name } ?: return null
         info.getCapabilitiesForType(MIME).encoderCapabilities?.isBitrateModeSupported(mode)
     }.getOrNull()
-
-    /** Find a hardware AVC encoder that supports this format; null → let the OS pick. */
-    private fun selectHardwareEncoder(format: MediaFormat): String? {
-        val list = MediaCodecList(MediaCodecList.REGULAR_CODECS)
-        // First try true hardware-accelerated encoders (API 29+ flag; minSdk is 29).
-        val hardware = list.codecInfos.firstOrNull { info ->
-            val avcEncoder = info.isEncoder && info.supportedTypes.any { it.equals(MIME, true) }
-            avcEncoder && info.isHardwareAccelerated && !info.isSoftwareOnly
-        }
-        if (hardware != null) return hardware.name
-        // Fallback: the OS-preferred encoder for this format.
-        return runCatching { list.findEncoderForFormat(format) }.getOrNull()
-    }
 
     /**
      * For the frame loop, once per frame: throws what went wrong on the output
@@ -234,7 +263,7 @@ class DashEncoder(
         // Pass EVERY buffer through, including CODEC_CONFIG (SPS/PPS) — the NAL processor needs
         // the parameter sets to bundle them with each IDR, otherwise the dash can't initialise its
         // decoder and times out.
-        val isFrame = buf != null && info.size > 0 && (info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0
+        val isFrame = isFrame(buf != null, info.size, info.flags)
         try {
             if (buf != null && info.size > 0) {
                 val data = ByteArray(info.size).also { buf.get(it) }
@@ -244,7 +273,7 @@ class DashEncoder(
                     pending.emitted(System.nanoTime())
                     lastPtsMs = info.presentationTimeUs / 1000
                 }
-                onFrame(data, (info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0, lastPtsMs)
+                onFrame(data, isKeyFrame(info.flags), lastPtsMs)
             }
         } finally {
             codec.releaseOutputBuffer(idx, false)
@@ -254,7 +283,7 @@ class DashEncoder(
 
     /**
      * Change the target bitrate live, without rebuilding the encoder — the stream switches between the
-     * ~200 kbps (moving) and ~100 kbps (static) profiles this way. MediaCodec applies
+     * 400 kbps (profile 1) and 200 kbps (profile 2) this way. MediaCodec applies
      * PARAMETER_KEY_VIDEO_BITRATE to the running session; no IDR or reconfigure needed.
      */
     fun requestBitrate(bps: Int) {
@@ -288,12 +317,18 @@ class DashEncoder(
 
     fun release() {
         // Output thread first, so nothing of this encoder is still being sent once release()
-        // returns (the frame loop starts feeding the next encoder right after).
-        outputPump?.stop()
-        outputPump = null
-        runCatching { codec?.stop() }
-        runCatching { codec?.release() }
+        // returns (the frame loop starts feeding the next encoder right after). The codec goes when that
+        // thread is out of it: at once, or from the thread itself if a send kept it past the wait (audit of 20/10/2026).
+        val c = codec
+        val surface = inputSurface
+        val ending = outputPump
         codec = null
-        inputSurface?.release(); inputSurface = null
+        inputSurface = null
+        outputPump = null
+        EncoderOutputPump.releaseThrough(ending) {
+            runCatching { c?.stop() }
+            runCatching { c?.release() }
+            surface?.release()
+        }
     }
 }

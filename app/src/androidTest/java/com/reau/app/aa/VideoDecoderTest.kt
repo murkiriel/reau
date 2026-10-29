@@ -174,6 +174,23 @@ class VideoDecoderTest {
         assertShowsThePattern(checkNotNull(lastPicture.get()))
     }
 
+    /** A-15: a unit larger than the decoder's input buffer is dropped whole and a keyframe asked for at once, not cut and fed. */
+    @Test
+    fun aUnitLargerThanTheInputBufferIsDroppedAndAKeyframeAskedFor() {
+        feed(TestH264Source.encode(frames = 6), gapMs = 30)
+        await("pictures before the large unit") { pictures.get() >= 3 }
+
+        val large = ByteArray(6 * 1024 * 1024).also { byteArrayOf(0, 0, 0, 1, 0x41).copyInto(it) }
+        decoder.decode(large, 0, large.size)
+
+        assertEquals("a keyframe asked for at once (log: $log)", 1, decoderErrors.get())
+        assertTrue("got $log", log.any { "Frame too large" in it && "dropped" in it })
+        val before = pictures.get()
+        feed(TestH264Source.encode(frames = 5).filter { !it.isConfig }, gapMs = 30)
+        await("pictures after the keyframe") { pictures.get() > before }
+        assertEquals("one decoder for the whole test", 1, log.count { "Codec initialized" in it })
+    }
+
     @Test
     fun aDecoderThatKeepsGivingPicturesIsLeftAloneHoweverLongTheInputFlows() {
         feed(TestH264Source.encode(frames = 45), gapMs = 100) // 4.5 s of input with no pause in it

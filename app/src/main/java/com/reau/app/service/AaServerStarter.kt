@@ -18,6 +18,7 @@ import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
 import com.reau.app.aa.AaLinkState
 import com.reau.app.aa.AndroidAuto
+import com.reau.app.aa.DialOnWindow
 import com.reau.app.aa.MuteServerFix
 import com.reau.app.aa.PortWait
 import com.reau.app.aa.ServerGate
@@ -25,6 +26,8 @@ import com.reau.app.aa.ServerMenuRun
 import com.reau.app.aa.ServerPolicy
 import com.reau.app.aa.ServerResult
 import com.reau.app.aa.ServerTexts
+import com.reau.app.aa.ServerTrail
+import com.reau.app.aa.StopWalkGate
 import com.reau.app.aa.TapCover
 import com.reau.app.data.RideDiagnostics
 import com.reau.app.settings.SettingsStore
@@ -49,7 +52,7 @@ interface AaServerHooks {
 
 /**
  * Switches Android Auto's head unit server on and off by itself (the accessibility service is used for that alone),
- * behind the switch "Ligar e desligar o servidor do Android Auto sozinho", off by default:
+ * behind the switch "Ligar e desligar o servidor do Android Auto sozinho", on by default (the Lite edition has no such service):
  *
  * - the projection's first dial finds the port closed: one walk through Android Auto's menu, "⋮ → Iniciar servidor
  *   da unidade principal" ([ServerMenuRun], carried out by [AaServerAccessibilityService]);
@@ -72,6 +75,40 @@ object AaServerStarter {
      */
     val serviceChanges = kotlinx.coroutines.flow.MutableStateFlow(0)
 
+    /** What follows the end of a projection, as far as Android Auto's server goes ([stopPlan]). */
+    internal enum class StopPlan { NEWER_PROJECTION, RIDER_AGAIN, SWITCH_OFF, NOT_SEEN_UP, STOP_IT }
+
+    /**
+     * The end of a projection: the server stays on when a newer projection already began or the rider switched on again, nothing is done
+     * when the switch is off (or the Lite edition has no service), nor when the server was never seen up; else it is stopped.
+     */
+    internal fun stopPlan(current: Boolean, ligarAfterDesligar: Boolean, switchOn: Boolean, wasUp: Boolean): StopPlan = when {
+        !current -> StopPlan.NEWER_PROJECTION
+        ligarAfterDesligar -> StopPlan.RIDER_AGAIN
+        !switchOn -> StopPlan.SWITCH_OFF
+        !wasUp -> StopPlan.NOT_SEEN_UP
+        else -> StopPlan.STOP_IT
+    }
+
+    /** The stop walk, after its settling wait, is made only if the rider did not switch on again and no newer projection began. */
+    internal fun stopWalkDue(ligarAfterDesligar: Boolean, current: Boolean): Boolean = !ligarAfterDesligar && current
+
+    /** Whether the rider touched Cancelar on the cover put up at the tap less than [TAP_COVER_MS] ago. */
+    internal fun cancelledAtTap(nowMs: Long, cancelledAtMs: Long): Boolean = nowMs - cancelledAtMs < TAP_COVER_MS
+
+    /** What the screen says of a walk that was not made: after a stop, the server is left on; otherwise what [said]. */
+    internal fun notTried(leftOnIfRefused: Boolean, said: ServerResult): ServerResult = if (leftOnIfRefused) ServerResult.LEFT_ON else said
+
+    /** The walk that follows a port that stayed closed: a visit, or the start once more; none for any other answer of the policy. */
+    internal fun modeAfterClosedPort(again: ServerPolicy.Act): ServerMenuRun.Mode? = when (again) {
+        ServerPolicy.Act.VISIT -> ServerMenuRun.Mode.VISIT
+        ServerPolicy.Act.START_AGAIN -> ServerMenuRun.Mode.START
+        else -> null
+    }
+
+    /** The phone counts as locked when the keyguard says so or the screen is not interactive; what is not known does not lock it. */
+    internal fun phoneLocked(keyguardLocked: Boolean?, interactive: Boolean?): Boolean = keyguardLocked == true || interactive == false
+
     /** What the accessibility service does for the starter. */
     internal interface MenuDriver {
         /** Walks [run] behind the cover; [done] gets its outcome on the main thread. False if a walk is going on. */
@@ -82,6 +119,12 @@ object AaServerStarter {
 
         /** Takes down a cover put up by [holdCover] when no walk comes; a walk that begins takes it over instead. */
         fun dropCover() = Unit
+
+        /**
+         * Whether the last window event the service heard was Android Auto's (null: not known), for the line of a late answer. The service
+         * hears only Android Auto, Maps and the voice apps, so this is not "in front": a later REau or launcher screen sends no event.
+         */
+        fun lastWindowWasAa(): Boolean? = null
     }
 
     private const val TAG = "aa-server"
@@ -93,7 +136,7 @@ object AaServerStarter {
     private const val PORT_WAIT_MS = 5_000L
 
     /** How long a cover put up at the rider's tap waits for its walk (on Desligar, the session's end comes first). */
-    private const val TAP_COVER_MS = 8_000L
+    internal const val TAP_COVER_MS = 8_000L
 
     // When the rider touched Cancelar on a cover put up at the tap, before its walk: that walk is not made.
     @Volatile private var cancelledAtTapMs = 0L
@@ -142,17 +185,24 @@ object AaServerStarter {
      */
     fun projectionStarted(dial: () -> Unit): Int = synchronized(lock) {
         dialSoon = dial
+        projectionBeganMs = SystemClock.elapsedRealtime()
+        windows.reset()
+        dialOnWindow.reset()
+        linkWaitsForServer = false
         ligarAfterDesligar = false
         policy.started()
     }
 
     /** Each state of the link to Android Auto (any thread), from projection [of]. */
     fun linkChanged(context: Context, state: AaLinkState, of: Int) {
+        linkWaitsForServer = state == AaLinkState.SERVER_OFF
         val act = synchronized(lock) { policy.state(state, of) }
         // Android Auto answered without a walk: a cover put up at the tap has nothing to wait for.
         if (state == AaLinkState.ACTIVE) dropTapCover()
         when (act) {
             ServerPolicy.Act.START -> walkIfOn(context, ServerMenuRun.Mode.START, "the port is closed")
+            // Never from a link state: [ServerPolicy.portNotUp] gives it, when the wait after a touched "start" runs out.
+            ServerPolicy.Act.VISIT, ServerPolicy.Act.START_AGAIN -> Unit
             ServerPolicy.Act.RESTART -> walkIfOn(context, ServerMenuRun.Mode.START, "Android Auto accepts and does not answer: restart")
             ServerPolicy.Act.ANSWERED -> main.post { answered() }
             ServerPolicy.Act.NOTHING -> Unit
@@ -171,14 +221,31 @@ object AaServerStarter {
             if (current) dialSoon = null
             current to policy.stopped(of)
         }
-        when {
-            !current -> log("AaServerStarter: a newer projection already began; the server stays on")
-            ligarAfterDesligar -> log("AaServerStarter: the rider switched on again before this end; the server stays on")
-            !switchOn(context) -> Unit
-            !wasUp -> log("AaServerStarter: the server was not seen up, nothing to switch off")
-            !pressStop() -> return walk(context, ServerMenuRun.Mode.STOP, "the projection ended", leftOnIfRefused = true)
+        when (stopPlan(current, ligarAfterDesligar, switchOn(context), wasUp)) {
+            StopPlan.NEWER_PROJECTION -> log("AaServerStarter: a newer projection already began; the server stays on")
+            StopPlan.RIDER_AGAIN -> log("AaServerStarter: the rider switched on again before this end; the server stays on")
+            StopPlan.SWITCH_OFF -> Unit
+            StopPlan.NOT_SEEN_UP -> log("AaServerStarter: the server was not seen up, nothing to switch off")
+            StopPlan.STOP_IT -> if (!pressStop()) return stopWalkAfterSettling(context, of)
         }
         dropTapCover()
+    }
+
+    /**
+     * The stop walk, after [StopWalkGate.SETTLE_MS]: Android Auto's process crashed 0.6 to 1.2 s after REau's bye when its settings
+     * were opened at once. A Ligar that comes meanwhile, or a newer projection, keeps the server on.
+     */
+    private fun stopWalkAfterSettling(context: Context, of: Int) {
+        val wait = StopWalkGate.waitMs(0L)
+        log("AaServerStarter: the stop walk waits $wait ms for Android Auto to finish the session")
+        main.postDelayed({
+            if (!stopWalkDue(ligarAfterDesligar, synchronized(lock) { policy.isCurrent(of) })) {
+                log("AaServerStarter: the rider switched on again before the stop walk; the server stays on")
+                dropTapCover()
+            } else {
+                walk(context, ServerMenuRun.Mode.STOP, "the projection ended", leftOnIfRefused = true)
+            }
+        }, wait)
     }
 
     /** The notification's "Stop", if one is kept: whether it was sent. */
@@ -318,9 +385,9 @@ object AaServerStarter {
     private fun walk(context: Context, mode: ServerMenuRun.Mode, why: String, leftOnIfRefused: Boolean = false) {
         val app = context.applicationContext
         main.post {
-            if (SystemClock.elapsedRealtime() - cancelledAtTapMs < TAP_COVER_MS) {
+            if (cancelledAtTap(SystemClock.elapsedRealtime(), cancelledAtTapMs)) {
                 cancelledAtTapMs = 0
-                result.value = if (leftOnIfRefused) ServerResult.LEFT_ON else ServerResult.INTERRUPTED
+                result.value = notTried(leftOnIfRefused, ServerResult.INTERRUPTED)
                 return@post log("AaServerStarter: ${mode.name.lowercase()} not tried ($why): the rider cancelled at the tap")
             }
             val phone = ServerGate.Phone(driver != null, locked(app), settingsOpen(app))
@@ -329,7 +396,7 @@ object AaServerStarter {
             if (refusal != null || running == null) {
                 running?.dropCover()
                 val said = refusal ?: ServerResult.SERVICE_OFF
-                result.value = if (leftOnIfRefused) ServerResult.LEFT_ON else said
+                result.value = notTried(leftOnIfRefused, said)
                 val left = if (leftOnIfRefused) "; the server is left on" else ""
                 return@post log("AaServerStarter: ${mode.name.lowercase()} not tried ($why): ${refusalLine(said)}$left")
             }
@@ -338,17 +405,32 @@ object AaServerStarter {
             val run = ServerMenuRun(mode, texts, begun)
             val what = "${mode.name.lowercase()} ($why) on Android Auto ${AndroidAuto.installedVersion(app) ?: "(not installed)"}"
             log("AaServerStarter: $what; texts from Android Auto: ${texts.fromAndroidAuto} of ${ServerTexts.RESOURCES.size}, the table for the rest")
-            if (mode == ServerMenuRun.Mode.START) log("AaServerStarter: start walk begins ${sinceStopsLine(begun)}")
-            if (!running.drive(run) { outcome -> finished(run, outcome, SystemClock.elapsedRealtime() - begun) }) {
+            if (mode == ServerMenuRun.Mode.START) log("AaServerStarter: start walk begins ${sinceStopsLine(begun)}; ${phoneLine(app)}")
+            if (mode == ServerMenuRun.Mode.VISIT) log("AaServerStarter: visit begins: Android Auto's settings in front, nothing touched; ${phoneLine(app)}")
+            if (!running.drive(run) { outcome -> finished(app, run, outcome, SystemClock.elapsedRealtime() - begun) }) {
                 next = { walk(app, mode, why, leftOnIfRefused) }
                 return@post log("AaServerStarter: a walk is already going on; this ${mode.name.lowercase()} comes right after it")
             }
             result.value = ServerResult.working(mode)
-            if (mode == ServerMenuRun.Mode.START) portWait.walkBegun()
+            if (mode != ServerMenuRun.Mode.STOP) walkBegun(mode)
         }
     }
 
-    private fun finished(run: ServerMenuRun, outcome: ServerMenuRun.Outcome, tookMs: Long) {
+    /**
+     * A walk to start the server (or visit) has begun: the wait for its port starts from nothing. A server that was answering before the
+     * walk began is not heard by the wait (it only hears an answer during the walk): the link's word counts, so the menu showing "stop"
+     * is not a reason to restart it.
+     */
+    private fun walkBegun(mode: ServerMenuRun.Mode) {
+        portWait.walkBegun()
+        if (mode == ServerMenuRun.Mode.START && synchronized(lock) { policy.answeringNow() }) {
+            portWait.answeringAlready()
+            log("AaServerStarter: the server was already answering when the walk began")
+        }
+    }
+
+    @Suppress("ReturnCount") // one early answer per kind of walk: a visit, a walk that touched nothing, a start answered already
+    private fun finished(app: Context, run: ServerMenuRun, outcome: ServerMenuRun.Outcome, tookMs: Long) {
         next?.let { waiting ->
             next = null
             main.post(waiting)
@@ -358,6 +440,7 @@ object AaServerStarter {
         log("AaServerStarter: ${run.mode.name.lowercase()} walk ended: $outcome in $tookMs ms$restart$menu")
         result.value = ServerResult.of(outcome)
         if (run.mode == ServerMenuRun.Mode.STOP && outcome == ServerMenuRun.Outcome.TAPPED_STOP) lastStopTapMs = SystemClock.elapsedRealtime()
+        if (run.mode == ServerMenuRun.Mode.VISIT && outcome == ServerMenuRun.Outcome.VISITED) return visitEnded(app)
         if (outcome != ServerMenuRun.Outcome.TAPPED_START) return portWait.walkEnded()
         val now = SystemClock.elapsedRealtime()
         if (portWait.tapped(now)) {
@@ -369,9 +452,83 @@ object AaServerStarter {
             if (portWait.expired(now)) {
                 result.value = ServerResult.NOT_UP
                 log("AaServerStarter: tapped start, port still closed after ${PORT_WAIT_MS / 1_000} s")
+                // Once per projection, and not over a walk already queued: the second walk is what brought the server up before.
+                val again = synchronized(lock) { policy.portNotUp() }
+                if (next == null) afterClosedPort(app, again, "the start")
             }
         }, PORT_WAIT_MS)
     }
+
+    /** What follows a port that stayed closed after [what] ([again]: the policy's answer): a visit, or one more walk. */
+    private fun afterClosedPort(app: Context, again: ServerPolicy.Act, what: String) {
+        when (modeAfterClosedPort(again)) {
+            ServerMenuRun.Mode.VISIT -> walkIfOn(app, ServerMenuRun.Mode.VISIT, "the port stayed closed after $what: a visit")
+            ServerMenuRun.Mode.START -> walkIfOn(app, ServerMenuRun.Mode.START, "the port stayed closed after $what: once more")
+            else -> Unit
+        }
+    }
+
+    /** A visit ended with nothing touched: the port answered during it (the screen says started), or it did not (one more walk). */
+    private fun visitEnded(app: Context) {
+        val up = portWait.up
+        portWait.walkEnded()
+        if (up) {
+            result.value = ServerResult.STARTED
+            return log("AaServerStarter: the visit brought the server up")
+        }
+        result.value = ServerResult.NOT_UP
+        log("AaServerStarter: the visit did not bring the port up")
+        val again = synchronized(lock) { policy.portNotUp() }
+        if (next == null) afterClosedPort(app, again, "the visit")
+    }
+
+    /** Whether the server's port answered since this walk began (main thread): the walk holds Android Auto in front until it does. */
+    internal fun portUp(): Boolean = portWait.up
+
+    /** The receiver dials now (the walk is holding Android Auto in front, waiting for the port); a refused dial costs nothing. */
+    internal fun dialNow() {
+        dialSoon?.invoke()
+    }
+
+    /** The phone's state in the words of the `device` line: power saver, charger, screen (the walk's start line carries it). */
+    private fun phoneLine(context: Context): String = ServerTrail.phone(
+        saver = runCatching { context.getSystemService(PowerManager::class.java)?.isPowerSaveMode }.getOrNull(),
+        charging = com.reau.app.data.PhoneNow.chargingNow(),
+        screenOn = com.reau.app.data.PhoneNow.screenOnNow(),
+    )
+
+    // The window lines of this projection (main thread): when it began, whether the link waits for the server, and the ring.
+    private val windows = ServerTrail.Windows()
+    @Volatile private var projectionBeganMs = 0L
+    @Volatile private var linkWaitsForServer = false
+
+    private val dialOnWindow = DialOnWindow()
+
+    // The last time an Android Auto window came to the front (any window, any time), for the line of a late answer.
+    @Volatile private var lastAaWindowMs = 0L
+
+    /**
+     * An Android Auto window came to the front (the accessibility service, main thread): its short class goes to the log while
+     * the link waits for the server or a walk goes on, up to [ServerTrail.MAX_WINDOWS] a projection. Which window is in front when the
+     * server finally answers is what tells a server that was never started from one that started late.
+     */
+    internal fun aaWindowResumed(className: String?, walking: Boolean) {
+        val now = SystemClock.elapsedRealtime()
+        lastAaWindowMs = now
+        // The link says the port is closed and Android Auto just came to the front: dial now (a try, at most one a second and ten
+        // a projection) instead of at the end of the receiver's 2 s wait, so the answer, if it came with this visit, is seen at once.
+        if (linkWaitsForServer && dialOnWindow.allow(now)) {
+            log("AaServerStarter: an Android Auto window came up while the port was closed: dialling now")
+            dialSoon?.invoke()
+        }
+        if (!walking && !linkWaitsForServer) return
+        val line = windows.next(className, SystemClock.elapsedRealtime() - projectionBeganMs) ?: return
+        log("AaServerStarter: $line")
+    }
+
+    /** What the screen showed [sinceMs] after "start" was touched (the accessibility service), for the log. */
+    internal fun afterStartClick(inFront: Boolean, sinceMs: Long, nodeTexts: List<String?>, texts: ServerTexts) =
+        log("AaServerStarter: " + ServerTrail.afterClick(inFront, sinceMs, nodeTexts.size, ServerTrail.known(texts, nodeTexts)))
 
     /** How long before [nowMs] the server's "Stop" was last touched and the last projection ended, for the log. */
     private fun sinceStopsLine(nowMs: Long): String {
@@ -380,15 +537,31 @@ object AaServerStarter {
     }
 
     private fun answered() {
-        val took = portWait.answered(SystemClock.elapsedRealtime()) ?: return
-        log("AaServerStarter: server answering $took ms after the walk")
-        result.value = ServerResult.STARTED
+        val now = SystemClock.elapsedRealtime()
+        val answer = portWait.answered(now) ?: return
+        if (!answer.late) {
+            log("AaServerStarter: server answering ${answer.tookMs} ms after the walk")
+            result.value = ServerResult.STARTED
+            return
+        }
+        // The 5 s wait had run out and the screen said "not up": the answer is the news, and what was in front says why.
+        val front = when (driver?.lastWindowWasAa()) {
+            true -> "yes"
+            false -> "no"
+            null -> "?"
+        }
+        val lastWindow = if (lastAaWindowMs == 0L) "never" else "${now - lastAaWindowMs} ms ago"
+        log(
+            "AaServerStarter: server answered ${answer.tookMs} ms after the tapped start (late: the ${PORT_WAIT_MS / 1_000} s wait had run out); " +
+                "the last window event was Android Auto's=$front (last AA window event $lastWindow)",
+        )
+        result.value = ServerResult.afterLateAnswer(result.value)
     }
 
     private fun locked(context: Context): Boolean {
         val keyguard = context.getSystemService(KeyguardManager::class.java)
         val power = context.getSystemService(PowerManager::class.java)
-        return keyguard?.isKeyguardLocked == true || power?.isInteractive == false
+        return phoneLocked(keyguard?.isKeyguardLocked, power?.isInteractive)
     }
 
     private fun refusalLine(result: ServerResult): String = when (result) {

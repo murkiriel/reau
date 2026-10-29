@@ -7,3 +7,5 @@
 *.jar binary
 *.ttf binary
 *.webp binary
+# Fuzz seeds are raw bytes (HTTP heads keep their CRLF).
+app/src/test/resources/com/reau/app/fuzz/** binary

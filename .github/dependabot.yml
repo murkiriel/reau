@@ -1,9 +1,39 @@
+# Dependency updates: once a month, grouped, and leaving alone the libraries and tools pinned on purpose below (see
+# gradle/libs.versions.toml and app/lint.xml for why). Nothing is merged by itself: each pull request is a proposal to read and to try on
+# the bike. A pull request that changes a version fails the build's dependency verification until gradle/verification-metadata.xml has
+# the new hashes: regenerate it with `./gradlew --write-verification-metadata sha256 <the tasks the CI runs>` and read the diff.
 version: 2
 updates:
   - package-ecosystem: gradle
     directory: /
     schedule:
-      interval: weekly
-    # Version updates are off on purpose: several libraries are pinned because they were tested on a real dash
-    # (see gradle/libs.versions.toml and app/lint.xml). Zero here keeps only Dependabot's security updates.
-    open-pull-requests-limit: 0
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      # One pull request for all the minor and patch updates of the libraries that are free to move.
+      libraries:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      # The Android Auto receiver's own libraries: the versions OpenCfMoto's receiver was tested against (libs.versions.toml).
+      - dependency-name: "com.google.protobuf:protobuf-java"
+      - dependency-name: "org.conscrypt:conscrypt-android"
+      # The build's tools and the UI toolkit, each with its own test ride: a deliberate step, not a bot's pull request.
+      - dependency-name: "com.android.application"
+      - dependency-name: "org.jetbrains.kotlin.plugin.compose"
+      - dependency-name: "androidx.compose:compose-bom"
+      - dependency-name: "io.gitlab.arturbosch.detekt:detekt-cli"
+      - dependency-name: "org.gradle.toolchains.foojay-resolver-convention"
+      # Everything else: a new major version is a decision, not an update.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  # The GitHub Actions of .github/workflows are pinned by commit (the version is in the comment): the update changes both.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      actions:
+        patterns: ["*"]

@@ -1,0 +1,498 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Preguntas frecuentes · REau</title><meta name="description" content="Una guía completa para instalar, usar y probar REau. Guía del 28 oct 2026, referencia: REau 0.2.0."><meta name="theme-color" content="#17130E">
+<link rel="icon" href="../assets/logo.svg" type="image/svg+xml"><link rel="stylesheet" href="../assets/site.css">
+<link rel="canonical" href="https://murkiriel.github.io/reau/es/faq.html"><link rel="alternate" hreflang="es" href="https://murkiriel.github.io/reau/es/faq.html"><link rel="alternate" hreflang="en" href="https://murkiriel.github.io/reau/en/faq.html"><link rel="alternate" hreflang="pt-BR" href="https://murkiriel.github.io/reau/pt/faq.html"><link rel="alternate" hreflang="x-default" href="https://murkiriel.github.io/reau/">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png"><noscript><style>#theme,#q,.chap{display:none}</style></noscript>
+<script>try{if(localStorage.getItem('reau-theme')==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}</script><meta property="og:title" content="Preguntas frecuentes · REau"><meta property="og:description" content="Una guía completa para instalar, usar y probar REau. Guía del 28 oct 2026, referencia: REau 0.2.0."><meta property="og:type" content="website"><meta property="og:url" content="https://murkiriel.github.io/reau/es/faq.html"><meta property="og:image" content="https://murkiriel.github.io/reau/assets/img/dash_route.jpg"><meta name="twitter:card" content="summary_large_image"></head><body>
+<a class="skip" href="#c">Saltar al contenido</a>
+<header class="top"><div class="bar"><a class="brand" href="index.html"><img src="../assets/logo.svg" alt="" width="34" height="34"><b class="nm">RE<span>au</span></b></a>
+<nav class="main" aria-label="menú"><a href="index.html">Inicio</a><a href="install.html">Instalar</a><a href="faq.html" aria-current="page">FAQ</a><a href="privacy.html">Privacidad y términos</a><div class="langs" role="group" aria-label="Idioma / Language"><a href="../pt/faq.html" hreflang="pt-BR" lang="pt-BR" title="Português" aria-label="PT – Português"><svg class="flag" viewBox="0 0 60 42" width="26" height="18" aria-hidden="true"><rect width="60" height="42" fill="#009C3B"/><path d="M30 5 55 21 30 37 5 21Z" fill="#FFDF00"/><circle cx="30" cy="21" r="9" fill="#002776"/><path d="M21.5 19.5c6-1.6 12.5-.6 17 2.4" stroke="#fff" stroke-width="1.8" fill="none"/></svg><span>PT</span></a><a href="../en/faq.html" hreflang="en" lang="en" title="English" aria-label="EN – English"><svg class="flag" viewBox="0 0 60 36" width="26" height="18" aria-hidden="true"><clipPath id="gs"><path d="M0 0h60v36H0z"/></clipPath><clipPath id="gt"><path d="M30 18h30v18zM30 18v18H0zM30 18H0V0zM30 18V0h30z"/></clipPath><g clip-path="url(#gs)"><path d="M0 0h60v36H0z" fill="#012169"/><path d="M0 0l60 36M60 0 0 36" stroke="#fff" stroke-width="7"/><path d="M0 0l60 36M60 0 0 36" clip-path="url(#gt)" stroke="#C8102E" stroke-width="4"/><path d="M30 0v36M0 18h60" stroke="#fff" stroke-width="11"/><path d="M30 0v36M0 18h60" stroke="#C8102E" stroke-width="6.5"/></g></svg><span>EN</span></a><a href="faq.html" hreflang="es" lang="es" title="Español" aria-label="ES – Español" aria-current="page"><svg class="flag" viewBox="0 0 60 42" width="26" height="18" aria-hidden="true"><rect width="60" height="42" fill="#AA151B"/><rect y="10.5" width="60" height="21" fill="#F1BF00"/></svg><span>ES</span></a></div><button class="theme" id="theme" type="button" aria-pressed="false" aria-label="Cambiar entre tema oscuro y claro" title="Cambiar entre tema oscuro y claro">◐</button></nav></div></header>
+<main id="c"><h1>Preguntas frecuentes</h1><p class="lead">Una guía completa para instalar, usar y probar REau. Guía del 28 oct 2026, referencia: REau 0.2.0.</p><div class="box warn"><p>⚠️ REau es un proyecto personal e independiente, todavía en pruebas. No lo hace Royal Enfield y no tiene ninguna relación con ella, con Google ni con Waze. Cada motociclista lo instala y lo usa bajo su propio riesgo. En la ruta, los ojos en el camino: toca el teléfono solo con la moto detenida.</p></div><div class="box note"><p>Las capturas de pantalla de esta guía son de la interfaz en portugués de la app; el texto usa las etiquetas en español de la app (en Ajustes → Idioma de la app puedes cambiar REau a español).</p></div>
+<div class="faqwrap"><aside class="toc" aria-label="Secciones"><strong>Secciones</strong><ol><li><a href="#s1">1. Qué es REau</a></li>
+<li><a href="#s2">2. Qué edición instalar: Lite o Completa</a></li>
+<li><a href="#s3">3. Instalación y permisos</a></li>
+<li><a href="#s4">4. Modo desarrollador y el servidor de Android Auto</a></li>
+<li><a href="#s5">5. Primera conexión con la moto y el Wi-Fi</a></li>
+<li><a href="#s6">6. Uso diario</a></li>
+<li><a href="#s7">7. Imagen en el tablero: ajuste, recorte y máscara</a></li>
+<li><a href="#s8">8. Joystick del manillar</a></li>
+<li><a href="#s9">9. Rendimiento y fluidez</a></li>
+<li><a href="#s10">10. Batería y calor</a></li>
+<li><a href="#s11">11. Qué más se muestra en el tablero</a></li>
+<li><a href="#s12">12. Extras: servidor de red e idioma</a></li>
+<li><a href="#s13">13. Problemas comunes y mensajes de la app</a></li>
+<li><a href="#s14">14. Privacidad y datos</a></li>
+<li><a href="#s15">15. Cómo reportar un problema</a></li>
+<li><a href="#s16">16. Glosario</a></li>
+</ol>
+</aside>
+<div><input id="q" type="search" placeholder="Buscar en las preguntas…" aria-label="Buscar en las preguntas…"><section class="faqsec" id="s1"><h2>1. Qué es REau</h2>
+<article class="qa" id="s1-q1"><h3>¿Qué hace REau?</h3>
+<p>Lleva el <strong>Android Auto de tu propio teléfono</strong>, con Waze (u otra app de navegación de Android Auto), al tablero redondo de la moto. Sin cable, sin unidad principal de auto y sin ningún dispositivo extra. El teléfono puede quedarse en tu bolsillo con la pantalla apagada.</p>
+<p>REau <strong>no dibuja un mapa ni calcula una ruta</strong>: solo repite en el tablero lo que dibuja Android Auto, recortado y escalado a la pantalla del tablero.</p>
+<div class="figs"><figure class="wide"><a class="zoom" href="../assets/img/dash_route.jpg"><img width="520" height="527" src="../assets/img/dash_route.jpg" alt="Waze en el tablero a través de REau (mapa borroso por privacidad)." loading="lazy"></a><figcaption>Waze en el tablero a través de REau (mapa borroso por privacidad).</figcaption></figure></div>
+</article><article class="qa" id="s1-q2"><h3>¿Cómo funciona, en una frase?</h3>
+<p>REau “se hace pasar” por la unidad principal de un auto dentro de tu propio teléfono. Android Auto le manda el video; REau lo recorta y lo escala a la pantalla redonda del tablero y lo transmite por el Wi-Fi del tablero.</p>
+</article><article class="qa" id="s1-q3"><h3>¿Por qué el nombre REau?</h3>
+<p>Se lee “real”. Une <strong>RE</strong> (Royal Enfield) con <strong>AU</strong> (Android Auto).</p>
+</article><article class="qa" id="s1-q4"><h3>¿Con qué motos funciona?</h3>
+<p>Con las motos Royal Enfield que tienen la pantalla TFT redonda <strong>Tripper Dash</strong> (por ejemplo, la de la Himalayan 450). La compatibilidad se verificó con el <strong>firmware 13.10</strong> del tablero; otras versiones pueden funcionar, pero no se han verificado. La pantalla <strong>Datos de la moto</strong> muestra el firmware de tu tablero.</p>
+</article><article class="qa" id="s1-q5"><h3>¿Funciona en iPhone?</h3>
+<p>No. REau es una app <strong>solo para Android</strong> y depende de Android Auto, que no existe en el iPhone (el equivalente en el iPhone es CarPlay). Un proyecto parecido para iPhone sería otra app, y un camino mucho más difícil: necesita una licencia anual de desarrollador de pago, y existe el riesgo de que Apple rechace o prohíba la app. Por ejemplo, hay un port de NorthStar para iPhone llamado Cairn, hecho por otra persona.</p>
+</article><article class="qa" id="s1-q6"><h3>¿Qué teléfonos y versiones de Android funcionan?</h3>
+<p>Requisitos: <strong>Android 10 o más nuevo</strong>, con <strong>Android Auto</strong> instalado y actualizado. REau se probó con Android Auto 17.8 y 17.9. Desde Android Auto 17.4, el servidor de unidad principal se enciende como se describe en la sección 4.</p>
+</article><article class="qa" id="s1-q7"><h3>¿Es más fácil que la app oficial de Royal Enfield?</h3>
+<p>Los reportes de uso indican que es más fácil conectar y definir la ruta que en la app oficial. La diferencia principal es que usas el <strong>Waze completo</strong> (u otra app de Android Auto), no el mapa de la app oficial. Son reportes individuales: los Términos de uso advierten que la imagen llega con unos segundos de retraso y puede congelarse.</p>
+</article><article class="qa" id="s1-q8"><h3>¿Reemplaza la voz de Waze?</h3>
+<p>No. La voz de Waze sigue saliendo por el teléfono o por el intercomunicador del casco, como siempre.</p>
+</article><article class="qa" id="s1-q9"><h3>¿Puedo usar REau junto con la app oficial de Royal Enfield u otra app del tablero?</h3>
+<p>No al mismo tiempo. Dos apps conectadas al tablero se pelean por la misma conexión y el resultado es impredecible. Cierra la otra app (y detén su transmisión) antes de encender REau. Si eso pasa, REau avisa “Otra app tiene el tablero” y lo intenta de nuevo sola en cuanto el tablero queda libre.</p>
+</article><article class="qa" id="s1-q10"><h3>¿REau cambia o escribe algo en el tablero?</h3>
+<p>REau no escribe ajustes ni firmware en el tablero: manda la imagen y algunos datos de pantalla (maniobra, música, quien llama…) y <strong>solo lee</strong> lo que el tablero informa (la pantalla Datos de la moto). Aun así, usar REau puede hacer que el tablero se comporte de forma inesperada, se congele o muestre información errónea, y puede afectar las garantías; los <strong>Términos de uso</strong> explican estos riesgos. Cada quien lo usa bajo su propio riesgo.</p>
+</article><article class="qa" id="s1-q11"><h3>¿Es de pago? ¿Tiene cuenta o anuncios?</h3>
+<p>Es software libre (licencia AGPL-3.0), sin cuenta, sin anuncios y sin recolección de datos. La dirección del código fuente está en la pantalla <strong>Créditos</strong>, al final de “REau y tus datos”.</p>
+</article><article class="qa" id="s1-q12"><h3>¿Dónde consigo el APK? ¿Cómo sé qué versión tengo?</h3>
+<p>En la <strong>página de Releases</strong> del repositorio del proyecto (su dirección está en la pantalla Créditos de la app). La versión de la app está al pie de la pantalla de inicio. Los APK oficiales (release) se llaman <code>0.2.0</code>; las compilaciones de prueba (debug) añaden la fecha y la hora de la compilación, como <code>0.2.0-dev+26.10.28-12.46</code>. Cita ese texto al reportar un problema.</p>
+</article></section>
+<section class="faqsec" id="s2"><h2>2. Qué edición instalar: Lite o Completa</h2>
+<article class="qa" id="s2-q1"><h3>Hay dos APK. ¿Cuál debo instalar?</h3>
+<p><strong>Lite es la recomendada.</strong> La Completa solo vale la pena si quieres que REau haga por sí sola el paso del servidor de Android Auto y que sepa, por el propio Android Auto, qué pantalla está abierta (para cambiar el recorte).</p>
+<div class="tw"><div class="tws"><table><thead><tr><th></th><th>Lite (recomendada)</th><th>Completa</th></tr>
+</thead><tbody><tr><td>Nombre en la lista de apps</td><td>REau Lite (ícono con la palabra “Lite”)</td><td>REau</td></tr>
+<tr><td>Servicio de Accesibilidad</td><td><strong>No se usa</strong></td><td>Se usa</td></tr>
+<tr><td>Servidor de Android Auto</td><td>Lo enciendes <strong>a mano cada vez</strong> (⋮ → “Iniciar servidor de unidad principal”)</td><td>REau lo enciende y lo apaga <strong>por sí sola</strong></td></tr>
+<tr><td>Un recorte para cada tipo de pantalla (“Navegación” y “Otras”)</td><td>Sí, cambia según lo que muestra la imagen (puede equivocarse con una pantalla que nunca ha visto)</td><td>Sí, cambia según la pantalla que informa Android Auto</td></tr>
+<tr><td>Apps que se niegan a funcionar con la Accesibilidad activada (bancos…)</td><td>No les afecta</td><td>Puede afectarles (ver abajo)</td></tr>
+<tr><td>Instalación en Android 13 o más nuevo</td><td>Sin bloqueos especiales</td><td>Play Protect puede bloquearla y hay que permitir los “ajustes restringidos”</td></tr>
+</tbody></table>
+</div>
+</div>
+</article><article class="qa" id="s2-q2"><h3>¿Qué archivo descargo en la página de Releases?</h3>
+<p>En la página de Releases, cada versión trae un archivo <code>.apk</code> por edición, y el nombre te dice cuál es cuál: <code>REau-0.2.0-lite.apk</code> es la <strong>Lite</strong> (la recomendada) y <code>REau-0.2.0-completa.apk</code> es la <strong>Completa</strong> (en el nombre del archivo aparece como “completa”). El <code>0.2.0</code> es la versión y cambia con cada Release. Descarga solo el archivo de la edición que elegiste; si tienes dudas, descarga el que tiene “Lite” en el nombre. Ignora los elementos “Source code” (zip y tar.gz): son el código fuente y no se pueden instalar.</p>
+<p>La Completa usa el servicio de Accesibilidad y puede hacer que las apps de bancos se nieguen a abrir (ve la pregunta sobre apps de bancos, más abajo). Si usas una app de banco, descarga el archivo con “Lite” en el nombre.</p>
+</article><article class="qa" id="s2-q3"><h3>¿Por qué Lite es la recomendada?</h3>
+<p>Porque <strong>no pide el servicio de Accesibilidad</strong>: no obtiene un control amplio del teléfono y no choca con las apps que se niegan a funcionar mientras la Accesibilidad está activada. El precio es un paso manual cada vez: iniciar el servidor de unidad principal en Android Auto (sección 4).</p>
+</article><article class="qa" id="s2-q4"><h3>¿La Accesibilidad de la Completa puede estorbar a mis apps de banco?</h3>
+<p>Puede. Algunas apps, sobre todo las de bancos, consideran un riesgo la Accesibilidad de terceros y pueden negarse a abrir o a iniciar sesión. Hay reportes de que el bloqueo continúa incluso después de desinstalar REau. Hay un reporte de una app de beneficios del gobierno que dejó de abrir tras instalar la Completa; solo apareció al probar en un teléfono donde esas apps estaban instaladas.</p>
+<ul><li>Si usas una app de banco, usa <strong>Lite</strong>.</li>
+<li>Si ya instalaste la Completa y una app se negó a abrir: desactiva la Accesibilidad de REau en los ajustes de Android y pasa a Lite. Si la app sigue negándose, contacta a su soporte.</li>
+<li>REau pide confirmación (“¿Permitir Accesibilidad?”) antes de abrir la página de Accesibilidad, justamente para avisar de esto.</li>
+</ul>
+</article><article class="qa" id="s2-q5"><h3>¿Puedo instalar las dos ediciones?</h3>
+<p>Puedes instalar las dos, pero <strong>solo una puede estar encendida a la vez</strong>: el servidor de Android Auto atiende una sesión a la vez y las dos se pelearían por el tablero. Si las dos están instaladas, REau avisa “Hay otra REau instalada”: apaga la otra, espera cerca de un minuto y la conexión se hace sola.</p>
+</article><article class="qa" id="s2-q6"><h3>¿Qué pasó con los antiguos APK “con accesibilidad” y “sin accesibilidad”?</h3>
+<p>El 10 de octubre los dos eran la misma app (<code>com.reau.app</code>), uno con el servicio de Accesibilidad y otro sin él. El “sin accesibilidad” de hoy es la <strong>Lite</strong> (<code>com.reau.app.lite</code>), una app aparte, y el APK antiguo ya no necesita actualizarse: si quieres seguir sin Accesibilidad, instala Lite, y si quieres la Completa, instala la versión actual sobre la antigua.</p>
+</article><article class="qa" id="s2-q7"><h3>¿Cómo actualizo a una versión nueva?</h3>
+<p>Descarga el APK nuevo desde el mismo enlace e instálalo <strong>sobre</strong> el antiguo, sin desinstalar. Una actualización de la app firmada por el proyecto conserva tus ajustes y el Wi-Fi de la moto que ya aprendió. Desinstalar borra todo, incluidos los registros y los permisos ya concedidos. Android rechaza pasar de una compilación de prueba (debug) a la oficial, o al revés, porque las dos están firmadas con claves distintas: desinstala primero la antigua, y los ajustes se pierden. Antes de desinstalar una compilación de prueba, comparte sus registros desde la app (Ajustes → Depuración → Compartir → Registros), porque desinstalar borra los datos de la app.</p>
+</article><article class="qa" id="s2-q8"><h3>¿Hay forma de no iniciar el servidor a mano sin usar la Accesibilidad?</h3>
+<p>No. Desde Android Auto 17.4, Google cerró el camino automático: o inicias el servidor a mano (Lite) o la Accesibilidad lo inicia por ti (Completa).</p>
+</article></section>
+<section class="faqsec" id="s3"><h2>3. Instalación y permisos</h2>
+<article class="qa" id="s3-q1"><h3>Play Protect bloqueó la instalación. ¿Y ahora?</h3>
+<p>Es lo esperado en la <strong>Completa</strong>. Play Protect bloquea las apps de fuera de Play Store que declaran un servicio de accesibilidad (“App bloqueada para proteger tu dispositivo”). Para instalar:</p>
+<ol><li>Abre Play Store → foto de perfil → <strong>Play Protect</strong> → engranaje.</li>
+<li><strong>Pausa</strong> el análisis de apps.</li>
+<li>Instala el APK de nuevo.</li>
+<li>Si quieres, vuelve a activar Play Protect después.</li>
+</ol>
+<p>El bloqueo no siempre ocurre: a veces la instalación pasa directo. <strong>Lite</strong> normalmente se instala sin este problema. Pausar Play Protect le quita una protección al teléfono: instala <strong>solo el APK oficial</strong>, de la página de Releases del proyecto, y vuelve a activar Play Protect enseguida.</p>
+<div class="figs"><figure><a class="zoom" href="../assets/img/playprotect.jpg"><img width="310" height="420" src="../assets/img/playprotect.jpg" alt="El aviso de Play Protect al instalar la edición Completa." loading="lazy"></a><figcaption>El aviso de Play Protect al instalar la edición Completa.</figcaption></figure></div>
+</article><article class="qa" id="s3-q2"><h3>Al activar la accesibilidad aparece “Ajuste restringido” o “Acceso de la app denegado”. ¿Qué hago? (Completa)</h3>
+<p>Es una protección de Android 13 y más nuevo para las apps instaladas desde un archivo (también se aplica a un APK descargado fuera de Play Store). Sigue <strong>este orden</strong>, porque la opción para permitirlo solo aparece después del primer intento:</p>
+<ol><li><strong>Intenta activarla primero.</strong> En Ajustes → Accesibilidad, toca “REau: servidor de Android Auto”. Aparece “Ajuste restringido” o “Acceso de la app denegado”. Cierra el aviso.</li>
+<li><strong>Permite los ajustes restringidos.</strong> En Ajustes → Apps → REau → menú ⋮ (esquina superior) → <strong>“Permitir ajustes restringidos”</strong>. El teléfono te pide tu huella o tu PIN. Atajo: en la pantalla Permisos de REau, el botón “Permitir ajustes restringidos” abre esa misma pantalla.</li>
+<li><strong>Activa la accesibilidad.</strong> Vuelve a Accesibilidad, activa “Usar REau: servidor de Android Auto” y toca <strong>Permitir</strong>.</li>
+</ol>
+<div class="box note"><p>Si vas directo al paso 2, el elemento “Permitir ajustes restringidos” no aparece en el menú. Y si tu Android <strong>ni siquiera muestra el ⋮</strong> o te deja activarla al primer intento, no exige este paso: ve directo al 3.</p>
+</div>
+<div class="figs"><figure><a class="zoom" href="../assets/img/restr1.jpg"><img width="330" height="734" src="../assets/img/restr1.jpg" alt="1. Primer intento: el elemento aparece como “controlado por ajustes restringidos”." loading="lazy"></a><figcaption>1. Primer intento: el elemento aparece como “controlado por ajustes restringidos”.</figcaption></figure><figure><a class="zoom" href="../assets/img/restr2.jpg"><img width="330" height="734" src="../assets/img/restr2.jpg" alt="2. Información de la app → ⋮ → “Permitir ajustes restringidos”." loading="lazy"></a><figcaption>2. Información de la app → ⋮ → “Permitir ajustes restringidos”.</figcaption></figure><figure><a class="zoom" href="../assets/img/restr3.jpg"><img width="330" height="734" src="../assets/img/restr3.jpg" alt="3. Ahora ya se puede activar la accesibilidad de REau." loading="lazy"></a><figcaption>3. Ahora ya se puede activar la accesibilidad de REau.</figcaption></figure></div>
+</article><article class="qa" id="s3-q3"><h3>¿Dónde está la accesibilidad de REau en la marca de mi teléfono?</h3>
+<ul><li><strong>Samsung:</strong> Ajustes → Accesibilidad → la lista de <strong>apps instaladas</strong> → “REau: servidor de Android Auto”. Esa es la única diferencia: lo demás es igual.</li>
+<li><strong>Motorola, Pixel y otros:</strong> Ajustes → Accesibilidad → la lista de <strong>apps descargadas</strong> → “REau: servidor de Android Auto”.</li>
+</ul>
+<div class="figs"><figure><a class="zoom" href="../assets/img/samsung1.jpg"><img width="330" height="716" src="../assets/img/samsung1.jpg" alt="Samsung: Accesibilidad → lista de apps instaladas." loading="lazy"></a><figcaption>Samsung: Accesibilidad → lista de apps instaladas.</figcaption></figure><figure><a class="zoom" href="../assets/img/samsung2.jpg"><img width="409" height="727" src="../assets/img/samsung2.jpg" alt="Samsung: el aviso “Acceso de la app denegado” en el primer intento." loading="lazy"></a><figcaption>Samsung: el aviso “Acceso de la app denegado” en el primer intento.</figcaption></figure></div>
+<div class="figs"><figure><a class="zoom" href="../assets/img/acc_list.jpg"><img width="900" height="1240" src="../assets/img/acc_list.jpg" alt="Otras marcas: Accesibilidad → lista de apps descargadas." loading="lazy"></a><figcaption>Otras marcas: Accesibilidad → lista de apps descargadas.</figcaption></figure><figure><a class="zoom" href="../assets/img/acc_switch.jpg"><img width="900" height="1440" src="../assets/img/acc_switch.jpg" alt="Activa “Usar REau: servidor de Android Auto”." loading="lazy"></a><figcaption>Activa “Usar REau: servidor de Android Auto”.</figcaption></figure><figure><a class="zoom" href="../assets/img/acc_dialog.jpg"><img width="900" height="2000" src="../assets/img/acc_dialog.jpg" alt="En el aviso de Android, toca Permitir." loading="lazy"></a><figcaption>En el aviso de Android, toca Permitir.</figcaption></figure></div>
+</article><article class="qa" id="s3-q4"><h3>¿Qué hace la Accesibilidad de REau? ¿Toca mis otras apps?</h3>
+<p>Se hizo solo para dos cosas: <strong>encender y apagar el servidor de Android Auto</strong> (abre los ajustes de Android Auto, toca ⋮ y el elemento “Iniciar servidor de unidad principal”) y <strong>saber qué pantalla de Android Auto está abierta</strong> (menú de apps, Waze, Maps) para cambiar el recorte. Solo “escucha” a Android Auto, a Google Maps y las notificaciones de llamadas de WhatsApp (incluido Business), Telegram y Signal (y solo con el interruptor de llamadas activado). El aviso de Android dice “control total de tu dispositivo”: es el texto estándar de cualquier servicio de accesibilidad.</p>
+<ul><li>Solo toca el elemento con el nombre exacto del servidor; <strong>nunca</strong> toca “Salir del modo de desarrollador”.</li>
+<li>No hace nada mientras el teléfono está bloqueado y no toca otras apps.</li>
+<li>Si fuerzas la detención de REau, Android desactiva su Accesibilidad: abre REau y toca Encender para que se recupere (o vuelve a activarla en Accesibilidad).</li>
+</ul>
+</article><article class="qa" id="s3-q5"><h3>¿Qué permisos pide REau y para qué?</h3>
+<div class="tw"><div class="tws"><table><thead><tr><th>Permiso</th><th>Para qué</th><th>Cuándo se pide</th></tr>
+</thead><tbody><tr><td>Ubicación (aproximada y precisa)</td><td>Listar las redes Wi-Fi y encontrar por sí sola la del tablero de la moto (Android solo devuelve la lista con este permiso). <strong>No lee tu posición</strong> para esto. Con <strong>“Usar la ubicación”</strong> activada (viene activada, y solo funciona cuando se concede este permiso), también el tema según el sol, el clima y el GPS del anillo de información.</td><td>Al abrir por primera vez. Elige “Mientras la app está en uso”</td></tr>
+<tr><td>Redes Wi-Fi sugeridas</td><td>Dejar que el teléfono se una por sí solo a la red del tablero (la pregunta es de Android).</td><td>La primera vez</td></tr>
+<tr><td>Excluida de la optimización de batería</td><td>Evitar que Android pause REau con la pantalla apagada.</td><td>Botón en la pantalla de inicio</td></tr>
+<tr><td>Notificaciones</td><td>La notificación fija con el estado y el botón Apagar.</td><td>Cuando tocas Encender</td></tr>
+<tr><td>Contestar llamadas y Estado del teléfono</td><td>Contestar, rechazar y colgar llamadas con el joystick y saber si el teléfono está sonando. REau no lee números ni la lista de llamadas.</td><td>Con el interruptor “Contestar llamadas” (viene activado, pero solo funciona cuando se concede el permiso: usa la pantalla Permisos)</td></tr>
+<tr><td>Micrófono</td><td>Hablar con Gemini por el auricular Bluetooth del casco, sin el joystick.</td><td>Con el interruptor “Gemini” (viene activado, pero solo funciona cuando se concede el permiso: usa la pantalla Permisos)</td></tr>
+<tr><td>Accesibilidad (solo Completa)</td><td>Encender por sí sola el servidor de Android Auto y saber qué pantalla muestra.</td><td>La activas a mano (ver arriba)</td></tr>
+</tbody></table>
+</div>
+</div>
+<p>La pantalla <strong>Permisos</strong> muestra lo que ya está permitido y tiene el botón “Pedir los que faltan”. El contador “N faltan” solo cuenta los permisos de las funciones que están activadas; los de las funciones apagadas aparecen como opcionales.</p>
+<div class="figs"><figure><a class="zoom" href="../assets/img/perms.jpg"><img width="900" height="1280" src="../assets/img/perms.jpg" alt="La pantalla Permisos, con el botón “Pedir los que faltan”." loading="lazy"></a><figcaption>La pantalla Permisos, con el botón “Pedir los que faltan”.</figcaption></figure></div>
+</article><article class="qa" id="s3-q6"><h3>¿Google va a bloquear las apps instaladas desde fuera de Play Store?</h3>
+<p>Según el autor, Google ha venido endureciendo las reglas para instalar fuera de la tienda, incluso para desarrolladores: una regla empezó el 30 sep 2026 en Brasil y en algunos otros países y se pretende que llegue a todo el mundo en 2027. Todavía no se sabe cómo afectará esto a proyectos independientes como REau; esta sección se actualizará.</p>
+</article></section>
+<section class="faqsec" id="s4"><h2>4. Modo desarrollador y el servidor de Android Auto</h2>
+<article class="qa" id="s4-q1"><h3>Ya activé el modo desarrollador de mi teléfono. ¿No basta?</h3>
+<p>No. Esta es la confusión más común: son <strong>dos cosas distintas</strong>. REau necesita el modo desarrollador de <strong>Android Auto</strong>, que vive dentro de los ajustes del propio Android Auto. El modo desarrollador del teléfono no hace falta.</p>
+</article><article class="qa" id="s4-q2"><h3>¿Cómo activo el modo desarrollador de Android Auto?</h3>
+<p>Esto se hace <strong>una sola vez</strong>:</p>
+<ol><li>En REau, toca <strong>“Abrir los ajustes de Android Auto”</strong> (o ábrelo desde el teléfono: en Samsung, Android Auto no tiene ícono y vive dentro de Ajustes).</li>
+<li>Baja hasta el final y toca unas <strong>10 veces</strong> en <strong>Versión</strong> (en la información de versión y permisos).</li>
+<li>Confirma la pregunta sobre activar los ajustes para desarrolladores (<strong>OK</strong>) (el aviso de Android Auto te recuerda que esos ajustes son para desarrolladores y que los usas totalmente bajo tu responsabilidad).</li>
+</ol>
+<p>Después de eso, el menú <strong>⋮</strong> de Android Auto (esquina superior) tiene tres elementos nuevos: <strong>Configuración para desarrolladores</strong>, <strong>Iniciar servidor de unidad principal</strong> y <strong>Salir del modo de desarrollador</strong>.</p>
+<div class="box warn"><p>No toques “Salir del modo de desarrollador”: tendrías que repetir los 10 toques.</p>
+</div>
+<div class="figs"><figure><a class="zoom" href="../assets/img/dev_dialog.jpg"><img width="900" height="1560" src="../assets/img/dev_dialog.jpg" alt="Después de los toques en “Versión”, confirma con OK." loading="lazy"></a><figcaption>Después de los toques en “Versión”, confirma con OK.</figcaption></figure><figure><a class="zoom" href="../assets/img/lite_menu.jpg"><img width="900" height="1160" src="../assets/img/lite_menu.jpg" alt="El menú ⋮ de Android Auto con los elementos de desarrollador." loading="lazy"></a><figcaption>El menú ⋮ de Android Auto con los elementos de desarrollador.</figcaption></figure></div>
+<p>Si el menú ⋮ de Android Auto no muestra “Iniciar servidor de unidad principal”, el modo desarrollador aún no está activado: repite los toques en “Versión”.</p>
+</article><article class="qa" id="s4-q3"><h3>¿Qué es el “servidor de unidad principal”?</h3>
+<p>Es la “puerta de entrada” que Android Auto abre para una unidad principal externa. Desde Android Auto 17.4, esta es la <strong>única forma</strong> de que una app como REau se conecte a él. El servidor debería apagarse cuando termina la sesión (a veces tarda unos minutos), cuando el teléfono se reinicia o cuando Android Auto se actualiza.</p>
+</article><article class="qa" id="s4-q4"><h3>¿Cómo enciendo el servidor? (Lite: a mano cada vez)</h3>
+<ol><li>Enciende la moto, abre REau y toca <strong>Encender</strong>. Aparece el aviso “El servidor de unidad principal está apagado”.</li>
+<li>REau te lleva por sí sola a los ajustes de Android Auto (una vez cada vez que enciendes, con REau en pantalla). Si no lo hace, toca <strong>“Abrir los ajustes de Android Auto”</strong>.</li>
+<li>En el menú <strong>⋮</strong>, toca <strong>“Iniciar servidor de unidad principal”</strong>.</li>
+<li>Vuelve a REau. Se conecta sola (o toca <strong>Intentar de nuevo</strong>).</li>
+</ol>
+<div class="box tip"><p>A partir de la segunda vez, el modo desarrollador ya está activado: solo hace falta el paso 3 cada vez. Conviene encender REau cerca de la moto, porque empieza a buscar el tablero enseguida.</p>
+</div>
+<div class="figs"><figure><a class="zoom" href="../assets/img/lite_warn.jpg"><img width="900" height="2000" src="../assets/img/lite_warn.jpg" alt="El aviso de servidor de unidad principal apagado en Lite, con el botón que abre los ajustes de Android Auto." loading="lazy"></a><figcaption>El aviso de servidor de unidad principal apagado en Lite, con el botón que abre los ajustes de Android Auto.</figcaption></figure></div>
+</article><article class="qa" id="s4-q5"><h3>¿Cómo enciende REau el servidor por sí sola? (Completa)</h3>
+<p>Con la Accesibilidad de REau activada y el interruptor <strong>“Encender el servidor automáticamente”</strong> activado (viene activado por defecto, en Ajustes), cuando tocas Encender REau abre el menú de Android Auto, toca “Iniciar servidor de unidad principal” y vuelve. Cuando apagas la proyección, apaga el servidor de la misma manera. Si Ajustes dice “Para encender el servidor automáticamente, activa REau en Accesibilidad”, la accesibilidad aún no está activada.</p>
+</article><article class="qa" id="s4-q6"><h3>¿Qué es esa pantalla negra “Encendiendo el servidor de Android Auto…”?</h3>
+<p>Es la accesibilidad trabajando: bajo esa cubierta, REau abre los ajustes de Android Auto, toca ⋮ e inicia el servidor. Desaparece sola en unos segundos; <strong>Cancelar</strong> la interrumpe. El teléfono debe estar <strong>desbloqueado</strong>: con él bloqueado, REau dice “Desbloquea el teléfono y toca Intentar de nuevo”.</p>
+</article><article class="qa" id="s4-q7"><h3>¿Por qué no se deja el servidor encendido todo el tiempo?</h3>
+<p>Podría encenderse una vez y dejarse hasta que el teléfono se reinicie, pero el autor prefirió “apagar todo y luego encender todo”: por <strong>seguridad</strong> (el servidor escucha conexiones mientras está encendido) y por <strong>batería</strong> (todavía no se sabe cuánto consume en reposo). Dejarlo siempre encendido podría ser una opción en el futuro.</p>
+</article><article class="qa" id="s4-q8"><h3>¿Se puede iniciar Android Auto de forma totalmente automática?</h3>
+<p>Hasta Android Auto 17.3 se podía; desde la 17.4, Google cerró ese camino. El único conocido hoy es el servidor de desarrollador. La desventaja: al ser una función de desarrollador, Google puede cambiarla o quitarla en una actualización.</p>
+</article><article class="qa" id="s4-q9"><h3>¿El modo desarrollador daña Android Auto en mi auto?</h3>
+<p>No, en la prueba que se hizo: con el modo desarrollador activado en el teléfono, el Android Auto de un auto funcionó con normalidad (19 oct 2026).</p>
+</article></section>
+<section class="faqsec" id="s5"><h2>5. Primera conexión con la moto y el Wi-Fi</h2>
+<article class="qa" id="s5-q1"><h3>¿Qué pasa la primera vez que toco Encender?</h3>
+<ol><li>Con la moto encendida, REau busca la red Wi-Fi del tablero, que empieza con <strong>RE_</strong> (“Buscando el tablero”).</li>
+<li>Android pregunta <strong>“Conectar al dispositivo”</strong>. Toca <strong>Conectar</strong>. Esto solo pasa la primera vez; REau espera hasta 2 minutos tu toque.</li>
+<li>El teléfono deja tu Wi-Fi de casa y se une a la red de la moto, como con otras apps de tablero.</li>
+<li>REau se conecta al tablero y a Android Auto, y aparece la imagen.</li>
+</ol>
+<p>La pantalla de inicio muestra los dos lados, <strong>ANDROID AUTO</strong> y <strong>TABLERO</strong>. Cuando los dos se ponen en verde (“Activo” y “Listo”), REau está <strong>Transmitiendo</strong>.</p>
+<div class="figs"><figure><a class="zoom" href="../assets/img/connect_dialog.jpg"><img width="900" height="1600" src="../assets/img/connect_dialog.jpg" alt="La solicitud “Conectar al dispositivo” (solo la primera vez)." loading="lazy"></a><figcaption>La solicitud “Conectar al dispositivo” (solo la primera vez).</figcaption></figure><figure><a class="zoom" href="../assets/img/streaming.jpg"><img width="900" height="1320" src="../assets/img/streaming.jpg" alt="Android Auto “Activo” y tablero “Listo”: transmitiendo." loading="lazy"></a><figcaption>Android Auto “Activo” y tablero “Listo”: transmitiendo.</figcaption></figure></div>
+</article><article class="qa" id="s5-q2"><h3>Si el teléfono se queda en el Wi-Fi de la moto, ¿Waze pierde internet?</h3>
+<p>No. La red de la moto no tiene internet, pero los datos móviles siguen funcionando para Waze. REau usa la red de la moto solo para hablar con el tablero.</p>
+</article><article class="qa" id="s5-q3"><h3>REau no encuentra el Wi-Fi de la moto. ¿Qué hago?</h3>
+<ul><li>Verifica que la llave de la moto esté puesta y el tablero encendido.</li>
+<li>Permite la <strong>Ubicación</strong> para REau: sin ella Android no entrega la lista de redes. (REau no lee tu posición para esto.)</li>
+<li>Android solo deja que una app liste las redes <strong>mientras REau está abierta en pantalla</strong>: enciende la proyección con REau abierta, cerca de la moto.</li>
+<li>En <strong>Datos de la moto</strong>, escribe el <strong>nombre completo</strong> del tablero en el campo “Nombre completo del Wi-Fi” (como aparece en la lista de Wi-Fi del teléfono, por ejemplo <code>RE_AB12_345678</code>). El tablero solo acepta el nombre completo.</li>
+</ul>
+<p>Por privacidad el nombre aparece enmascarado (<code>RE_••••30</code>); el botón <strong>Mostrar</strong> muestra el nombre entero.</p>
+<div class="figs"><figure><a class="zoom" href="../assets/img/bike_data.jpg"><img width="900" height="1400" src="../assets/img/bike_data.jpg" alt="Datos de la moto: tablero conocido, “Unirse al Wi-Fi automáticamente”, firmware y autonomía." loading="lazy"></a><figcaption>Datos de la moto: tablero conocido, “Unirse al Wi-Fi automáticamente”, firmware y autonomía.</figcaption></figure></div>
+</article><article class="qa" id="s5-q4"><h3>Cambié de moto, o hay más de un tablero cerca.</h3>
+<p>En <strong>Datos de la moto</strong>, toca <strong>Olvidar</strong>. Borra el nombre guardado del tablero, todo lo que el tablero ya informó y la red sugerida a Android; luego REau busca de nuevo. Revisa el nombre antes de continuar.</p>
+</article><article class="qa" id="s5-q5"><h3>Uso una VPN. ¿Es un problema?</h3>
+<p>Sí. Ninguna app puede hablar con el tablero de Royal Enfield con una VPN pasando por en medio, y REau avisa con la tarjeta <strong>“Una VPN frena a REau”</strong>. Hay dos caminos:</p>
+<ul><li>Apaga la VPN mientras usas REau.</li>
+<li>Excluye a REau de la VPN (“split tunneling” en la app de la VPN) y <strong>desconecta y vuelve a conectar por completo</strong> la VPN para que la excepción se aplique.</li>
+</ul>
+</article><article class="qa" id="s5-q6"><h3>El tablero rechaza la conexión, o REau dice “Otra app tiene el tablero”.</h3>
+<ul><li><strong>Otra app tiene el tablero:</strong> otra app de tablero (como la oficial) está transmitiendo y retiene el puerto 2002 del teléfono. Detén su transmisión; REau lo intenta de nuevo sola.</li>
+<li><strong>El tablero rechaza la conexión</strong> aunque todo esté bien: puede que el tablero se haya congelado. Apaga la moto con la llave, espera unos 30 segundos y vuelve a encenderla; REau sigue intentando sola.</li>
+</ul>
+</article><article class="qa" id="s5-q7"><h3>Encendí el “servidor de red” y REau no busca el tablero.</h3>
+<p>Así es como funciona: con <strong>“Encender el servidor de red”</strong> activado (sección 12), REau <strong>no busca el tablero</strong>, porque la idea es funcionar en otro dispositivo. Apaga ese interruptor para volver a usarlo con la moto.</p>
+</article><article class="qa" id="s5-q8"><h3>La imagen se cortó en el camino. ¿Y si apago la moto?</h3>
+<p>Si el Wi-Fi del tablero desaparece, REau lo nota en unos segundos, avisa y se reconecta sola, sin congelarse. Cuando el Wi-Fi vuelve (por ejemplo, cuando giras la llave otra vez), el tablero retoma la transmisión en unos segundos, sin espera. <strong>Que el Wi-Fi del tablero se caiga al final de una salida significa que se apagó la llave</strong>, y es normal.</p>
+</article></section>
+<section class="faqsec" id="s6"><h2>6. Uso diario</h2>
+<article class="qa" id="s6-q1"><h3>¿Cuál es la rutina para salir en la moto?</h3>
+<ol><li>Enciende la moto.</li>
+<li>Abre REau y toca <strong>Encender</strong> (en Lite, el servidor de Android Auto se enciende a mano después de tocar Encender: sección 4).</li>
+<li>Define la ruta en Waze (ve la siguiente pregunta).</li>
+<li>Guarda el teléfono. Puedes apagar la pantalla y ponerlo en el bolsillo.</li>
+</ol>
+<p>Para terminar, toca <strong>Apagar</strong> en la app o en la notificación.</p>
+<div class="figs"><figure><a class="zoom" href="../assets/img/home_off.jpg"><img width="900" height="1720" src="../assets/img/home_off.jpg" alt="Pantalla de inicio, detenido: toca Encender antes de salir a rodar." loading="lazy"></a><figcaption>Pantalla de inicio, detenido: toca Encender antes de salir a rodar.</figcaption></figure></div>
+</article><article class="qa" id="s6-q2"><h3>Lo apagué y lo encendí rápido y no se conectó.</h3>
+<p>Después de Apagar, Android Auto tarda <strong>hasta cerca de 1 minuto</strong> en cerrar la sesión anterior y, mientras tanto, acepta la conexión sin responder. REau muestra “Android Auto está cerrando la sesión anterior” y lo intenta de nuevo sola. Para saltarte la espera, en los ajustes de Android Auto detén e inicia de nuevo el servidor de unidad principal (⋮ → “Detener servidor de unidad principal”, luego “Iniciar servidor de unidad principal”).</p>
+</article><article class="qa" id="s6-q3"><h3>¿Cómo defino el destino en Waze?</h3>
+<p><strong>Con la moto detenida</strong>, de una de estas formas:</p>
+<ul><li>En la app de Waze del teléfono: ábrela, define la ruta y se muestra en el tablero.</li>
+<li>Por voz: toca el botón del micrófono de Android Auto y di el destino.</li>
+<li>A través de la <strong>“Pantalla de Android Auto”</strong> de REau (ve la siguiente pregunta).</li>
+</ul>
+</article><article class="qa" id="s6-q4"><h3>Se abrió Google Maps en vez de Waze, o el tablero muestra el menú de apps. ¿Cómo cambio?</h3>
+<p>Android Auto abre la última app de navegación usada. Y si Waze se cierra en el teléfono (por ejemplo, durante una parada larga), Android Auto vuelve al menú de apps. Para cambiar:</p>
+<ol><li>En la pantalla de inicio, toca <strong>“Pantalla de Android Auto”</strong>.</li>
+<li>Toca y arrastra sobre la imagen para usar Android Auto, como si fuera la pantalla de un auto. El tablero sigue recibiendo la imagen.</li>
+<li>Abre el menú de apps y elige Waze.</li>
+</ol>
+<p><strong>Mientras conduces</strong>, y solo con la moto en condiciones seguras, puedes usar el <strong>joystick</strong> (botón del menú de apps) para encontrar el ícono de Waze y abrirlo. Detenido, la app es más fácil. Abrir Waze directo desde el tablero depende de Android Auto y de cómo administra las apps; REau no puede forzarlo. Después de usar Waze una vez, tiende a abrirse directo.</p>
+<div class="figs"><figure><a class="zoom" href="../assets/img/aa_menu.jpg"><img width="720" height="1216" src="../assets/img/aa_menu.jpg" alt="La pantalla de Android Auto de REau, con el menú de apps abierto." loading="lazy"></a><figcaption>La pantalla de Android Auto de REau, con el menú de apps abierto.</figcaption></figure></div>
+</article><article class="qa" id="s6-q5"><h3>¿Cuándo uso el teléfono y cuándo el joystick?</h3>
+<ul><li><strong>Detenido:</strong> usa el teléfono, que es mucho más fácil.</li>
+<li><strong>Conduciendo:</strong> usa el joystick, solo para lo esencial (zoom, música, contestar una llamada).</li>
+</ul>
+</article><article class="qa" id="s6-q6"><h3>¿Los ajustes se aplican de inmediato o tengo que apagar y encender?</h3>
+<p>La etiqueta <strong>EN VIVO</strong> marca lo que se aplica de inmediato, con la proyección encendida: idioma, tema, usar la ubicación, contestar llamadas, estado del teléfono, carátula del álbum, anillo de maniobras, apagar sola sin el tablero y los registros. El interruptor del clima (en la pantalla Clima) y la página del joystick también se aplican de inmediato, sin la etiqueta. En la pantalla de Android Auto, el ajuste, el recorte, la posición y el anillo de información también se aplican de inmediato. El <strong>DPI</strong> y los márgenes se aplican de inmediato pero <strong>reinician Android Auto</strong> (la imagen se congela unos segundos). Lo demás se aplica la próxima vez que enciendas.</p>
+</article><article class="qa" id="s6-q7"><h3>¿Qué pasa si bloqueo la pantalla del teléfono?</h3>
+<p>En el tablero, <strong>no cambia nada</strong>: la proyección continúa con normalidad. Lo que se detiene es la vista previa dentro de la app (pantalla de Android Auto), porque no hay forma de usarla con el teléfono bloqueado. Eso también explica la imagen “con fallas” que algunas personas vieron en la vista previa: con el teléfono en uso, genera dos videos distintos, uno para el tablero y otro para la pantalla de la app.</p>
+</article><article class="qa" id="s6-q8"><h3>¿Puedo cerrar REau desde las apps recientes?</h3>
+<p>La proyección corre como un servicio, con la notificación fija, y sigue funcionando aunque la app se deslice fuera de las recientes por accidente. Si algo no se enciende, a veces ayuda quitar REau de las recientes y abrirla de nuevo.</p>
+</article>
+<article class="qa" id="s6-q9"><h3>¿Puedo encender REau sin abrir antes la app?</h3><p>Sí. Una pulsación larga en el ícono de REau muestra <strong>“Encender”</strong>, y el mosaico <strong>“REau”</strong> de los Ajustes rápidos de Android (la barra de notificaciones; se añade con el lápiz) hace lo mismo. Cualquiera de los dos abre REau y, si la proyección está detenida, la enciende, así que se puede hacer en casa, antes de ponerse el casco. No pasa nada antes de aceptar los términos de uso.</p></article></section>
+<section class="faqsec" id="s7"><h2>7. Imagen en el tablero: ajuste, recorte y máscara</h2>
+<article class="qa" id="s7-q1"><h3>¿Por qué el mapa en el tablero se ve recortado?</h3>
+<p>Android Auto siempre dibuja a 800×480, y la pantalla del tablero recibe 526×300, sin las dos esquinas superiores, que quedan detrás del anillo. REau recorta y escala la imagen para que quepa de la forma más legible posible.</p>
+</article><article class="qa" id="s7-q2"><h3>¿Cómo ajusto la imagen?</h3>
+<p>En la <strong>“Pantalla de Android Auto”</strong> (atajo en la pantalla de inicio). Muestra la vista previa y te deja ajustar:</p>
+<ul><li><strong>Modo:</strong> <em>Imagen entera</em> (la imagen de Android Auto cabe dentro del área del tablero, sin que el borde redondo oculte nada) o <em>Recorte centrado</em> (toma solo una parte del medio y la agranda; el tamaño y el lugar del recorte se pueden ajustar).</li>
+<li><strong>Mover</strong> la imagen en horizontal y en vertical, una por una.</li>
+<li><strong>DPI de Android Auto</strong> (ve abajo).</li>
+<li>La pestaña <strong>Navegación</strong> (Waze, Google Maps) y la pestaña <strong>Otras</strong> (menú de apps, Spotify…), cada una con su propio ajuste. <strong>Restablecer al valor por defecto</strong> deshace el ajuste de la pestaña que está abierta.</li>
+<li>El <strong>anillo de información</strong> (sección 11).</li>
+</ul>
+<p>Gira el teléfono en horizontal para ver Android Auto completo en pantalla completa y tocarlo.</p><div class="figs"><figure><a class="zoom" href="../assets/img/aa_screen.jpg"><img width="900" height="1480" src="../assets/img/aa_screen.jpg" alt="La pantalla de Android Auto: vista previa, DPI y márgenes (más abajo, los modos y ajustes)." loading="lazy"></a><figcaption>La pantalla de Android Auto: vista previa, DPI y márgenes (más abajo, los modos y ajustes).</figcaption></figure></div>
+</article><article class="qa" id="s7-q3"><h3>¿Qué son las pestañas “Navegación” y “Otras”?</h3>
+<p>Son dos encuadres distintos, porque el mapa y las demás pantallas colocan las cosas en lugares distintos. <strong>Navegación</strong> se aplica a Waze y a Google Maps; <strong>Otras</strong> se aplica al menú de apps de Android Auto y a las demás apps (Spotify y similares).</p>
+<p>Las dos ediciones cambian el ajuste por sí solas. En la <strong>Completa</strong>, REau sabe qué pantalla está abierta por Android Auto, a través de la Accesibilidad. En <strong>Lite</strong>, lo distingue por la propia imagen: funciona, pero puede equivocarse con una pantalla que nunca ha visto.</p>
+</article><article class="qa" id="s7-q4"><h3>¿Qué es la “Máscara”?</h3>
+<p>Es el botón en la parte superior de la pantalla de Android Auto. Cuando está activada, oscurece en el teléfono la parte que no llega a la pantalla redonda del tablero y muestra dónde está el anillo. Sirve para ajustar el encuadre viendo el resultado. Para ver Android Auto sin el oscurecimiento, <strong>apaga la máscara</strong>.</p>
+</article><article class="qa" id="s7-q5"><h3>¿Para qué sirve el “DPI de Android Auto”?</h3>
+<p>Controla el tamaño del texto y de los botones que dibuja Android Auto. El valor por defecto es <strong>180</strong>; más grande hace el texto y los botones más grandes. Cambiar el DPI reinicia la sesión de Android Auto durante unos segundos.</p>
+</article><article class="qa" id="s7-q6"><h3>¿Qué son los “Márgenes”?</h3>
+<p>Android Auto puede dibujar su pantalla en un área más pequeña, centrada en el marco de 800×480, con negro alrededor: el margen dice cuánto se quita del ancho (o del alto), repartido por igual entre los dos lados. Los contadores de márgenes ya no están en la pantalla de Android Auto y una instalación nueva no pide márgenes; un valor guardado por una versión anterior sigue aplicándose.</p>
+</article><article class="qa" id="s7-q7"><h3>La barra de apps de Android Auto quedó en el lado equivocado (tapando el mapa).</h3>
+<p>La barra lateral de Android Auto (reloj, apps, micrófono) puede estar a la izquierda o a la derecha. Tienes dos opciones:</p>
+<ul><li>Cambia el lado de la barra en los ajustes de Android Auto. Una buena opción es dejar la barra en el lado opuesto a la burbuja del tablero.</li>
+<li>Ajusta el recorte en REau para el lado donde está la barra. También puedes mostrar la pantalla completa de Android Auto: es cuestión de gusto.</li>
+</ul>
+</article><article class="qa" id="s7-q8"><h3>¿Qué es el “Fondo”?</h3>
+<p>Es una imagen fija que se envía al tablero, <strong>sin Android Auto</strong>, para probar el tablero y medir la pantalla (“Enviar fondo”, en la pantalla de inicio). Puedes elegir tu propia imagen en Ajustes → Fondo (el tamaño ideal es 526×300); “Restablecer al valor por defecto” trae de vuelta la cuadrícula de prueba. Para el uso normal no lo necesitas.</p>
+</article><article class="qa" id="s7-q9"><h3>¿Qué puedo probar en Waze para mejorar el rendimiento?</h3>
+<p>Waze dibuja el mapa, y los mapas “más pesados” cuestan más. Vale la pena probar:</p>
+<ul><li><strong>Apagar el “Zoom automático”</strong> (Waze → Ajustes → Vista del mapa). Con él, Waze aleja el zoom a alta velocidad y, en la pantalla pequeña, muestra “toda la ciudad”. Con los perfiles de video fijos (sección 9), el zoom automático sí corre en el tablero, pero mucha gente aún lo prefiere apagado, por el tamaño de la pantalla.</li>
+<li><strong>Mapa 2D</strong> en vez de 3D, porque el 3D cuesta un poco más. (Aún no se ha medido; es algo bueno para probar y reportar.)</li>
+</ul>
+<div class="figs"><figure><a class="zoom" href="../assets/img/waze_zoom.jpg"><img width="720" height="1056" src="../assets/img/waze_zoom.jpg" alt="Waze → Vista del mapa: “Zoom automático” apagado." loading="lazy"></a><figcaption>Waze → Vista del mapa: “Zoom automático” apagado.</figcaption></figure></div>
+</article><article class="qa" id="s7-q10"><h3>¿Puedo ver una película o Netflix en el tablero?</h3>
+<p>No tiene sentido: el tablero recibe de 2 a 4 cuadros por segundo y tiene un Wi-Fi limitado. Está hecho para un mapa, no para video.</p>
+</article></section>
+<section class="faqsec" id="s8"><h2>8. Joystick del manillar</h2>
+<article class="qa" id="s8-q1"><h3>¿Cómo funciona el joystick con REau?</h3>
+<p>El tablero tiene <strong>dos modos</strong>, y el joystick se comporta distinto en cada uno: el <strong>modo mapa</strong> (zoom y foco del mapa) y el <strong>control multimedia</strong>. <strong>Cada toque hace una sola cosa</strong>: el joystick del tablero no tiene doble toque ni mantener presionado que funcionen. El valor por defecto de una instalación nueva es:</p>
+<div class="tw"><div class="tws"><table><thead><tr><th>Control</th><th>Control multimedia</th><th>Modo mapa</th></tr>
+</thead><tbody><tr><td>Izquierda</td><td>Elemento anterior (mueve el foco)</td><td>Alejar</td></tr>
+<tr><td>Derecha</td><td>Elemento siguiente (mueve el foco)</td><td>Acercar</td></tr>
+<tr><td>Arriba</td><td>Menú de apps</td><td>Bloqueado: es el “atrás” propio del tablero (pregunta si quieres salir de la navegación)</td></tr>
+<tr><td>Abajo</td><td>Gemini (si el interruptor está activado)</td><td>Anillo de información: lo muestra y lo oculta (sección 11)</td></tr>
+<tr><td>Centro</td><td>Confirmar</td><td>Bloqueado: pone el tablero en control multimedia</td></tr>
+</tbody></table>
+</div>
+</div>
+<div class="box note"><p>Si actualizaste REau sobre una versión antigua, las opciones que ya tenías guardadas siguen vigentes y pueden diferir de esta tabla. Revisa Ajustes → <strong>Joystick del tablero</strong>.</p>
+</div>
+</article><article class="qa" id="s8-q2"><h3>¿Puedo cambiar lo que hace cada botón?</h3>
+<p>Sí, en <strong>Ajustes → Joystick del tablero</strong>. Toca el control y luego la acción. Hay 12 opciones: nada, elemento anterior, elemento siguiente, confirmar, atrás, menú de apps, reproducir/pausar, canción siguiente, canción anterior, Gemini, acercar y alejar (el zoom conserva el borde inferior de la imagen y solo actúa en Waze y Google Maps). El cambio se aplica <strong>de inmediato</strong>, incluso con la proyección encendida. “Restablecer al valor por defecto” deshace todo. Los controles “bloqueados” en el modo mapa no se pueden cambiar: arriba y centro pertenecen al propio tablero. Abajo empieza como el botón de REau para el anillo de información (no envía nada a Android Auto) y puede tener otra acción.</p>
+<p>El tablero solo muestra la canción (tarjeta de música) con el interruptor <strong>“Reproduciendo ahora”</strong> activado <strong>y</strong> canción anterior, reproducir/pausar o canción siguiente en algún control del control multimedia; el joystick estándar no tiene control de música, así que la tarjeta queda apagada hasta que pongas uno, y la pestaña <strong>Multimedia</strong> de la página del joystick dice si el tablero la muestra.</p>
+<p>Consejo: el joystick tarda un poco en dominarse; pruébalo detenido antes de salir a rodar.</p>
+</article><article class="qa" id="s8-q3"><h3>¿Cómo contesto llamadas con el joystick?</h3>
+<p>Con el interruptor <strong>“Contestar llamadas”</strong> activado (viene activado, pero solo funciona cuando se conceden los permisos del teléfono: usa la pantalla Permisos). Funciona en <strong>los dos modos</strong> del tablero y para llamadas del operador y llamadas de apps de voz como WhatsApp, Telegram y Signal, a través de Android Auto:</p>
+<div class="tw"><div class="tws"><table><thead><tr><th>Situación</th><th>Izquierda</th><th>Derecha</th><th>Centro</th><th>Arriba / Abajo</th></tr>
+</thead><tbody><tr><td>Teléfono sonando</td><td>Contesta</td><td>Rechaza</td><td>Rechaza</td><td>Como en el modo en que está el tablero</td></tr>
+<tr><td>Durante la llamada</td><td>El tablero no lo envía</td><td>El tablero no lo envía</td><td>Cuelga</td><td>Volumen + / Volumen −</td></tr>
+</tbody></table>
+</div>
+</div>
+<ul><li>Después de contestar o colgar, <strong>el mismo botón queda en silencio durante 3 segundos</strong>, para que un toque repetido no actúe por accidente.</li>
+<li>Si el intercomunicador del casco contesta primero (después de cerca de 7,5 s de timbre), un toque en el centro <strong>cuelga</strong> la llamada que ya estaba contestada.</li>
+<li>Durante una llamada el tablero se queda con la izquierda y la derecha; REau no recibe esos toques.</li>
+</ul>
+</article><article class="qa" id="s8-q4"><h3>¿Puedo usar Gemini (el asistente de voz)?</h3>
+<p>Sí, con el interruptor <strong>“Gemini”</strong> (viene activado, pero solo funciona cuando se concede el micrófono: usa la pantalla Permisos). Elige la acción “Gemini” para uno de los controles en la página del joystick (por defecto es <strong>Abajo</strong> en el control multimedia). La voz pasa por el <strong>auricular Bluetooth del casco</strong>, o por el micrófono del teléfono si no hay auricular. REau no guarda el audio.</p>
+</article><article class="qa" id="s8-q5"><h3>Apareció un borde azul alrededor del mapa. ¿Qué es?</h3>
+<p>Es el “foco” de Android Auto: aparece cuando usas el joystick y, en Android Auto, normalmente solo desaparece con un toque en la pantalla. REau quita el foco sola <strong>cerca de 1 minuto después del último uso del joystick</strong>.</p>
+</article><article class="qa" id="s8-q6"><h3>El joystick no responde en el modo mapa.</h3>
+<p>El tablero solo transmite el joystick en el modo mapa cuando su burbuja de maniobras muestra algo. Sin ruta, REau muestra el pin de llegada en la burbuja justamente para eso. Si deja de responder, apaga y enciende la proyección y, si continúa, abre un issue en el repositorio del proyecto con el registro (sección 15).</p>
+</article><article class="qa" id="s8-q7"><h3>¿Puedo quitar el anillo de maniobras (el círculo blanco de la izquierda)?</h3>
+<p>El anillo de maniobras es <strong>nativo del sistema del tablero</strong>: REau solo envía qué instrucciones mostrar (el ícono de la maniobra y la distancia). Hay un interruptor <strong>“Anillo de maniobras”</strong> (Ajustes → En el tablero; viene apagado por defecto, para que el tablero se vea más limpio): apagado, REau oculta el anillo excepto en Waze y Google Maps, una pulsación en el modo mapa lo muestra, una pulsación en el control multimedia lo oculta, y el botón central del modo mapa lo alterna. Pero con el anillo oculto el tablero deja de transmitir el joystick en el modo mapa: <strong>pierdes parte del joystick</strong> (sin zoom y sin mostrar ni ocultar el anillo de información). Una llamada siempre trae de vuelta el anillo. Para tener el joystick completo en cualquier pantalla, deja el anillo activado.</p>
+</article></section>
+<section class="faqsec" id="s9"><h2>9. Rendimiento y fluidez</h2>
+<article class="qa" id="s9-q1"><h3>¿Por qué la imagen del tablero no es más fluida?</h3>
+<p>Es una limitación del <strong>propio tablero y de su Wi-Fi</strong>, no del teléfono. REau tiene solo <strong>dos perfiles de video fijos</strong> (la tabla de abajo), que cambian según la distancia a la maniobra y según la velocidad estimada, no según las condiciones reales de la red. REau no envía más de lo que el tablero puede recibir: tiene un límite.</p>
+</article><article class="qa" id="s9-q2"><h3>¿Cuáles son los perfiles de video de REau?</h3>
+<div class="tw"><div class="tws"><table><thead><tr><th>Perfil</th><th>Cuadros por segundo</th><th>Bitrate</th><th>Para qué</th></tr>
+</thead><tbody><tr><td>A</td><td>4</td><td>400 kbps</td><td>Imagen más fluida, cuando la maniobra está cerca y la velocidad es baja</td></tr>
+<tr><td>B</td><td>2</td><td>200 kbps</td><td>Más liviano para el Wi-Fi y el tablero, en crucero y a alta velocidad</td></tr>
+</tbody></table>
+</div>
+</div>
+<ul><li>Bitrate <strong>constante</strong> y un <strong>fotograma clave cada 1 segundo</strong> (una imagen rota dura como máximo ese tiempo).</li>
+<li><strong>Perfil por maniobra</strong> (activado): a menos de 1 km de la próxima maniobra, A; más lejos, B.</li>
+<li><strong>Perfil por velocidad</strong> (activado): hasta cerca de 55 km/h (34 mph), A; desde cerca de 65 km/h (40 mph), B. La velocidad se <strong>estima</strong> a partir de la ruta que informa Android Auto, sin que REau encienda el GPS, así que no usa batería extra.</li>
+<li>Si cualquiera de los dos pide B, <strong>gana B</strong>. Los perfiles solo deciden mientras hay una ruta activa.</li>
+</ul>
+<div class="figs"><figure class="wide"><a class="zoom" href="../assets/img/profiles.jpg"><img width="720" height="720" src="../assets/img/profiles.jpg" alt="Ajustes → Perfiles de video (valores fijos)." loading="lazy"></a><figcaption>Ajustes → Perfiles de video (valores fijos).</figcaption></figure></div>
+</article><article class="qa" id="s9-q3"><h3>¿Puedo subir los cuadros por segundo o el bitrate?</h3>
+<p>No: los valores de los perfiles son <strong>fijos</strong>, para evitar dolores de cabeza. Lo que mostraron las pruebas:</p>
+<ul><li>A 30 cuadros por segundo, el tablero se cayó y no se reconectó; a 16, aguantó, pero no vale la pena.</li>
+<li>Un <strong>tope de 200 kbps no sirve para Waze</strong>: la calidad queda mala. <strong>400 kbps es estable.</strong></li>
+<li>A alta velocidad el problema no es la app ni los FPS, es el <strong>bitrate</strong>: el Wi-Fi del tablero no aguanta más, y un mapa que cambia mucho (acelerando en la ciudad) llega al techo y se traba.</li>
+<li>Más cuadros con el mismo bitrate no hacen la imagen más nítida; comprimir demasiado la deja horrible. REau no puede compactar más allá de eso toda la información que manda Android Auto.</li>
+</ul>
+</article><article class="qa" id="s9-q4"><h3>En la autopista, a alta velocidad, la imagen se congela o se atrasa. ¿Es normal?</h3>
+<p>Fue el problema número 1 de REau y se sigue vigilando. Reportes:</p>
+<ul><li>Ciudad y baja velocidad: funciona bien.</li>
+<li>En una autopista a 120 km/h (75 mph), en la compilación del primer día, hubo saltos grandes y trabas con alertas de Waze (radar, tope, peligro, bache) y tráfico pesado.</li>
+<li>En la compilación del 17 de octubre (perfiles fijos, 400 kbps), hay un reporte de conducir a 130–140 km/h con un retraso descrito como muy pequeño. Son reportes individuales: los Términos de uso advierten que la imagen llega con unos segundos de retraso.</li>
+<li>La causa no se ha aislado por completo: el retraso puede venir de Waze, de la cola de Android Auto o del propio tablero, que <strong>no informa cuánto va atrasado</strong>.</li>
+</ul>
+<p>Si te pasa, manda el registro (sección 15), con la velocidad aproximada y lo que Waze estaba mostrando.</p>
+</article><article class="qa" id="s9-q5"><h3>¿Qué es la etiqueta “IMAGEN CONGELADA” / “Sin imagen nueva”?</h3>
+<p>Con la moto en movimiento en una ruta y Android Auto sin enviar ninguna imagen nueva durante 15 segundos, el tablero muestra la etiqueta <strong>IMAGEN CONGELADA</strong> abajo, y la notificación y la pantalla de inicio dicen “Sin imagen nueva”. Antes, el tablero repetía la última imagen y parecía estar vivo. La etiqueta desaparece cuando vuelve la imagen. Detenido o sin ruta no hay aviso, porque entonces Android Auto de verdad está en silencio.</p>
+</article><article class="qa" id="s9-q6"><h3>¿Qué es “Android Auto no tiene imagen”?</h3>
+<p>Aparece cuando la conexión se abre pero Android Auto <strong>no envía ningún cuadro durante 10 segundos</strong> (el codificador del propio Android Auto está trabado) y el tablero está conectado. Toca <strong>Intentar de nuevo</strong>; si persiste, sigue lo que dice el aviso (fuerza la detención de Android Auto (Ajustes → Apps → Android Auto → Forzar detención) y luego apaga y enciende REau; en Lite, con Android Auto 17.4 o más nuevo, verifica también que el servidor de unidad principal esté encendido). Si el tablero está negro, es esto.</p>
+</article><article class="qa" id="s9-q7"><h3>¿Qué es el texto rojo “fps” y “kbps” sobre el video?</h3>
+<p>Es el interruptor de prueba <strong>“FPS y bitrate sobre el video”</strong> (pantalla de Android Auto), que escribe sobre el video los cuadros por segundo y el bitrate de los últimos 5 s. Solo existe en las compilaciones de prueba (debug); queda sobre el mapa, así que déjalo apagado en el día a día. Las mismas compilaciones tienen <strong>“Código de botón sobre el video”</strong>, que escribe en naranja el código del último botón que envió el tablero y lo que hizo REau con él.</p>
+</article></section>
+<section class="faqsec" id="s10"><h2>10. Batería y calor</h2>
+<article class="qa" id="s10-q1"><h3>¿REau gasta mucha batería?</h3>
+<p>REau en sí gasta poco. Lo que más gasta es <strong>Android Auto con Waze</strong> (GPS, mapa, datos) y la transmisión de video. Referencias: una hora funcionando con el teléfono en el bolsillo; en una prueba entre ciudad y autopista, con el teléfono cargando, “no se calentó”; una noche entera de 7 h de proyección se mantuvo estable en memoria, sin fugas.</p>
+</article><article class="qa" id="s10-q2"><h3>¿Por qué excluir a REau de la optimización de batería?</h3>
+<p>Con la pantalla apagada, Android corta la red y pausa las apps en segundo plano. Fuera de la optimización, REau sigue transmitiendo con el teléfono en tu bolsillo. Usa el botón <strong>“Excluir a REau de la optimización”</strong> en la pantalla de inicio.</p>
+</article><article class="qa" id="s10-q3"><h3>Apareció “El ahorro de batería está activado”.</h3>
+<p>Con el ahorro de batería activado y la pantalla apagada, Android corta la red y la ubicación de las apps en segundo plano. REau sigue gracias a su notificación fija, pero si el tablero o Android Auto se caen, <strong>apaga el ahorro de batería</strong>.</p>
+</article><article class="qa" id="s10-q4"><h3>¿Y si el teléfono se calienta al sol?</h3>
+<p>REau lee la temperatura del teléfono y baja los cuadros por segundo sola cuando se calienta.</p>
+</article><article class="qa" id="s10-q5"><h3>Android Auto se cae o se reinicia solo todo el tiempo, y la batería se gasta rápido.</h3>
+<p>En algunos teléfonos y ROM (visto en una ROM alternativa), el sistema <strong>mata a Android Auto de vez en cuando</strong> (cerca de una vez por minuto en los registros) porque su uso de batería está restringido; vuelve enseguida, pero esto cuesta batería y deja a Android Auto sin proceso cuando enciendes REau, lo que puede retrasar el servidor. Darle a Android Auto <strong>“Sin restricciones”</strong> en Ajustes → Apps → Android Auto → Batería <strong>puede</strong> ayudar; esto todavía no se ha comprobado. Sin cargador, la proyección usa cerca de <strong>0,3 % de batería por minuto</strong> (cerca de 18 % por hora), con o sin imagen en el tablero.</p>
+</article><article class="qa" id="s10-q6"><h3>¿Qué pasa si apago la moto y dejo REau encendida por olvido?</h3>
+<p>Cuando la moto se apaga, el Wi-Fi del tablero desaparece, y REau sigue pidiéndolo, con Android Auto, el video y los bloqueos del teléfono retenidos, lo que gasta la batería. Con <strong>“Apagarse solo sin el tablero”</strong> (Ajustes → En el tablero) la proyección se apaga sola después de <strong>5, 10 o 20 minutos</strong> sin el tablero (<strong>20 por defecto</strong>), suelta Android Auto, el video y los bloqueos, y una notificación dice por qué. Elegir <strong>nunca</strong> hace que siga pidiéndolo hasta que toques Apagar.</p>
+</article></section>
+<section class="faqsec" id="s11"><h2>11. Qué más se muestra en el tablero</h2>
+<article class="qa" id="s11-q1"><h3>¿El tablero muestra la flecha del próximo giro?</h3>
+<p>Sí. La burbuja nativa del tablero, el círculo de la izquierda (el <strong>anillo de maniobras</strong>), muestra la flecha de la maniobra y la distancia que informa Waze. Es más legible que el mapa reducido. REau usa el modelo original de la moto, lo que deja todo más integrado con el tablero.</p>
+</article><article class="qa" id="s11-q2"><h3>¿Se muestran el tiempo restante, la hora de llegada y los km totales?</h3>
+<p><strong>Waze muestra el tiempo restante, la hora de llegada y los km restantes dentro de la propia imagen</strong>. El tablero muestra, en su barra superior, los <strong>km totales</strong> de la ruta (vienen del protocolo 1.7 de Android Auto, ahora el predeterminado de REau) y la hora de llegada en su tarjeta. REau también envía al tablero el tiempo restante y el giro posterior al próximo, y el ícono de “sin señal” cuando Waze recalcula sin internet (siempre activado).</p>
+</article><article class="qa" id="s11-q3"><h3>¿El nombre de la canción y el de quien llama se muestran en el tablero?</h3>
+<p>Sí, en las tarjetas propias del tablero, con los interruptores <strong>“Reproduciendo ahora”</strong> y <strong>“Quién llama”</strong> (Ajustes → En el tablero; vienen activados por defecto). Los datos vienen del propio Android Auto, <strong>sin pedir acceso a las notificaciones ni a los contactos</strong>. La tarjeta de música también necesita canción anterior, reproducir/pausar o canción siguiente en algún control del control multimedia en la página del joystick; el valor por defecto no tiene ninguno, así que pon uno (sección 8). La <strong>carátula del álbum</strong> es otro interruptor (activado por defecto). Quienes usan intercomunicador pueden contestar con el joystick, y el nombre del contacto se muestra en el tablero. La tarjeta de llamada es el modelo original de la moto: es una tarjeta blanca que tapa un poco la posición de la moto en el mapa, pero el anillo de maniobras sigue guiándote.</p>
+</article><article class="qa" id="s11-q4"><h3>¿El tablero muestra la batería, el GPS y la señal del teléfono?</h3>
+<p>Sí, con el interruptor <strong>“Estado del teléfono”</strong> (viene activado por defecto): el tablero muestra la batería, el GPS y la señal <strong>reales</strong> del teléfono. Apagado, muestra valores fijos que no dicen nada sobre el teléfono.</p>
+</article><article class="qa" id="s11-q5"><h3>¿Puedo ver el clima en el tablero?</h3>
+<p>Sí, viene <strong>activado por defecto</strong>, pero no se pide nada hasta que concedas el permiso de ubicación, y tiene un interruptor. Con el interruptor <strong>“Clima en el tablero”</strong> activado (y “Usar la ubicación” activado), REau consulta el servicio Open-Meteo al abrir y cada 15 minutos y envía al tablero la temperatura y el ícono del clima. El atajo <strong>Clima</strong> muestra ahora, 8 horas, 8 días, un gráfico de 14 días, viento, UV, calidad del aire, sol y luna. Además de la búsqueda de actualizaciones que pides a mano, es el <strong>único</strong> uso de internet de REau, junto con el anillo de información, que pide el mismo clima. Nota: la temperatura de la barra superior del tablero viene del termómetro propio de la moto.</p>
+</article><article class="qa" id="s11-q12"><h3>¿Qué es el anillo de información?</h3>
+<p>Un anillo opcional (activado por defecto; <strong>Pantalla de Android Auto → Anillo de información</strong>) que REau dibuja dentro de la imagen, a la derecha del tablero, donde el tablero no dibuja nada, o, si lo eliges, en el lugar del anillo de maniobras. Dice una sola cosa a la vez: lluvia, viento, tormentas, UV, calidad del aire, atardecer o amanecer, las temperaturas del día y la batería, la señal y el GPS del teléfono. Necesita “Usar la ubicación” activada e internet en el teléfono, y pide el clima a Open-Meteo cada 15 minutos. Pasa de un dato al siguiente cada 7 segundos por defecto (de 5 a 30, en sus ajustes). Con él activado, el botón <strong>abajo</strong> del modo mapa lo muestra y lo oculta; desaparece en el menú de apps y en otras apps y vuelve como estaba con la navegación.</p>
+</article><article class="qa" id="s11-q7"><h3>¿Qué es la pantalla “Datos de la moto”?</h3>
+<p>Una pantalla que <strong>solo muestra</strong> lo que informa el tablero (no le envía nada; los campos del Wi-Fi están arriba): tablero y Wi-Fi conocidos, última lectura, <strong>autonomía</strong> (hasta dónde puede llegar todavía con el combustible que tiene, tal como la cuenta el propio tablero), versión del firmware, variante, ajustes del tablero (temperatura, distancia, tema, consumo, reloj, idioma), ABS y la advertencia de combustible bajo. “Aún sin reportar” significa que el tablero todavía no envió ese dato: REau pregunta al conectarse y cada 15 minutos.</p>
+</article><article class="qa" id="s11-q8"><h3>¿Cómo funciona el tema claro y oscuro?</h3>
+<p>El tema de REau es la señal de día y noche que envía a Android Auto. <strong>Según el sol</strong> (por defecto) es claro desde el amanecer hasta el atardecer y oscuro de noche; las horas salen de la posición del teléfono si “Usar la ubicación” está activada, o de la zona horaria (alrededor de las 6 AM y las 6 PM). <strong>Claro</strong> y <strong>Oscuro</strong> fijan el tema. Waze y otras apps lo siguen solo si su tema está en automático.</p>
+</article><article class="qa" id="s11-q9"><h3>¿Puedo fijar el brillo del tablero en modo día?</h3>
+<p>No a través de REau. El tablero solo tiene dos modos de tema, <strong>automático</strong> (que alterna según el sensor de luz) y <strong>oscuro</strong>. Fijar el brillo exigiría engañar al sensor o modificar el firmware del tablero, lo que es mucho trabajo y queda fuera del alcance de REau.</p>
+</article><article class="qa" id="s11-q10"><h3>¿Puedo borrar o cambiar los recordatorios de servicio del tablero?</h3>
+<p>No a través de REau: no cambia los ajustes ni los recordatorios del tablero. Eso no es algo que haga la app.</p>
+</article><article class="qa" id="s11-q11"><h3>¿Puedo usar otras apps además de Waze?</h3>
+<p>Sí. Android Auto te deja abrir otras apps (Google Maps, Spotify y similares) y REau muestra lo que haya en pantalla. El foco del proyecto, sin embargo, es Waze.</p>
+</article></section>
+<section class="faqsec" id="s12"><h2>12. Extras: servidor de red e idioma</h2>
+<article class="qa" id="s12-q1"><h3>¿Qué es “Encender el servidor de red” (Android Auto en el navegador)?</h3>
+<p>Una función <strong>opcional</strong> (apagada por defecto) hecha para reflejar Android Auto en una unidad principal vieja o en una computadora. Con la proyección en marcha, REau abre un servidor en la red local; otro dispositivo con un navegador, en la misma red, abre la dirección, ingresa el <strong>PIN de 4 dígitos</strong> y ve Android Auto, con toque y sonido opcionales.</p>
+<ul><li><strong>No lo uses en la ruta:</strong> mientras está activado, REau <strong>no busca el tablero</strong>.</li>
+<li>El PIN cambia cada vez; tras 5 intentos fallidos el dispositivo espera 5 minutos. Como máximo 2 navegadores.</li>
+<li>El tráfico <strong>no está cifrado</strong> y no pasa por internet: no lo actives en redes compartidas con desconocidos.</li>
+<li>Se apaga solo cuando termina la proyección. El interruptor de toque (“Permitir el toque desde el navegador”) está apagado por defecto.</li>
+</ul>
+</article><article class="qa" id="s12-q2"><h3>¿Qué idiomas habla REau?</h3>
+<p><strong>Portugués, inglés y español.</strong> La app sigue el idioma del teléfono y hay un selector (Auto / Português / English / Español) en Ajustes; el inglés es el predeterminado para quien usa otro idioma. En Android 13 o más nuevo, cambiar el idioma ya no hace parpadear la pantalla.</p>
+<div class="figs"><figure><a class="zoom" href="../assets/img/settings_en.jpg"><img width="900" height="1440" src="../assets/img/settings_en.jpg" alt="Ajustes: idioma, tema y lo que va al tablero." loading="lazy"></a><figcaption>Ajustes: idioma, tema y lo que va al tablero.</figcaption></figure></div>
+</article><article class="qa" id="s12-q3"><h3>¿Qué son los términos de uso que aparecen al abrir por primera vez?</h3>
+<p>La app te pide aceptar los <strong>términos de uso</strong> (en portugués, inglés y español) al abrir por primera vez. El botón “Lo leí y acepto” solo aparece después de haberlos leído hasta el final (o toca “Ir hasta el final”). Siguen disponibles al final de la pantalla “REau y tus datos”, junto con los <strong>Créditos</strong>.</p>
+</article></section>
+<section class="faqsec" id="s13"><h2>13. Problemas comunes y mensajes de la app</h2>
+<div class="tw"><div class="tws"><table><thead><tr><th>Lo que aparece</th><th>Qué significa y qué hacer</th></tr>
+</thead><tbody><tr><td>“El servidor de unidad principal está apagado” / “Android Auto no acepta la conexión”</td><td>El servidor de unidad principal está apagado. Si el modo desarrollador no se activó, haz los ~10 toques en “Versión” (sección 4). Luego inicia el servidor desde ⋮ (Lite) o activa la Accesibilidad y el interruptor “Encender el servidor automáticamente” (Completa). Toca <strong>Intentar de nuevo</strong>.</td></tr>
+<tr><td>“El modo desarrollador de Android Auto está desactivado”</td><td>Toca “Abrir los ajustes de Android Auto”, baja hasta el final, toca “Versión” 10 veces y luego “Intentar de nuevo”.</td></tr>
+<tr><td>“Ajuste restringido” / “Acceso de la app denegado” (Completa)</td><td>Sección 3: intenta activarla primero, luego permítelo en Apps → REau → ⋮ → “Permitir ajustes restringidos”.</td></tr>
+<tr><td>“Android Auto no responde” / “Android Auto bloqueado”</td><td>Acepta la conexión pero no responde. En la Completa, fuerza la detención de Android Auto (Ajustes → Apps); en Lite, detén e inicia el servidor en el menú ⋮. REau lo intenta de nuevo sola.</td></tr>
+<tr><td>“Cerrando la sesión anterior”</td><td>Normal justo después de Apagar: tarda hasta 1 minuto. REau lo intenta de nuevo sola.</td></tr>
+<tr><td>“Hay otra REau instalada”</td><td>La otra edición puede estar usando Android Auto. Apágala, espera cerca de 1 minuto.</td></tr>
+<tr><td>“Android Auto no tiene imagen” / tablero negro</td><td>Sección 9: Intentar de nuevo; si persiste, fuerza la detención de Android Auto y apaga y enciende REau (en Lite, verifica también el servidor).</td></tr>
+<tr><td>“IMAGEN CONGELADA” / “Sin imagen nueva”</td><td>Android Auto dejó de enviar imágenes mientras la moto se mueve (sección 9). Normalmente vuelve solo.</td></tr>
+<tr><td>“Una VPN frena a REau”</td><td>Apaga la VPN o excluye a REau de ella (split tunneling) y vuelve a conectar la VPN.</td></tr>
+<tr><td>“Otra app tiene el tablero”</td><td>Otra app de tablero (como la oficial) está transmitiendo. Detén su transmisión.</td></tr>
+<tr><td>“Buscando el tablero” para siempre</td><td>¿Llave de la moto puesta? ¿Tablero encendido y cerca? ¿Wi-Fi del teléfono activado? ¿Ubicación permitida? Si hace falta, escribe el nombre completo de la red en Datos de la moto (sección 5).</td></tr>
+<tr><td>“El ahorro de batería está activado”</td><td>Si el tablero o Android Auto se caen con la pantalla apagada, apaga el ahorro de batería.</td></tr>
+<tr><td>“Tablero perdido, intentando de nuevo”</td><td>El Wi-Fi del tablero desapareció después de haberse conectado (llave apagada, tablero lejos, congelado). REau lo intenta de nuevo sola y vuelve en pocos segundos cuando el tablero reaparece.</td></tr>
+<tr><td>“Timeout!” en el tablero redondo, con la imagen congelada</td><td>Es el aviso propio del tablero (no de REau): el video dejó de llegarle. La causa más común es que el Wi-Fi del tablero se reinició, lo que puede cambiar su canal: el teléfono pierde la red por un momento y REau vuelve sola en pocos segundos, a veces hasta cerca de 1 minuto (la pantalla y la notificación dicen que la conexión se cayó, y la pantalla dice hace cuántos segundos). Si la moto está encendida y tarda más de un minuto, apaga y enciende la moto con la llave. <strong>“Olvidar” en el tablero no ayuda</strong>: solo borra el nombre guardado y el emparejamiento, y REau vuelve a pedir la aprobación de Android. Esto puede pasar en algunas motos; REau no puede evitar que el tablero reinicie su propio Wi-Fi.</td></tr>
+<tr><td>El Wi-Fi del tablero rechaza la conexión</td><td>Puede que el tablero se haya congelado: apaga la moto con la llave, espera unos 30 s y vuelve a encenderla.</td></tr>
+<tr><td>Apareció Google Maps en vez de Waze, o el menú de apps</td><td>Abre la pantalla de Android Auto en REau y elige Waze, o usa el joystick (sección 6).</td></tr>
+<tr><td>Lo apagué y lo encendí rápido y no se conectó</td><td>Espera hasta 1 minuto (Android Auto cierra la sesión anterior) o reinicia el servidor; luego <strong>Intentar de nuevo</strong>.</td></tr>
+<tr><td>Después de reiniciar el teléfono, no se conecta</td><td>Reiniciar apaga el servidor de Android Auto. En la Completa, con Accesibilidad y “Encender el servidor automáticamente”, REau lo vuelve a encender; en Lite, inícialo a mano.</td></tr>
+<tr><td>El interruptor de Accesibilidad está gris</td><td>Es el ajuste restringido de Android 13+: Ajustes → Apps → REau → ⋮ → “Permitir ajustes restringidos”.</td></tr>
+<tr><td>El servidor de Android Auto quedó encendido después de Apagar</td><td>Pasa si el teléfono estaba bloqueado o la Accesibilidad estaba apagada. Apágalo desde el menú ⋮ de Android Auto, si quieres.</td></tr>
+<tr><td>“Android Auto no inició el servidor. Inténtalo de nuevo.” (Completa), o la cubierta “Encendiendo el servidor de Android Auto…” desaparece y el lado de Android Auto no se pone verde</td><td>Después de tocar “Iniciar servidor de unidad principal”, REau ahora espera hasta 8 s con la pantalla de Android Auto al frente (la cubierta dice “Esperando la respuesta del servidor…”) y, si el puerto sigue cerrado, hace por sí sola una visita a la pantalla de Android Auto (sin tocar nada, solo manteniéndola al frente unos segundos) y, si aun así no se enciende, lo intenta una segunda vez por sí sola. Si todavía no se enciende, toca <strong>Intentar de nuevo</strong>, o abre los ajustes de Android Auto y vuelve a REau: en los registros de algunos teléfonos el servidor solo respondió cuando la pantalla de Android Auto volvió al frente. Lo que pasa dentro de Android Auto todavía no se ha comprobado; si te pasa, comparte los registros (sección 15).</td></tr>
+</tbody></table>
+</div>
+</div>
+</section>
+<section class="faqsec" id="s14"><h2>14. Privacidad y datos</h2>
+<article class="qa" id="s14-q1"><h3>¿REau usa internet o envía mis datos a algún lado?</h3>
+<p>No, con <strong>dos excepciones</strong>. Solo habla con Android Auto, dentro del propio teléfono, y con el tablero, por el Wi-Fi de la moto, que no tiene internet. Lo que sale del teléfono va solo al tablero: la imagen y, con los interruptores que vienen activados por defecto, el nombre de la canción (con su carátula), quien llama y el estado del teléfono (batería, GPS y señal). Los únicos viajes a internet son el clima (Open-Meteo), para <strong>Clima en el tablero</strong> o el <strong>anillo de información</strong>, ambos activados por defecto (no se pide nada hasta que concedas la ubicación), y <strong>Buscar actualizaciones</strong> (Ajustes), que le pide a GitHub el número de la última versión solo cuando lo tocas. Con el servidor de red encendido, lo que sale también llega a los dispositivos de tu red local.</p>
+</article><article class="qa" id="s14-q2"><h3>¿REau sabe dónde estoy?</h3>
+<p>No para encontrar el Wi-Fi: el permiso de ubicación es solo para que Android libere la lista de redes. La posición solo se lee con el interruptor <strong>“Usar la ubicación”</strong> activado (viene activado, pero no se lee nada mientras no concedas el permiso de ubicación), para el tema según el sol y el clima, redondeada a cerca de <strong>11 km</strong>, y para la tarjeta de GPS del anillo de información (solo la señal y el rumbo, nada se guarda). Solo el lugar redondeado sale del teléfono, en la solicitud del clima a Open-Meteo; la posición nunca entra en el registro.</p>
+</article><article class="qa" id="s14-q3"><h3>¿Qué se guarda en el teléfono?</h3>
+<ul><li>Un <strong>registro de diagnóstico</strong> (activado por defecto) para encontrar errores, <strong>sin posición, calles, canciones ni quien llama</strong> (en las llamadas de WhatsApp, Telegram y Signal, solo la app y los botones). El nombre del Wi-Fi de la moto va enmascarado y la contraseña nunca se registra.</li>
+<li>El nombre y la contraseña del Wi-Fi del tablero y lo que el tablero ya informó, <strong>cifrados</strong> con una clave que guarda Android.</li>
+<li>La posición redondeada (cuando concedas el permiso de ubicación) y el último clima. Las grabaciones del video y de las sesiones de Android Auto solo existen si las activas (Ajustes → Depuración): vienen desactivadas en la compilación con la que ruedas y activadas en la compilación de depuración. Guardan lo que muestra el tablero (el mapa, la ruta, las canciones y quién llama en sus tarjetas) y lo que envía Android Auto (sus mensajes, con el nombre que da a tu teléfono), así que revelan por dónde anduviste.</li>
+</ul>
+<p>Todo queda en la carpeta interna de la app y solo sale por <strong>Compartir</strong> (Ajustes → Depuración). Los registros se borran solos después de <strong>30 días</strong> (tú eliges 7, 14, 30 o nunca; el tope es de 200 MB de registros; la compilación de depuración empieza en nunca, con tope de 1 GB). Las grabaciones se borran por los mismos días y tienen su propio tope, de 200 MB (1 GB en la compilación de depuración). En Ajustes → Depuración puedes apagar el registro, verlo y borrar registros y grabaciones.</p>
+</article><article class="qa" id="s14-q4"><h3>¿El Wi-Fi del tablero y la imagen están cifrados?</h3>
+<p>El Wi-Fi del tablero está protegido por la contraseña propia del tablero; la imagen no tiene otro cifrado. REau no controla eso: es como funciona el tablero.</p>
+</article><article class="qa" id="s14-q5"><h3>¿Y qué hacen Android Auto, Waze y Gemini con mis datos?</h3>
+<p>Eso está fuera del alcance de REau y sigue las reglas de Google y de Waze (tu voz en Gemini, por ejemplo). Todo lo que la app hace con los datos está en la pantalla <strong>“REau y tus datos”</strong>, en la propia app.</p>
+</article><article class="qa" id="s14-q6"><h3>¿Cómo sé si hay una versión nueva?</h3>
+<p>En <strong>Ajustes → Actualizaciones</strong>, toca <strong>Buscar ahora</strong>. REau le pregunta a GitHub, solo entonces, por el último release publicado y te dice si es más nuevo que el que tienes (una compilación de desarrollo lo indica). No descarga ni instala nada: si hay una versión más nueva, el botón <strong>Ver la versión</strong> abre su página en el navegador, e instalarla queda a tu cargo. La solicitud no lleva cuenta ni nada sobre ti; GitHub ve la dirección del teléfono, como cualquier sitio.</p>
+</article></section>
+<section class="faqsec" id="s15"><h2>15. Cómo reportar un problema</h2>
+<article class="qa" id="s15-q1"><h3>Encontré un error o tengo una sugerencia. ¿Cómo puedo ayudar?</h3>
+<p>Lo que más ayuda al autor, en este orden:</p>
+<ol><li><strong>El registro.</strong> El registro de diagnóstico <strong>ya está activado</strong>. Para más detalle, activa el <strong>“Registro detallado”</strong> (un archivo mucho más grande) en Ajustes → Depuración antes de la salida. Después, en <strong>Ajustes → Depuración → Compartir → Registros</strong>, adjunta el archivo a un issue en el repositorio del proyecto (su dirección está en la pantalla Créditos de la app). <strong>Mira el archivo antes de enviarlo</strong>: los registros, las grabaciones y las fotos pueden contener lugares a los que fuiste, nombres de Wi-Fi, números de teléfono o nombres de contactos. Recorta lo que no quieras hacer público; en caso de duda, descríbelo con palabras. En la ruta no hay forma de ver lo que está pasando: lo que no está en el registro no existe para el diagnóstico.</li>
+<li><strong>La marca de quien conduce.</strong> Cuando algo pasa mientras conduces, toca el botón <strong>Marcar</strong> en la notificación de REau para marcar el momento en el registro.</li>
+<li><strong>El contexto:</strong> el teléfono y la versión de Android; la versión de REau (pie de la pantalla de inicio) y la edición (Lite o Completa); el tramo (ciudad o autopista) y la velocidad aproximada; lo que Waze estaba mostrando (muchas alertas, zoom automático, 2D o 3D).</li>
+<li><strong>Una foto o un video del tablero</strong>, cuando sea posible, con la moto detenida (o filmado por alguien o por una cámara fija).</li>
+</ol>
+<p>Las grabaciones (“Compartir → Con grabaciones”) son grandes y revelan la ruta: adjúntalas solo si el autor las pide. El registro está diseñado para no guardar posición, calles, canciones ni quien llama, pero revísalo antes de enviarlo. <strong>¿Una falla de seguridad?</strong> No uses un issue público: usa el reporte privado de vulnerabilidades del repositorio (pestaña Security, “Report a vulnerability”).</p>
+<div class="figs"><figure class="wide"><a class="zoom" href="../assets/img/debug_log.jpg"><img width="900" height="694" src="../assets/img/debug_log.jpg" alt="Ajustes → Depuración: registro de diagnóstico y registro detallado, aquí los dos activados (captura de la interfaz en portugués)." loading="lazy"></a><figcaption>Ajustes → Depuración: registro de diagnóstico y registro detallado, aquí los dos activados (captura de la interfaz en portugués).</figcaption></figure></div>
+</article></section>
+<section class="faqsec" id="s16"><h2>16. Glosario</h2>
+<div class="tw"><div class="tws"><table><thead><tr><th>Término</th><th>Qué es</th></tr>
+</thead><tbody><tr><td>Tablero / Tripper Dash</td><td>La pantalla TFT redonda con navegación de las motos Royal Enfield.</td></tr>
+<tr><td>APK</td><td>El archivo de instalación de una app de Android fuera de Play Store.</td></tr>
+<tr><td>Android Auto</td><td>El sistema de Google que lleva las apps del auto (Waze, Maps, Spotify) a la pantalla de una unidad principal; REau lo repite en el tablero.</td></tr>
+<tr><td>Servidor de unidad principal</td><td>La “puerta de entrada” de Android Auto para una unidad principal externa; solo aparece con el modo desarrollador de Android Auto activado.</td></tr>
+<tr><td>Modo desarrollador de Android Auto</td><td>Se activa con ~10 toques en “Versión” en los ajustes de Android Auto. Distinto del modo desarrollador del teléfono.</td></tr>
+<tr><td>Anillo de maniobras (burbuja)</td><td>El círculo de la izquierda del tablero, nativo del tablero, que muestra la flecha de la maniobra y la distancia.</td></tr>
+<tr><td>Anillo de información</td><td>Un anillo opcional que REau dibuja dentro de la imagen, a la derecha del tablero, con el clima y el estado del teléfono.</td></tr>
+<tr><td>Accesibilidad</td><td>Una función de Android que la edición Completa usa para iniciar el servidor por sí sola y saber qué pantalla está abierta.</td></tr>
+<tr><td>Ajustes restringidos</td><td>Una protección de Android 13+ que bloquea la accesibilidad de las apps instaladas desde un archivo hasta que la permites.</td></tr>
+<tr><td>Perfil A / Perfil B</td><td>Los dos niveles de video fijos de REau (4 fps / 400 kbps y 2 fps / 200 kbps).</td></tr>
+<tr><td>Fotograma clave</td><td>El cuadro de video completo, enviado cada 1 s, que limita cuánto dura una imagen rota.</td></tr>
+<tr><td>Ajuste / recorte / DPI / máscara</td><td>Cómo se encuadra, se agranda y se dimensiona la imagen de Android Auto para la pantalla redonda del tablero.</td></tr>
+<tr><td>Fondo</td><td>Una imagen fija enviada al tablero, sin Android Auto (para pruebas).</td></tr>
+<tr><td>Servidor de red</td><td>Una función opcional que muestra Android Auto en el navegador de otro dispositivo de la red local.</td></tr>
+</tbody></table>
+</div>
+</div>
+</section>
+<p id="none" role="status" hidden>No se encontró ninguna pregunta.</p>
+</div>
+</div>
+</main>
+<footer class="foot"><div class="in"><p>REau es un proyecto independiente, sin afiliación ni respaldo de Royal Enfield, Google, Waze o Meta. Royal Enfield, Tripper, Android Auto y Waze pertenecen a sus dueños. Las capturas y los videos muestran las pantallas de esas apps solo para explicar cómo se usa REau. Úsalo bajo tu propio riesgo; en la ruta, los ojos en el camino.</p>
+<p>Software libre bajo la licencia AGPL-3.0. · <a href="https://github.com/Murkiriel/reau">Código fuente</a> · <a href="https://github.com/Murkiriel/reau/releases">Releases</a> · <a href="https://github.com/Murkiriel/reau/issues">Reportar un problema</a></p>
+</div>
+</footer>
+<script src="../assets/site.js" defer></script>
+<script src="../assets/faq.js" defer></script>
+</body></html>

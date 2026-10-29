@@ -85,4 +85,14 @@ class HttpRequestTest {
         assertEquals("", r.query["k"])
         assertNull(r.query["zzz"])
     }
+
+    @Test
+    fun `a head of exactly the limit is read, one byte over is refused`() {
+        val start = "GET / HTTP/1.1\r\nX: "
+        val end = "\r\n\r\n"
+        val exact = start + "a".repeat(HttpRequestParser.MAX_HEAD - start.length - end.length) + end
+        assertEquals(HttpRequestParser.MAX_HEAD, exact.length)
+        assertEquals("/", ok(exact).path)
+        assertEquals(431, bad(start + "a".repeat(HttpRequestParser.MAX_HEAD - start.length - end.length + 1) + end).status)
+    }
 }

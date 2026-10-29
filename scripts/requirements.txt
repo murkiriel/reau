@@ -1,0 +1,10 @@
+# Python tools of the scripts (the icon generator's test needs Pillow). Exact version and the hashes of the Linux x86-64 wheels for Python 3.12
+# (the CI runner) and 3.13: `pip install --require-hashes --no-deps -r scripts/requirements.txt`. To update, take the new hashes from
+# https://pypi.org/pypi/pillow/<version>/json and replace all the hash lines together.
+pillow==11.1.0 \
+    --hash=sha256:7fdadc077553621911f27ce206ffcbec7d3f8d7b50e0da39f10997e8e2bb7f6a \
+    --hash=sha256:9aa9aeddeed452b2f616ff5507459e7bab436916ccb10961c4a382cd3e03f47f \
+    --hash=sha256:b523466b1a31d0dcef7c5be1f20b942919b62fd6e9a9be199d035509cbefc0ec \
+    --hash=sha256:3764d53e09cdedd91bee65c2527815d315c6b90d7b8b79759cc48d7bf5d4f114 \
+    --hash=sha256:9ee85f0696a17dd28fbcfceb59f9510aa71934b483d1f5601d1030c3c8304f3c \
+    --hash=sha256:dd0e081319328928531df7a0e63621caf67652c8464303fd102141b785ef9547

@@ -1,12 +1,14 @@
 package com.reau.app.dash.protocol
 
 import java.io.ByteArrayOutputStream
+import java.text.Normalizer
 
 /**
  * K1G control-plane commands. The packet layouts are interoperability facts, cross-checked
  * against the open-source better-dash reference (Apache-2.0) and against traffic observed
  * on firmware 11.63; some builders are ported from better-dash and say so where they are
- * (see NOTICE for what comes from each project).
+ * (see NOTICE for what comes from each project). The layouts here were observed on firmware 11.63 and verified on 13.10
+ * (connection, video, joystick and cards), as the terms of use say.
  */
 @Suppress("TooManyFunctions") // a flat catalog: one builder per K1G packet
 object DashCommands {
@@ -204,19 +206,6 @@ object DashCommands {
         patchHeartbeatByte(pkt, 0x06, 0x01, if (status.signalPresent) 0x01 else 0x00)
     }
 
-    /**
-     * A second 1 Hz status packet the dash accepts (better-dash documents it): the weather icon (`06 08`, [weatherIcon]: 1 cloudy, 2 thunder, 3 rain, 4 snow, 5 sun,
-     * 0xFF no data) plus the same music-volume, distance, alarm-volume and idle-call fields the heartbeat already
-     * carries, with those same values. REau does not send it: its heartbeat already carries the icon.
-     */
-    fun metadata0030(weatherIcon: Int, call: CallState = CallState.NONE): ByteArray {
-        val pkt = ("0030000600000000020100054b31472000" + "0608000100" +
-            "054c000113052d00020000051b0001190521000132054d000132").hexToBytes()
-        patchHeartbeatByte(pkt, 0x06, 0x08, weatherIcon.coerceIn(0, 255))
-        patchHeartbeatByte(pkt, 0x05, 0x21, call.code) // as in the heartbeat
-        return pkt
-    }
-
     private fun patchHeartbeatByte(pkt: ByteArray, type: Int, sub: Int, value: Int) {
         val marker = byteArrayOf(type.toByte(), sub.toByte(), 0x00, 0x01)
         val i = indexOf(pkt, marker)
@@ -270,7 +259,7 @@ object DashCommands {
             hours in 1 until HOURS_PER_DAY -> UNITS_HOURS
             else -> UNITS_MINUTES
         }
-        return Remaining("%02d%02d%02d".format(hours, minutes, days.coerceAtMost(99)), units)
+        return Remaining("%02d%02d%02d".format(java.util.Locale.US, hours, minutes, days.coerceAtMost(99)), units)
     }
 
     // ── Route card (0x007E) ───────────────────────────────────────────────
@@ -499,13 +488,43 @@ object DashCommands {
     const val ROAD_MAX = 19
 
     /**
-     * [text] as the dash reads names: ISO-8859-1, one byte a character, [max] characters at most; what Latin-1 has no
-     * letter for is a question mark (the low byte of such a character would draw something else). Never reaches the
-     * log.
+     * [text] as the dash reads names: ISO-8859-1, one byte a character, [max] characters at most (see [legible]); what
+     * Latin-1 has no letter for is a question mark (the low byte of such a character would draw something else). Never
+     * reaches the log.
      */
     fun latin1(text: String, max: Int): ByteArray {
-        val chars = text.take(max)
-        return ByteArray(chars.length) { i -> chars[i].code.let { if (it < 0x100) it.toByte() else '?'.code.toByte() } }
+        val chars = legible(text).take(max)
+        return ByteArray(chars.length) { i -> chars[i].code.toByte() }
+    }
+
+    /** The typographic marks phones put in titles and names, and the ASCII the dash can draw in their place. */
+    private val TYPOGRAPHIC = mapOf(
+        '\u2018' to "'", '\u2019' to "'", '\u201A' to "'", '\u2032' to "'",
+        '\u201C' to "\"", '\u201D' to "\"", '\u201E' to "\"", '\u2033' to "\"",
+        '\u2010' to "-", '\u2011' to "-", '\u2012' to "-", '\u2013' to "-", '\u2014' to "-", '\u2015' to "-", '\u2212' to "-",
+        '\u2026' to "...",
+    )
+
+    /**
+     * [text] made of characters the dash can draw: composed (NFC, so "e" + an accent is the one Latin-1 letter), the
+     * typographic quotes and dashes as their ASCII, and each remaining character past Latin-1 (a letter of another
+     * script, an emoji) one question mark, counted by code point so a surrogate pair is never split or doubled.
+     */
+    internal fun legible(text: String): String {
+        val out = StringBuilder(text.length)
+        val composed = Normalizer.normalize(text, Normalizer.Form.NFC)
+        var i = 0
+        while (i < composed.length) {
+            val cp = composed.codePointAt(i)
+            i += Character.charCount(cp)
+            val swap = if (cp < 0x10000) TYPOGRAPHIC[cp.toChar()] else null
+            when {
+                swap != null -> out.append(swap)
+                cp < 0x100 -> out.append(cp.toChar())
+                else -> out.append('?')
+            }
+        }
+        return out.toString()
     }
 
     /**
@@ -559,7 +578,6 @@ object DashCommands {
         out.write(mediaField(artist))
         return K1GPacket.build(K1GPacket.tlv(0x05, 0x0D, out.toByteArray()))
     }
-
     /** 05 17: a song is on (0x55), or there is none (0xAA). */
     fun musicActive(on: Boolean): ByteArray = musicFlag(0x17, on)
 
@@ -583,17 +601,15 @@ object DashCommands {
     private const val CALLER_MAX = 20
     private const val CALLER_CUT = 19
     private const val IV_BYTES = 16
-    private const val LATIN_1_TOP = 255
 
     /**
-     * 05 22, the caller's name, as the dash reads it: longer than 20 characters it is
-     * cut to 19; each character below 255 is its Latin-1 byte, the others 0xFF; a NUL ends it; and it is ENCRYPTED,
+     * 05 22, the caller's name, as the dash reads it ([legible]): longer than 20 characters it is
+     * cut to 19; each character is its Latin-1 byte, the ones past Latin-1 a question mark; a NUL ends it; and it is ENCRYPTED,
      * AES/CBC (PKCS#7) under the session key [key], with [iv] first. Sent in the clear, the dash shows no name.
      */
     fun callNotify(callerName: String, key: ByteArray, iv: ByteArray = randomIv()): ByteArray {
-        val name = if (callerName.length > CALLER_MAX) callerName.substring(0, CALLER_CUT) else callerName
-        val plain = ByteArray(name.length + 1)
-        name.forEachIndexed { i, c -> plain[i] = if (c.code < LATIN_1_TOP) c.code.toByte() else 0xFF.toByte() }
+        val seen = legible(callerName)
+        val plain = latin1(seen, if (seen.length > CALLER_MAX) CALLER_CUT else CALLER_MAX) + 0x00.toByte()
         val cipher = javax.crypto.Cipher.getInstance("AES/CBC/PKCS5Padding")
         cipher.init(javax.crypto.Cipher.ENCRYPT_MODE, javax.crypto.spec.SecretKeySpec(key, "AES"), javax.crypto.spec.IvParameterSpec(iv))
         return K1GPacket.build(K1GPacket.tlv(0x05, 0x22, iv + cipher.doFinal(plain)))

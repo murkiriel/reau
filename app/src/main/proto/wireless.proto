@@ -1,0 +1,52 @@
+// wireless.proto: Android Auto protocol messages of the headunit lineage, as REau's generated class Wireless.java has them.
+//
+// Origin: headunit-revived (AGPL-3.0), https://github.com/andreknieriem/headunit-revived, from Michael A. Reid's "headunit"
+// (AGPL-3.0). REau took the generated classes from OpenCfMoto (AGPL-3.0), app/src/main/java/dev/zanderp/opencfmoto/aa/proto/Wireless.java,
+// commit 0abbe2a (protoc 3.25.1); OpenCfMoto has no .proto files, and headunit-revived's originals did not come with the classes.
+//
+// What this file is: the .proto source of app/src/main/java/com/reau/app/aa/proto/Wireless.java, REBUILT from the descriptor embedded in
+// that class (its file name, package, messages, fields, numbers, labels, types, defaults, options and order, as embedded). The
+// comments and the layout of the originals are not kept: the descriptor holds none. The package stays headunit-revived's
+// (com.andrerinas.headunitrevived.aap.protocol.proto) because the classes carry it. protoc 3.13 compiles this file, one file at
+// a time, to a descriptor equal to the embedded one (checked on 28/10/2026; only json_name, which protoc adds, differs).
+//
+// REau's build has no protoc step: the Java classes are kept in the source and this file is not compiled. It is here so that the
+// classes' preferred form for modification is in the repository (AGPL-3.0, section 1). Changing it changes nothing until the class
+// is generated again. Later upstream versions differ (open-headunit, commit 93c065dd, renamed the package and added fields and
+// messages); none of that is applied here. License: AGPL-3.0, like the rest of REau (LICENSE, NOTICE).
+
+syntax = "proto2";
+
+package com.andrerinas.headunitrevived.aap.protocol.proto;
+
+enum AccessPointType {
+  STATIC = 0;
+  DYNAMIC = 1;
+}
+
+enum SecurityMode {
+  UNKNOWN_SECURITY_MODE = 0;
+  OPEN = 1;
+  WEP_64 = 2;
+  WEP_128 = 3;
+  WPA_PERSONAL = 4;
+  WPA2_PERSONAL = 8;
+  WPA_WPA2_PERSONAL = 12;
+  WPA_ENTERPRISE = 20;
+  WPA2_ENTERPRISE = 24;
+  WPA_WPA2_ENTERPRISE = 28;
+}
+
+message WifiStartRequest {
+  required string ip_address = 1;
+  required int32 port = 2;
+  optional int32 status = 3;
+}
+
+message WifiInfoResponse {
+  required string ssid = 1;
+  required string key = 2;
+  required string bssid = 3;
+  required SecurityMode security_mode = 4;
+  required AccessPointType access_point_type = 5;
+}

@@ -1,6 +1,7 @@
 package com.reau.app.service
 
 import com.reau.app.data.RideDiagnostics
+import com.reau.app.util.MonotonicClock
 
 /**
  * Carries out what [ProjectionMachine] decides. Events may come from any thread (the screen, Android Auto's
@@ -15,7 +16,11 @@ class ProjectionController(
     private val ports: Ports,
     private val log: (String) -> Unit = {},
     private val onChange: (Projection) -> Unit = {},
-    private val clock: () -> Long = System::currentTimeMillis,
+    private val clock: () -> Long = MonotonicClock::nowMs,
+    /** The projection is stopping by itself after the dash stayed gone for too long: tell the rider, with the minutes it waited. */
+    private val onNoDashStop: (minutes: Int) -> Unit = {},
+    /** How long a gone dash is waited for, in milliseconds, read when a retry falls due (the rider's setting); 0 is as long as it takes. */
+    private val noDashStopMs: () -> Long = { ProjectionMachine.NO_DASH_STOP_MS },
 ) {
     /** What the effects do. The service implements them; a test records them. */
     interface Ports {
@@ -54,15 +59,23 @@ class ProjectionController(
             if (draining) return
             draining = true
         }
-        while (true) {
-            val next = synchronized(lock) {
-                queue.removeFirstOrNull().also { if (it == null) draining = false }
-            } ?: return
-            val step = ProjectionMachine.step(state, next, clock())
-            val changed = step.state != state
-            state = step.state
-            if (changed) guarded("reporting the state") { onChange(step.state) }
-            step.effects.forEach(::carryOut)
+        var emptied = false
+        try {
+            while (true) {
+                val next = synchronized(lock) {
+                    queue.removeFirstOrNull().also { if (it == null) { draining = false; emptied = true } }
+                } ?: return
+                val step = ProjectionMachine.step(state, next, clock(), limitFor(next))
+                val changed = step.state != state
+                state = step.state
+                if (changed) guarded("reporting the state") { onChange(step.state) }
+                step.effects.forEach(::carryOut)
+            }
+        } finally {
+            // Anything that gets out of the loop other than by finding the queue empty (an Error no port is asked to contain)
+            // must not leave `draining` set: no event, not even the rider's Desligar, would ever be taken again (audit of
+            // 20/10/2026). What is still queued waits for the next submit.
+            if (!emptied) synchronized(lock) { draining = false }
         }
     }
 
@@ -72,7 +85,7 @@ class ProjectionController(
         if (effect == ProjectionEffect.Prepare) {
             val refusal = try {
                 ports.prepare()
-            } catch (e: RuntimeException) {
+            } catch (e: Exception) {
                 "${e.javaClass.simpleName}: ${e.message}"
             }
             submit(if (refusal == null) ProjectionEvent.Prepared else ProjectionEvent.PrepareFailed(refusal))
@@ -90,6 +103,11 @@ class ProjectionController(
                 ProjectionEffect.StopAndroidAuto -> ports.stopAndroidAuto()
                 ProjectionEffect.StartDash -> ports.startDash()
                 ProjectionEffect.StopDash -> ports.stopDash()
+                is ProjectionEffect.NotifyNoDash -> {
+                    val minutes = (effect.afterMs / 60_000).toInt()
+                    log("projection: no dash for $minutes min, stopping by itself")
+                    onNoDashStop(minutes)
+                }
                 ProjectionEffect.StartVideo -> ports.startVideo()
                 ProjectionEffect.StopVideo -> ports.stopVideo()
                 is ProjectionEffect.RetryDashIn -> {
@@ -107,7 +125,7 @@ class ProjectionController(
                     retryNumber++
                     calledOff?.invoke()
                     calledOff = null
-                    log("projection: the bike's Wi-Fi is back: the dash is tried now, not when the wait ends")
+                    log("projection: the bike's Wi-Fi is back or the dash was seen: the dash is tried now, not when the wait ends")
                 }
                 ProjectionEffect.Prepare, ProjectionEffect.FinishStop -> Unit
             }
@@ -118,9 +136,15 @@ class ProjectionController(
     private inline fun guarded(what: String, block: () -> Unit) {
         try {
             block()
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             log("${RideDiagnostics.ERROR}projection: $what failed: ${e.javaClass.simpleName}: ${e.message}")
         }
+    }
+
+    /** The limit is looked up only for the event that uses it (a retry coming due), so the settings are not read at every event. */
+    private fun limitFor(event: ProjectionEvent): Long {
+        if (event != ProjectionEvent.DashRetryDue) return ProjectionMachine.NO_DASH_STOP_MS
+        return runCatching(noDashStopMs).getOrDefault(ProjectionMachine.NO_DASH_STOP_MS)
     }
 
     companion object {

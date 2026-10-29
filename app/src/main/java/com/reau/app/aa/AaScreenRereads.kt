@@ -43,7 +43,11 @@ class AaScreenRereads(private val afterInputMs: List<Long> = AFTER_INPUT_MS, pri
     fun nextAt(): Long? = listOfNotNull(planned.firstOrNull(), nextTick).minOrNull()
 
     companion object {
-        val AFTER_INPUT_MS = listOf(300L, 800L, 1_500L)
+        /**
+         * Denser than the first 300/800/1500: the menu took 1.36 s from the key to its fit (21/10/2026: the launcher's display came at 0.67 s
+         * and its focus a while later), most of it waiting for the next read. The reads are cheap (the worker's, one waiting at a time).
+         */
+        val AFTER_INPUT_MS = listOf(250L, 500L, 750L, 1_000L, 1_300L, 1_700L)
         const val EVERY_MS = 1_000L
     }
 }

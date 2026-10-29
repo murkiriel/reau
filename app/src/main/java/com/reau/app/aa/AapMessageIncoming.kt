@@ -14,8 +14,10 @@ internal class AapMessageIncoming(header: EncryptedHeader, ba: ByteArrayWithLimi
         var buf = ByteArray(SIZE)
 
         fun decode() {
-            this.chan = buf[0].toInt()
-            this.flags = buf[1].toInt()
+            // Unsigned, as on the wire: a byte with its top bit set read as negative took a channel or flags the tables
+            // do not know (audit of 20/10/2026).
+            this.chan = buf[0].toInt() and 0xFF
+            this.flags = buf[1].toInt() and 0xFF
             // Encoded length of bytes to be decrypted (minus 4/8 byte headers)
             this.encLen = Utils.bytesToInt(buf, 2, true)
         }
@@ -59,8 +61,17 @@ internal class AapMessageIncoming(header: EncryptedHeader, ba: ByteArrayWithLimi
          * video frame (flags 8 and 10) is raw continuation, with no type, so its tail can be a single byte; refusing it
          * left the run without its end and broke the frame (TRUNCATED_PREVIOUS, then a keyframe asked for).
          */
-        private fun minimumPayload(header: EncryptedHeader): Int =
-            if (header.chan == Channel.ID_VID && header.flags and FIRST_PIECE_FLAG == 0) 1 else 2
+        private fun minimumPayload(header: EncryptedHeader): Int = minimumPayload(header.chan, header.flags)
+
+        /**
+         * [minimumPayload] for [chan] and [flags]. The channels whose messages come in pieces and are put back together here, the video
+         * and the music and phone channels of the cards ([AapCards]), take a one-byte continuation; any other channel still needs
+         * its two type bytes. A music or phone card whose last piece had one byte was dropped with that piece, and the card never came.
+         */
+        internal fun minimumPayload(chan: Int, flags: Int): Int =
+            if (chan in PIECED_CHANNELS && flags and FIRST_PIECE_FLAG == 0) 1 else 2
+
+        private val PIECED_CHANNELS = setOf(Channel.ID_VID, Channel.ID_MPB, Channel.ID_PHONE)
 
         /** The message type is the first two bytes; a one-byte continuation has none. */
         private fun typeOf(data: ByteArray): Int = if (data.size >= 2) Utils.bytesToInt(data, 0, true) else 0

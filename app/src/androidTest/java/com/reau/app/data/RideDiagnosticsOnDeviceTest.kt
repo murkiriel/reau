@@ -49,7 +49,7 @@ class RideDiagnosticsOnDeviceTest {
     @Test
     fun theLogDirectoryIsTheAppsOwnInternalOne() {
         assertEquals(diagDir, RideDiagnostics.logDir())
-        assertTrue(diagDir.path, diagDir.path.endsWith("/com.reau.app/files/diag") && "/Android/data/" !in diagDir.path)
+        assertTrue(diagDir.path, diagDir.path.endsWith("/${context.packageName}/files/diag") && "/Android/data/" !in diagDir.path)
         assertTrue(diagDir.isDirectory)
     }
 

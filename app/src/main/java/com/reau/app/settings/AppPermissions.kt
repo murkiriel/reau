@@ -49,6 +49,7 @@ object AppPermissions {
         Explained(P + "CHANGE_WIFI_STATE", Kind.INSTALL, R.string.perm_change_wifi_title, R.string.perm_change_wifi_why),
         Explained(P + "WAKE_LOCK", Kind.INSTALL, R.string.perm_wake_lock_title, R.string.perm_wake_lock_why),
         Explained(P + "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS", Kind.INSTALL, R.string.perm_battery_request_title, R.string.perm_battery_request_why),
+        Explained(P + "FOREGROUND_SERVICE_LOCATION", Kind.INSTALL, R.string.perm_foreground_location_title, R.string.perm_foreground_location_why),
         Explained(P + "FOREGROUND_SERVICE_MICROPHONE", Kind.INSTALL, R.string.perm_foreground_mic_title, R.string.perm_foreground_mic_why),
         Explained(P + "MODIFY_AUDIO_SETTINGS", Kind.INSTALL, R.string.perm_audio_settings_title, R.string.perm_audio_settings_why),
     )

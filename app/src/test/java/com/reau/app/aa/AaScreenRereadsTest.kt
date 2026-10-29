@@ -48,13 +48,13 @@ class AaScreenRereadsTest {
         assertEquals(listOf(1_500L, 2_000L, 2_700L, 3_000L), dueBetween(1_210, 3_000))
     }
 
-    /** The defaults: reads 300, 800 and 1500 ms after an input, and one a second while projecting. */
+    /** The defaults: six reads in the first 1.7 s after an input, and one a second while projecting. */
     @Test
-    fun `the defaults are 300, 800 and 1500 ms after an input and a second while projecting`() {
+    fun `the defaults are six reads within 1700 ms after an input and a second while projecting`() {
         val defaults = AaScreenRereads()
         defaults.inputSent(0)
         defaults.projection(true, 0)
-        assertEquals(listOf(300L, 800L, 1_000L, 1_500L, 2_000L), (0L..2_000L step 10).filter { defaults.due(it) })
+        assertEquals(listOf(250L, 500L, 750L, 1_000L, 1_300L, 1_700L, 2_000L), (0L..2_000L step 10).filter { defaults.due(it) })
     }
 
     /** Written after the mutation run (survivor "próxima ignora o tique"): the service plans its next read by this. */
@@ -103,6 +103,6 @@ class AaScreenRereadsTest {
             if (rereads.due(t)) watch.update(if (t < focusMoved) menuOnly else bothFocused, t)
             t += 10
         }
-        assertEquals(AaScreen.APPS, watch.screen.value)
+        assertEquals("navigation is what the pick opened", AaScreen.NAV, watch.screen.value)
     }
 }
