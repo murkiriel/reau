@@ -8,8 +8,8 @@ import android.content.pm.PackageManager
 import com.reau.app.settings.LocationUse
 
 /**
- * The phone's location permission as REau uses it, both with the rider's switch "Usar a localização" on: to read the
- * Wi-Fi list (the dash's full name, [LocationUse]) and the place for the sun ([SunPlace], for the
+ * The phone's location permission as REau uses it: to read the Wi-Fi list (the dash's full name, [LocationUse], whatever the switch)
+ * and, with the rider's switch "Usar a localização" on (the default) and the permission given, the place for the sun ([SunPlace], for the
  * theme by the sunrise and the sunset), learned while REau is on the screen: Android hands no position to an app
  * in the background, which is where the projection runs.
  */
@@ -22,7 +22,8 @@ object PhonePlace {
     fun learn(context: Context, useLocation: Boolean) {
         if (!useLocation) return SunPlace.forget(context)
         fun granted(permission: String) = context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
-        if (!granted(Manifest.permission.ACCESS_COARSE_LOCATION) && !granted(Manifest.permission.ACCESS_FINE_LOCATION)) return
+        val fine = granted(Manifest.permission.ACCESS_FINE_LOCATION)
+        if (!LocationUse.mayReadPlace(useLocation, fine, granted(Manifest.permission.ACCESS_COARSE_LOCATION))) return
         val manager = context.getSystemService(LocationManager::class.java) ?: return
         manager.allProviders.mapNotNull { runCatching { manager.getLastKnownLocation(it) }.getOrNull() }.maxByOrNull { it.time }
             ?.let { SunPlace.save(context, SunPlace.rounded(it.latitude, it.longitude)) }

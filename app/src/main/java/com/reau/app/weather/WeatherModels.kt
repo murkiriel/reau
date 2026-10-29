@@ -19,6 +19,8 @@ data class CurrentWeather(
     val pressureHpa: Double?,
     val cloudCoverPercent: Int?,
     val isDay: Boolean?,
+    /** The moment the reading is valid for, Open-Meteo's own local ISO string (`"2026-09-27T15:15"`, the place's zone). */
+    val timeIso: String? = null,
 )
 
 /** One hour of the forecast; [timeIso] is Open-Meteo's own local ISO 8601 string (`"2026-09-27T15:00"`, in the place's zone). */
@@ -45,11 +47,27 @@ data class DailyWeather(
     val weatherCode: Int?,
 )
 
+/**
+ * One quarter of an hour of the near forecast. [timeIso] is the END of the quarter: [precipitationMm] fell in the
+ * 15 minutes before it and [gustsKmh] is the peak of those 15 minutes ("preceding 15 min"), the way Open-Meteo gives them.
+ * Real model data only in North America and Central Europe; elsewhere Open-Meteo spreads the hourly forecast over the quarters.
+ */
+data class MinutelyWeather(
+    val timeIso: String,
+    val precipitationMm: Double?,
+    val weatherCode: Int?,
+    val gustsKmh: Double?,
+)
+
 /** Everything one fetch returns for one point. */
 data class PointForecast(
     val current: CurrentWeather?,
     val hourly: List<HourlyWeather>,
     val daily: List<DailyWeather>,
+    /** The next quarters of an hour, from the one now; empty when the answer had none. */
+    val minutely: List<MinutelyWeather> = emptyList(),
+    /** The place's offset from UTC in seconds, fixed through the answer (`timezone=auto`); null when the answer did not say. */
+    val utcOffsetSeconds: Int? = null,
 )
 
 /**
@@ -94,6 +112,8 @@ object WeatherParser {
             current = root.optJSONObject("current")?.let(::parseCurrent),
             hourly = root.optJSONObject("hourly")?.let(::parseHourly) ?: emptyList(),
             daily = root.optJSONObject("daily")?.let(::parseDaily) ?: emptyList(),
+            minutely = root.optJSONObject("minutely_15")?.let(::parseMinutely) ?: emptyList(),
+            utcOffsetSeconds = root.intOrNull("utc_offset_seconds"),
         )
     }
 
@@ -115,7 +135,27 @@ object WeatherParser {
             pressureHpa = o.doubleOrNull("surface_pressure"),
             cloudCoverPercent = o.intOrNull("cloud_cover"),
             isDay = o.intOrNull("is_day")?.let { it != 0 },
+            timeIso = o.optString("time").takeIf { it.isNotEmpty() },
         )
+    }
+
+    /** Columnar like the others; a quarter with no time is left out, any other missing value stays null at its index. */
+    private fun parseMinutely(o: JSONObject): List<MinutelyWeather> {
+        val time = o.optJSONArray("time") ?: return emptyList()
+        val precipitation = o.optJSONArray("precipitation")
+        val code = o.optJSONArray("weather_code")
+        val gusts = o.optJSONArray("wind_gusts_10m")
+        val out = ArrayList<MinutelyWeather>(time.length())
+        for (i in 0 until time.length()) {
+            val at = time.optString(i).takeIf { it.isNotEmpty() } ?: continue
+            out += MinutelyWeather(
+                timeIso = at,
+                precipitationMm = precipitation?.optDouble(i)?.takeUnless { it.isNaN() },
+                weatherCode = code?.optInt(i, -1)?.takeIf { it >= 0 },
+                gustsKmh = gusts?.optDouble(i)?.takeUnless { it.isNaN() },
+            )
+        }
+        return out
     }
 
     /**

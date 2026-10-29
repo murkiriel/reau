@@ -1,6 +1,7 @@
 package com.reau.app.service
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -31,7 +32,7 @@ class SessionSettleTest {
 
     private val clock = Clock()
     private val opened = mutableListOf<Int>()
-    private val settle = SessionSettle(later = clock::later)
+    private val settle = SessionSettle(SessionSettle.WAIT_MS, later = clock::later)
 
     private fun change(at: Long, value: Int) {
         clock.advanceTo(at)
@@ -70,7 +71,28 @@ class SessionSettleTest {
     }
 
     @Test
+    fun `a settle with no wait of its own takes the wait in use, read at each offer`() {
+        val saved = SessionSettle.inUseMs
+        try {
+            SessionSettle.inUseMs = 2_000L
+            val own = SessionSettle(later = clock::later)
+            own.offer { opened += 1 }
+            clock.advanceTo(1_999)
+            assertEquals(emptyList<Int>(), opened)
+            clock.advanceTo(2_000)
+            assertEquals(listOf(1), opened)
+        } finally {
+            SessionSettle.inUseMs = saved
+        }
+    }
+
+    @Test
     fun `the wait is one second`() {
         assertEquals(1_000L, SessionSettle.WAIT_MS)
+        assertEquals("none, in every build", 0L, SessionSettle.IN_USE_MS)
+        // A release must not differ from the debug build the rider tests with: the value reads no build type.
+        val line = java.io.File("src/main/java/com/reau/app/service/SessionSettle.kt").takeIf { it.isFile }?.readLines()
+            ?: java.io.File("app/src/main/java/com/reau/app/service/SessionSettle.kt").readLines()
+        assertTrue(line.single { "IN_USE_MS:" in it }.let { "BuildConfig" !in it })
     }
 }

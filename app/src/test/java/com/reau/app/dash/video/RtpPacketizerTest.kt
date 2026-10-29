@@ -127,4 +127,27 @@ class RtpPacketizerTest {
         val ssrcs = packets.map { ssrcOf(it) }.distinct()
         assertEquals(1, ssrcs.size)
     }
+
+    @Test
+    fun `a NAL of exactly the max payload is still one packet, one byte more is fragmented`() {
+        val whole = mutableListOf<ByteArray>()
+        RtpPacketizer { whole.add(it) }.packetize(nalOf(1380), endOfAU = true, wallClockMs = 0)
+        assertEquals(1, whole.size)
+        assertEquals(12 + 1380, whole[0].size)
+
+        val split = mutableListOf<ByteArray>()
+        RtpPacketizer { split.add(it) }.packetize(nalOf(1381), endOfAU = true, wallClockMs = 0)
+        assertTrue("1381 bytes need FU-A: ${split.size}", split.size >= 2)
+    }
+
+    @Test
+    fun `a fragmented NAL sets the marker only on its last fragment, and only at the end of the access unit`() {
+        val closing = mutableListOf<ByteArray>()
+        RtpPacketizer { closing.add(it) }.packetize(nalOf(3000), endOfAU = true, wallClockMs = 0)
+        assertEquals(listOf(false, false, true), closing.map { it[1].toInt() and 0x80 != 0 })
+
+        val open = mutableListOf<ByteArray>()
+        RtpPacketizer { open.add(it) }.packetize(nalOf(3000), endOfAU = false, wallClockMs = 0)
+        assertTrue("another NAL of the same picture follows: no marker yet", open.none { it[1].toInt() and 0x80 != 0 })
+    }
 }

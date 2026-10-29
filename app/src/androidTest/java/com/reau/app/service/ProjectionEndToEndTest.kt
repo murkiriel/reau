@@ -13,7 +13,6 @@ import com.reau.app.dash.DashSocket
 import com.reau.app.dash.FakeDashPeer
 import com.reau.app.aa.Channel
 import com.reau.app.aa.proto.Control
-import com.reau.app.settings.Fit
 import com.reau.app.settings.SettingsStore
 import com.reau.app.settings.REauSettings
 import com.reau.app.video.H264TestDecoder
@@ -102,6 +101,7 @@ class ProjectionEndToEndTest {
 
     @After
     fun tearDown() {
+        com.reau.app.aa.AaScreens.watch.reset()
         ProjectionService.stop(context)
         await("stopped", 10_000) { ProjectionService.projection.value.phase == Phase.STOPPED }
         // Gone, not only stopped: a service still alive would be handed the next test's start and keep the sides it
@@ -366,6 +366,18 @@ class ProjectionEndToEndTest {
         }
     }
 
+    /**
+     * Google Maps in front, as the accessibility service would read it: the joystick's zoom is only for the navigation
+     * apps, and the emulator has no service to say so. Held past the screen's wait, so the reading is taken.
+     */
+    private fun onTheMap() {
+        val maps = listOf(com.reau.app.aa.AaScreenRule.Display(9, "GhostActivityDisplay:ComponentInfo{x/GmmCarProjectionService}", true))
+        com.reau.app.aa.AaScreens.watch.update(maps, SystemClock.elapsedRealtime())
+        Thread.sleep(com.reau.app.aa.AaScreens.HOLD_MS + 100)
+        com.reau.app.aa.AaScreens.watch.update(maps, SystemClock.elapsedRealtime())
+        assertEquals("the screen", com.reau.app.aa.AaScreen.NAV, com.reau.app.aa.AaScreens.watch.screen.value)
+    }
+
     /** Reads [peer]'s messages until one of [type] comes, for up to [timeoutMs]; null if none did. */
     private fun awaitMessage(peer: FakeAndroidAutoPeer, type: Int, timeoutMs: Long = 10_000): FakeAndroidAutoPeer.Received? {
         val deadline = SystemClock.elapsedRealtime() + timeoutMs
@@ -407,6 +419,37 @@ class ProjectionEndToEndTest {
     }
 
     /**
+     * The map's two zoom actions on the sides: one step nearer, one back, each said in the ride log (the picture itself is
+     * the compositor's, tested there).
+     */
+    @Test
+    fun theJoystickZoomsStepByStepAndComesBack() {
+        val page = com.reau.app.aa.JoystickBindings.DEFAULT
+            .with(joystickSlot(com.reau.app.aa.JoystickBindings.Control.RIGHT), com.reau.app.aa.JoystickBindings.Action.ZOOM_IN)
+            .with(joystickSlot(com.reau.app.aa.JoystickBindings.Control.LEFT), com.reau.app.aa.JoystickBindings.Action.ZOOM_OUT)
+            .encode()
+        val marker = "zoom-${System.nanoTime()}"
+        com.reau.app.data.RideDiagnostics.logAndWait("test", marker)
+        withSettings({ it.copy(joystick = page) }) {
+            Thread.sleep(1_000) // the refit reaches the running sides
+            onTheMap()
+            dash.pressButton(0x13) // the map mode's right
+            Thread.sleep(300)
+            dash.pressButton(0x14) // its left
+            Thread.sleep(500)
+            com.reau.app.data.RideDiagnostics.logAndWait("test", "$marker-end")
+        }
+        val diag = java.io.File(context.filesDir, "diag")
+        val log = diag.listFiles { f -> f.name.startsWith("ride-") }!!.maxByOrNull { it.lastModified() }!!.readText().substringAfter(marker)
+        val zooms = Regex("joystick zoom (\\d+)%").findAll(log).map { it.groupValues[1].toInt() }.toList()
+        assertEquals("one step nearer, one back:\n$log", listOf(125, 100), zooms)
+    }
+
+    private fun joystickSlot(control: com.reau.app.aa.JoystickBindings.Control) = com.reau.app.aa.JoystickBindings.Slot(
+        com.reau.app.aa.JoystickBindings.Mode.MAP, control, com.reau.app.aa.JoystickBindings.Gesture.ONCE,
+    )
+
+    /**
      * Four density changes within a second (once seen to open three sessions)
      * reconfigure Android Auto's receiver once, a second after the last change. On the phone every reconfiguration
      * ends the session and Android Auto dials a new one at once; the fake here does not dial again, so the test counts
@@ -417,6 +460,9 @@ class ProjectionEndToEndTest {
         val store = SettingsStore.open(context)
         val saved = store.load()
         val marker = "burst-${System.nanoTime()}"
+        // The debug build opens each session at once (the rider's test of the fastest follow); this one is about the release wait.
+        val savedWait = SessionSettle.inUseMs
+        SessionSettle.inUseMs = SessionSettle.WAIT_MS
         com.reau.app.data.RideDiagnostics.logAndWait("test", marker)
         try {
             repeat(4) { i ->
@@ -433,6 +479,7 @@ class ProjectionEndToEndTest {
             assertEquals("one reconfiguration for the four changes:\n$log", 1, reconfigured)
             assertTrue("with the last density", log.contains("density ${saved.density + 40}"))
         } finally {
+            SessionSettle.inUseMs = savedWait
             store.save(saved)
         }
     }
@@ -527,6 +574,14 @@ class ProjectionEndToEndTest {
         assertTrue("no mark: $line", line.endsWith(" marks=0"))
     }
 
+    /** What the log folder holds and the end of the newest ride file, for a failure's message. */
+    private fun diagTail(diag: java.io.File): String {
+        val files = diag.listFiles().orEmpty().sortedBy { it.name }
+        val newest = files.filter { it.name.startsWith("ride-") }.maxByOrNull { it.lastModified() }
+        return files.joinToString { "${it.name}:${it.length()}" } + "\n--- " + newest?.name + "\n" +
+            newest?.readLines().orEmpty().takeLast(25).joinToString("\n")
+    }
+
     /**
      * A dash that goes away is one drop; every try that is refused on the way back is a failed try, not another drop (a
      * ride once said 16 drops for two).
@@ -542,13 +597,16 @@ class ProjectionEndToEndTest {
         assertEquals("both refusals were used up", 0, failuresLeft.get())
         // One log file holds every projection of the process: this one's summary is the one that comes after the others'.
         val diag = java.io.File(context.filesDir, "diag")
-        fun summaries() = diag.listFiles { f -> f.name.startsWith("ride-") }?.maxByOrNull { it.name }
+        // The newest by its time, not its name: two files made in one second are "ride-S.log" (empty) and "ride-S-2.log", and by name the first is last.
+        fun summaries() = diag.listFiles { f -> f.name.startsWith("ride-") }?.maxByOrNull { it.lastModified() }
             ?.readLines()?.filter { "resumo " in it }.orEmpty()
         val before = summaries().size
         ProjectionService.stop(context)
         await("stopped", 10_000) { ProjectionService.projection.value.phase == Phase.STOPPED }
         // Written when the service lets go, a moment after the state says stopped.
-        await("the summary line", 10_000) { summaries().size > before }
+        val deadline = SystemClock.elapsedRealtime() + 10_000
+        while (summaries().size <= before && SystemClock.elapsedRealtime() < deadline) Thread.sleep(50)
+        assertTrue("the summary line ($before before): ${diagTail(diag)}", summaries().size > before)
         val line = summaries().last()
         assertTrue("one drop and two failed tries: $line", " drops dash=1 aa=0 retries dash=2 " in line)
     }
@@ -565,8 +623,11 @@ class ProjectionEndToEndTest {
         const val NAL_SPS = 7
         const val NAL_PPS = 8
 
-        /** The fit the projection runs with here: the whole picture kept inside the round glass. */
-        val FIT = REauSettings(fit = Fit.WHOLE_VISIBLE).mapping
+        /**
+         * The fit the projection runs with here: the whole picture kept inside the round glass. The store's own (set up
+         * above), since the fit follows the screen read from Android Auto's picture and takes it from the store.
+         */
+        val FIT = com.reau.app.settings.PlanSettings.PLAN.mapping
 
         /** One second of moving Android Auto: 15 frames of the test pattern, opening with a keyframe. */
         val units: List<TestH264Source.Unit> by lazy { TestH264Source.encode(frames = 15, keyframeEvery = 15) }

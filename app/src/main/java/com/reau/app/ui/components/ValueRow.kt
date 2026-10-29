@@ -21,10 +21,19 @@ import com.reau.app.ui.theme.REauMono
 /**
  * A line of the screen "Dados da moto" that only tells: [title] at the left, what the dash said ([value]) at the right
  * (in mono: it is mostly numbers and codes), and under the title an optional [sub] (what it is, or when it was read).
- * The whole row is one thing for a screen reader, tagged [tag]; an [info] puts the (i) beside the title (`<tag>_info`).
+ * The whole row is one thing for a screen reader, tagged [tag]; an [info] puts the (i) beside the title (`<tag>_info`); a [valuePrefix] goes just before the value (the fuel pump beside the range).
  */
 @Composable
-fun ValueRow(title: String, value: String, tag: String, sub: String? = null, mono: Boolean = true, @DrawableRes icon: Int? = null, info: Info? = null) {
+fun ValueRow(
+    title: String,
+    value: String,
+    tag: String,
+    sub: String? = null,
+    mono: Boolean = true,
+    @DrawableRes icon: Int? = null,
+    info: Info? = null,
+    valuePrefix: (@Composable () -> Unit)? = null,
+) {
     val colors = MaterialTheme.colorScheme
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).semantics(mergeDescendants = true) {}.testTag(tag),
@@ -39,9 +48,17 @@ fun ValueRow(title: String, value: String, tag: String, sub: String? = null, mon
             }
             sub?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
         }
-        Text(
-            value, color = colors.onSurface, textAlign = TextAlign.End, modifier = Modifier.weight(1f),
-            style = if (mono) REauMono.copy(fontSize = 13.sp) else MaterialTheme.typography.bodyMedium,
-        )
+        val style = if (mono) REauMono.copy(fontSize = 13.sp) else MaterialTheme.typography.bodyMedium
+        if (valuePrefix == null) {
+            Text(value, color = colors.onSurface, textAlign = TextAlign.End, modifier = Modifier.weight(1f), style = style)
+        } else {
+            Row(
+                Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            ) {
+                valuePrefix()
+                Text(value, color = colors.onSurface, textAlign = TextAlign.End, modifier = Modifier.weight(1f, fill = false), style = style)
+            }
+        }
     }
 }

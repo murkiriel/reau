@@ -17,7 +17,7 @@ internal fun learnSunPlace(context: android.content.Context, thenWeather: Boolea
         then()
         // Each time REau is opened it fetches the weather by itself (only with "Clima no
         // painel" on; the keeper itself does nothing otherwise), once the place is learned.
-        if (thenWeather && settings.dashWeather) {
+        if (thenWeather && settings.weatherWanted) {
             kotlinx.coroutines.runBlocking {
                 runCatching {
                     com.reau.app.weather.WeatherKeeper.refreshIfStale(context, maxAgeMs = com.reau.app.weather.WeatherKeeper.OPEN_GAP_MS)

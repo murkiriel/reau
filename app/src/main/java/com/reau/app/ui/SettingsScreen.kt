@@ -91,6 +91,7 @@ fun SettingsScreen(
                     VideoProfilesGroup(settings)
                     CardGroup(settings, change, actions.onPickCardImage)
                     DebugGroup(settings, change, actions, say)
+                    UpdateGroup()
                 }
                 SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding()) {
                     Snackbar(it, Modifier.testTag("snackbar"), shape = MaterialTheme.shapes.small)
@@ -100,12 +101,13 @@ fun SettingsScreen(
     }
 }
 
-/** The language of the app: the phone's own, Portuguese or English; the screens are redrawn at once. */
+/** The language of the app: the phone's own, Portuguese, English or Spanish; the screens are redrawn at once. */
 @Composable
 private fun LanguageGroup(onLanguage: (AppLanguage) -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val names = mapOf(
         AppLanguage.AUTO to R.string.language_auto, AppLanguage.PT to R.string.language_pt, AppLanguage.EN to R.string.language_en,
+        AppLanguage.ES to R.string.language_es,
     )
     // Held here, not read from the system at each draw: choosing the language the phone already speaks (Portuguese on a
     // Portuguese phone, or back to Automatic from it) changes no configuration, so the system recreates nothing and
@@ -161,30 +163,33 @@ private fun MapGroup(s: REauSettings, change: (REauSettings) -> Unit) {
         MapTheme.DAY -> R.string.map_theme_sub_day
         MapTheme.NIGHT -> R.string.map_theme_sub_night
     }
-    val themeNames = mapOf(MapTheme.AUTO to R.string.theme_auto_short, MapTheme.DAY to R.string.theme_day, MapTheme.NIGHT to R.string.theme_night)
-    SettingsGroup(R.drawable.ic_ms_map, stringResource(R.string.group_map), listOf(
-        {
+    val themeNames = mapOf(
+        MapTheme.AUTO to R.string.theme_auto_short, MapTheme.DAY to R.string.theme_day, MapTheme.NIGHT to R.string.theme_night,
+    )
+    val rows = buildList<@Composable () -> Unit> {
+        add {
             SegmentedRow(
                 stringResource(R.string.map_theme_title), MapTheme.entries.map { stringResource(themeNames.getValue(it)) to "theme_${it.name}" },
                 MapTheme.entries.indexOf(s.mapTheme), { change(s.copy(mapTheme = MapTheme.entries[it])) },
                 sub = stringResource(themeSub), now = true, tag = "map_theme",
                 info = Info(stringResource(R.string.map_theme_title), stringResource(R.string.theme_auto)),
             )
-        },
-        {
-            // REau uses the location only with this on (off by default).
+        }
+        add {
+            // REau uses the location only with this on (on by default) and the permission given; it reads nothing before that.
             SwitchRow(
                 stringResource(R.string.use_location_title), s.useLocation, { change(s.copy(useLocation = it)) }, "use_location", now = true,
                 sub = stringResource(R.string.use_location_sub),
                 info = Info(stringResource(R.string.use_location_title), stringResource(R.string.use_location)),
             )
-        },
-    ), tag = "group_map")
+        }
+    }
+    SettingsGroup(R.drawable.ic_ms_map, stringResource(R.string.group_map), rows, tag = "group_map")
 }
 
 /**
  * What the dash shows besides the picture: the phone's state, who calls, the song and the album's picture. The
- * manoeuvre and distance are not here any more: they are always on (REauSettings.sanitized).
+ * manoeuvre, the distance and the real route (time left, the turn after the next) are not here: they are always on.
  */
 @Composable
 private fun OnDashGroup(s: REauSettings, change: (REauSettings) -> Unit) {
@@ -198,7 +203,7 @@ private fun OnDashGroup(s: REauSettings, change: (REauSettings) -> Unit) {
                 change(s.copy(dashPhoneStatus = it))
             }
         },
-        // Android Auto is told at the next start. No (i) on the next two: their line says all there is to say.
+        // Android Auto is told at the next start. No (i) on "Quem está ligando": its line says all there is to say.
         {
             SwitchRow(
                 stringResource(R.string.caller_title), s.dashCaller, { change(s.copy(dashCaller = it)) }, "dash_caller",
@@ -209,6 +214,7 @@ private fun OnDashGroup(s: REauSettings, change: (REauSettings) -> Unit) {
             SwitchRow(
                 stringResource(R.string.music_title), s.dashMusic, { change(s.copy(dashMusic = it)) }, "dash_music",
                 sub = stringResource(R.string.music_sub),
+                info = Info(stringResource(R.string.music_title), stringResource(R.string.dash_music)),
             )
         },
         {
@@ -216,15 +222,13 @@ private fun OnDashGroup(s: REauSettings, change: (REauSettings) -> Unit) {
                 change(s.copy(dashAlbumArt = it))
             }
         },
-        // The real time left, the maneuver after the next, the lost-signal icon.
+        // The dash's own ring: hidden, the dash stops sending the map mode's buttons, but it is cleaner; off by default.
         {
-            SettingSwitch(
-                R.string.route_extras_title, R.string.route_extras_sub, R.string.dash_route_extras, s.dashRouteExtras, "dash_route_extras",
-                now = true,
-            ) {
-                change(s.copy(dashRouteExtras = it))
+            SettingSwitch(R.string.ring_title, R.string.ring_sub, R.string.dash_ring, s.maneuverRing, "dash_maneuver_ring", now = true) {
+                change(s.copy(maneuverRing = it))
             }
         },
+        { NoDashStop(s, change) },
     ), tag = "group_on_dash")
 }
 
@@ -244,7 +248,7 @@ private fun JoystickGroup(s: REauSettings, change: (REauSettings) -> Unit, onOpe
 }
 
 /**
- * Android Auto: the server switched on and off by REau's accessibility service (off by default; on, it says whether
+ * Android Auto: the server switched on and off by REau's accessibility service (on by default in the full edition; on, it says whether
  * the service is on and leads to Android's page for it). The margins are on the "Tela do Android Auto"; the stream's
  * values are in [VideoProfilesGroup].
  */

@@ -4,7 +4,7 @@ import android.content.Context
 import java.io.File
 
 /**
- * Where the logs (`diag`) and the debug recordings (`video`, `sessions`) live. In the app's internal storage: other
+ * Where the logs (`diag`) and the optional recordings (`video`, `sessions`) live. In the app's internal storage: other
  * apps cannot read it, and neither can a computer the phone is plugged into (the external `Android/data/com.reau.app`
  * folder it replaces could be copied over USB). They leave the phone only by "Compartilhar registros"; a debug APK can
  * still be read by `adb shell run-as com.reau.app`. What an older version left in the external folder is moved here

@@ -97,4 +97,15 @@ class DashMaskTest {
         assertNull(DashMask.of(FrameFit.wholeVisible(whole800), 800, 480, 0, 0))
         assertNotNull(DashMask.of(FrameFit.wholeVisible(whole800), 800, 480, 10, 10))
     }
+
+    @Test
+    fun `the black bands fall on the screen where the dash's frame edges are`() {
+        // whole 800×480 on a 800×480 screen: 2.16216 Android Auto pixels per dash pixel, dash x 0 at -168.65
+        val plain = checkNotNull(DashMask.of(FrameFit.wholeVisible(whole800), 800, 480, 800, 480))
+        assertEquals(emptyList<DashMask.Box>(), plain.covers)
+        val m = checkNotNull(DashMask.of(FrameFit.wholeVisible(whole800).copy(cover = FrameFit.Cover(right = 100)), 800, 480, 800, 480))
+        assertEquals(1, m.covers.size)
+        near(800f, m.covers.single().right, "the band stops at the picture's edge")
+        near(752.43f, m.covers.single().left, "the band starts 100 dash pixels before the frame's right edge: (426 - 78) × 2.16216")
+    }
 }

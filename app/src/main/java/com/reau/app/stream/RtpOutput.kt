@@ -13,7 +13,7 @@ import com.reau.app.dash.video.RtpPacketizer
  * encoders' frames. No Android in here: it runs in a plain JVM test with hand-made buffers.
  *
  * [tap], if given, is handed every unit after it was sent, with whether it is a keyframe and its frame's time: that
- * is where the debug recording ([H264Recorder]) listens.
+ * is where the recording ([H264Recorder]) listens.
  *
  * Every method may be called from any thread; the encoders' output threads call [onEncoded].
  */

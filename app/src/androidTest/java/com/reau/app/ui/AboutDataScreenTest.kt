@@ -41,8 +41,9 @@ class AboutDataScreenTest {
         section("leaves").assertTextContains("painel", substring = true).assertTextContains("internet", substring = true)
         section("stays").assertTextContains("\"Compartilhar\"", substring = true)
         section("kept").assertTextContains("senha do Wi-Fi do painel", substring = true)
-        section("control").assertTextContains("os registros e as gravações", substring = true)
-            .assertTextContains("\"Permissões\" da tela inicial", substring = true)
+        // The text of 28/10/2026 (shortened): the log, the logs and the recordings in Depuração, the cards in No painel.
+        section("control").assertTextContains("registros e gravações", substring = true)
+            .assertTextContains("Ajustes → No painel", substring = true)
         section("reach").assertTextContains("Gemini", substring = true)
         compose.onNodeWithTag("about_limits", useUnmergedTree = true).assertDoesNotExist()
     }
@@ -66,7 +67,7 @@ class AboutDataScreenTest {
     @Test
     fun theSummarySaysTheThreeThingsFirst() {
         compose.onNodeWithTag("about_summary").assertTextContains("Só usa a internet para o clima", substring = true)
-            .assertTextContains("Só manda para o painel da sua moto.", substring = true)
+            .assertTextContains("Só manda para o painel da sua moto", substring = true)
             .assertTextContains("sem a sua posição", substring = true)
     }
 

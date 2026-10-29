@@ -46,7 +46,8 @@ object RideDiagnostics {
     private const val PREFS_NAME = "ride_diagnostics"
     private const val KEY_ENABLED = "enabled"
     private const val MAX_FILE_BYTES = 50L * 1024 * 1024
-    private val clock = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
+    // One formatter a thread: a SimpleDateFormat is not thread-safe, and a new one for every line is a lot to throw away.
+    private val clock: ThreadLocal<SimpleDateFormat> = ThreadLocal.withInitial { SimpleDateFormat("HH:mm:ss.SSS", Locale.US) }
     private val lock = Any()
 
     @Volatile private var dir: File? = null
@@ -62,9 +63,10 @@ object RideDiagnostics {
     @Volatile internal var maxFileBytes = MAX_FILE_BYTES
 
     /** The diag folder's ceiling, kept by [DiagSpace] whenever a file is opened. */
-    @Volatile internal var spaceCapBytes = DiagSpace.CAP_BYTES
+    @Volatile internal var spaceCapBytes = DiagSpace.capBytes()
     private var spaceNote: String? = null
-    private val defaultToday: () -> String = { SimpleDateFormat("yyyyMMdd", Locale.US).format(Date()) }
+    private val dayFormat: ThreadLocal<SimpleDateFormat> = ThreadLocal.withInitial { SimpleDateFormat("yyyyMMdd", Locale.US) }
+    private val defaultToday: () -> String = { dayFormat.get()!!.format(Date()) }
     private var today: () -> String = defaultToday
     private var fileDay = ""
     private var fileBytes = 0L
@@ -181,7 +183,7 @@ object RideDiagnostics {
     }
 
     /** A new file in [d], named by the second (with a suffix when that name is taken), and the old ones rotated. */
-    private fun openFile(d: File) {
+    private fun openFile(d: File, tidyNow: Boolean = true) {
         val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
         var f = File(d, "ride-$stamp.log")
         var n = 2
@@ -192,9 +194,27 @@ object RideDiagnostics {
         fileDay = today()
         fileBytes = 0L
         rotate(d)
+        if (!tidyNow) return tidyLater(d)
         // The folder under its ceiling, said right after the new file's header (noteSpace).
         spaceNote = DiagSpace.trim(d, spaceCapBytes, setOfNotNull(f.name, OwnLogcat.currentFile()?.name))
         ageNote = trimByAge(d)
+    }
+
+    // The folder's tidying (listing, summing, deleting) is the slowest thing a roll does, and a roll happens inside log(),
+    // which the MediaCodec callbacks and the stream loop call: it runs on a thread of its own, and the notes come when it is done.
+    private val tidyExecutor = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "diag-tidy").apply { isDaemon = true } }
+
+    private fun tidyLater(d: File) {
+        tidyExecutor.execute {
+            val keep = synchronized(lock) { setOfNotNull(file?.name, OwnLogcat.currentFile()?.name) }
+            val space = DiagSpace.trim(d, spaceCapBytes, keep)
+            val age = trimByAge(d)
+            synchronized(lock) {
+                spaceNote = space
+                ageNote = age
+                noteSpace()
+            }
+        }
     }
 
     private fun noteSpace() {
@@ -213,9 +233,8 @@ object RideDiagnostics {
         if (!processOpen || file == null) return
         if (fileBytes < maxFileBytes && today() == fileDay) return
         val old = file?.name
-        openFile(d)
+        openFile(d, tidyNow = false)
         raw("==== continued from $old ====")
-        noteSpace()
     }
 
     /** True once a session file is open (between [start] and [stop]) — lets a caller avoid
@@ -238,7 +257,7 @@ object RideDiagnostics {
             }
             rollIfDue()
             // The offset is the projection's, so none outside one (not from the process start).
-            val rel = if (sessionActive && sessionStartMs > 0) "+%6dms".format(System.currentTimeMillis() - sessionStartMs) else "         "
+            val rel = if (sessionActive && sessionStartMs > 0) "+%6dms".format(Locale.US, System.currentTimeMillis() - sessionStartMs) else "         "
             raw("$rel  [$tag] $msg")
         }
     }
@@ -290,7 +309,7 @@ object RideDiagnostics {
             dropped++
             return
         }
-        val now = clock.format(Date())
+        val now = clock.get()!!.format(Date())
         val note = if (dropped > 0) "$now  log: $dropped lines dropped, the writer fell behind\n" else ""
         dropped = 0
         val stamped = "$note$now  ${oneLine(line)}\n"
@@ -430,11 +449,23 @@ object RideDiagnostics {
         return { gate.countDown() }
     }
 
+    /** Test-only: holds the folder tidying until the returned function is called. */
+    internal fun testOnlyHoldTidy(): () -> Unit {
+        val gate = java.util.concurrent.CountDownLatch(1)
+        tidyExecutor.execute { gate.await() }
+        return { gate.countDown() }
+    }
+
+    /** Test-only: returns once the tidying queued so far is done. */
+    internal fun testOnlyAwaitTidy() {
+        tidyExecutor.submit {}.get(10, java.util.concurrent.TimeUnit.SECONDS)
+    }
+
     /** Test-only: back to nothing open. */
     internal fun testOnlyReset() {
         synchronized(lock) {
             file = null; processOpen = false; sessionActive = false; pending.clear(); dropped = 0; enabledNow = true
-            maxFileBytes = MAX_FILE_BYTES; today = defaultToday; dir = null; spaceCapBytes = DiagSpace.CAP_BYTES
+            maxFileBytes = MAX_FILE_BYTES; today = defaultToday; dir = null; spaceCapBytes = DiagSpace.capBytes()
             keepDays = 0; ageNote = null
         }
         runCatching { ioExecutor.submit { closeWriter() }.get(10, java.util.concurrent.TimeUnit.SECONDS) }

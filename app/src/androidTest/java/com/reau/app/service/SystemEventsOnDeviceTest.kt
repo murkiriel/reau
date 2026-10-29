@@ -109,7 +109,8 @@ class SystemEventsOnDeviceTest {
         // saver's automatic level at 75% that mark is 75%, so a level like 60 would never be "okay" there.
         shell("dumpsys battery set level 100")
         shell("dumpsys battery set ac 1")
-        awaitLine("charger in")
+        // The line says what it is plugged into (26/10/2026): "charger in (ac)" here.
+        awaitLineWhere("charger in (ac)") { it.endsWith("[system] charger in (ac)") }
         awaitLine("battery okay")
     }
 

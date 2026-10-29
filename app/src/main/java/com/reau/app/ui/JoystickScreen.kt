@@ -51,9 +51,9 @@ import com.reau.app.ui.theme.REauMono
 
 /**
  * The joystick page: the dash's two modes in tabs, the map mode first; the cross with what each control does; a
- * control picked, its one tap opens the 16 actions. One tap only (no hold; held choices saved before stay in the
+ * control picked, its one tap opens the list of actions. One tap only (no hold; held choices saved before stay in the
  * settings, unused as always). In the map mode, up and the centre are the dash's own and locked
- * ([JoystickBindings.LOCKED]). Every pick is handed over at once ([onSettings]); a running projection takes it at the
+ * ([JoystickBindings.LOCKED]); down is the info ring's by default and can be given another action. Every pick is handed over at once ([onSettings]); a running projection takes it at the
  * next tap.
  */
 // One screen composed in a run (the pages, the call tab, the picker); cutting it would only pass state around.
@@ -99,21 +99,15 @@ fun JoystickScreen(settings: REauSettings, onSettings: (REauSettings) -> Unit, o
                         DPadMap(padLabels(page, mode), lockedOf(mode), selected, { selected = it })
                     }
                     SelectedCard(slot, page[slot], locked) { if (!locked) picking = true }
-                    Row(Modifier.padding(horizontal = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        MsIcon(R.drawable.ic_ms_call, 20.dp, MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(
-                            stringResource(R.string.joystick_calls), style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f), modifier = Modifier.testTag("joystick_calls"),
-                        )
-                    }
+                    if (mode == Mode.MEDIA) MusicCardNotice(settings.dashMusic, page.mediaControls)
                     GhostButton(R.drawable.ic_ms_restart_alt, stringResource(R.string.joystick_reset), "reset_joystick", {
-                        onSettings(settings.copy(joystick = ""))
+                        onSettings(settings.copy(joystick = REauSettings.DEFAULT_JOYSTICK))
                     })
                 }
             }
         }
         if (picking && !locked) {
-            val actions = Action.entries
+            val actions = Action.entries.filter { it.allowedAt(slot) }
             PickSheet(
                 stringResource(R.string.joystick_pick_title, stringResource(CONTROLS.getValue(selected))),
                 actions.map { stringResource(ACTIONS.getValue(it)) to "action_${it.name}" }, actions.indexOf(page[slot]),
@@ -122,6 +116,20 @@ fun JoystickScreen(settings: REauSettings, onSettings: (REauSettings) -> Unit, o
             )
         }
     }
+}
+
+/** Whether the dash shows the song, said under the media mode's cross: the card needs its switch and a music control on this page. */
+@Composable
+private fun MusicCardNotice(switchOn: Boolean, controls: Boolean) {
+    val text = when {
+        !switchOn -> R.string.joystick_music_switch_off
+        controls -> R.string.joystick_music_on
+        else -> R.string.joystick_music_off
+    }
+    Text(
+        stringResource(text), style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f), modifier = Modifier.padding(horizontal = 4.dp).testTag("joystick_music"),
+    )
 }
 
 /** The short words on each button of the cross: its action, or why it is locked. */
@@ -144,7 +152,7 @@ private fun lockedOf(mode: Mode): Set<Control> = Control.entries.filter { Joysti
 @Composable
 private fun SelectedCard(slot: Slot, action: Action, locked: Boolean, onPick: () -> Unit) {
     val (what, note) = when {
-        !locked -> stringResource(ACTIONS.getValue(action)) to null
+        !locked -> stringResource(ACTIONS.getValue(action)) to stringResource(R.string.joystick_info_ring_note).takeIf { action == Action.INFO_RING }
         slot.control == Control.CENTER -> stringResource(R.string.joystick_locked_center) to stringResource(R.string.joystick_locked_center_note)
         else -> stringResource(R.string.joystick_locked_up) to stringResource(R.string.joystick_locked_up_note)
     }
@@ -178,7 +186,11 @@ private fun ControlCard(title: String, badge: String, caption: String, what: Str
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            MsIcon(if (locked) R.drawable.ic_ms_lock else R.drawable.ic_ms_touch_app, 22.dp, colors.onSurfaceVariant)
+            // The padlock says "Locked" to a screen reader (the cross's own padlocks do); the touch icon is decoration.
+            MsIcon(
+                if (locked) R.drawable.ic_ms_lock else R.drawable.ic_ms_touch_app, 22.dp, colors.onSurfaceVariant,
+                description = if (locked) stringResource(R.string.cd_locked) else null,
+            )
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(caption, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                 Text(what, style = MaterialTheme.typography.titleMedium, color = colors.onSurface)
@@ -235,4 +247,7 @@ private val ACTIONS = mapOf(
     Action.NEXT_SONG to R.string.joystick_action_next_song,
     Action.PREVIOUS_SONG to R.string.joystick_action_previous_song,
     Action.ASSISTANT to R.string.joystick_action_assistant,
+    Action.ZOOM_IN to R.string.joystick_action_zoom_in,
+    Action.ZOOM_OUT to R.string.joystick_action_zoom_out,
+    Action.INFO_RING to R.string.joystick_action_info_ring,
 )

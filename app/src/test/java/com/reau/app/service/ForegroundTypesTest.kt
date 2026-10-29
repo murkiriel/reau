@@ -30,4 +30,17 @@ class ForegroundTypesTest {
     fun `on Android 10, which has no microphone type, the connected device alone`() {
         assertEquals(listOf(ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE), ForegroundTypes.ladder(microphone = true, sdk = 29))
     }
+
+    @Test
+    fun `the location type comes first when the GPS card is on, and the ones without it follow`() {
+        val device = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+        val location = ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+        val mic = ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+        assertEquals(listOf(device or location, device), ForegroundTypes.ladder(microphone = false, location = true, sdk = 34))
+        assertEquals(
+            listOf(device or mic or location, device or mic, device or location, device),
+            ForegroundTypes.ladder(microphone = true, location = true, sdk = 34),
+        )
+        assertEquals("not asked, not tried", listOf(device), ForegroundTypes.ladder(microphone = false, location = false, sdk = 34))
+    }
 }

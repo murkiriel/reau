@@ -217,4 +217,39 @@ class WifiDashLinkUpFirstJoinTest {
 
         assertEquals("a new wait after the request went out is told again", 2, logged.size)
     }
+
+    @Test
+    fun `a first approval waiting for the dash tells the projection as soon as the scan sees it`() {
+        val pairing = Pairing(joinedSsid = "", dashInScan = false)
+        val up = linkUp(pairing).also { it.sightingPollMs = 20 }
+        val sighted = java.util.concurrent.CountDownLatch(1)
+        com.reau.app.dash.DashSighting.listener = { sighted.countDown() }
+        try {
+            up.go()
+            assertEquals(listOf(WifiDashLinkUp.DASH_NOT_SEEN_YET), failed)
+            assertEquals("nothing yet: the dash is not in the scan", 1L, sighted.count)
+            pairing.dashInScan = true
+            assertEquals("the news came", true, sighted.await(2, java.util.concurrent.TimeUnit.SECONDS))
+        } finally {
+            com.reau.app.dash.DashSighting.listener = null
+            up.stop()
+        }
+    }
+
+    @Test
+    fun `no news once the wait is over, a dash already approved is asked for as always`() {
+        val pairing = Pairing(joinedSsid = "RE_AB12_345678", dashInScan = false)
+        val up = linkUp(pairing).also { it.sightingPollMs = 20 }
+        var told = 0
+        com.reau.app.dash.DashSighting.listener = { told++ }
+        try {
+            up.go()
+            Thread.sleep(200)
+            assertEquals(0, told)
+            assertEquals(listOf("RE_AB12_345678" to false), connects)
+        } finally {
+            com.reau.app.dash.DashSighting.listener = null
+            up.stop()
+        }
+    }
 }

@@ -43,6 +43,6 @@ class AaScreensRereaderTest {
         watch.update(d("TemplateNavigationService"), 1_300)
         assertEquals(2, said.size)
         assertFalse(said[0], said[0].endsWith("by re-read"))
-        assertTrue(said[1], said[1].startsWith("aa-screen: apps") && said[1].endsWith("by re-read"))
+        assertTrue(said[1], said[1].startsWith("aa-screen: nav") && said[1].endsWith("by re-read"))
     }
 }

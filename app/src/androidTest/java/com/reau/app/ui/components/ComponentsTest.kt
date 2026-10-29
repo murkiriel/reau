@@ -18,6 +18,10 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.reau.app.R
 import com.reau.app.aa.JoystickBindings.Control
@@ -196,5 +200,40 @@ class ComponentsTest {
         assertEquals("segredo", typed)
         compose.onNodeWithContentDescription("Mostrar a senha").performClick()
         compose.onNodeWithContentDescription("Esconder a senha").assertIsDisplayed()
+    }
+
+    @Test
+    fun aChangeOfTheHeadlineIsReadOutByTheScreenReaderButNotTheLineUnderIt() {
+        show {
+            BridgeCard(
+                "Transmitindo", "Perdido há 12 s",
+                BridgeSide("Android Auto", "Ativo", StatusKind.OK, "side_android_auto"),
+                BridgeSide("Painel", "Pronto", StatusKind.OK, "side_dash"),
+                on = true, elapsed = "00:07", onToggle = {},
+            )
+        }
+        val live = androidx.compose.ui.semantics.SemanticsProperties.LiveRegion
+        assertEquals(
+            androidx.compose.ui.semantics.LiveRegionMode.Polite,
+            compose.onNodeWithTag("status").fetchSemanticsNode().config[live],
+        )
+        assertEquals(
+            "the line under counts seconds and would be read every second", false,
+            live in compose.onNodeWithTag("status_sub").fetchSemanticsNode().config,
+        )
+    }
+
+    @Test
+    fun aGroupsLabelIsAHeadingForTheScreenReader() {
+        show { SettingsGroup(null, "Vídeo", listOf({ androidx.compose.material3.Text("linha") }), tag = "grupo") }
+        compose.onNode(androidx.compose.ui.test.SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsProperties.Heading)).assertExists()
+    }
+
+    /** The (i) is drawn 28 dp wide: Compose widens what a finger can hit to 48 dp by itself, and this keeps it so. */
+    @Test
+    fun theInfoButtonTakesATapFarEnoughOutsideItsCircleForAGlovedFinger() {
+        show { InfoButton(Info("Título", "Texto da ajuda"), "teste_info") }
+        compose.onNodeWithTag("teste_info").performTouchInput { click(Offset(center.x + 20.dp.toPx(), center.y)) }
+        compose.onNodeWithText("Texto da ajuda").assertExists()
     }
 }

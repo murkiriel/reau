@@ -1,5 +1,5 @@
 // Copied from OpenCfMoto (AGPL-3.0): app/src/main/java/dev/zanderp/opencfmoto/aa/ConscryptInitializer.kt, commit 0abbe2a.
-// Changes: package only.
+// Changes: package; the provider is added at the END of the list, not at position 1 (see initialize).
 // Ported from headunit-revived (AGPLv3): ssl/ConscryptInitializer.kt
 package com.reau.app.aa
 
@@ -19,7 +19,9 @@ object ConscryptInitializer {
             val conscrypt = Class.forName("org.conscrypt.Conscrypt")
             val newProviderMethod = conscrypt.getMethod("newProvider")
             val provider = newProviderMethod.invoke(null) as java.security.Provider
-            val result = Security.insertProviderAt(provider, 1)
+            // At the end of the list: AapSslContext asks for it by name, and the two trips to the internet (the update check and the
+            // weather) keep the platform's TLS. At position 1 every HTTPS connection of the process used the bundled Conscrypt.
+            val result = Security.addProvider(provider)
             conscryptAvailable = result != -1 || Security.getProvider("Conscrypt") != null
             if (conscryptAvailable) {
                 AaLog.i("Conscrypt installed as security provider (position: $result)")

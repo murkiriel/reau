@@ -31,6 +31,22 @@ class WeatherKeeperDeviceTest {
         }
     }
 
+    /** The info ring asks for the weather by itself: with "Clima no painel" off and the ring on, the keeper looks (here, no place: it says so). */
+    @Test
+    fun withOnlyTheInfoRingOnTheKeeperLooks() {
+        val store = SettingsStore.open(context)
+        val before = store.load()
+        try {
+            store.save(before.copy(dashWeather = false, infoRing = true, useLocation = false))
+            WeatherKeeper.clear(context)
+            runBlocking { WeatherKeeper.refreshIfStale(context) }
+            assertEquals(WeatherKeeper.Why.NO_PLACE, WeatherKeeper.why.value)
+        } finally {
+            store.save(before)
+            WeatherKeeper.clear(context)
+        }
+    }
+
     @Test
     fun switchedOffAgainWhatWasKeptIsGone() {
         WeatherKeeper.clear(context)

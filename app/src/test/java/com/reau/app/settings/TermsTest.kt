@@ -8,15 +8,17 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The terms of use: the two texts say the version the code says, the file at the root of the repository is the same
+ * The terms of use: the three texts say the version the code says, the file at the root of the repository is the same
  * text, the blocks come out as the screen draws them, and the text says nothing of any country's law (a rule of the project;
  * only the AGPL's own two passages, quoted word for word, name "applicable law").
  */
 class TermsTest {
     private val portuguese = File("src/main/assets/${Terms.ASSET_PT}").readText()
     private val english = File("src/main/assets/${Terms.ASSET_EN}").readText()
+    private val spanish = File("src/main/assets/${Terms.ASSET_ES}").readText()
     private val rootPortuguese = File("../TERMS_OF_USE.pt-br.md").readText()
     private val rootEnglish = File("../TERMS_OF_USE.md").readText()
+    private val rootSpanish = File("../TERMS_OF_USE.es.md").readText()
 
     @Test
     fun `a rider who accepted nothing, or an older version, must accept`() {
@@ -36,15 +38,26 @@ class TermsTest {
     }
 
     @Test
-    fun `both texts carry the version the code carries`() {
-        assertTrue(portuguese, "Versão ${Terms.VERSION}, de " in portuguese)
-        assertTrue(english, "Version ${Terms.VERSION}, " in english)
+    fun `the screen opens on the tab of the app's language`() {
+        assertEquals(Terms.TAB_PT, Terms.tabOf("pt-BR"))
+        assertEquals(Terms.TAB_ES, Terms.tabOf("es"))
+        assertEquals(Terms.TAB_ES, Terms.tabOf("ES-mx"))
+        assertEquals(Terms.TAB_EN, Terms.tabOf("en"))
+        assertEquals("any other language reads English", Terms.TAB_EN, Terms.tabOf("fr"))
     }
 
     @Test
-    fun `the two files at the root of the repository are the two texts, one language each`() {
+    fun `all three texts carry the version the code carries`() {
+        assertTrue(portuguese, "Versão ${Terms.VERSION}, de " in portuguese)
+        assertTrue(english, "Version ${Terms.VERSION}, " in english)
+        assertTrue(spanish, "Versión ${Terms.VERSION}, " in spanish)
+    }
+
+    @Test
+    fun `the three files at the root of the repository are the three texts, one language each`() {
         assertEquals(portuguese, rootPortuguese)
         assertEquals(english, rootEnglish)
+        assertEquals(spanish, rootSpanish)
     }
 
     @Test
@@ -63,13 +76,25 @@ class TermsTest {
     fun `the real texts have the same sections in the same order`() {
         fun headings(text: String) = Terms.parse(text).filterIsInstance<Block.Heading>().map { it.text.substringBefore(' ') }.filter { it.first().isDigit() }
         assertEquals(headings(portuguese), headings(english))
+        assertEquals(headings(portuguese), headings(spanish))
         assertTrue(headings(portuguese).size >= 10)
+    }
+
+    @Test
+    fun `the three texts have the same shape, block by block, so none says more than the others`() {
+        fun shape(text: String) = Terms.parse(text).map { it::class.simpleName }
+        assertEquals(shape(portuguese), shape(english))
+        assertEquals(shape(portuguese), shape(spanish))
+        // The plain-words paragraph that follows each of the AGPL's two passages is in all three (it was only in the Portuguese one).
+        for ((text, lead) in listOf(portuguese to "Em português:", english to "In plain words:", spanish to "En español:")) {
+            assertEquals("'$lead' paragraphs", 2, Regex("(?m)^" + Regex.escape(lead)).findAll(text).count())
+        }
     }
 
     @Test
     fun `the texts quote the AGPL's two passages word for word`() {
         val license = File("../LICENSE").readText().replace(Regex("\\s+"), " ")
-        for (text in listOf(portuguese, english)) {
+        for (text in listOf(portuguese, english, spanish)) {
             val quotes = Terms.parse(text).filterIsInstance<Block.Quote>().map { it.text }
             assertEquals(2, quotes.size)
             for (quote in quotes) assertTrue("not in the LICENSE: ${quote.take(60)}", quote in license)
@@ -79,10 +104,10 @@ class TermsTest {
     @Test
     fun `outside the AGPL's own words the texts name no country's law`() {
         val forbidden = Regex(
-            """\b(lei|leis|legisla\w*|jurisdi\w*|foro|tribunal\w*|consumidor\w*|brasil\w*|brazil\w*|laws?|legal|legally|courts?|jurisdiction|statut\w*)\b""",
+            """\b(lei|leis|legisla\w*|jurisdi\w*|foro|tribunal\w*|consumidor\w*|brasil\w*|brazil\w*|laws?|legal|legally|courts?|jurisdiction|statut\w*|ley|leyes|legal\w*|jurisdic\w*|tribunales|colombia\w*)\b""",
             RegexOption.IGNORE_CASE,
         )
-        for ((name, text) in listOf("pt" to portuguese, "en" to english)) {
+        for ((name, text) in listOf("pt" to portuguese, "en" to english, "es" to spanish)) {
             val mine = Terms.parse(text).filter { it !is Block.Quote }.joinToString("\n") {
                 when (it) {
                     is Block.Title -> it.text
@@ -93,6 +118,25 @@ class TermsTest {
                 }
             }
             assertEquals("$name: ${forbidden.findAll(mine).map { it.value }.toList()}", 0, forbidden.findAll(mine).count())
+        }
+    }
+
+    @Test
+    fun `the full edition's terms say what the accessibility service sees, and the Lite edition's do not mention it`() {
+        // Version 3 (28/10/2026): "Answer calls" is on by default, so the service hears the call notifications of the voice apps.
+        val full = mapOf("pt" to portuguese, "en" to english, "es" to spanish)
+        val lite = mapOf(
+            "pt" to File("src/lite/assets/${Terms.ASSET_PT}").readText(),
+            "en" to File("src/lite/assets/${Terms.ASSET_EN}").readText(),
+            "es" to File("src/lite/assets/${Terms.ASSET_ES}").readText(),
+        )
+        for ((lang, text) in full) {
+            assertTrue("$lang: names the apps", listOf("WhatsApp", "Telegram", "Signal").all { it in text })
+            assertTrue("$lang: names the accessibility", Regex("(?i)accessibility|acessibilidade|accesibilidad").containsMatchIn(text))
+        }
+        for ((lang, text) in lite) {
+            assertFalse("$lang: Lite has no accessibility service", Regex("(?i)accessibility|acessibilidade|accesibilidad").containsMatchIn(text))
+            assertFalse("$lang: Lite does not name the voice apps", "Telegram" in text)
         }
     }
 }

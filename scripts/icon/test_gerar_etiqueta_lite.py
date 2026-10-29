@@ -40,12 +40,12 @@ class GerarEtiquetaLiteTest(unittest.TestCase):
 
     def test_no_colorido_o_opaco_vai_da_cor_da_borda_ao_branco(self):
         # As bordas suaves misturam a borda com o branco: todo pixel opaco é um cinza entre as duas cores (com uma
-        # folga pequena para o repique do filtro Lanczos ao reduzir a imagem).
+        # folga pequena para o repique do filtro Lanczos ao reduzir a imagem: 23 níveis no Pillow 11.1.0, 26 no 13.0.0).
         with Image.open(self.colorido) as img:
             opacos = {(r, g, b) for r, g, b, a in pixels(img) if a == 255}
         self.assertIn(gerador.BORDA[:3], opacos)
         self.assertIn((255, 255, 255), opacos)
-        piso = gerador.BORDA[0] - 24
+        piso = gerador.BORDA[0] - 32
         for r, g, b in opacos:
             self.assertTrue(r == g == b and r >= piso, (r, g, b))
 

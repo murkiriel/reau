@@ -68,8 +68,16 @@ internal class CompositorGl {
 
     // The "picture stuck" badge (StaleBadgeInk): the same program, a texture of its own.
     private var badgeTexture = 0
+    private var buttonTexture = 0
+    private var buttonW = 0
+    private var buttonH = 0
     private var badgeW = 0
     private var badgeH = 0
+
+    // The info ring (InfoRingInk): the same program, a texture of its own.
+    private var ringTexture = 0
+    private var ringW = 0
+    private var ringH = 0
     private val overlayQuad: FloatBuffer = ByteBuffer.allocateDirect(4 * 4 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
     private var inputSurface: Surface? = null
     private val texMatrix = FloatArray(16)
@@ -209,6 +217,20 @@ internal class CompositorGl {
         overlayH = bitmap.height
     }
 
+    /** The picture of the last-button text ([ButtonOverlayInk.render]), or null for none; copied at once, as [setOverlay] does. Drawn by [drawButton]. */
+    fun setButton(bitmap: Bitmap?) {
+        if (bitmap == null) {
+            buttonW = 0
+            buttonH = 0
+            return
+        }
+        if (overlayProgram == 0) initOverlay()
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, buttonTexture)
+        GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0)
+        buttonW = bitmap.width
+        buttonH = bitmap.height
+    }
+
     /** The picture of the "picture stuck" badge ([StaleBadgeInk.render]), or null for none; copied at once, as [setOverlay] does. */
     fun setBadge(bitmap: Bitmap?) {
         if (bitmap == null) {
@@ -221,6 +243,20 @@ internal class CompositorGl {
         GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0)
         badgeW = bitmap.width
         badgeH = bitmap.height
+    }
+
+    /** The picture of the info ring ([InfoRingInk.render]), or null for none; copied at once, as [setOverlay] does. */
+    fun setRing(bitmap: Bitmap?) {
+        if (bitmap == null) {
+            ringW = 0
+            ringH = 0
+            return
+        }
+        if (overlayProgram == 0) initOverlay()
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, ringTexture)
+        GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0)
+        ringW = bitmap.width
+        ringH = bitmap.height
     }
 
     private fun initOverlay() {
@@ -244,10 +280,12 @@ internal class CompositorGl {
         overlayProgram = buildProgram(vs, fs)
         overlayPosition = GLES20.glGetAttribLocation(overlayProgram, "aPosition")
         overlayTexCoord = GLES20.glGetAttribLocation(overlayProgram, "aTexCoord")
-        val ids = IntArray(2)
-        GLES20.glGenTextures(2, ids, 0)
+        val ids = IntArray(4)
+        GLES20.glGenTextures(4, ids, 0)
         overlayTexture = ids[0]
         badgeTexture = ids[1]
+        ringTexture = ids[2]
+        buttonTexture = ids[3]
         for (texture in ids) {
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texture)
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
@@ -264,11 +302,20 @@ internal class CompositorGl {
      */
     fun drawOverlay(x: Int, y: Int) = drawQuad(overlayTexture, overlayW, overlayH, x, y)
 
+    /** Lays the last-button text with its box's top-left corner at ([x], [y]), as [drawOverlay] does. Nothing without a picture from [setButton]. */
+    fun drawButton(x: Int, y: Int) = drawQuad(buttonTexture, buttonW, buttonH, x, y)
+
     /** Lays the "picture stuck" badge at the bottom centre, over what [draw] drew (and over the stats text, if it is there). Nothing without a picture from [setBadge]. */
     fun drawBadge() {
         val (x, y) = StaleBadgeInk.corner(badgeW, badgeH)
         drawQuad(badgeTexture, badgeW, badgeH, x, y)
     }
+
+    /** Lays the info ring on the right of the frame, over what [draw] drew. Nothing without a picture from [setRing]. */
+    fun drawRing() = drawQuad(ringTexture, ringW, ringH, if (ringInPlace) InfoRingSpot.PLACE_X else InfoRingSpot.X, InfoRingSpot.Y)
+
+    /** Whether the ring is laid in the place of the dash's manoeuvre bubble (on the left) instead of on the right. Read and written on the GL thread. */
+    var ringInPlace = false
 
     private fun drawQuad(texture: Int, width: Int, height: Int, x: Int, y: Int) {
         if (width == 0 || height == 0) return
@@ -296,6 +343,50 @@ internal class CompositorGl {
         GLES20.glDisable(GLES20.GL_BLEND)
         GLES20.glDisableVertexAttribArray(overlayPosition)
         GLES20.glDisableVertexAttribArray(overlayTexCoord)
+    }
+
+    // A tiny copy of the picture for [look]: a framebuffer with a texture of its own, made on the first look.
+    private var lookFbo = 0
+    private var lookTexture = 0
+    private val lookPixels: ByteBuffer = ByteBuffer.allocateDirect(PictureLook.SAMPLE_W * PictureLook.SAMPLE_H * 4).order(ByteOrder.nativeOrder())
+
+    /**
+     * The latched picture shrunk to [PictureLook.SAMPLE_W]×[PictureLook.SAMPLE_H], as RGBA bytes with the top row first, or null if it could not be taken: what
+     * [PictureLook] reads. It is drawn the way the preview does, into a framebuffer, with the box filter (the average of each block, what the classifier was trained
+     * on; see [PictureLook]); the output surfaces are left as they were (each draw makes its own current again).
+     */
+    fun look(): ByteArray? {
+        if (!EGL14.eglMakeCurrent(eglDisplay, pbuffer, pbuffer, eglContext)) return null
+        if (lookFbo == 0) {
+            val ids = IntArray(1)
+            GLES20.glGenTextures(1, ids, 0)
+            lookTexture = ids[0]
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, lookTexture)
+            GLES20.glTexImage2D(
+                GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, PictureLook.SAMPLE_W, PictureLook.SAMPLE_H, 0, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, null,
+            )
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
+            GLES20.glGenFramebuffers(1, ids, 0)
+            lookFbo = ids[0]
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, lookFbo)
+            GLES20.glFramebufferTexture2D(GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0, GLES20.GL_TEXTURE_2D, lookTexture, 0)
+        } else {
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, lookFbo)
+        }
+        val complete = GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER) == GLES20.GL_FRAMEBUFFER_COMPLETE
+        var bytes: ByteArray? = null
+        if (complete) {
+            GLES20.glClearColor(0f, 0f, 0f, 1f)
+            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+            drawQuad(WHOLE_PICTURE, RectPx(0, 0, PictureLook.SAMPLE_W, PictureLook.SAMPLE_H), LOOK_FILTER)
+            lookPixels.clear()
+            GLES20.glReadPixels(0, 0, PictureLook.SAMPLE_W, PictureLook.SAMPLE_H, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, lookPixels)
+            val bottomUp = ByteArray(PictureLook.SAMPLE_W * PictureLook.SAMPLE_H * 4).also { lookPixels.rewind(); lookPixels.get(it) }
+            bytes = PictureLook.topDown(bottomUp, PictureLook.SAMPLE_W, PictureLook.SAMPLE_H) // glReadPixels starts at the bottom row
+        }
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+        return bytes
     }
 
     /** Takes the newest picture into the texture. False if there was none to take or the surface is gone. */
@@ -381,6 +472,18 @@ internal class CompositorGl {
      * Clears the output to black and, with a [window], draws that part of the latched picture into [viewport]
      * (OpenGL coordinates). Nothing is shown until [post].
      */
+    /** Paints [rects] (GL pixels of the dash's frame) black, over what is drawn: the rider's cover. */
+    fun fillBlack(rects: List<RectPx>) {
+        if (rects.isEmpty()) return
+        GLES20.glEnable(GLES20.GL_SCISSOR_TEST)
+        GLES20.glClearColor(0f, 0f, 0f, 1f)
+        for (r in rects) {
+            GLES20.glScissor(r.x, r.y, r.w, r.h)
+            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+        }
+        GLES20.glDisable(GLES20.GL_SCISSOR_TEST)
+    }
+
     fun draw(window: CompositorMath.TexWindow?, viewport: RectPx) {
         EGL14.eglMakeCurrent(eglDisplay, windowSurface, windowSurface, eglContext)
         GLES20.glViewport(0, 0, DashGlass.FRAME_W, DashGlass.FRAME_H)
@@ -390,10 +493,11 @@ internal class CompositorGl {
         drawQuad(window, viewport)
     }
 
-    private fun drawQuad(window: CompositorMath.TexWindow, viewport: RectPx) {
+    /** Draws the picture's [window] into [viewport]; with [filter] (the small copy of [look]) instead of the stream's [reductionFilter]. */
+    private fun drawQuad(window: CompositorMath.TexWindow, viewport: RectPx, filter: ReductionFilter? = null) {
         surfaceTexture?.getTransformMatrix(texMatrix)
         GLES20.glViewport(viewport.x, viewport.y, viewport.w, viewport.h)
-        val variant = reductionFilter.takeUnless { it.isCurrent }
+        val variant = (filter ?: reductionFilter).takeUnless { it.isCurrent }
         val prog = if (variant != null) filterProgram() else program
         GLES20.glUseProgram(prog)
         val position = GLES20.glGetAttribLocation(prog, "aPosition")
@@ -488,7 +592,7 @@ internal class CompositorGl {
             varying vec2 vTexCoord;
             varying vec2 vPicture;
             uniform samplerExternalOES sTexture;
-            uniform int uKernel;       // 0 bilinear, 1 soft, 2 cubic
+            uniform int uKernel;       // 0 bilinear, 1 soft, 2 cubic, 3 box (4x4 taps)
             uniform float uSharpen;
             uniform vec2 uSrcSize;     // the picture, in its own pixels
             uniform vec2 uDestStep;    // one destination pixel, in the picture's 0..1 coordinates
@@ -504,6 +608,16 @@ internal class CompositorGl {
             }
 
             vec4 shrink(vec2 uv) {
+                if (uKernel == 3) {
+                    // 4x4 bilinear taps over the destination pixel's footprint (offsets of -3/8, -1/8, 1/8 and 3/8 of it): its area average
+                    vec4 sum = vec4(0.0);
+                    for (int j = 0; j < 4; j++) {
+                        for (int i = 0; i < 4; i++) {
+                            sum += texture2D(sTexture, uv + (vec2(float(i), float(j)) * 0.25 - 0.375) * uDestStep);
+                        }
+                    }
+                    return sum / 16.0;
+                }
                 if (uKernel == 1) {
                     vec2 s = uDestStep * 0.5;
                     vec4 sum = vec4(0.0);
@@ -548,6 +662,9 @@ internal class CompositorGl {
                 gl_FragColor = vec4(clamp(c.rgb, 0.0, 1.0), 1.0);
             }
         """.trimIndent()
+
+        /** How the small copy of [look] is reduced: the average of each block, as the picture classifier was trained. */
+        private val LOOK_FILTER = ReductionFilter(ReductionFilter.Kernel.BOX)
 
         const val NS_PER_MS = 1_000_000L
         const val QUAD_STRIDE = 16

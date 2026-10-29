@@ -26,9 +26,8 @@ import com.reau.app.dash.DashConfig
  */
 internal class AutoFpsController(startFps: Int, ceiling: Int = DashConfig.MAX_STREAM_FPS) {
 
-    /** How a stream starts: at [startFps], never climbing past [ceiling]; [dashLimit] is what to remember (the
-     *  highest rate still allowed after the dash failed at one), null when it never did. */
-    data class Plan(val startFps: Int, val ceiling: Int, val dashLimit: Int?)
+    /** How a stream starts: at [startFps], never climbing past [ceiling]. */
+    data class Plan(val startFps: Int, val ceiling: Int)
 
     /** The climb's top: an even step, like every rate. */
     val ceiling = DashConfig.snapStreamFps(ceiling)
@@ -144,9 +143,9 @@ internal class AutoFpsController(startFps: Int, ceiling: Int = DashConfig.MAX_ST
         healthyStreak = 0
         unhealthyStreak++
         val why = buildList {
-            if (!deliveredOk) add("sent %.1f".format(w.sentFps))
-            if (!decodedOk) add("dash %.1f".format(w.decodedFps ?: 0.0))
-            if (!bitrateOk) add("kbps %.0f".format(w.kbps))
+            if (!deliveredOk) add("sent %.1f".format(java.util.Locale.US, w.sentFps))
+            if (!decodedOk) add("dash %.1f".format(java.util.Locale.US, w.decodedFps ?: 0.0))
+            if (!bitrateOk) add("kbps %.0f".format(java.util.Locale.US, w.kbps))
             if (!w.thermalOk) add("thermal")
         }.joinToString(", ")
         return when {
@@ -184,22 +183,12 @@ internal class AutoFpsController(startFps: Int, ceiling: Int = DashConfig.MAX_ST
 
     companion object {
         /**
-         * How the next stream starts. [storedStable] is the rate remembered from before, [dashLimit] the limit
-         * learned from an earlier failure (null: none in force), [failedFps] the rate of the stream that has just
-         * died with the dash still reachable (null: this is a normal start), [riderCeiling] how high the rider lets
-         * it climb (the fps control in Settings; [DashConfig.AUTO_FPS_CEILING] until they move it).
-         *
-         * After such a failure the failed rate itself is out (the limit drops to one step below it, and never goes
-         * back up here) and the stream restarts at HALF of it — not one step down: at 30 fps the dash did not even
-         * confirm a first frame, so the next try has to be clearly inside what it can take.
+         * How the next stream starts: at [storedStable] (the rate remembered from before), under [riderCeiling] (the fps control in
+         * Settings; [DashConfig.AUTO_FPS_CEILING] until the rider moves it).
          */
-        fun plan(storedStable: Int, dashLimit: Int?, failedFps: Int?, riderCeiling: Int = DashConfig.AUTO_FPS_CEILING): Plan {
-            val afterFailure = failedFps?.let { DashConfig.snapStreamFps(it - DashConfig.STREAM_FPS_STEP) }
-            val limit = listOfNotNull(dashLimit, afterFailure).minOrNull()
-            val wanted = DashConfig.snapStreamFps(riderCeiling)
-            val ceiling = minOf(wanted, limit ?: wanted)
-            val start = if (failedFps != null) DashConfig.snapStreamFps(failedFps / 2) else DashConfig.snapStreamFps(storedStable)
-            return Plan(start.coerceAtMost(ceiling), ceiling, limit)
+        fun plan(storedStable: Int, riderCeiling: Int = DashConfig.AUTO_FPS_CEILING): Plan {
+            val ceiling = DashConfig.snapStreamFps(riderCeiling)
+            return Plan(DashConfig.snapStreamFps(storedStable).coerceAtMost(ceiling), ceiling)
         }
 
         const val DELIVERY_RATIO = 0.95

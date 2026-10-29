@@ -57,11 +57,11 @@ class SettingsScreenTest {
 
     // ── the language ───────────────────────────────────────────────────────────────────────────────────────
 
-    /** The run speaks Portuguese (KeepAppStateRunner); the language names are the languages' own, "Automático" the app's. */
+    /** The run speaks Portuguese (KeepAppStateRunner); the language names are the languages' own, "Auto" the app's. */
     @Test
     fun theLanguageRowOffersAutomaticPortugueseAndEnglishAndHandsTheChoiceOver() {
         compose.onNodeWithTag("group_language").performScrollTo().assertIsDisplayed()
-        text("language_AUTO", "Automático")
+        text("language_AUTO", "Auto")
         text("language_PT", "Português")
         text("language_EN", "English")
         assertEquals(null, language)
@@ -87,7 +87,7 @@ class SettingsScreenTest {
 
     /**
      * The density moved to the Android Auto screen with the fit, and
-     * the margins too (their tests went with them).
+     * the margins too (their tests went with them); the margins were then taken out of the app altogether.
      */
     @Test
     fun theDensityAndTheMarginsLiveOnTheAndroidAutoScreenNow() {
@@ -109,6 +109,16 @@ class SettingsScreenTest {
     }
 
     // ── debug ──────────────────────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun theDebugRowsComeInTheOwnersOrderTheDetailedLogRightUnderTheRideLog() {
+        compose.openDebug()
+        val order = listOf("ride_log", "detailed_log", "record_video", "record_sessions", "view_logs")
+        compose.onNodeWithTag(order.last()).performScrollTo()
+        val tops = order.map { compose.onNodeWithTag(it).fetchSemanticsNode().positionInRoot.y }
+        assertEquals("top to bottom: $order", tops.sorted(), tops)
+        for (gone in listOf("faster_menu", "aa_single_version_request", "diag_link_only", "diag_no_dscp")) compose.onNodeWithTag(gone).assertDoesNotExist()
+    }
 
     @Test
     fun theTwoRecordingsAreSwitchedOnAndOff() {

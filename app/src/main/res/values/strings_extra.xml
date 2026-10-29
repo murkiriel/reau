@@ -39,6 +39,8 @@
     <string name="credit_role_open_headunit">frame reassembly and video recovery</string>
     <string name="credit_role_headunit">the origin of the whole lineage</string>
     <string name="credit_role_moto_hub">Android Auto navigation channel</string>
+    <string name="credit_role_headqlink">the 1.5 s pause when the server is restarted (one value, no code)</string>
+    <string name="credit_role_aa_proxy_rs">protocol facts: phone status and media messages (no code)</string>
     <string name="credit_role_northstar">first implementation of the dash protocol (through EstrelaAustral)</string>
     <string name="credit_role_estrelaaustral">starting point: the dash side, the weather, the tests and the organization</string>
     <string name="credit_role_better_dash">reference for the K1G protocol; some parts ported from it</string>
@@ -52,12 +54,15 @@
     <string name="credit_role_hanken">interface text</string>
     <string name="credit_role_kotlin">the app’s language and the coroutines</string>
     <string name="credit_role_jetbrains_mono">values, labels and the log</string>
+    <string name="credit_licence_public_domain">Public domain</string>
+    <string name="credit_role_noaa">equations for the sun’s position (the theme by the sun)</string>
     <string name="credit_role_open_meteo">weather and air quality data</string>
     <string name="credit_role_jmuxer">plays the video in the browser (the web server page)</string>
     <!-- Credits: the holders and names that have a word of the language in them. -->
     <string name="credit_holder_opencfmoto">© 2026 Alexandru and contributors</string>
     <string name="credit_holder_headunit_revived">© andreknieriem and the headunit lineage</string>
     <string name="credit_holder_moto_hub">© 2026 Vincenzo Buonomano and contributors</string>
+    <string name="credit_holder_headqlink">© Michael A. Reid and the open-headunit authors</string>
     <string name="credit_holder_open_dash">© 2026 Subtle Sayak and contributors</string>
     <string name="credit_holder_kotlin">© JetBrains and Kotlin contributors</string>
     <string name="credit_name_androidx">AndroidX and Jetpack Compose</string>

@@ -70,6 +70,42 @@ class H264RecorderTest {
     }
 
     @Test
+    fun `a rolling recording goes on in a new part at the limit, each part opening with a keyframe`() {
+        val r = H264Recorder(File(tmp.root, "video"), 3, "reau_20261002_150000", rolling = true) { log += it }
+        val first = r.videoFile
+        r.write(keyframe, isKey = true, ptsMs = 0)
+        r.write(pFrame(1), isKey = false, ptsMs = 62)
+        r.write(pFrame(2), isKey = false, ptsMs = 124) // the third unit: the first part is full
+        assertFalse("it goes on", r.isDone)
+        assertEquals(2, r.part)
+        r.write(pFrame(3), isKey = false, ptsMs = 186) // a part opens with a keyframe: this one is not kept
+        r.write(keyframe, isKey = true, ptsMs = 248)
+        r.write(pFrame(4), isKey = false, ptsMs = 310)
+        r.close()
+
+        assertEquals(File(tmp.root, "video/reau_20261002_150000.h264"), first)
+        assertEquals(File(tmp.root, "video/reau_20261002_150000_p02.h264"), r.videoFile)
+        assertArrayEquals(startCode + keyframe + startCode + pFrame(1) + startCode + pFrame(2), first.readBytes())
+        assertArrayEquals(startCode + keyframe + startCode + pFrame(4), r.videoFile.readBytes())
+        assertEquals("each part has its own index, from its own first unit", listOf("frame,pts_ms,bytes,key", "1,0,16,1", "2,62,3,0"), r.indexFile.readLines())
+        assertEquals(2, r.frames)
+        assertTrue("the first part says the next follows: $log", log.first().startsWith("video recording part 1 complete, the next follows: 3 frames"))
+    }
+
+    @Test
+    fun `a rolling recording goes on part after part, with names that sort by time`() {
+        val r = H264Recorder(File(tmp.root, "video"), 2, "reau_20261002_150000", rolling = true) { log += it }
+        repeat(4) { i ->
+            r.write(keyframe, isKey = true, ptsMs = i * 1_000L)
+            r.write(pFrame(i), isKey = false, ptsMs = i * 1_000L + 62)
+        }
+        r.close()
+        val names = File(tmp.root, "video").listFiles { f -> f.extension == "h264" }!!.map { it.nameWithoutExtension }.sorted()
+        assertEquals(listOf("reau_20261002_150000", "reau_20261002_150000_p02", "reau_20261002_150000_p03", "reau_20261002_150000_p04"), names)
+        assertEquals("the fifth part waits for the next keyframe: nothing of it is on disk yet", 5, r.part)
+    }
+
+    @Test
     fun `a recording opens with a keyframe, whatever comes first`() {
         val r = recorder(maxFrames = 10)
         r.write(pFrame(1), isKey = false, ptsMs = 0)
@@ -80,7 +116,19 @@ class H264RecorderTest {
         r.close()
 
         assertArrayEquals(startCode + keyframe + startCode + pFrame(3), r.videoFile.readBytes())
-        assertEquals(listOf("frame,pts_ms,bytes,key", "1,124,16,1", "2,186,3,0"), r.indexFile.readLines())
+        assertEquals(listOf("frame,pts_ms,bytes,key", "1,0,16,1", "2,62,3,0"), r.indexFile.readLines())
+    }
+
+    /** 19/10/2026: the second recording of a projection (the dash had dropped and come back) began at 400000 ms, the first at 0. */
+    @Test
+    fun `the csv counts from the file's first unit, whatever the video clock read when it began`() {
+        val r = recorder(maxFrames = 10)
+        r.write(keyframe, isKey = true, ptsMs = 400_000)
+        r.write(pFrame(1), isKey = false, ptsMs = 400_250)
+        r.write(keyframe, isKey = true, ptsMs = 401_000)
+        r.close()
+
+        assertEquals(listOf("frame,pts_ms,bytes,key", "1,0,16,1", "2,250,3,0", "3,1000,16,1"), r.indexFile.readLines())
     }
 
     @Test
@@ -136,8 +184,8 @@ class H264RecorderTest {
     }
 
     @Test
-    fun `only the last fifty recordings are kept`() {
-        // It used to be five; changed on purpose.
+    fun `all the recordings are kept, however many there are (the space ceiling takes the oldest)`() {
+        // It was the last five, then the last fifty; no count now.
         val dir = tmp.newFolder("video")
         val old = (1..51).map { "reau_20261002_14%04d".format(it) }
         old.forEach {
@@ -151,7 +199,7 @@ class H264RecorderTest {
         r.close()
 
         val kept = dir.list().orEmpty().sorted()
-        val expected = (old.takeLast(49) + "reau_20261002_150000").flatMap { listOf("$it.csv", "$it.h264") } + "notes.txt"
+        val expected = (old + "reau_20261002_150000").flatMap { listOf("$it.csv", "$it.h264") } + "notes.txt"
         assertEquals(expected.sorted(), kept)
     }
 

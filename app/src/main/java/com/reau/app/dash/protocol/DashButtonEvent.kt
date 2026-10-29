@@ -9,8 +9,8 @@ package com.reau.app.dash.protocol
  * `BTN_MAP_ZOOM_IN`/etc, which WERE the ones actually driving the `when`) with a single mapper
  * both the ack path and the app-action path can share.
  *
- * [NextTrack]/[PrevTrack] are unverified on our hardware — taken from another project
- * (DashMediaControl.swift): their dash forwards these same joystick
+ * [NextTrack]/[PrevTrack] are unverified on our hardware — taken from another project,
+ * whose dash forwards these same joystick
  * codes (0x09/0x0A) as next/previous-track ONLY while the dash's own now-playing screen is up,
  * the map's zoom codes (0x14/0x13) otherwise. We never put the dash in that state (the "now
  * playing" widget is deliberately not wired, to stay clear of Play Protect),
@@ -38,7 +38,10 @@ sealed class DashButtonEvent {
     data class PlayPause(override val code: Int) : DashButtonEvent()
     /** The joystick's up side in the dash's media mode. */
     data class VolumeUp(override val code: Int) : DashButtonEvent()
-    /** The joystick's down side in the dash's media mode (fw 11.63: DOWN = 0x07). */
+    /**
+     * The joystick's down side in the dash's media mode (DOWN = 0x07): observed on firmware 11.63 and verified on 13.10
+     * (connection, video, joystick and cards), as the terms of use say.
+     */
     data class VolumeDown(override val code: Int) : DashButtonEvent()
     data class Unknown(override val code: Int) : DashButtonEvent()
 

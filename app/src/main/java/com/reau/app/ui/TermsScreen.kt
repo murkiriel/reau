@@ -50,9 +50,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * The terms of use, in Portuguese and in English. With [gate] set it is the screen the rider meets before anything
- * else until the current version is accepted: the two tabs (the Portuguese first), no way back to the app, the two
- * buttons at the foot ("Li e aceito" / "Não aceito") and the system's back as a refusal. The two buttons only appear
+ * The terms of use, in Portuguese, English and Spanish. With [gate] set it is the screen the rider meets before anything
+ * else until the current version is accepted: the three tabs (the Portuguese first), no way back to the app, the two
+ * buttons at the foot ("Li e aceito" / "Não aceito", in the language of the tab) and the system's back as a refusal. The two buttons only appear
  * once the text has been read to its end (scrolled there, or taken there by the one button the foot shows until then,
  * "Descer até o fim", which rolls the text on steadily at a reading pace, [TermsScroll], and which a touch on the text
  * interrupts); a text that fits the screen counts as read. Without it, from the
@@ -62,12 +62,13 @@ import kotlinx.coroutines.withContext
 fun TermsScreen(gate: Boolean, onAccept: () -> Unit, onDecline: () -> Unit, onBack: () -> Unit) {
     val context = LocalContext.current
     val appLanguage = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language
-    val appIndex = if (Terms.opensInPortuguese(appLanguage)) 0 else 1
+    val appIndex = Terms.tabOf(appLanguage)
     var picked by rememberSaveable { mutableIntStateOf(appIndex) }
-    // Before accepting, the two tabs (the rider may read either); once accepted, only the app's own language.
+    // Before accepting, the three tabs (the rider may read any); once accepted, only the app's own language.
     val language = if (gate) picked else appIndex
     val portuguese = remember { Terms.load(context, Terms.ASSET_PT) }
     val english = remember { Terms.load(context, Terms.ASSET_EN) }
+    val spanish = remember { Terms.load(context, Terms.ASSET_ES) }
     BackHandler(onBack = if (gate) onDecline else onBack)
     val scroll = rememberScrollState()
     // Once the end was reached it stays reached (the other tab, a turn of the phone): the rider has read the terms.
@@ -86,11 +87,12 @@ fun TermsScreen(gate: Boolean, onAccept: () -> Unit, onDecline: () -> Unit, onBa
                         listOf(
                             TabOption(stringResource(R.string.terms_lang_pt), null, "terms_lang_pt"),
                             TabOption(stringResource(R.string.terms_lang_en), null, "terms_lang_en"),
+                            TabOption(stringResource(R.string.terms_lang_es), null, "terms_lang_es"),
                         ),
                         language, { picked = it },
                     )
                 }
-                (if (language == 0) portuguese else english).forEach { BlockView(it) }
+                when (language) { Terms.TAB_PT -> portuguese; Terms.TAB_ES -> spanish; else -> english }.forEach { BlockView(it) }
             }
             if (gate) TermsFoot(readToEnd, language, scroll, onAccept, onDecline)
         }
@@ -118,13 +120,13 @@ private fun TermsFoot(readToEnd: Boolean, language: Int, scroll: ScrollState, on
     ) {
         // The buttons speak the language of the tab being read, not the app's.
         if (readToEnd) {
-            val decline = stringResource(if (language == 0) R.string.terms_decline_pt else R.string.terms_decline_en)
-            val accept = stringResource(if (language == 0) R.string.terms_accept_pt else R.string.terms_accept_en)
+            val decline = stringResource(pick(language, R.string.terms_decline_pt, R.string.terms_decline_en, R.string.terms_decline_es))
+            val accept = stringResource(pick(language, R.string.terms_accept_pt, R.string.terms_accept_en, R.string.terms_accept_es))
             SupportButton(CardAction(decline, "terms_decline", onDecline), Modifier.weight(1f))
             GoldButton(CardAction(accept, "terms_accept", onAccept), Modifier.weight(1f))
         } else {
-            val down = stringResource(if (language == 0) R.string.terms_scroll_pt else R.string.terms_scroll_en)
-            val reading = stringResource(if (language == 0) R.string.terms_scrolling_pt else R.string.terms_scrolling_en)
+            val down = stringResource(pick(language, R.string.terms_scroll_pt, R.string.terms_scroll_en, R.string.terms_scroll_es))
+            val reading = stringResource(pick(language, R.string.terms_scrolling_pt, R.string.terms_scrolling_en, R.string.terms_scrolling_es))
             val goToEnd: () -> Unit = {
                 if (!autoScrolling) {
                     scope.launch {
@@ -147,6 +149,13 @@ private fun TermsFoot(readToEnd: Boolean, language: Int, scroll: ScrollState, on
             GoldButton(action, Modifier.weight(1f), enabled = !autoScrolling)
         }
     }
+}
+
+/** The string of the tab [language] ([Terms.TAB_PT], [Terms.TAB_EN] or [Terms.TAB_ES]). */
+private fun pick(language: Int, pt: Int, en: Int, es: Int): Int = when (language) {
+    Terms.TAB_PT -> pt
+    Terms.TAB_ES -> es
+    else -> en
 }
 
 @Composable

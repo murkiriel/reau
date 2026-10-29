@@ -33,6 +33,9 @@ class ServiceDiscoveryNavigationTest {
         val bytes = before.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
         val old = Control.ServiceDiscoveryResponse.parseFrom(bytes.copyOfRange(HEADER, bytes.size))
         val withKeys = old.toBuilder().apply {
+            // The other change made on purpose (28/10/2026): the software version is the app's own, not a fixed "0.1.0".
+            setHeadUnitSoftwareVersion(com.reau.app.BuildConfig.VERSION_NAME)
+            setHeadunitInfo(headunitInfo.toBuilder().setHeadUnitSoftwareVersion(com.reau.app.BuildConfig.VERSION_NAME))
             val i = servicesList.indexOfFirst { it.id == Channel.ID_INP }
             setServices(i, getServices(i).toBuilder().apply {
                 inputSourceService = inputSourceService.toBuilder().addKeycodesSupported(3).addKeycodesSupported(84)

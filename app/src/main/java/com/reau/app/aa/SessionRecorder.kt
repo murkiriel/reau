@@ -12,35 +12,55 @@ import java.util.Locale
 /** One message of a recorded session: [timeMs] after the first one, and the [payload] with its two type bytes. */
 class RecordedMessage(val timeMs: Long, val channel: Int, val flags: Int, val payload: ByteArray) {
     val type: Int get() = ((payload[0].toInt() and 0xFF) shl 8) or (payload[1].toInt() and 0xFF)
+
+    /** One REau sent to Android Auto (a key, a wheel step, a touch), not one it got: a replay leaves it out. */
+    val sent: Boolean get() = flags and SessionRecorder.SENT != 0
 }
 
 /** What a recording file holds. [truncated]: the file ends in the middle of a message, which is not in [messages]. */
 class SessionRecording(val startedAtMs: Long, val messages: List<RecordedMessage>, val truncated: Boolean)
 
 /**
- * Debug option: keeps what Android Auto sent in a session, message by message as the handler got them, already
+ * Optional (off by default in a release, on in a debug build): keeps what Android Auto sent in a session, message by message as the handler got them, already
  * decrypted. With such a file a test can hand a real session to the message handler again, with no phone.
  *
  * The recording holds the video of the session, so what was on the map: it stays in the app's own folder, off by
- * default, and only the last [KEEP] are kept.
+ * default, and kept until the recordings' ceiling ([com.reau.app.data.RecordingsSpace]) is reached, the oldest going first.
+ *
+ * Besides what Android Auto sent, the keys, wheel steps and touches REau sent to it ([writeSent]) are in the file, in their place in time, with
+ * [SENT] in their flags, so a session can be read together with what was done in it. They are the rider's use of the phone and the dash, which
+ * is why the option is the rider's to switch on (Settings > Debug) and never leaves the phone by itself.
  *
  * The file: "REAA", the format version (1 byte), the clock time of the first
  * message (8 bytes); then per message
  * the milliseconds since the first (4 bytes), channel (1), flags (1), payload length (4) and the payload. Numbers
  * are big-endian.
  *
- * The file is created by the first message, ends by itself before it would pass [maxBytes] (0 or less: the option
- * is off) and whatever goes wrong with it costs the recording and one line in the log, never the session: [write]
- * runs on the session's read thread.
+ * The file is created by the first message and whatever goes wrong with it costs the recording and one line in the log, never the
+ * session: [write] runs on the session's read thread. With [ring] false it ends by itself before it would pass [maxBytes] (0 or less:
+ * the option is off). With [ring] true (the app's option) it **rolls over**: it fills `name.aasession` up to half of [maxBytes], then keeps it
+ * as `name.1.aasession` (the older one of the two dropped) and goes on in a new `name.aasession` with its own header, so the last half to the
+ * whole of [maxBytes] of the connection is always there. A connection filled the 100 MB in 13 minutes and the recording stopped, so what was
+ * saved was the beginning and never the minutes before a drop (20/10/2026). A rolled file no longer holds the start of the
+ * connection (its handshake): it is for looking at the end, not for replaying the session.
  */
 internal class SessionRecorder(
     private val dir: File,
-    name: String,
+    private val name: String,
     private val maxBytes: Long,
     private val log: (String) -> Unit,
     private val nowMs: () -> Long = System::currentTimeMillis,
+    private val ring: Boolean = false,
 ) {
-    val file = File(dir, "$name.$EXTENSION")
+    val file = File(dir, "$name.$EXTENSION")  // right after a rollover it does not exist until the next message: the data are in [previous]
+
+    /** The older half of a ring, once it has rolled over. */
+    private val previous = File(dir, "$name.1.$EXTENSION")
+
+    /** How many times the ring rolled over. */
+    var rollovers = 0
+        private set
+
 
     /** Messages written so far. */
     var messages = 0
@@ -52,23 +72,38 @@ internal class SessionRecorder(
 
     private var bytes = 0L
     private var startedAtMs = 0L
+    // The time of the last message kept, since the first: how much of the connection the file covers.
+    private var lastMs = 0L
     private var out: DataOutputStream? = null
 
     @Synchronized
-    fun write(message: AapMessage) {
+    fun write(message: AapMessage) = put(message.channel, message.flags.toInt(), message.data, 0, message.size)
+
+    /**
+     * A message REau sent ([frame], as it went out: channel, flags, length, type, body): kept with [SENT] in its flags and the
+     * payload as the read loop would have it (the two type bytes, then the body), so the file reads the same.
+     */
+    @Synchronized
+    fun writeSent(frame: AapMessage) =
+        put(frame.channel, frame.flags.toInt() or SENT, frame.data, AapMessage.HEADER_SIZE, frame.size - AapMessage.HEADER_SIZE)
+
+    private fun put(channel: Int, flags: Int, data: ByteArray, offset: Int, length: Int) {
         if (isDone || maxBytes <= 0) return
-        val size = (if (out == null) HEADER_BYTES else 0) + RECORD_HEADER_BYTES + message.size
-        if (bytes + size > maxBytes) {
-            finish("full")
-            return
+        val size = (if (out == null) HEADER_BYTES else 0) + RECORD_HEADER_BYTES + length
+        if (bytes + size > segmentBytes()) {
+            // Without the ring the file ends here; with it too when nothing is in this part yet (one message that alone does not fit).
+            if (!ring || bytes == 0L) return finish("full")
+            rollOver()
+            return put(channel, flags, data, offset, length)
         }
         try {
             val stream = out ?: open()
-            stream.writeInt((nowMs() - startedAtMs).toInt())
-            stream.writeByte(message.channel)
-            stream.writeByte(message.flags.toInt())
-            stream.writeInt(message.size)
-            stream.write(message.data, 0, message.size)
+            lastMs = nowMs() - startedAtMs
+            stream.writeInt(lastMs.toInt())
+            stream.writeByte(channel)
+            stream.writeByte(flags)
+            stream.writeInt(length)
+            stream.write(data, offset, length)
             messages++
             bytes += size
         } catch (e: IOException) {
@@ -78,14 +113,32 @@ internal class SessionRecorder(
         }
     }
 
+    /** One part of the ring is half of the limit; without the ring the file may fill the limit. */
+    private fun segmentBytes(): Long = if (ring) maxOf(maxBytes / 2, HEADER_BYTES + RECORD_HEADER_BYTES + 1L) else maxBytes
+
+    /** The file is full: it becomes the older half (the one before it goes) and a new one begins with the next message. */
+    private fun rollOver() {
+        val covered = lastMs / 1_000
+        closeFile()
+        // The rename replaces the older half in one step; only if the system refuses that is the older half deleted first, then the recording.
+        if (!file.renameTo(previous)) {
+            previous.delete()
+            if (!file.renameTo(previous)) file.delete() // a rename refused twice costs the part just filled, never the recording to come
+        }
+        rollovers++
+        bytes = 0
+        log("session recording rolled over (#$rollovers): ${previous.name} keeps the first $covered s of that part; the part before it is dropped")
+    }
+
     /** The session ended: closes the file. */
     @Synchronized
     fun close() = finish("closed")
 
     private fun open(): DataOutputStream {
         dir.mkdirs()
-        prune()
-        com.reau.app.data.RecordingsSpace.makeRoom(dir)?.let(log) // both recording folders together under their ceiling
+        // No count of recordings: they all stay until the two folders together pass their ceiling, and then the oldest go (a few short tests had
+        // pushed the night ride of 24/10/2026 out of a count of three).
+        com.reau.app.data.RecordingsSpace.makeRoom(dir)?.let(log)
         startedAtMs = nowMs()
         return DataOutputStream(BufferedOutputStream(file.outputStream())).also {
             out = it
@@ -95,17 +148,20 @@ internal class SessionRecorder(
         }
     }
 
-    /** Makes room for this recording: only the newest [KEEP] - 1 older ones stay (names sort by time). */
-    private fun prune() {
-        val old = dir.listFiles { candidate -> candidate.extension == EXTENSION }.orEmpty().sortedBy { it.name }
-        old.dropLast(KEEP - 1).forEach { it.delete() }
-    }
-
     private fun finish(how: String) {
         val opened = out != null
         closeFile()
         isDone = true
-        if (opened || how != "closed") log("session recording $how: $messages messages, $bytes bytes, ${file.path}")
+        if (opened || how != "closed") {
+            // A recording that filled up stops there: said, with how far it got (a file of 100 MB once ended 56 s before the connection did).
+            val covers = if (rollovers > 0) {
+                "the last part covers ${lastMs / 1_000} s, after $rollovers rollover(s)"
+            } else {
+                "covers the first ${lastMs / 1_000} s" + if (how == "full") " only; the rest of the connection is not recorded" else ""
+            }
+            val inPart = if (rollovers > 0) " in the last part" else ""
+            log("session recording $how: $messages messages, $bytes bytes$inPart, ${file.path} — $covers")
+        }
     }
 
     private fun closeFile() {
@@ -118,8 +174,10 @@ internal class SessionRecorder(
     }
 
     companion object {
-        const val KEEP = 3
         const val EXTENSION = "aasession"
+
+        /** The flag bit of a message REau sent; Android Auto's own flags use only the low nibble. */
+        const val SENT = 0x80
         private val MAGIC = byteArrayOf(0x52, 0x45, 0x41, 0x41) // "REAA"
 
         private const val VERSION = 1

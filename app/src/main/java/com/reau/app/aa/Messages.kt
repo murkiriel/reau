@@ -6,11 +6,11 @@ package com.reau.app.aa
 object Messages {
     const val DEF_BUFFER_LENGTH = 131080
 
-    /** The protocol REau has always announced, 1.2. */
+    /** The old protocol, 1.2: what REau announced until 1.7 became the fixed choice (28/10/2026); only the fallback of [AaConfig] now. */
     const val MINOR_DEFAULT = 2
 
     /**
-     * The test: 1.7. Android Auto gates some features on the version the head unit asks for
+     * The protocol REau announces: 1.7. Android Auto gates some features on the version the head unit asks for
      * (aa-proxy-rs); the route's total distance (NavigationCurrentPosition) never came with 1.2.
      */
     const val MINOR_NEWER = 7

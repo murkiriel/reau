@@ -11,7 +11,7 @@ import com.reau.app.util.CodecNames
 
 /**
  * The web viewers' encoder: H.264 Baseline, [WIDTH]×[HEIGHT], 30 fps, about 1.5 Mbps constant, a key frame every
- * second, the parameter sets repeated in each key frame (so a viewer can start at any of them), and the last picture
+ * second, the parameter sets repeated in each key frame where the encoder takes that key (so a viewer can start at any of them), and the last picture
  * repeated every 500 ms while Android Auto draws nothing new. Hardware preferred. It is the dash encoder's twin, with
  * the same realtime keys and the same fallbacks, but its own size and rate; it never touches the dash's.
  *
@@ -48,28 +48,32 @@ internal class WebEncoder(private val onOutput: (ByteArray, Boolean, Boolean) ->
         return runCatching { start(name, lowLatency = true, constantRate = true) }
             .recoverCatching { start(name, lowLatency = false, constantRate = true) }
             .recoverCatching { start(name, lowLatency = false, constantRate = false) }
+            // The system's software encoder (the emulator's, some vendors') refuses the key that repeats the parameter sets in each key
+            // frame: without it the codec still gives them as a buffer of their own, which the stream caches and sends first to every viewer.
+            .recoverCatching { start(name, lowLatency = true, constantRate = true, prependHeader = false) }
+            .recoverCatching { start(name, lowLatency = false, constantRate = false, prependHeader = false) }
             .onFailure { lastError = "${it.javaClass.simpleName}: ${it.message} (tried ${name ?: "the OS default encoder"})" }
             .onSuccess { lastError = null }
             .isSuccess
     }
 
-    private fun format(lowLatency: Boolean, constantRate: Boolean) = MediaFormat.createVideoFormat(MIME, WIDTH, HEIGHT).apply {
+    private fun format(lowLatency: Boolean, constantRate: Boolean, prependHeader: Boolean = true) = MediaFormat.createVideoFormat(MIME, WIDTH, HEIGHT).apply {
         setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
         setInteger(MediaFormat.KEY_BIT_RATE, BITRATE)
         setInteger(MediaFormat.KEY_FRAME_RATE, FPS)
         setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, KEY_INTERVAL_SEC)
         setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline)
         setInteger(MediaFormat.KEY_LEVEL, MediaCodecInfo.CodecProfileLevel.AVCLevel31)
-        setInteger(MediaFormat.KEY_PREPEND_HEADER_TO_SYNC_FRAMES, 1)
+        if (prependHeader) setInteger(MediaFormat.KEY_PREPEND_HEADER_TO_SYNC_FRAMES, 1)
         setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, REPEAT_AFTER_US)
         if (constantRate) setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR)
         if (lowLatency) DashEncoder.lowLatencyKeys(android.os.Build.VERSION.SDK_INT, FPS).forEach { (k, v) -> setInteger(k, v) }
     }
 
-    private fun start(name: String?, lowLatency: Boolean, constantRate: Boolean): MediaCodec {
+    private fun start(name: String?, lowLatency: Boolean, constantRate: Boolean, prependHeader: Boolean = true): MediaCodec {
         val c = if (name != null) MediaCodec.createByCodecName(name) else MediaCodec.createEncoderByType(MIME)
         return runCatching {
-            c.configure(format(lowLatency, constantRate), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+            c.configure(format(lowLatency, constantRate, prependHeader), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
             inputSurface = c.createInputSurface()
             c.start()
             pump = EncoderOutputPump(c) { idx, info -> emit(c, idx, info) }.also { it.start() }
@@ -104,14 +108,21 @@ internal class WebEncoder(private val onOutput: (ByteArray, Boolean, Boolean) ->
         runCatching { c.setParameters(android.os.Bundle().apply { putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0) }) }
     }
 
+    /** The codec goes when the output thread is out of it: at once, or from that thread if a viewer's send kept it (see [EncoderOutputPump.stopThen]). */
     fun release() {
-        pump?.stop()
-        pump = null
-        runCatching { codec?.stop() }
-        runCatching { codec?.release() }
+        val c = codec
+        val surface = inputSurface
+        val ending = pump
         codec = null
-        inputSurface?.release()
         inputSurface = null
+        pump = null
+        val letGo = {
+            runCatching { c?.stop() }
+            runCatching { c?.release() }
+            surface?.release()
+            Unit
+        }
+        EncoderOutputPump.releaseThrough(ending, letGo)
     }
 
     /** A hardware AVC encoder that offers the format; null lets the OS choose. */

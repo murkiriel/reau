@@ -69,6 +69,7 @@ class MainLookTest {
         assertNull("a failed start says its reason instead", MainLook.sub(Projection(problem = "SecurityException")))
         assertEquals(R.string.sub_preparing, MainLook.sub(Projection(phase = Phase.PREPARING)))
         assertEquals(R.string.sub_connecting, MainLook.sub(running()))
+        assertEquals("the wallpaper mode waits for the dash alone", R.string.sub_connecting_wallpaper, MainLook.sub(running().copy(card = true)))
         assertEquals(R.string.sub_streaming, MainLook.sub(running(AaLinkState.ACTIVE, DashLink.READY)))
         assertEquals(R.string.sub_card, MainLook.sub(running(AaLinkState.ACTIVE, DashLink.READY, card = true)))
         assertEquals(R.string.sub_server_off, MainLook.sub(running(aa = AaLinkState.SERVER_OFF)))
@@ -180,6 +181,14 @@ class MainLookTest {
      * Observed on a device: a VPN held REau, and Android refused it the bike's Wi-Fi (EPERM) with
      * nothing on the screen but the dash "lost". With REau's traffic in a VPN, the main screen says so, last.
      */
+    @Test
+    fun `Location switched off with the permission given is said, last`() {
+        val fine = BatteryUi(saverOn = false, exempt = true)
+        assertEquals(listOf(Warning.LOCATION_OFF), MainLook.warnings(Projection(), fine, locationOff = true))
+        assertEquals(listOf(Warning.VPN, Warning.LOCATION_OFF), MainLook.warnings(Projection(), fine, vpn = true, locationOff = true))
+        assertEquals(emptyList<Warning>(), MainLook.warnings(Projection(), fine, locationOff = false))
+    }
+
     @Test
     fun `a VPN holding REau is said, after the other warnings`() {
         val fine = BatteryUi(saverOn = false, exempt = true)

@@ -4,7 +4,8 @@ import java.io.ByteArrayOutputStream
 
 /**
  * K1G packet format — cross-checked against the open-source better-dash reference
- * (Apache-2.0; see NOTICE) and traffic observed on firmware 11.63.
+ * (Apache-2.0; see NOTICE); observed on firmware 11.63 and verified on 13.10 (connection, video, joystick and cards),
+ * as the terms of use say.
  *
  * OUTGOING (app → dash), big-endian:
  *   [0:2]  outer_len   – total packet size including this field
@@ -71,24 +72,40 @@ object K1GPacket {
 
     fun tlv(type: Int, sub: Int, value: ByteArray): Tlv = Tlv(type, sub, value)
 
+    /** What [parse] read: the complete TLVs, and whether the packet ended inside one (a cut-short TLV is not among them). */
+    class Parsed(val tlvs: List<Tlv>, val cutShort: Boolean)
+
     /** Parse a dash → app packet. Segments start at offset 8. */
-    fun parseIncoming(data: ByteArray): List<Tlv> {
+    fun parseIncoming(data: ByteArray): List<Tlv> = parse(data).tlvs
+
+    /**
+     * Like [parseIncoming], and says whether the packet ended inside a TLV. Such a TLV used to be kept with the value cut to what
+     * there was, so a half-received key or reading was taken for a whole (shorter) one; it is left out now, and what follows it
+     * (the rest of its own bytes) with it. Never throws.
+     */
+    fun parse(data: ByteArray): Parsed {
         val tlvs = mutableListOf<Tlv>()
-        if (data.size < 8) return tlvs
+        if (data.size < 8) return Parsed(tlvs, cutShort = false)
         val segCount = ((data[2].toInt() and 0xFF) shl 8) or (data[3].toInt() and 0xFF)
         var i = 8
         var n = 0
-        while (n < segCount && i + 4 <= data.size) {
+        var cutShort = false
+        while (n < segCount && i + 4 <= data.size && !cutShort) {
             val type = data[i].toInt() and 0xFF
             val sub  = data[i + 1].toInt() and 0xFF
             val len  = ((data[i + 2].toInt() and 0xFF) shl 8) or (data[i + 3].toInt() and 0xFF)
             i += 4
-            val end = (i + len).coerceAtMost(data.size)
-            tlvs += Tlv(type, sub, data.copyOfRange(i, end))
-            i = end
-            n++
+            if (i + len > data.size) {
+                cutShort = true
+            } else {
+                tlvs += Tlv(type, sub, data.copyOfRange(i, i + len))
+                i += len
+                n++
+            }
         }
-        return tlvs
+        // Bytes left that cannot even make a TLV header, with TLVs still owed: the packet ended inside the header.
+        if (!cutShort && n < segCount && i < data.size) cutShort = true
+        return Parsed(tlvs, cutShort)
     }
 
     private fun indexOfMagic(b: ByteArray): Int {

@@ -24,4 +24,14 @@ class ServerCoverTextTest {
         assertEquals(R.string.aa_server_working, ScreenText.server(ServerResult.WORKING))
         assertEquals(R.string.aa_server_stopping, ScreenText.server(ServerResult.STOPPING))
     }
+
+    @Test
+    fun `while the cover waits for the server it says so, in both languages, with no format left over`() {
+        assertEquals(R.string.aa_server_cover_waiting, ScreenText.coverWaiting())
+        for (file in listOf("src/main/res/values/strings.xml", "src/main/res/values-pt/strings.xml")) {
+            val text = Regex("""<string name="aa_server_cover_waiting">(.*?)</string>""")
+                .find(java.io.File(file).readText())?.groupValues?.get(1) ?: error("$file has no aa_server_cover_waiting")
+            assertEquals(file, false, text.isBlank() || "%" in text || "\\n" in text)
+        }
+    }
 }

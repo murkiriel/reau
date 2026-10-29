@@ -28,6 +28,8 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
+private const val READER_JOIN_MS = 2_000L
+
 /**
  * The video side of a whole session: the fake Android Auto sends H.264 the way the real one does (a codec
  * configuration, then pictures, whole or cut in pieces) and the receiver decodes it onto a surface, acknowledges
@@ -91,8 +93,12 @@ class AaVideoSinkTest {
         connection.disconnect()
         peer.close()
         sink.release()
-        reader.close()
+        // The reader is closed only once the thread that reads its pictures has stopped: closed under a picture being read it
+        // raised "buffer is inaccessible" in the test's decoder and took the whole test process down.
+        reader.setOnImageAvailableListener(null, null)
         readerThread.quitSafely()
+        readerThread.join(READER_JOIN_MS)
+        reader.close()
         AaLog.sink = null
     }
 

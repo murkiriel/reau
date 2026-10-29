@@ -34,9 +34,9 @@ internal class WebViewers(
     val liveCount: Int get() = synchronized(lock) { viewers.count { it.live } }
 
     /** A place for one more viewer on [socket], or null when they are all taken. */
-    fun reserve(socket: Socket, soundOff: Boolean = false): WebViewer? = synchronized(lock) {
+    fun reserve(socket: Socket, soundOff: Boolean = false, pingMs: Long = WebViewer.PING_MS): WebViewer? = synchronized(lock) {
         if (viewers.size >= maxViewers) return@synchronized null
-        WebViewer(socket, queueFrames, ::gone).also {
+        WebViewer(socket, queueFrames, pingMs, ::gone).also {
             it.soundOff = soundOff
             viewers += it
         }
@@ -74,7 +74,11 @@ internal class WebViewers(
         events.log("web: viewer left ($count)")
     }
 
-    /** Reads the viewer's messages until it leaves: text goes to the events, a ping is answered, a close or a fault ends it. */
+    /**
+     * Reads the viewer's messages until it leaves: text goes to the events, a ping is answered, a close or a fault ends it. The
+     * socket's read timeout is the idle limit ([WebServer.Settings.idleMs]): a viewer that says nothing for that long (the answers
+     * to the pings the writer sends count) times out here, and the caller closes it.
+     */
     fun listen(viewer: WebViewer, input: InputStream) {
         while (true) {
             val frame = try {
@@ -87,7 +91,11 @@ internal class WebViewers(
             when (frame.opcode) {
                 WebSocketCodec.TEXT -> events.onText(String(frame.payload, Charsets.UTF_8))
                 WebSocketCodec.PING -> viewer.enqueue(WebSocketCodec.encode(WebSocketCodec.PONG, frame.payload))
-                WebSocketCodec.CLOSE -> return
+                WebSocketCodec.CLOSE -> {
+                    // The same status code back (if it sent one), as the protocol asks; then the reading ends.
+                    viewer.answerClose(WebSocketCodec.encode(WebSocketCodec.CLOSE, frame.payload.take(2).toByteArray()))
+                    return
+                }
             }
         }
     }

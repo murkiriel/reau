@@ -53,7 +53,9 @@ class ProjectionMachineAaFirstTest {
         on(AndroidAutoChanged(AaLinkState.ACTIVE))
         on(DashChanged(DashLink.DROPPED))
         on(AndroidAutoChanged(AaLinkState.DROPPED))
-        assertTrue("not now", on(DashRetryDue).isEmpty())
+        val due = on(DashRetryDue)
+        assertTrue("not now: $due", StartDash !in due)
+        assertTrue("but the absence is still timed (the 20-minute stop)", due.all { it is ProjectionEffect.RetryDashIn })
         assertEquals(DashLink.OFF, state.dash)
         assertEquals(listOf(StartDash), on(AndroidAutoChanged(AaLinkState.ACTIVE)))
     }

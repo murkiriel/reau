@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The name on the dash's call card when the call has neither a name nor a number (plain letters: the dash's font is unknown). -->
+    <string name="caller_private">Privado</string>
+    <!-- Why a start failed: the main screen's line under "Problem". -->
+    <string name="problem_compositor">el compositor de video (OpenGL) no arrancó: no hay imagen para el tablero</string>
+    <!-- The notification's line after the Mark button: the number of the mark and the time it was taken. -->
+    <string name="notif_mark_done">Guardada a las %2$s como marca %1$d</string>
+    <!-- The sample street on the legibility card sent to the dash; the text size is written before it. -->
+    <string name="card_legibility_sample">Calle 300 m</string>
+    <!-- The sixteen points of the compass for the wind, from north in steps of 22.5 degrees. -->
+    <string-array name="wind_points">
+        <item>N</item>
+        <item>NNE</item>
+        <item>NE</item>
+        <item>ENE</item>
+        <item>E</item>
+        <item>ESE</item>
+        <item>SE</item>
+        <item>SSE</item>
+        <item>S</item>
+        <item>SSO</item>
+        <item>SO</item>
+        <item>OSO</item>
+        <item>O</item>
+        <item>ONO</item>
+        <item>NO</item>
+        <item>NNO</item>
+    </string-array>
+    <string name="weather_air_pm25">PM2.5 %1$d</string>
+    <!-- Words of the numbers drawn on the dash video (the debug switch): whose numbers, the encoder's default mode, the frame size unit, keyframe. -->
+    <string name="stats_dash">tablero</string>
+    <string name="stats_default_mode">por defecto</string>
+    <string name="stats_frame_unit">KB/cuadro</string>
+    <string name="stats_keyframe">FC</string>
+    <!-- Credits: what each project gave to REau. -->
+    <string name="credit_role_opencfmoto">receptor de Android Auto, decodificador y compositor de imagen</string>
+    <string name="credit_role_headunit_revived">protocolo de Android Auto (a través de OpenCfMoto)</string>
+    <string name="credit_role_open_headunit">reensamblado de cuadros y recuperación de video</string>
+    <string name="credit_role_headunit">el origen de todo el linaje</string>
+    <string name="credit_role_moto_hub">canal de navegación de Android Auto</string>
+    <string name="credit_role_headqlink">la pausa de 1,5 s al reiniciar el servidor (un valor, sin código)</string>
+    <string name="credit_role_aa_proxy_rs">datos del protocolo: mensajes de estado del teléfono y de multimedia (sin código)</string>
+    <string name="credit_role_northstar">primera implementación del protocolo del tablero (a través de EstrelaAustral)</string>
+    <string name="credit_role_estrelaaustral">punto de partida: el lado del tablero, el clima, las pruebas y la organización</string>
+    <string name="credit_role_better_dash">referencia del protocolo K1G; algunas partes portadas de él</string>
+    <string name="credit_role_recon_dash">pausar los envíos cuando se cae la red, telemetría</string>
+    <string name="credit_role_open_dash">secuencia de salida al tablero (de una versión anterior a la limpieza del proyecto del 21 de septiembre de 2026)</string>
+    <string name="credit_role_fraunces">títulos</string>
+    <string name="credit_role_androidx">pantallas y base de la app</string>
+    <string name="credit_role_conscrypt">cifrado de la conversación con Android Auto (con BoringSSL)</string>
+    <string name="credit_role_material_symbols">íconos</string>
+    <string name="credit_role_protobuf">mensajes de Android Auto</string>
+    <string name="credit_role_hanken">texto de la interfaz</string>
+    <string name="credit_role_kotlin">el lenguaje de la app y las corrutinas</string>
+    <string name="credit_role_jetbrains_mono">valores, etiquetas y el registro</string>
+    <string name="credit_licence_public_domain">Dominio público</string>
+    <string name="credit_role_noaa">ecuaciones de la posición del sol (el tema según el sol)</string>
+    <string name="credit_role_open_meteo">datos del clima y de la calidad del aire</string>
+    <string name="credit_role_jmuxer">reproduce el video en el navegador (la página del servidor web)</string>
+    <!-- Credits: the holders and names that have a word of the language in them. -->
+    <string name="credit_holder_opencfmoto">© 2026 Alexandru y colaboradores</string>
+    <string name="credit_holder_headunit_revived">© andreknieriem y el linaje de headunit</string>
+    <string name="credit_holder_moto_hub">© 2026 Vincenzo Buonomano y colaboradores</string>
+    <string name="credit_holder_headqlink">© Michael A. Reid y los autores de open-headunit</string>
+    <string name="credit_holder_open_dash">© 2026 Subtle Sayak y colaboradores</string>
+    <string name="credit_holder_kotlin">© JetBrains y colaboradores de Kotlin</string>
+    <string name="credit_name_androidx">AndroidX y Jetpack Compose</string>
+    <string name="credit_name_kotlin">Kotlin y kotlinx-coroutines</string>
+</resources>

@@ -61,7 +61,7 @@ class MainScreenCardTest {
     @Test
     fun ourOwnDefaultPictureIsCalledWallpaperDeTeste() {
         show(MainUiState(cardRunning(), cardName = "grade_medicao"))
-        side("side_picture", "IMAGEM", "Wallpaper de teste")
+        side("side_picture", "IMAGEM", "Wallpaper")
     }
 
     @Test

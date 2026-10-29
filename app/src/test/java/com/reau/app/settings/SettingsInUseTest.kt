@@ -24,14 +24,14 @@ class SettingsInUseTest {
     @Test
     fun `the line of the default settings says the ones that change a ride, in the order of the settings`() {
         assertEquals(
-            "settings in use: density=${fields.getValue("density")} marginW=0 marginH=0 fit=CROP cropPercent=${fields.getValue("cropPercent")} " +
+            "settings in use: density=${fields.getValue("density")} marginW=0 marginH=0 fit=WHOLE_VISIBLE cropPercent=${fields.getValue("cropPercent")} " +
                 "fpsCeiling=${fields.getValue("fpsCeiling")} streamBitrateBps=${fields.getValue("streamBitrateBps")} bitrateMode=CBR " +
                 "keyframeSec=${fields.getValue("keyframeSec")} clockSlowPercent=0 " +
-                "recordVideo=false recordSessions=false cardImage=default mapTheme=AUTO maneuverData=true maneuverFpsProfile=true " +
-                "speedFpsProfile=true navProfileMode=PESSIMISTA autoJoinWifi=true detailedLog=false rideLog=true useLocation=false " +
-                "logKeepDays=30 answerCalls=true phoneTouch=true dashMusic=true dashCaller=true aaNewProtocol=true " +
+                "recordVideo=${com.reau.app.BuildConfig.DEBUG} recordSessions=${com.reau.app.BuildConfig.DEBUG} cardImage=default mapTheme=AUTO maneuverData=true maneuverFpsProfile=true " +
+                "speedFpsProfile=true navProfileMode=PESSIMISTA autoJoinWifi=true detailedLog=${com.reau.app.BuildConfig.DEBUG} rideLog=true useLocation=true " +
+                "logKeepDays=${if (com.reau.app.BuildConfig.DEBUG) 0 else 30} noDashStopMinutes=20 answerCalls=true phoneTouch=true dashMusic=true dashCaller=true aaNewProtocol=true " +
                 "gemini=true aaServerAuto=true clearAaFocus=true dashMask=true " +
-                "statsOverlay=false dashPhoneStatus=true dashAlbumArt=false dashRouteExtras=false dashWeather=false webView=false webTouch=false webAudio=PHONE",
+                "statsOverlay=false buttonOverlay=false dashPhoneStatus=true dashAlbumArt=true maneuverRing=false dashWeather=true infoRing=true infoRingData=2047 infoRingCarousel=true infoRingSeconds=7 infoRingInPlace=false webView=false webTouch=false webAudio=PHONE",
             SettingsInUse.line(REauSettings()),
         )
     }

@@ -14,17 +14,17 @@ import org.junit.Test
  * pace takes a new stream; the map theme is asked again at once.
  */
 class LiveTuningTest {
-    // The first apps fit (filling the dome, no menu fit of its own) as the base: the defaults now crop.
-    private val before = REauSettings(fit = Fit.FILL_DOME, cropPercent = 60, cropX = null, cropY = null, menuFit = null)
+    // The first apps fit (the whole picture, no menu fit of its own) as the base: the defaults now crop.
+    private val before = REauSettings(fit = Fit.WHOLE_VISIBLE, cropPercent = 60, cropX = null, cropY = null, menuFit = null)
 
     @Test
     fun `the fit, the crop and the move only refit the picture`() {
         assertEquals(setOf(Step.REFIT), LiveTuning.steps(before, before.copy(fit = Fit.CROP)))
         assertEquals(setOf(Step.REFIT), LiveTuning.steps(before, before.copy(fit = Fit.CROP, cropPercent = 90)))
         assertEquals(setOf(Step.REFIT), LiveTuning.steps(before, before.copy(fit = Fit.WHOLE_VISIBLE, moveX = -20, moveY = 10)))
-        // the app menu's own fit too
+        // the fit once kept for the app menu is no longer used: changing it refits nothing
         val menu = com.reau.app.settings.FitParams(Fit.CROP, 74, 150, -50, 0, 0)
-        assertEquals(setOf(Step.REFIT), LiveTuning.steps(before, before.copy(menuFit = menu)))
+        assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(menuFit = menu)))
     }
 
     @Test
@@ -57,15 +57,32 @@ class LiveTuningTest {
         assertEquals(setOf(Step.JOYSTICK), LiveTuning.steps(before, before.copy(joystick = "media.center.twice=HOME")))
     }
 
-    /** What the dash shows besides the picture is read from the live settings: each of the four is told to the running service. */
+    /** What the dash shows besides the picture is read from the live settings: each is told to the running service. */
     @Test
-    fun `the phone status, the album art, the route extras and the weather are told to the running projection`() {
+    fun `the phone status, the album art, the maneuver ring and the weather are told to the running projection`() {
         assertEquals(setOf(Step.DASH_EXTRAS), LiveTuning.steps(before, before.copy(dashPhoneStatus = !before.dashPhoneStatus)))
         assertEquals(setOf(Step.DASH_EXTRAS), LiveTuning.steps(before, before.copy(dashAlbumArt = !before.dashAlbumArt)))
-        assertEquals(setOf(Step.DASH_EXTRAS), LiveTuning.steps(before, before.copy(dashRouteExtras = !before.dashRouteExtras)))
         assertEquals(setOf(Step.DASH_EXTRAS), LiveTuning.steps(before, before.copy(dashWeather = !before.dashWeather)))
+        assertEquals("the ring too", setOf(Step.DASH_EXTRAS), LiveTuning.steps(before, before.copy(maneuverRing = !before.maneuverRing)))
+        assertEquals("and the info ring", setOf(Step.DASH_EXTRAS), LiveTuning.steps(before, before.copy(infoRing = !before.infoRing)))
+        assertEquals("what it says", setOf(Step.DASH_EXTRAS), LiveTuning.steps(before, before.copy(infoRingData = 3)))
+        assertEquals("the carousel", setOf(Step.DASH_EXTRAS), LiveTuning.steps(before, before.copy(infoRingCarousel = !before.infoRingCarousel)))
+        assertEquals("its time", setOf(Step.DASH_EXTRAS), LiveTuning.steps(before, before.copy(infoRingSeconds = 12)))
+        assertEquals("its place", setOf(Step.DASH_EXTRAS), LiveTuning.steps(before, before.copy(infoRingInPlace = !before.infoRingInPlace)))
         // the two that Android Auto is told only when a session begins are not live
         assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(dashCaller = !before.dashCaller, dashMusic = !before.dashMusic)))
+    }
+
+    /**
+     * Which of the settings' switches the "NA HORA" chip may carry (SettingsScreenNowTest lists the rows): "Usar a localização" is a
+     * step of its own (the dash's day or night asked again), the dash's phone status and album art are told to the service, and "Atender
+     * ligação" is read at each press, with no step. Gemini and the two cards are only taken when a session begins.
+     */
+    @Test
+    fun `the location is told at once, and answering calls and Gemini wait for no step`() {
+        assertEquals(setOf(Step.NIGHT_NOW), LiveTuning.steps(before, before.copy(useLocation = !before.useLocation)))
+        assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(answerCalls = !before.answerCalls)))
+        assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(gemini = !before.gemini)))
     }
 
     @Test
@@ -74,6 +91,6 @@ class LiveTuningTest {
             setOf(Step.REFIT, Step.NEW_STREAM, Step.NIGHT_NOW),
             LiveTuning.steps(before, before.copy(moveX = 5, fpsCeiling = before.fpsCeiling + 1, mapTheme = MapTheme.DAY)),
         )
-        assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(detailedLog = true, answerCalls = true)))
+        assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(detailedLog = true, answerCalls = !before.answerCalls)))
     }
 }

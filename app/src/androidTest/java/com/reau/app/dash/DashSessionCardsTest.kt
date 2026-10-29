@@ -94,6 +94,23 @@ class DashSessionCardsTest {
     }
 
     @Test
+    fun theMusicCardGoesOnlyWhileTheJoystickHasAMusicControl() {
+        val (s, fake) = streaming()
+        s.musicCardAllowed = false
+        s.updateNowPlaying("Song", "Album", "Band")
+        pause(2_300)
+        assertEquals("no music control on the page: no card", 0, fake.countOf(0x05, 0x0D))
+        s.musicCardAllowed = true
+        pause(2_300)
+        assertTrue("a control was put on the page: the card goes", fake.countOf(0x05, 0x0D) >= 1)
+        s.musicCardAllowed = false
+        val before = fake.countOf(0x05, 0x0D)
+        pause(2_300)
+        assertEquals("the control was taken off: the card is cleared and not repeated", listOf(0xAA.toByte()), fake.received.last { it.type == 0x05 && it.sub == 0x17 }.value.toList())
+        assertTrue("at most one more card before the clear", fake.countOf(0x05, 0x0D) - before <= 1)
+    }
+
+    @Test
     fun aRingingCallGoesOutAtOnceAndItsClearOnce() {
         val (s, fake) = streaming()
         s.showCaller("Ana")

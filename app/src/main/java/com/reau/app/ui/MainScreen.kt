@@ -29,6 +29,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.reau.app.R
+import com.reau.app.service.Headline
 import com.reau.app.service.Phase
 import com.reau.app.service.Projection
 import com.reau.app.ui.MainLook.Warning
@@ -85,7 +86,7 @@ fun MainScreen(
                     // Stopped and with nothing wrong, all of it fits without scrolling.
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    for (warning in MainLook.warnings(p, state.battery, state.vpnHoldsREau, state.otherEditionInstalled)) {
+                    for (warning in MainLook.warnings(p, state.battery, state.vpnHoldsREau, state.otherEditionInstalled, state.locationOff)) {
                         Warning(warning, state, onOpenAndroidAutoSettings, onOpenSettings, extras)
                     }
                     BridgeCard(
@@ -166,7 +167,7 @@ private fun dashSide(p: Projection): BridgeSide {
 }
 
 /**
- * Which picture the card mode sends: our own default one, "Wallpaper de teste", the picked one, by [name], or the
+ * Which picture the card mode sends: our own default one, "Wallpaper", the picked one, by [name], or the
  * legibility card.
  */
 @Composable
@@ -181,7 +182,26 @@ private fun headlineText(p: Projection): String = stringResource(ScreenText.head
 
 /** The headline's line; a start that failed says its reason there. */
 @Composable
-private fun subText(p: Projection, muteByRider: Boolean): String =
-    MainLook.sub(p, muteByRider)?.let { stringResource(it) } ?: p.problem.orEmpty()
+private fun subText(p: Projection, muteByRider: Boolean): String {
+    if (p.headline == Headline.DASH_LOST) {
+        val now = rememberNowWhile(true)
+        val (res, secs) = DashLostText.text(p.dashGoneAtMs, now)
+        return if (secs == null) stringResource(res) else stringResource(res, secs)
+    }
+    return MainLook.sub(p, muteByRider)?.let { stringResource(it) } ?: p.problem.orEmpty()
+}
+
+/** The monotonic clock, read again each second while [active]. */
+@Composable
+private fun rememberNowWhile(active: Boolean): Long {
+    var now by remember { mutableLongStateOf(com.reau.app.util.MonotonicClock.nowMs()) }
+    LaunchedEffect(active) {
+        while (active) {
+            now = com.reau.app.util.MonotonicClock.nowMs()
+            delay(TICK_MS)
+        }
+    }
+    return now
+}
 
 private const val TICK_MS = 1000L

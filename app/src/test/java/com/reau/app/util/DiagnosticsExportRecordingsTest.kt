@@ -36,4 +36,56 @@ class DiagnosticsExportRecordingsTest {
         assertEquals(1, DiagnosticsExport.zipDirs(listOf("" to diag, "video" to File(tmp.root, "none")), dest))
         assertEquals(listOf("ride-1.log"), names(dest))
     }
+
+    /** Audit of 20/10/2026: up to 400 MB were put together without a look at the free space, always under one name. */
+    private fun room(): Pair<File, File> = tmp.newFolder("shared") to tmp.newFolder("diag").apply { File(this, "ride-1.log").writeText("abcdef") }
+
+    @Test
+    fun `too little room throws before a byte is written, and the last zip stays`() {
+        val (out, diag) = room()
+        val old = File(out, "diagnostics-logs-20260101-000000-000.zip").apply { writeText("old") }
+        try {
+            DiagnosticsExport.export(listOf("" to diag), out, freeBytes = { 1_000L })
+            org.junit.Assert.fail("expected NotEnoughSpace")
+        } catch (e: DiagnosticsExport.NotEnoughSpace) {
+            assertEquals(1_000L, e.free)
+        }
+        assertEquals(listOf(old.name), out.list()!!.toList())
+    }
+
+    @Test
+    fun `room enough, and the files plus a margin is what it asks for`() {
+        val (out, diag) = room()
+        var asked: File? = null
+        val zip = DiagnosticsExport.export(listOf("" to diag), out, freeBytes = { asked = it; 17L * 1024 * 1024 })
+        org.junit.Assert.assertNotNull(zip)
+        assertEquals(out, asked)
+        assertEquals(listOf("ride-1.log"), names(zip!!))
+        try {
+            DiagnosticsExport.export(listOf("" to diag), out, freeBytes = { 16L * 1024 * 1024 + 5 }) // 6 bytes of files
+            org.junit.Assert.fail("expected NotEnoughSpace")
+        } catch (e: DiagnosticsExport.NotEnoughSpace) {
+            assertEquals(16L * 1024 * 1024 + 6, e.needed)
+        }
+    }
+
+    @Test
+    fun `every export has a name of its own, and the earlier ones go only once the new one is whole`() {
+        val (out, diag) = room()
+        val first = DiagnosticsExport.export(listOf("" to diag), out, freeBytes = { Long.MAX_VALUE }, nowMs = 1_000_000L)!!
+        val second = DiagnosticsExport.export(listOf("" to diag), out, freeBytes = { Long.MAX_VALUE }, nowMs = 2_000_000L)!!
+        val sameMoment = DiagnosticsExport.export(listOf("" to diag), out, freeBytes = { Long.MAX_VALUE }, nowMs = 2_000_000L)!!
+        org.junit.Assert.assertNotEquals(first.name, second.name)
+        org.junit.Assert.assertNotEquals("the same instant never overwrites", second.name, sameMoment.name)
+        org.junit.Assert.assertTrue(sameMoment.exists())
+        assertEquals("only the newest is kept, and no .part is left", listOf(sameMoment.name), out.list()!!.toList())
+    }
+
+    @Test
+    fun `nothing to export is null, not an empty zip, and leaves no part file`() {
+        val out = tmp.newFolder("shared")
+        val empty = tmp.newFolder("empty")
+        assertEquals(null, DiagnosticsExport.export(listOf("" to empty), out, freeBytes = { Long.MAX_VALUE }))
+        assertEquals(emptyList<String>(), out.list()!!.toList())
+    }
 }

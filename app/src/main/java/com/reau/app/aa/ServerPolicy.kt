@@ -31,6 +31,9 @@ enum class ServerResult {
     NOT_UP,
     INTERRUPTED,
 
+    /** Android Auto stopped answering while the walk read its screen (its process was gone). */
+    AA_GONE,
+
     /** Switched off after the projection: the notification's "Stop", or the menu's. */
     STOPPED,
 
@@ -43,8 +46,13 @@ enum class ServerResult {
         /** What a walk in [mode] says while it goes on. */
         fun working(mode: ServerMenuRun.Mode): ServerResult = if (mode == ServerMenuRun.Mode.STOP) STOPPING else WORKING
 
+        /** What the screen says once the port answered late: started, unless a later thing already said something else. */
+        internal fun afterLateAnswer(current: ServerResult): ServerResult =
+            if (current == NOT_UP || current == WORKING) STARTED else current
+
         internal fun of(outcome: ServerMenuRun.Outcome): ServerResult = when (outcome) {
-            ServerMenuRun.Outcome.TAPPED_START -> WORKING
+            ServerMenuRun.Outcome.TAPPED_START, ServerMenuRun.Outcome.VISITED -> WORKING
+            ServerMenuRun.Outcome.ALREADY_UP -> STARTED
             ServerMenuRun.Outcome.TAPPED_STOP, ServerMenuRun.Outcome.ALREADY_STOPPED -> STOPPED
             ServerMenuRun.Outcome.ALREADY_RUNNING -> ALREADY_RUNNING
             ServerMenuRun.Outcome.DEVELOPER_MODE_OFF -> DEVELOPER_MODE_OFF
@@ -54,6 +62,7 @@ enum class ServerResult {
             ServerMenuRun.Outcome.SETTINGS_DID_NOT_OPEN -> SETTINGS_DID_NOT_OPEN
             ServerMenuRun.Outcome.LOCKED, ServerMenuRun.Outcome.OTHER_APP, ServerMenuRun.Outcome.CANCELLED,
             ServerMenuRun.Outcome.TIMED_OUT -> INTERRUPTED
+            ServerMenuRun.Outcome.AA_GONE -> AA_GONE
         }
     }
 }
@@ -81,9 +90,11 @@ internal object ServerGate {
  * number ([started]); what an older one says while it ends is not the newer one's.
  */
 internal class ServerPolicy {
-    enum class Act { NOTHING, START, RESTART, ANSWERED }
+    enum class Act { NOTHING, START, VISIT, START_AGAIN, RESTART, ANSWERED }
 
     private var triedStart = false
+    private var triedVisit = false
+    private var triedAgain = false
     private var triedRestart = false
     private var closed = false
 
@@ -98,12 +109,39 @@ internal class ServerPolicy {
         generation++
         live = true
         triedStart = false
+        triedVisit = false
+        triedAgain = false
         triedRestart = false
         closed = false
         mute = false
         seenUp = false
         return generation
     }
+
+    /**
+     * "Start" was touched in projection [of] and, after the walk's hold and the 5 s wait, the port is still closed: a visit to
+     * Android Auto's settings, once per projection; if the port is still closed after it (asked again then), one more walk, once.
+     * Before the visit came the one more walk: in the 19/10/2026 logs what brought the server up was exactly a second walk (the menu then
+     * showed "stop", the restart stopped it, waited 1.5 s and started it). Never for an older projection, one that has
+     * ended, or a link that is no longer closed (it answered, or a session came up meanwhile).
+     */
+    fun portNotUp(of: Int = generation): Act {
+        if (!(of == generation && live && closed)) return Act.NOTHING
+        return when {
+            // A visit first: opening Android Auto's settings and touching nothing brought the server up in 5 of 7 cases, against
+            // 2 of 6 for a second stop-and-start (logs of 19 and 20/10/2026).
+            !triedVisit -> Act.VISIT.also { triedVisit = true }
+            !triedAgain -> Act.START_AGAIN.also { triedAgain = true }
+            else -> Act.NOTHING
+        }
+    }
+
+    /**
+     * Whether the link says the server is answering right now: it was seen up in this projection, its port is not closed, and it is not
+     * the one that accepts and stays mute (that one has to be restarted). The walk that finds "stop" in the menu on such a server leaves
+     * it alone (a server answering from before the walk began, which [PortWait] does not hear: 20:01 on 20/10/2026).
+     */
+    fun answeringNow(): Boolean = live && seenUp && !closed && !mute
 
     /** Whether the newest projection has seen the server up: its end will switch it off (unless it ends first). */
     fun serverSeenUp(): Boolean = seenUp
@@ -176,10 +214,25 @@ internal class PortWait {
     private var answeredInWalk = false
     private var since = 0L
 
+    // When the touched "start" of the wait that ran out was touched (0: no wait ran out and is still open to a late answer).
+    private var lateSince = 0L
+
+    /** How the port answered: [tookMs] after the touched "start", and whether it was [late] (the wait had already run out). */
+    data class Answer(val tookMs: Long, val late: Boolean)
+
+    /** The port answered since the walk began: the walk's hold after "start" ends on it. */
+    val up: Boolean get() = answeredInWalk
+
+    /** The server was already answering when the walk began (the link said so): the walk's own wait for the port has nothing to wait for. */
+    fun answeringAlready() {
+        answeredInWalk = true
+    }
+
     /** A walk to start the server began. */
     fun walkBegun() {
         walking = true
         answeredInWalk = false
+        lateSince = 0  // a new walk is the one the port's answer belongs to now
     }
 
     /** The walk ended without touching "start" (what it heard is dropped by the next [walkBegun]). */
@@ -195,18 +248,29 @@ internal class PortWait {
         val already = answeredInWalk
         walkEnded()
         since = if (already) 0 else nowMs
+        lateSince = 0
         return already
     }
 
-    /** The port answered at [nowMs]: how long after the touched "start" it took, or null when nothing waited for it. */
-    fun answered(nowMs: Long): Long? {
-        if (since != 0L) return (nowMs - since).also { since = 0 }
+    /**
+     * The port answered at [nowMs]: how long after the touched "start" it took, and whether the wait had already run out
+     * (the server was only slow, and its answer is the one the screen and the log must follow); null when nothing waited
+     * for it (an answer during a walk is kept for the walk's end).
+     */
+    fun answered(nowMs: Long): Answer? {
+        if (since != 0L) return Answer(nowMs - since, late = false).also { since = 0 }
+        if (lateSince != 0L && !walking) return Answer(nowMs - lateSince, late = true).also { lateSince = 0 }
         if (walking) answeredInWalk = true
         return null
     }
 
     /** The wait that began at [begunMs] ran out: true if it was still waiting (the server did not come up). */
-    fun expired(begunMs: Long): Boolean = (since != 0L && since == begunMs).also { if (it) since = 0 }
+    fun expired(begunMs: Long): Boolean = (since != 0L && since == begunMs).also {
+        if (it) {
+            since = 0
+            lateSince = begunMs
+        }
+    }
 }
 
 /**

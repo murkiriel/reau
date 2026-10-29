@@ -17,6 +17,9 @@
 *.log
 /logs/
 /captures/
+# Recordings of a ride (the dash's video, Android Auto's stream): they show the route and what was on the screen.
+*.h264
+*.aasession
 
 # Signing material: the release key and its secrets are never in the repository.
 signing.properties
@@ -40,3 +43,20 @@ __pycache__/
 *.p12
 *.pem
 *.pfx
+
+# The stub of Android Auto that scripts/emu builds for the emulator (an APK, already covered by *.apk; named here on purpose).
+/scripts/emu/stub_android_auto/build/
+
+# Zips (a pack of APKs, a log export), performance traces and memory dumps carry the phone's data or the signed builds: never versioned.
+*.zip
+*.pftrace
+*.perfetto-trace
+*.hprof
+
+# What a Jazzer fuzzing run leaves in the module folder (JAZZER_FUZZ=1, see CONTRIBUTING): its working corpus and the inputs that crashed.
+# A crash input worth keeping goes into app/src/test/resources/.../ParserFuzzTargetsInputs/<target>/ by hand.
+/app/.cifuzz-corpus/
+/app/crash-*
+/app/slow-unit-*
+/app/oom-*
+/app/timeout-*

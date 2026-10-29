@@ -7,6 +7,8 @@ import com.reau.app.dash.protocol.DashCommands
 import com.reau.app.dash.nav.DashManeuverGlyphs
 import com.reau.app.util.Dbg
 import com.reau.app.dash.protocol.K1GPacket
+import com.reau.app.util.FailureStreak
+import com.reau.app.util.MonotonicClock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,8 +31,8 @@ enum class DashState { IDLE, CONNECTING, AUTHENTICATING, READY, STREAMING, ERROR
  *   3. RX loop ingests 07 00 / 07 03 → sends the session key → waits for 07 01 01.
  *   4. Nav entry: route-card ×4 → projectionFrame → navStart (once) → route-card.
  *   5. Start RTP + 4 Hz projection heartbeat + 1 Hz route-card keep-alive.
- * The RX loop runs the WHOLE time, answering auth, 09 06 IDR-decoded acks,
- * and 09 00 button events.
+ * The RX loop runs the WHOLE time, answering the key exchange, the dash's 09 06 / 09 04 notices (answered as the
+ * dash expects; they are no proof of a decoded frame, see [clockNoticeLine]) and 09 00 button events.
  */
 // the session owns the whole link to the dash; splitting it is a refactor of its own; the parameters are the fields of what it builds (wire format / the data it carries)
 @Suppress("LargeClass", "LongParameterList", "TooManyFunctions")
@@ -63,11 +65,23 @@ class DashSession(
     private val linkProbe: (android.net.Network?) -> LinkSample? = { null },
     /** Everything the dash says, for the screen "Dados da moto"; null keeps it to itself, as a test does. */
     private val readings: DashReadingSink? = null,
+    /** The session's waits; a test shortens them (27/10/2026 review: the fake-dash tests took 86 s on the real ones). */
+    private val timing: Timing = Timing(),
 ) {
+    /**
+     * The waits of a session: [keyPatienceMs] for the dash's key before the greeting goes again, [rxWatchdogMs] of silence before the
+     * dash is taken as lost, and [watchdogTickMs], the pace of the watchdogs' loop (the 1 Hz heartbeat). Every real caller uses the defaults.
+     */
+    data class Timing(
+        val keyPatienceMs: Long = KEY_PATIENCE_MS,
+        val rxWatchdogMs: Long = RX_WATCHDOG_MS,
+        val watchdogTickMs: Long = WATCHDOG_TICK_MS,
+    )
 
     /** What this session and the dash exchanged. */
     val stats = DashStats(onFirst = { com.reau.app.data.RideDiagnostics.log("dash", it) })
     private var statsJob: Job? = null
+    @Volatile private var trailLoggedMs = Long.MIN_VALUE / 2
     @Volatile private var statsWindowStartMs = 0L
 
     private val _state = MutableStateFlow(DashState.IDLE)
@@ -82,10 +96,22 @@ class DashSession(
     )
     val telemetry = _telemetry.asSharedFlow()
 
-    private var socket: DashSocket? = null
+    @Volatile private var socket: DashSocket? = null
     private var auth: DashAuth? = null
     @Volatile private var authConfirmed = false
     @Volatile private var authRetries = 0
+    // The dash's own 10 s mark (09 06 55) seen while authenticating: when, counted from the first burst (-1 = not yet), and whether it
+    // has made the burst go out again (once a session) and is waiting to be sent by the authentication loop.
+    @Volatile private var burstStartMs = 0L
+    @Volatile private var clockNoticeAfterMs = -1L
+    @Volatile private var resendOnNotice = false
+    // The counter of the dash's first heartbeat (0101) of this session and when it came (-1: none yet): how long the dash has been on ([DashReadiness]).
+    @Volatile private var firstHeartbeat = -1
+    @Volatile private var firstHeartbeatAtMs = 0L
+    // The 10 s mark came before the stream (AUTHENTICATING or READY): the dash was alive then; startStreaming() counts it.
+    @Volatile private var clockNoticeBeforeStream = false
+    private val linkNotice = LinkNotice()
+    private var resentOnNotice = false
     // Wall-clock of the last packet received from the dash — fed to the RX watchdog.
     @Volatile private var lastRxMs = 0L
     // One-shot: the first time the dash reports it DECODED our video (09 06 55). If this never
@@ -105,11 +131,6 @@ class DashSession(
     // and the first-ack watchdog ended a working session every 15 s for minutes.
     @Volatile private var aliveWithoutAck = false
 
-    /** Wall-clock of the last time a watchdog below found the dash silent or never decoding; 0 = never. Kept across
-     *  reconnections on purpose: the next stream reads it to tell a dash that choked from one that was switched off
-     *  (DashLogic.dashFailedWhileReachable). */
-    @Volatile var watchdogFailMs = 0L
-        private set
     // Wall-clock of entering STREAMING — see firstAckTimedOut's own doc for the real gap this closes.
     @Volatile private var streamingStartMs = 0L
     // The network of this session, and the minute of Wi-Fi link before now (one sample every 5 s): see [linkProbe].
@@ -133,46 +154,174 @@ class DashSession(
     @Volatile private var sessionGeneration = 0
 
     var onButton: ((com.reau.app.dash.protocol.DashButtonEvent) -> Unit)? = null
+
+    /** The maneuver ring (with its switch off) was shown or hidden, by a press or by the screen: a line saying which and why, for the debug text. */
+    var onRingChange: ((String) -> Unit)? = null
     var onError:  ((String) -> Unit)? = null
 
     private var notices0904 = 0
     private var notices0906 = 0
 
-    @Volatile var destinationName: String = DEFAULT_DESTINATION
+    // The title of the card with no route: always REau (a card per app was written and never wired; taken out 27/10/2026).
+    private val destinationName: String = DEFAULT_DESTINATION
 
-    private var sessionJob: Job? = null
-    private var rxJob: Job? = null
-    private var projHbJob: Job? = null
-    private var routeCardJob: Job? = null
-    private var heartbeatJob: Job? = null
-    private var navInfoJob: Job? = null
-    private var cardsJob: Job? = null
+    // Launched on the IO threads and cancelled by disconnect(), which runs on the service's worker or the IO scope: volatile, so
+    // disconnect() sees a job that was just launched.
+    @Volatile private var sessionJob: Job? = null
+    @Volatile private var rxJob: Job? = null
+    @Volatile private var projHbJob: Job? = null
+    @Volatile private var routeCardJob: Job? = null
+    @Volatile private var heartbeatJob: Job? = null
+    @Volatile private var navInfoJob: Job? = null
+    @Volatile private var cardsJob: Job? = null
 
-    // Live nav-info pushed to the dash bubble at ~1 Hz (set by NavEngine output).
-    @Volatile private var navManeuver = DashCommands.NAV_MANEUVER_CONTINUE
-    @Volatile private var navPrimaryDist = 0
-    @Volatile private var navPrimaryUnit = DashCommands.NAV_UNIT_METERS
-    @Volatile private var navTotalDist = 0
-    @Volatile private var navTotalUnit = DashCommands.NAV_UNIT_METERS
-    @Volatile private var navEta: String? = null
-    // The street of the next maneuver, for the dash only; blank when Android Auto does not say it.
-    @Volatile private var navRoad = ""
-    @Volatile private var navActive = false
+    /**
+     * The live turn-by-turn figures pushed to the dash at ~1 Hz, as one value: the writer replaces it whole and a reader
+     * takes it once, so a card never mixes the distance of one update with the unit of the next (a "10 m" for a second
+     * where it was "1 km" turning; audit of 20/10/2026). Null: no guidance (the nav packets stop).
+     */
+    internal data class NavFigures(
+        val maneuver: Int,
+        val primaryDist: Int,
+        val primaryUnit: Int,
+        val totalDist: Int,
+        val totalUnit: Int,
+        val eta: String?,
+        /** The street of the next maneuver, for the dash only; blank when Android Auto does not say it. */
+        val road: String,
+        /** The real time left and the maneuver after the next (always on). */
+        val remaining: Long,
+        val next: Int,
+    )
+
+    @Volatile private var nav: NavFigures? = null
+
+    /** For the tests: the figures the cards are made from now. */
+    internal val navNow: NavFigures? get() = nav
     /** What the route card says with no route (the joystick in the dash's map mode depends on it). */
     @Volatile var idleCard = DashIdleCard.PIN
 
-    /** Rider's choice (Settings): false keeps the dash's own maneuver circle hidden even while guiding. */
+    /**
+     * Rider's choice (Settings, "Anel de manobras"): false keeps the dash's own maneuver circle hidden, while guiding and with no
+     * route, except where the joystick shows it ([ringByPress]).
+     */
     @Volatile var maneuverCircleEnabled = true
+        set(value) {
+            field = value
+            if (!value) ringByPress.reset()
+        }
+
+    // With the switch off: the ring shown in the dash's map mode (so its sides keep coming) and hidden in its media mode.
+    private val ringByPress = RingByPress()
+    // A call, ringing or going on, always shows it: with the ring hidden the dash stops passing the map mode's joystick on, and the joystick is
+    // what answers and ends the call ([callerName] is set while Android Auto says there is one).
+    private val ringOn: Boolean
+        get() = callerName != null || maneuverCircleEnabled || ringByPress.shown
+
+    /**
+     * With the info ring on in the settings ([ringCycleOn]), the dash's down button in its map mode ([RingCycle]) shows it and hides it; the
+     * maneuver ring is not touched. [ringStep] is the choice (0 shown, 1 hidden; kept by [ringStepMemory] from one projection to the next)
+     * and [infoInPlace] says whether the info ring sits in the place of the maneuver ring.
+     */
+    @Volatile var ringCycleOn = false
+    @Volatile var infoInPlace = false
+    @Volatile var ringStep = 0
+        set(value) { field = RingCycle.valid(value) }
+    @Volatile var ringStepMemory: RingStepMemory? = null
+
+    /** Whether the dash's down button in its map mode is the info ring's switch: the rider has not given it another action ([com.reau.app.aa.JoystickBindings.infoRingControl]). */
+    @Volatile var infoRingPress = true
+
+    /** Whether the info ring is on the video now: its switch is on, the rider has not hidden it with the joystick and the screen is a navigation one. */
+    val infoVisible: Boolean get() = ringCycleOn && RingCycle.info(ringStep) && !ringsAwayForScreen
+
+    /**
+     * The info ring stays off the dash's own app menu and the other apps' screens (the cropped picture of those screens has no room for
+     * it): the rider's choice is kept as it is and comes back with the navigation. A screen not known yet hides nothing.
+     */
+    private val ringsAwayForScreen: Boolean
+        get() = aaScreen == com.reau.app.aa.AaScreen.MENU || aaScreen == com.reau.app.aa.AaScreen.APPS
+
+    /**
+     * Whether the dash's maneuver ring is on the glass now: the rider's switch, or with it off the joystick's and the screen's choice,
+     * or a call. The info ring on the right shows and hides by this same answer.
+     */
+    val ringVisible: Boolean get() = ringOn
+
+    /**
+     * The screen of Android Auto changed. With the maneuver switch off, Waze and Google Maps show the maneuver ring and any other screen hides
+     * it (a screen not known yet changes nothing); the card goes at once. The info ring goes away on the menu and the apps and comes back, as
+     * the rider left it, with the navigation ([ringsAwayForScreen]): that is on the video, with no card.
+     */
+    fun ringFollowsScreen(screen: com.reau.app.aa.AaScreen) {
+        if (screenMovedRings(screen)) socket?.let { sock -> runCatching { sock.send(liveRouteCard(projectionOn = true)) } }
+    }
+
+    /** [ringFollowsScreen] without the card: true when the screen put the maneuver ring on or off the glass. */
+    internal fun screenMovedRings(screen: com.reau.app.aa.AaScreen): Boolean {
+        val awayBefore = ringsAwayForScreen
+        aaScreen = screen
+        if (ringCycleOn && awayBefore != ringsAwayForScreen) {
+            val where = if (ringsAwayForScreen) "away" else "back (${if (RingCycle.info(ringStep)) "shown" else "hidden by the joystick"})"
+            com.reau.app.data.RideDiagnostics.log("dash", "info ring $where for the screen of Android Auto ($screen)")
+        }
+        return ringAfterScreen(screen)
+    }
+
+    internal fun ringAfterScreen(screen: com.reau.app.aa.AaScreen): Boolean {
+        val nav = when (screen) {
+            com.reau.app.aa.AaScreen.NAV -> true
+            com.reau.app.aa.AaScreen.MENU, com.reau.app.aa.AaScreen.APPS -> false
+            com.reau.app.aa.AaScreen.UNKNOWN -> null
+        }
+        if (maneuverCircleEnabled || !ringByPress.screen(nav)) return false
+        com.reau.app.data.RideDiagnostics.log("dash", "ring ${if (ringByPress.shown) "shown" else "hidden"} for the screen of Android Auto ($screen)")
+        onRingChange?.invoke(com.reau.app.video.ButtonText.ringNote(ringByPress.shown, "screen $screen"))
+        return true
+    }
+
+    /** The screen of Android Auto as last told by [ringFollowsScreen]: the rings are away on the menu and the apps. */
+    @Volatile private var aaScreen = com.reau.app.aa.AaScreen.UNKNOWN
+
+    /**
+     * A press with [code]: the info ring's switch ([RingCycle]) when it is on and the screen is a navigation one (on the menu and the apps the
+     * choice stands, so the navigation comes back as the rider left it), and, with the maneuver switch off, the maneuver ring following the mode
+     * the code says. True when the maneuver ring changed (the card goes at once); the info ring is on the video and needs no card.
+     */
+    internal fun ringAfterPress(code: Int): Boolean {
+        if (infoRingSwitchable && RingCycle.advancesOn(code)) switchInfoRing(code)
+        return !maneuverCircleEnabled && ringByPress.press(code)
+    }
+
+    /** Whether a press of the down button may switch the info ring now: it is on, the button is its switch ([infoRingPress]) and the screen is a navigation one. */
+    private val infoRingSwitchable: Boolean get() = ringCycleOn && infoRingPress && !ringsAwayForScreen
+
+    /** The down button showed or hid the info ring; the choice is kept for the next projection. */
+    private fun switchInfoRing(code: Int) {
+        ringStep = RingCycle.next(ringStep)
+        runCatching { ringStepMemory?.step = ringStep }
+        // Said after the card is on the wire, as the maneuver ring's line is (the log's lock is shared with the video threads).
+        infoSwitchLine = "info ring ${onOff(RingCycle.info(ringStep))} by the joystick (0x%02X)".format(java.util.Locale.US, code)
+    }
+
+    /** The ride log's line for the info ring's last switch, until the receive loop has said it; only that thread reads and clears it. */
+    @Volatile private var infoSwitchLine: String? = null
+
+    /** The ride log's line for a ring changed by a press, with how long after the press came off the socket the card was on the wire. */
+    private fun onOff(on: Boolean) = if (on) "on" else "off"
+
+    private fun logRingByPress(code: Int, onTheWireMs: Long) {
+        val state = if (ringByPress.shown) "shown" else "hidden"
+        com.reau.app.data.RideDiagnostics.log(
+            "dash", "ring $state by the joystick (0x%02X), on the wire +%d ms after the press came in".format(java.util.Locale.US, code, onTheWireMs),
+        )
+        onRingChange?.invoke(com.reau.app.video.ButtonText.ringNote(ringByPress.shown, "joystick 0x%02X".format(java.util.Locale.US, code)))
+    }
 
     // The last maneuver of this guidance the dash could draw, but the rerouting
     // compass; and whether the ring is keeping it now (said once per stretch in the ride log).
     @Volatile private var lastVisibleManeuver: Int? = null
     @Volatile private var keepingManeuver = false
-
-    // Behind the switch: the real time left and the maneuver after the next.
-    @Volatile private var navRemaining = DashCommands.REMAINING_OMIT
-    @Volatile private var navNext = DashCommands.NEXT_MANEUVER_NONE
-    @Volatile private var navExtras = false
 
     /**
      * Push the latest turn-by-turn figures; sent to the dash at 1 Hz. A [maneuver] the dash cannot draw (Waze's
@@ -185,38 +334,33 @@ class DashSession(
         maneuver: Int, primaryDist: Int, primaryUnit: Int,
         totalDist: Int, totalUnit: Int, etaHHMM: String? = null, road: String = "",
         remainingSeconds: Long = DashCommands.REMAINING_OMIT, nextManeuver: Int = DashCommands.NEXT_MANEUVER_NONE,
-        extras: Boolean = false,
     ) {
         val shown = ringManeuver(maneuver, lastVisibleManeuver)
         if (shown != maneuver) {
             if (!keepingManeuver) {
-                com.reau.app.data.RideDiagnostics.log("dash", "nav: Android Auto sent no drawable maneuver, kept 0x%02X".format(shown))
+                // Expected at the start of a guidance: Android Auto says "active" a few tens of ms before its first step
+                // (22:27:07 on 19/10/2026: active at .143, the right turn at .191), and Waze's UNKNOWN on a stretch with no
+                // turn. The ring shows the last turn it could draw, or straight on; the next drawable one replaces it.
+                com.reau.app.data.RideDiagnostics.log(
+                    "dash",
+                    "nav: Android Auto's maneuver 0x%02X cannot be drawn (no step yet, or no turn ahead); the ring keeps 0x%02X"
+                        .format(maneuver, shown),
+                )
             }
             keepingManeuver = true
         } else {
             keepingManeuver = false
             if (maneuver != DashManeuverGlyphs.RECALCULATING) lastVisibleManeuver = maneuver
         }
-        navManeuver = shown
-        navPrimaryDist = primaryDist
-        navPrimaryUnit = primaryUnit
-        navTotalDist = totalDist
-        navTotalUnit = totalUnit
-        navEta = etaHHMM
-        navRoad = road
-        navRemaining = remainingSeconds
-        navNext = nextManeuver
-        navExtras = extras
-        navActive = true
+        nav = NavFigures(shown, primaryDist, primaryUnit, totalDist, totalUnit, etaHHMM, road, remainingSeconds, nextManeuver)
     }
 
-    /** For the tests: what the ring carries now. */
-    internal val ringNow: Int get() = navManeuver
+    /** For the tests: what the ring carries now (straight on with no guidance). */
+    internal val ringNow: Int get() = nav?.maneuver ?: DashCommands.NAV_MANEUVER_CONTINUE
 
     /** No guidance any more: the nav packets stop and the route card goes back to the card with no route. */
     fun clearNavInfo() {
-        navActive = false
-        navRoad = ""
+        nav = null
         forgetLastManeuver()
     }
 
@@ -226,9 +370,35 @@ class DashSession(
         keepingManeuver = false
     }
 
+    /**
+     * Whether the music card is sent at all: only while the joystick page has a music control in the media mode
+     * ([com.reau.app.aa.JoystickBindings.mediaControls]). Turned off while the card is up, it is cleared at the next second.
+     */
+    @Volatile var musicCardAllowed: Boolean = true
+
+    /**
+     * Whether the dash is told its zoom state (06 0C), which is what makes its own "ZOOM" with the "-" and "+" show in the map mode.
+     * Off, it is never sent: the rider has no zoom on the joystick page, so the dash has no zoom to name. Turned on while streaming
+     * it goes out at once.
+     */
+    var zoomLabel: Boolean = true
+        set(value) {
+            if (field == value) return
+            field = value
+            val said = if (value) "on" else "off: the joystick page lacks a zoom control"
+            com.reau.app.data.RideDiagnostics.log("dash", "zoom label $said")
+            val sock = socket
+            if (value && _state.value == DashState.STREAMING && sock != null) {
+                scope.launch(Dispatchers.IO) { runCatching { sock.send(DashCommands.zoomIcons()) } }
+            }
+        }
+
     // The dash's own music and call cards, at 1 Hz while streaming.
     @Volatile private var nowPlayingPackets: List<ByteArray>? = null
-    private var musicShown = false
+
+
+    /** The music card is up on the dash (a test sets it: the cards go through a socket). */
+    @Volatile internal var musicShown = false
     // The album's picture: its packets, the picture last sent, and whether the dash still has to get them.
     @Volatile private var coverSlices: List<ByteArray>? = null
     @Volatile private var coverSent: ByteArray? = null
@@ -283,27 +453,47 @@ class DashSession(
      * second until [clearCaller].
      */
     fun showCaller(name: String, inCall: Boolean = false) {
+        val ringBefore = ringOn
         callerName = name
         callerInCall = inCall
+        ringAfterCall(ringBefore)
         sendCardsNow()
     }
 
     /** The call is over; the card is cleared at once. */
     fun clearCaller() {
         if (callerName == null) return
+        val ringBefore = ringOn
         callerName = null
         callerInCall = false
+        ringAfterCall(ringBefore)
         sendCardsNow()
+    }
+
+    /** The call came or went and the ring changed with it (it was hidden by the switch): the route card goes at once, not at the next second. */
+    private fun ringAfterCall(before: Boolean): Boolean {
+        if (ringOn == before) return false
+        com.reau.app.data.RideDiagnostics.log("dash", "ring ${if (ringOn) "shown" else "hidden again"} for the call")
+        socket?.let { sock -> runCatching { sock.send(liveRouteCard(projectionOn = true)) } }
+        return true
     }
 
     private fun sendCardsNow() {
         if (_state.value == DashState.STREAMING) scope.launch(Dispatchers.IO) { sendCards() }
     }
 
-    /** One round of the cards: the call card (or its clear, once) and the music card. */
-    @Synchronized
+    /**
+     * One round of the cards: the call card (or its clear, once) and the music card. The album's picture goes after, out of the
+     * monitor: its slices take up to 0.66 s and a call card must not wait for them (A-14).
+     */
     private fun sendCards() {
         val sock = socket ?: return
+        val cover = synchronized(this) { sendCardsHeld(sock) }
+        cover?.let { sendCover(sock, it) }
+    }
+
+    /** [sendCards] under the monitor; the album's slices still to send, if any. */
+    private fun sendCardsHeld(sock: DashSocket): List<ByteArray>? {
         val caller = callerName
         if (caller != null) {
             // The call card: the state then the name, encrypted under the session key.
@@ -322,24 +512,30 @@ class DashSession(
             com.reau.app.data.RideDiagnostics.log("dash", "call card cleared")
             callCardShown = false
         }
-        val music = nowPlayingPackets
+        val music = nowPlayingPackets.takeIf { musicCardAllowed }
         if (music != null) {
             music.forEach { runCatching { sock.send(it) } }
             if (!musicShown) com.reau.app.data.RideDiagnostics.log("dash", "music card shown")
             musicShown = true
-            sendCoverIfDue(sock)
+            return coverDue()
         } else if (musicShown) {
             runCatching { sock.send(DashCommands.musicActive(false)) }
             com.reau.app.data.RideDiagnostics.log("dash", "music card cleared")
             musicShown = false
         }
+        return null
     }
 
-    /** The album's picture, once, in its slices with a pause between them; the card's flag said it comes. */
-    private fun sendCoverIfDue(sock: DashSocket) {
-        val slices = coverSlices ?: return
-        if (!coverPending) return
+    /** The album's picture, once: its slices, taken by the one round that sends them; the card's flag said it comes. */
+    private fun coverDue(): List<ByteArray>? {
+        val slices = coverSlices ?: return null
+        if (!coverPending) return null
         coverPending = false
+        return slices
+    }
+
+    /** The album's slices with a pause between them. */
+    private fun sendCover(sock: DashSocket, slices: List<ByteArray>) {
         for ((i, slice) in slices.withIndex()) {
             if (i > 0) Thread.sleep(DashCommands.COVER_PAUSE_MS)
             runCatching { sock.send(slice) }
@@ -353,21 +549,23 @@ class DashSession(
      * real guidance is running — the card repeats at 1 Hz and would stomp the
      * activeNavPacket numbers every second.
      */
-    private fun liveRouteCard(projectionOn: Boolean): ByteArray =
-        if (navActive) DashCommands.routeCard(
-            // The street while guiding, else what the dash is showing ("Waze").
-            navRoad.ifBlank { destinationName }, projectionOn,
-            maneuver = ringGlyph(),
-            primaryUnit = navPrimaryUnit,
-            totalDist = navTotalDist,
-            totalUnit = navTotalUnit,
-            etaHHMM = navEta,
+    private fun liveRouteCard(projectionOn: Boolean): ByteArray {
+        val n = nav
+        return if (n != null) DashCommands.routeCard(
+            // The street while guiding, else REau.
+            n.road.ifBlank { destinationName }, projectionOn,
+            maneuver = ringGlyph(n),
+            primaryUnit = n.primaryUnit,
+            totalDist = n.totalDist,
+            totalUnit = n.totalUnit,
+            etaHHMM = n.eta,
             decimalComma = decimalComma(),
-            remainingSeconds = navRemaining.takeIf { navExtras },
-            nextManeuver = nextShown(),
-            proximity = proximityBar(),
+            remainingSeconds = n.remaining,
+            nextManeuver = nextShown(n),
+            proximity = proximityBar(n),
         )
-        else DashCommands.idleRouteCard(idleCard, destinationName, projectionOn, clockHHMM())
+        else DashCommands.idleRouteCard(if (ringOn) idleCard else DashIdleCard.HIDDEN, destinationName, projectionOn, clockHHMM())
+    }
 
     /** The phone's own decimal separator is a comma (pt-BR): the dash writes its distances so (05 0A). */
     private fun decimalComma(): Boolean = java.text.DecimalFormatSymbols.getInstance().decimalSeparator == ','
@@ -376,24 +574,22 @@ class DashSession(
     internal fun routeCardNow(): ByteArray = liveRouteCard(projectionOn = true)
 
     /**
-     * The maneuver after the next (05 03) with the switch on: shown only from 100 m of the turn (the proximity bar below
-     * 5), 0xFF otherwise. Null (the template's, or none) with the switch off.
+     * The maneuver after the next (05 03): shown only from 100 m of the turn (the proximity bar below 5), 0xFF otherwise.
      */
-    private fun nextShown(): Int? = when {
-        !navExtras -> null
-        proximityBar() >= FAR_BAR -> DashCommands.NEXT_MANEUVER_NONE
-        else -> navNext
+    private fun nextShown(n: NavFigures): Int = when {
+        proximityBar(n) >= FAR_BAR -> DashCommands.NEXT_MANEUVER_NONE
+        else -> n.next
     }
 
     /** The proximity bar (05 0C) for the distance to the turn, in metres whatever the unit the dash shows. */
-    private fun proximityBar(): Int {
-        val metres = if (navPrimaryUnit == DashCommands.NAV_UNIT_KM_TENTHS) navPrimaryDist * 100 else navPrimaryDist
-        val keep = navManeuver == com.reau.app.dash.nav.DashManeuverGlyphs.FORK_LEFT || navManeuver == com.reau.app.dash.nav.DashManeuverGlyphs.FORK_RIGHT
+    private fun proximityBar(n: NavFigures): Int {
+        val metres = if (n.primaryUnit == DashCommands.NAV_UNIT_KM_TENTHS) n.primaryDist * 100 else n.primaryDist
+        val keep = n.maneuver == com.reau.app.dash.nav.DashManeuverGlyphs.FORK_LEFT || n.maneuver == com.reau.app.dash.nav.DashManeuverGlyphs.FORK_RIGHT
         return DashCommands.proximityLevel(metres, keep)
     }
 
     /** The ring's glyph while guiding: the maneuver itself (hiding it never worked). */
-    private fun ringGlyph(): Int = bubbleManeuver(maneuverCircleEnabled, navManeuver)
+    private fun ringGlyph(n: NavFigures): Int = bubbleManeuver(ringOn, n.maneuver)
 
     /** The phone's clock as 4 digits, the ETA of the idle card's arrival pin. */
     private fun clockHHMM(): String = java.text.SimpleDateFormat("HHmm", java.util.Locale.US).format(java.util.Date())
@@ -406,16 +602,25 @@ class DashSession(
         // after an error) can both pass this guard while _state is still IDLE/ERROR, each starting
         // its own runSession() and binding the same fixed UDP ports; the second one's fail() then
         // closes the `socket` field out from under the first, working session.
-        if (_state.value != DashState.IDLE && _state.value != DashState.ERROR) return
+        // A check and then a write was not one step: two callers could both see IDLE. Now the flip is the check.
+        if (!claimConnecting()) return
         disconnecting = false
         // Whatever an earlier session still runs (its session coroutine waiting for the dash's answer, its
         // stats line, its cards) is ended before this one starts, and this one gets a number of its own.
         sessionJob?.cancel(); statsJob?.cancel(); cardsJob?.cancel()
         val mine = ++sessionGeneration
-        _state.value = DashState.CONNECTING
         Log.i(TAG, connectLine(ssid, network))
         com.reau.app.data.RideDiagnostics.log("session", connectLine(ssid, network))
         sessionJob = scope.launch(Dispatchers.IO) { runSession(mine, ssid, network) }
+    }
+
+    /** IDLE or ERROR to CONNECTING in one atomic step; false when the session is anything else (or another caller got there first). */
+    private fun claimConnecting(): Boolean {
+        while (true) {
+            val seen = _state.value
+            if (seen != DashState.IDLE && seen != DashState.ERROR) return false
+            if (_state.compareAndSet(seen, DashState.CONNECTING)) return true
+        }
     }
 
     /** Whether a session numbered [generation] is the one connect() started last, and not being torn down. */
@@ -433,7 +638,10 @@ class DashSession(
     fun startStreaming() {
         if (_state.value != DashState.READY) return
         _state.value = DashState.STREAMING
-        streamingStartMs = System.currentTimeMillis()
+        streamingStartMs = MonotonicClock.nowMs()
+        // The dash's 10 s mark came before the stream: it was alive then, so the stream starts at the pace of one that is (no wait for
+        // a mark that does not come again, 12:00:53 to 12:01:08 at 2 fps on 20/10/2026).
+        if (clockNoticeBeforeStream) aliveWithoutAck = true
         coverPending = coverSlices != null // a stream is new to the dash: the picture again
         com.reau.app.data.RideDiagnostics.log("session", "→ STREAMING")
         // Projection-on route card + faster keep-alive begin now
@@ -444,17 +652,6 @@ class DashSession(
     }
 
     fun sendRtp(packet: ByteArray) { socket?.sendRtp(packet) }
-
-    fun updateRouteCard(name: String) {
-        destinationName = name.ifBlank { DEFAULT_DESTINATION }
-        navActive = false   // new destination — old figures are stale until the next updateNavInfo
-        forgetLastManeuver()
-        if (_state.value == DashState.READY || _state.value == DashState.STREAMING) {
-            scope.launch(Dispatchers.IO) {
-                socket?.send(liveRouteCard(projectionOn = true))
-            }
-        }
-    }
 
     fun disconnect() {
         // Set FIRST, before anything else — see this flag's own kdoc: closing the socket below
@@ -470,7 +667,7 @@ class DashSession(
         rxJob?.cancel(); projHbJob?.cancel(); routeCardJob?.cancel(); heartbeatJob?.cancel(); navInfoJob?.cancel()
         cardsJob?.cancel()
         statsJob?.cancel()
-        navActive = false
+        nav = null
         forgetLastManeuver()
         socket?.let { sock ->
             val goodbye = Runnable {
@@ -486,10 +683,10 @@ class DashSession(
                 repeat(2) { runCatching { sock.send(DashCommands.exitSessionBoundary()) } }
                 sock.close()
             }
-            // The rider tapping "disconnect" calls this on the main thread, where Android refuses network: every
-            // send above failed with NetworkOnMainThreadException and the dash never heard the session was over
-            // (observed in ride logs). There the goodbye goes out on a thread of its own,
-            // waited for briefly so the socket is closed before a next connection opens its own.
+            // A guard: today every caller is on the service's worker or the IO scope, but the rider's "disconnect" once called this
+            // on the main thread, where Android refuses network: every send above failed with NetworkOnMainThreadException and the
+            // dash never heard the session was over (observed in ride logs). On the main thread the goodbye goes out on a thread of
+            // its own, waited for briefly so the socket is closed before a next connection opens its own.
             val mainLooper = android.os.Looper.getMainLooper()
             if (mainLooper != null && android.os.Looper.myLooper() == mainLooper) {
                 Thread(goodbye, "DashGoodbye").apply { isDaemon = true; start() }.join(GOODBYE_WAIT_MS)
@@ -555,13 +752,18 @@ class DashSession(
             else -> {
                 socket = sock
                 sock.stats = stats
+                stats.trail.clear()
+                DashHeard.trail = stats.trail
                 linkNetwork = network
                 linkHistory.clear()
                 linkBaselineLogged = false
                 launchStatsLine()
                 auth = DashAuth(ssid)
+                rxFailures.ok()
                 authConfirmed = false
+                keyExchangeRefusals.clear()
                 authRetries = 0
+                beginAuthState(network)
                 loggedFirstAck = false
                 aliveWithoutAck = false
                 streamingStartMs = 0L
@@ -581,23 +783,112 @@ class DashSession(
     private suspend fun authenticate(sock: DashSocket, mine: Int, ssid: String): Boolean {
         _state.value = DashState.AUTHENTICATING
         Log.i(TAG, "Sending initial burst…")
+        sendInitialBurst(sock)
+        com.reau.app.data.RideDiagnostics.log(
+            "auth", "initial burst sent — waiting for 07 01 01 (${AUTH_TIMEOUT}ms, up to ${DashReadiness.CAP_MS}ms for a dash that is only starting)",
+        )
+
+        Log.i(TAG, "Waiting for auth (07 01 01): ${AUTH_TIMEOUT}ms, up to ${DashReadiness.CAP_MS}ms for a dash that is only starting…")
+        var lastBurstMs = MonotonicClock.nowMs()
+        burstStartMs = lastBurstMs
+        var resends = 0
+        val greeting = DashReadiness.Greeting(timing.keyPatienceMs, MAX_BURST_RESENDS)
+        while (!authConfirmed && MonotonicClock.nowMs() < authDeadline(burstStartMs)) {
+            delay(100)
+            val now = MonotonicClock.nowMs()
+            // The dash's heartbeat counter says how long it has been on: until it is ready the greeting goes every 2 s, and again when
+            // it becomes ready ([DashReadiness.Greeting]).
+            val first = firstHeartbeat.takeIf { it >= 0 }
+            val notReady = greeting.notReady(first, firstHeartbeatAtMs, now)
+            // Seen at 20:24:02 on 19/10/2026 and 12:00:34 on 20/10/2026: the dash answered with its telemetry but never sent its key,
+            // and the key came only with a new attempt (50 ms, 17 s after the first burst). So the burst is sent again every 3 s up to the
+            // deadline, and at once when the dash's own 10 s mark comes with no key (the dash has just turned its clock).
+            // The request of the 10 s mark is taken (cleared) here; with the key offered meanwhile there is nothing to ask for.
+            val onNotice = resendOnNotice.also { if (it) resendOnNotice = false } && auth?.keySeen != true
+            val due = greeting.due(first, firstHeartbeatAtMs, now, now - lastBurstMs, auth?.keySeen == true)
+            if (!authConfirmed && (onNotice || due)) {
+                resends++
+                lastBurstMs = now
+                com.reau.app.data.RideDiagnostics.log(
+                    "auth", if (onNotice) {
+                        "the dash's 10 s mark came with no RSA pubkey — burst sent again now ($resends)"
+                    } else if (greeting.readyMoment) {
+                        "the dash is ready now (heartbeat ${DashReadiness.READY_COUNT}): burst sent again ($resends)"
+                    } else if (notReady) {
+                        val age = DashReadiness.counterAt(checkNotNull(first), firstHeartbeatAtMs, now)
+                        "the dash is only $age s old (ready from ${DashReadiness.READY_COUNT}): burst sent again ($resends)"
+                    } else {
+                        "no RSA pubkey ${timing.keyPatienceMs}ms after the last burst — burst sent again (${greeting.patientSent}/$MAX_BURST_RESENDS)"
+                    },
+                )
+                sendInitialBurst(sock)
+            }
+        }
+
+        if (!authConfirmed) {
+            fail(
+                authTimeoutReason(
+                    heardFromDash = lastRxMs > 0L, ssid = ssid, keySeen = auth?.keySeen ?: true,
+                    resends = resends, noticeAfterMs = clockNoticeAfterMs,
+                ),
+                mine,
+            )
+        } else {
+            Log.i(TAG, "Authenticated ✓")
+            com.reau.app.data.RideDiagnostics.log("auth", DashReadiness.keyLine(MonotonicClock.nowMs() - burstStartMs, resends))
+            com.reau.app.data.RideDiagnostics.log("auth", "authenticated (07 01 01) — entering nav mode")
+        }
+        return authConfirmed
+    }
+
+    /**
+     * The state of a session's authentication, reset as it opens on [network]. The dash's 10 s mark belongs to the Wi-Fi link, not to the
+     * session: after a greeting the dash ignored, the session made again on the same link does not get it again (3 of 3 in the logs of
+     * 20/10/2026, which then streamed 15 s at 2 fps), so a mark seen on this link counts as seen for this session too.
+     */
+    internal fun beginAuthState(network: android.net.Network?) {
+        clockNoticeAfterMs = -1L
+        firstHeartbeat = -1
+        clockNoticeBeforeStream = linkNotice.knownOn(network ?: NO_NETWORK)
+        resendOnNotice = false
+        resentOnNotice = false
+    }
+
+    /**
+     * The dash's own 10 s mark (09 06 55) came in [state]; true for the first of the session. Its time is kept (counted from the
+     * first burst) for the log and the failure message; before the stream (authenticating or ready) it also makes startStreaming()
+     * count the dash as alive, and while authenticating with no key offered the burst is asked to go out again at once (once a
+     * session; the authentication loop sends it).
+     */
+    private fun noteClockNotice(state: DashState): Boolean {
+        linkNotice.seenOn(linkNetwork ?: NO_NETWORK)
+        val first = clockNoticeAfterMs < 0
+        if (first) clockNoticeAfterMs = (MonotonicClock.nowMs() - burstStartMs).coerceAtLeast(0)
+        if (state == DashState.AUTHENTICATING || state == DashState.READY) clockNoticeBeforeStream = true
+        if (resendOnClockNotice(state, auth?.keySeen == true, resentOnNotice)) {
+            resentOnNotice = true
+            resendOnNotice = true
+        }
+        return first
+    }
+
+    /** The dash's first heartbeat of the session: its counter (how long the dash has been on), kept for [DashReadiness]. */
+    private fun noteHeartbeat(value: ByteArray) {
+        val counter = DashReadiness.counterOf(value) ?: return
+        firstHeartbeatAtMs = MonotonicClock.nowMs()
+        firstHeartbeat = counter
+        com.reau.app.data.RideDiagnostics.log("auth", DashReadiness.ageLine(counter))
+    }
+
+    /** When the wait for the key ends: [AUTH_TIMEOUT] from the entry, stretched by a dash that is not ready yet ([DashReadiness.deadlineMs]). */
+    private fun authDeadline(burstStart: Long): Long =
+        DashReadiness.deadlineMs(burstStart, firstHeartbeat.takeIf { it >= 0 }, firstHeartbeatAtMs)
+
+    private suspend fun sendInitialBurst(sock: DashSocket) {
         for (pkt in DashCommands.initialBurst(HOSTNAME, status = phoneStatusProvider())) {
             sock.send(pkt)
             delay(BURST_PAUSE)
         }
-        com.reau.app.data.RideDiagnostics.log("auth", "initial burst sent — waiting up to ${AUTH_TIMEOUT}ms for 07 01 01")
-
-        Log.i(TAG, "Waiting up to ${AUTH_TIMEOUT}ms for auth (07 01 01)…")
-        val deadline = System.currentTimeMillis() + AUTH_TIMEOUT
-        while (!authConfirmed && System.currentTimeMillis() < deadline) delay(100)
-
-        if (!authConfirmed) {
-            fail(authTimeoutReason(heardFromDash = lastRxMs > 0L, ssid = ssid), mine)
-        } else {
-            Log.i(TAG, "Authenticated ✓")
-            com.reau.app.data.RideDiagnostics.log("auth", "authenticated (07 01 01) — entering nav mode")
-        }
-        return authConfirmed
     }
 
     /**
@@ -617,7 +908,7 @@ class DashSession(
         sock.send(DashCommands.navPlaceholder()); delay(10)
         sock.send(DashCommands.navStart()); delay(40)                 // start of navigation, ONCE
         sock.send(DashCommands.routeCard(destinationName, projectionOn = true))
-        sock.send(DashCommands.zoomIcons()) // the "-" and "+" by the dash's ZOOM, at a route's start
+        if (zoomLabel) sock.send(DashCommands.zoomIcons()) // the "-" and "+" by the dash's ZOOM, at a route's start
         Log.i(TAG, "Nav mode kick sent")
     }
 
@@ -643,26 +934,77 @@ class DashSession(
                     fail("Lost connection to dash — socket error: ${e.message}", mine)
                     break
                 } ?: continue
-                lastRxMs = System.currentTimeMillis()
-                dispatchIncoming(pkt, sock)
+                receivePacket(pkt, sock, mine)
             }
         }
+    }
+
+    // Packets in a row whose handling threw; a session starts it over.
+    private val rxFailures = FailureStreak(RX_EXCEPTIONS_BEFORE_FAIL)
+
+    /**
+     * One packet from the dash, handled. An exception from handling it costs that packet and one line in the log (the first of a
+     * run, never the bytes): it used to escape the receive coroutine, which had no handler, and take the app down (audit of
+     * 20/10/2026). When every packet throws, [RX_EXCEPTIONS_BEFORE_FAIL] in a row, the session fails with a clear reason so that
+     * the projection's own retries take over, instead of listening to a dash it cannot make sense of.
+     */
+    @Suppress("TooGenericExceptionCaught") // whatever a packet makes the handler throw is contained here
+    internal fun receivePacket(pkt: ByteArray, sock: DashSocket, mine: Int = sessionGeneration) {
+        lastRxMs = MonotonicClock.nowMs()
+        DashHeard.heard(lastRxMs)
+        try {
+            dispatchIncoming(pkt, sock)
+            rxFailures.ok()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            val exhausted = rxFailures.failed()
+            if (rxFailures.count == 1) {
+                com.reau.app.data.RideDiagnostics.warn("dash", "a packet from the dash could not be handled (${e.javaClass.simpleName}); it is dropped")
+            }
+            if (exhausted) fail("Dash packets keep failing to be handled ($RX_EXCEPTIONS_BEFORE_FAIL in a row, ${e.javaClass.simpleName})", mine)
+        }
+    }
+
+    /**
+     * Whether a key-exchange TLV is taken: no rejection (07 01 not 01) once the dash has confirmed the key, which would start the exchange
+     * over and send a new session key to whoever answers first (26/10/2026 review). From any address, as the telemetry (the owner's
+     * decision: not every dash is known). Said once per session.
+     */
+    internal fun keyExchangeAccepted(tlv: com.reau.app.dash.protocol.Tlv): Boolean {
+        val lateRejection = authConfirmed && tlv.sub == 0x01 && tlv.value.firstOrNull() != 0x01.toByte()
+        if (!lateRejection) return true
+        val why = "a rejection after the dash confirmed the key"
+        if (keyExchangeRefusals.add(why)) com.reau.app.data.RideDiagnostics.warn("auth", "key exchange packet ignored: $why")
+        return false
+    }
+
+    // What [keyExchangeAccepted] already said in this session.
+    private val keyExchangeRefusals = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    /** For the tests that drive [dispatchIncoming] through the session's states without a handshake. */
+    internal fun stateForTest(state: DashState) {
+        _state.value = state
     }
 
     // Internal (not private) so DashSessionTelemetryTest can feed it a hand-built raw TLV packet
     // directly, without needing a real handshake/dash peer.
     @Suppress("TooGenericExceptionCaught") // the button handler must never end the receive loop
     internal fun dispatchIncoming(pkt: ByteArray, sock: DashSocket) {
-        val tlvs = K1GPacket.parseIncoming(pkt)
+        val parsed = K1GPacket.parse(pkt)
+        val tlvs = parsed.tlvs
+        if (parsed.cutShort) sock.stats?.malformed()
         // Read once, counted from the same list (the socket's stats read the packet a second time).
-        sock.stats?.received(tlvs, System.currentTimeMillis())
+        sock.stats?.received(tlvs, MonotonicClock.nowMs())
         // No packet bytes to logcat (the detailed log's DashDump shows them, behind its switch).
         for (tlv in tlvs) {
+            if (firstHeartbeat < 0 && tlv.type == 0x01 && tlv.sub == 0x01) noteHeartbeat(tlv.value)
             // The screen "Dados da moto" keeps what the dash says, but not the key exchange (07) nor the buttons (09 00).
             val kept = tlv.type != 0x07 && tlv.type != 0x0F && !(tlv.type == 0x09 && tlv.sub == 0x00)
             if (kept) readings?.onValue(tlv.type, tlv.sub, tlv.value)
             // ── Auth (07 xx) ──
             if (tlv.type == 0x07) {
+                if (!keyExchangeAccepted(tlv)) continue
                 when (val ev = auth?.ingest(tlv)) {
                     is AuthEvent.SendKey -> {
                         Log.i(TAG, "Got RSA pubkey — sending the session key")
@@ -685,12 +1027,10 @@ class DashSession(
             if (tlv.type == 0x09 && tlv.sub == 0x06 &&
                 tlv.value.firstOrNull()?.toInt() == 0x55
             ) {
-                if (!loggedFirstAck && confirmsFirstFrame(_state.value)) {
-                    loggedFirstAck = true
-                    com.reau.app.data.RideDiagnostics.log("dash", "dash DECODED first IDR (09 06 55) — video accepted ✓")
-                } else if (!loggedFirstAck) {
-                    com.reau.app.data.RideDiagnostics.log("dash", "dash sent 09 06 55 while ${_state.value}, before any video: not the first frame")
+                if (noteClockNotice(_state.value)) {
+                    com.reau.app.data.RideDiagnostics.log("dash", clockNoticeLine(clockNoticeAfterMs))
                 }
+                if (!loggedFirstAck && confirmsFirstFrame(_state.value)) loggedFirstAck = true
                 decodeAcks.incrementAndGet()
                 noticeLine("09 06 55", ++notices0906, "answered with 06 11")
                 sock.send(DashCommands.frameDecodedIdr())
@@ -708,8 +1048,18 @@ class DashSession(
             // ── 09 00: button / joystick event → echo ack + hand it on ──
             if (tlv.type == 0x09 && tlv.sub == 0x00 && tlv.value.isNotEmpty()) {
                 val btn = tlv.value.last()  // 0900 0001 <code>
+                val readAtNs = sock.arrivedNs.takeIf { it != 0L } ?: System.nanoTime()
+                // The echo, the zoom icons after a zoom and, when the press changes the ring, the card with it: all on the wire before anything
+                // is logged (the log's lock is shared with the video and Android Auto threads), so the ring changes as soon as it can.
+                val answers = repliesToButton(btn, zoomLabel)
+                val ringChanged = ringAfterPress(btn.toInt() and 0xFF)
+                sock.sendBatch(if (ringChanged) answers + liveRouteCard(projectionOn = true) else answers)
+                if (ringChanged) logRingByPress(btn.toInt() and 0xFF, (System.nanoTime() - readAtNs) / NS_PER_MS)
+                infoSwitchLine?.let { line ->
+                    infoSwitchLine = null
+                    com.reau.app.data.RideDiagnostics.log("dash", line)
+                }
                 Dbg.i(TAG) { "JOYSTICK 09 00 → code 0x${(btn.toInt() and 0xFF).toString(16).uppercase()}" }
-                repliesToButton(btn).forEach { sock.send(it) } // the echo, and the zoom icons after a zoom
                 val event = com.reau.app.dash.protocol.DashButtonEvent.fromByte(btn)
                 // Handed on right here, on this receive thread: the main thread was
                 // one more hop, and it waits whenever the REau screen is busy. The handler only maps the press and
@@ -753,7 +1103,11 @@ class DashSession(
      * stream (the first keyframe shown); the 09 04 55 are rare.
      */
     private fun noticeLine(name: String, n: Int, did: String) {
-        val into = if (streamingStartMs > 0L) "%.1f s into the stream".format((System.currentTimeMillis() - streamingStartMs) / 1000.0) else "not streaming"
+        val into = if (streamingStartMs > 0L) {
+            "%.1f s into the stream".format(java.util.Locale.US, (MonotonicClock.nowMs() - streamingStartMs) / 1000.0)
+        } else {
+            "not streaming"
+        }
         com.reau.app.data.RideDiagnostics.log("dash", "notice $name #$n, $into, ${_state.value}: $did")
     }
 
@@ -761,6 +1115,7 @@ class DashSession(
         heartbeatJob?.cancel()
         heartbeatJob = scope.launch(Dispatchers.IO) {
             var n = 0
+            val sentSinceRx = HeartbeatsSinceRx()
             while (isActive) {
                 val status = phoneStatusProvider()
                 runCatching { sock.send(DashCommands.heartbeat(weather = weatherProvider(), status = status, call = callNow())) }
@@ -776,24 +1131,21 @@ class DashSession(
                 }
                 sampleLink(n)
                 n++
-                // RX watchdog: once the dash has acked at least one frame, a long silence means it
+                // RX watchdog: once the dash has spoken at all (rxSilenceFails), a long silence means it
                 // dropped (out of range / off). UDP gives no error, so detect it here and fail the
                 // session instead of streaming into the void while the UI still says "connected".
-                val rxSilentTooLong = lastRxMs > 0L && System.currentTimeMillis() - lastRxMs > RX_WATCHDOG_MS
-                val streamingAlive = _state.value == DashState.STREAMING && (loggedFirstAck || aliveWithoutAck)
-                if (streamingAlive && rxSilentTooLong) {
-                    val silent = (System.currentTimeMillis() - lastRxMs) / 1000
+                if (rxSilenceFails(_state.value, lastRxMs, MonotonicClock.nowMs(), timing.rxWatchdogMs, sentSinceRx.tick(lastRxMs))) {
+                    val silent = (MonotonicClock.nowMs() - lastRxMs) / 1000
                     Log.w(TAG, "RX watchdog: no dash packets for ${silent}s — link lost")
                     com.reau.app.data.RideDiagnostics.error("error", "RX watchdog: dash silent ${silent}s → link lost")
                     logLinkAtFailure()
                     com.reau.app.data.ProjectionSummary.current.watchdog("dash-rx")
-                    watchdogFailMs = System.currentTimeMillis()
                     fail("Dash stopped responding — connection lost", mine)
                     break
                 }
-                // First-ack watchdog: a real gap the RX watchdog above can NEVER catch, because it
-                // requires loggedFirstAck to already be true — i.e. it only detects a link that
-                // WORKED and then died, never one that never worked in the first place. Confirmed
+                // First-ack watchdog: a real gap the RX watchdog above does not catch, because it
+                // needs the dash to have spoken at least once — it detects a link that WORKED and
+                // then died, not one that never worked in the first place. Confirmed
                 // live in a ride log: the dash WiFi cycled through
                 // REQUESTING → unavailable → retry for over 6 MINUTES straight (never once reaching
                 // CONNECTED again after an initial blip), while this session's socket — still bound
@@ -803,8 +1155,8 @@ class DashSession(
                 // showed "transmitting" while the physical dash showed nothing but its own idle
                 // compass-ring screen. See firstAckTimedOut's own doc for the pure check.
                 val firstAck = firstAckVerdict(
-                    loggedFirstAck || aliveWithoutAck, streamingStartMs, System.currentTimeMillis(), FIRST_ACK_TIMEOUT_MS,
-                    lastRxMs, RX_WATCHDOG_MS,
+                    loggedFirstAck || aliveWithoutAck, streamingStartMs, MonotonicClock.nowMs(), FIRST_ACK_TIMEOUT_MS,
+                    lastRxMs, timing.rxWatchdogMs,
                 )
                 if (firstAck == FirstAck.ALIVE_WITHOUT_ACK) {
                     aliveWithoutAck = true
@@ -814,16 +1166,15 @@ class DashSession(
                     )
                 }
                 if (firstAck == FirstAck.DEAD) {
-                    val waited = (System.currentTimeMillis() - streamingStartMs) / 1000
+                    val waited = (MonotonicClock.nowMs() - streamingStartMs) / 1000
                     Log.w(TAG, "First-ack watchdog: dash never confirmed decoding a frame after ${waited}s — link likely dead")
                     com.reau.app.data.RideDiagnostics.error("error", "first-ack watchdog: no decode ack after ${waited}s → link likely dead")
                     logLinkAtFailure()
                     com.reau.app.data.ProjectionSummary.current.watchdog("dash-first-ack")
-                    watchdogFailMs = System.currentTimeMillis()
                     fail("Dash never showed the video — check the WiFi link", mine)
                     break
                 }
-                delay(1_000)
+                delay(timing.watchdogTickMs)
             }
         }
     }
@@ -847,12 +1198,21 @@ class DashSession(
     /** The Wi-Fi link when a watchdog fires: the moment and the minute before it (the failure's own context). */
     private fun logLinkAtFailure() {
         com.reau.app.data.RideDiagnostics.log("link", LinkReport.atFailure(linkProbe(linkNetwork), linkHistory.snapshot()))
+        logTrail("a watchdog fired")
+    }
+
+    /** The black box ([PacketTrail]) in the ride log, once for a failure (a watchdog writes it, then [fail] would again). */
+    private fun logTrail(why: String) {
+        val now = MonotonicClock.nowMs()
+        if (now - trailLoggedMs < TRAIL_ONCE_MS) return
+        trailLoggedMs = now
+        stats.trail.report(why, now).forEach { com.reau.app.data.RideDiagnostics.log("link", it) }
     }
 
     /** One dash-stats line every [statsEveryMs] while the session lives. */
     private fun launchStatsLine() {
         statsJob?.cancel()
-        statsWindowStartMs = System.currentTimeMillis()
+        statsWindowStartMs = MonotonicClock.nowMs()
         statsJob = scope.launch(Dispatchers.IO) {
             while (isActive) {
                 delay(statsEveryMs)
@@ -862,7 +1222,7 @@ class DashSession(
     }
 
     private fun logStats(end: Boolean) {
-        val now = System.currentTimeMillis()
+        val now = MonotonicClock.nowMs()
         val line = stats.windowLine(now - statsWindowStartMs, now)
         statsWindowStartMs = now
         com.reau.app.data.RideDiagnostics.log("dash", if (end) "$line (session end)" else line)
@@ -893,18 +1253,18 @@ class DashSession(
         navInfoJob?.cancel()
         navInfoJob = scope.launch(Dispatchers.IO) {
             while (isActive && _state.value == DashState.STREAMING) {
-                if (navActive) {
+                nav?.let { n ->
                     socket?.send(
                         DashCommands.activeNavPacket(
-                            maneuver = ringGlyph(),
-                            primaryDist = navPrimaryDist,
-                            primaryUnit = navPrimaryUnit,
-                            totalDist = navTotalDist,
-                            totalUnit = navTotalUnit,
-                            road = navRoad,
+                            maneuver = ringGlyph(n),
+                            primaryDist = n.primaryDist,
+                            primaryUnit = n.primaryUnit,
+                            totalDist = n.totalDist,
+                            totalUnit = n.totalUnit,
+                            road = n.road,
                             decimalComma = decimalComma(),
-                            proximity = proximityBar(),
-                            nextManeuver = nextShown(),
+                            proximity = proximityBar(n),
+                            nextManeuver = nextShown(n),
                         )
                     )
                 }
@@ -972,6 +1332,7 @@ class DashSession(
             return
         }
         Log.e(TAG, "ERROR — $msg")
+        logTrail("the session failed")
         com.reau.app.data.RideDiagnostics.error("error", "session fail: $msg")
         rxJob?.cancel(); heartbeatJob?.cancel(); projHbJob?.cancel(); routeCardJob?.cancel(); navInfoJob?.cancel()
         // The 5 s stats line and the cards loop have nothing to report once the session is down; left running they
@@ -995,6 +1356,31 @@ class DashSession(
         internal fun confirmsFirstFrame(state: DashState): Boolean = state == DashState.STREAMING
 
         /**
+         * The line for the dash's first 09 06 55 of a session, [afterMs] after the first burst. It is the dash's own 10 s clock
+         * (it came at +10 s with no video at all in the logs of 20/10/2026), not proof of a decoded frame: the log never says "video accepted".
+         */
+        internal fun clockNoticeLine(afterMs: Long): String =
+            "dash notice 09 06 55 at +%.1f s of the burst (the dash's own 10 s mark; not proof of a decoded frame)"
+                .format(java.util.Locale.US, afterMs / 1_000.0)
+
+        /**
+         * The RX watchdog: while streaming, a dash that has spoken ([lastRxMs] > 0) and then stays silent past [limitMs] is lost.
+         * It used to wait for the 10 s mark or 15 s (the first-ack watchdog) to be armed, so a dash that fell silent right after
+         * the stream began took 15 s to be noticed. A dash that never spoke is the first-ack watchdog's.
+         */
+        internal fun rxSilenceFails(
+            state: DashState,
+            lastRxMs: Long,
+            nowMs: Long,
+            limitMs: Long,
+            heartbeatsSinceRx: Int = MIN_HEARTBEATS_BEFORE_SILENT,
+        ): Boolean =
+            state == DashState.STREAMING && lastRxMs > 0L && nowMs - lastRxMs > limitMs && heartbeatsSinceRx >= MIN_HEARTBEATS_BEFORE_SILENT
+
+        /** The dash counts as silent only after this many heartbeats sent since its last packet (see [HeartbeatsSinceRx]). */
+        internal const val MIN_HEARTBEATS_BEFORE_SILENT = 4
+
+        /**
          * Why the authentication ran out. Only a dash that answered and still did not accept points at the SSID (the
          * dash checks it inside the encrypted handshake); not a single packet means the dash is not there (seen with
          * the bike's Wi-Fi already gone, when the log used to send the rider to check the SSID).
@@ -1003,9 +1389,33 @@ class DashSession(
         internal fun connectLine(ssid: String, network: Any?): String =
             "connect() — ssid='${DashWifiManager.maskSsid(ssid)}' network=$network"
 
-        internal fun authTimeoutReason(heardFromDash: Boolean, ssid: String): String =
-            if (heardFromDash) "Auth timed out — the dash answered but never accepted (no 07 01 01). Check SSID matches '${DashWifiManager.maskSsid(ssid)}'."
-            else "Auth timed out — not a single packet from the dash (bike off, or its Wi-Fi gone?)."
+        /** The patient pace of the greeting once the dash is ready, which [DashReadiness.Greeting] applies in the loop; kept as its own rule for the tests. */
+        internal fun burstDue(sinceLastBurstMs: Long, keySeen: Boolean, resends: Int): Boolean =
+            !keySeen && resends < MAX_BURST_RESENDS && sinceLastBurstMs >= KEY_PATIENCE_MS
+
+        /**
+         * Whether the dash's 10 s mark (09 06 55) in [state] makes the burst go out again at once: while authenticating, with no
+         * key offered ([keySeen]) and not done already this session ([alreadyDone]).
+         */
+        internal fun resendOnClockNotice(state: DashState, keySeen: Boolean, alreadyDone: Boolean): Boolean =
+            state == DashState.AUTHENTICATING && !keySeen && !alreadyDone
+
+        internal fun authTimeoutReason(
+            heardFromDash: Boolean,
+            ssid: String,
+            keySeen: Boolean = true,
+            resends: Int = MAX_BURST_RESENDS,
+            noticeAfterMs: Long = -1L,
+        ): String = when {
+            heardFromDash && !keySeen ->
+                "Auth timed out — the dash answered but never sent its key (07 00 / 07 03), " +
+                    "even after the burst was sent again $resends times" +
+                    (if (noticeAfterMs >= 0) "; its own 10 s mark (09 06 55) came ${noticeAfterMs / 1_000} s after the first burst" else "") + "."
+            heardFromDash ->
+                "Auth timed out — the dash answered but never accepted (no 07 01 01). " +
+                    "Check SSID matches '${DashWifiManager.maskSsid(ssid)}'."
+            else -> "Auth timed out — not a single packet from the dash (bike off, or its Wi-Fi gone?)."
+        }
 
         /** Glyph for the dash's maneuver circle: the real one, or the code that hides it. */
         internal fun bubbleManeuver(circleEnabled: Boolean, maneuver: Int): Int =
@@ -1019,10 +1429,10 @@ class DashSession(
             if (DashManeuverGlyphs.isVisible(incoming)) incoming else lastVisible ?: DashManeuverGlyphs.STRAIGHT
 
         /**
-         * What a joystick press gets back: its echo, and after a zoom or recentre the zoom state with both icons.
+         * What a joystick press gets back: its echo, and after a zoom or recentre the zoom state with both icons (with the [zoomLabel] on).
          */
-        internal fun repliesToButton(code: Byte): List<ByteArray> =
-            if ((code.toInt() and 0xFF) in ZOOM_CODES) listOf(DashCommands.buttonAck(code), DashCommands.zoomIcons())
+        internal fun repliesToButton(code: Byte, zoomLabel: Boolean = true): List<ByteArray> =
+            if (zoomLabel && (code.toInt() and 0xFF) in ZOOM_CODES) listOf(DashCommands.buttonAck(code), DashCommands.zoomIcons())
             else listOf(DashCommands.buttonAck(code))
 
         /** The dash's zoom (0x13, 0x14) and recentre (0x15) codes. */
@@ -1030,8 +1440,18 @@ class DashSession(
 
         /** The proximity bar from which the turn is more than 100 m away (5 and 6). */
         private const val FAR_BAR = 5
+        private const val NS_PER_MS = 1_000_000L
+
         private const val TAG           = "DashSession"
+
+        /** The link of a session without a Wi-Fi network of its own (a test's, or a socket not bound to a network). */
+        private val NO_NETWORK = Any()
         private const val AUTH_TIMEOUT  = 15_000L
+        /** Packets in a row whose handling threw before the session is failed (each one is dropped and the loop goes on). */
+        internal const val RX_EXCEPTIONS_BEFORE_FAIL = 20
+        /** How long the dash may take to offer its key after a burst before the burst is sent again, and how many times. */
+        internal const val KEY_PATIENCE_MS = 3_000L
+        internal const val MAX_BURST_RESENDS = (AUTH_TIMEOUT / KEY_PATIENCE_MS).toInt() - 1
         private const val BURST_PAUSE   = 20L
         // Projection control keep-alive (a TLV, NOT the video). Now that the video cadence is
         // motion-adaptive (250 ms active / 500 ms idle), this is a STEADY keep-alive pinned
@@ -1048,7 +1468,10 @@ class DashSession(
         // 4 s, not 6 s: in the ride logs (157 files, 27,192 gaps while
         // streaming) the longest silence with the dash still there was 2.96 s; every one from 3.47 s up was a real
         // loss (blocked network, Android Auto restarting, the bike off).
-        private const val RX_WATCHDOG_MS = 4_000L
+        internal const val RX_WATCHDOG_MS = 4_000L
+        private const val WATCHDOG_TICK_MS = 1_000L
+        /** A watchdog's failure and the [fail] that follows it are one event: the packet trail is written once for both. */
+        private const val TRAIL_ONCE_MS = 2_000L
         /** The bike's data is asked for again every 15 minutes while connected: 900 ticks of the 1 Hz heartbeat. */
         const val DATA_REFRESH_TICKS = 900
 
@@ -1068,7 +1491,7 @@ class DashSession(
         // startup jitter, while still being short enough to give the rider real feedback (and let
         // the caller's retry/give-up logic actually run) instead of sitting silent for
         // however long the underlying WiFi instability lasts.
-        private const val FIRST_ACK_TIMEOUT_MS = 15_000L
+        internal const val FIRST_ACK_TIMEOUT_MS = 15_000L
         private const val STATS_EVERY_MS = 5_000L
         /** The device name the dash shows on its "Connected to X" screen. */
         internal const val HOSTNAME       = "REau"

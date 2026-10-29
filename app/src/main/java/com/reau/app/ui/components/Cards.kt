@@ -166,7 +166,7 @@ fun SupportButton(action: CardAction, modifier: Modifier = Modifier) {
 }
 
 /**
- * A quiet button with an [icon] ("Voltar ao padrão", "Mandar só a cartela de teste"): Ouro suave text in the dark
+ * A quiet button with an [icon] ("Voltar ao padrão", "Mandar o wallpaper"): Ouro suave text in the dark
  * theme, Grafite underlined in Ouro in the light one.
  */
 @Composable

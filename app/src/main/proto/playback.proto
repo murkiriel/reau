@@ -1,0 +1,51 @@
+// playback.proto: Android Auto protocol messages of the headunit lineage, as REau's generated class MediaPlayback.java has them.
+//
+// Origin: headunit-revived (AGPL-3.0), https://github.com/andreknieriem/headunit-revived, from Michael A. Reid's "headunit"
+// (AGPL-3.0). REau took the generated classes from OpenCfMoto (AGPL-3.0), app/src/main/java/dev/zanderp/opencfmoto/aa/proto/MediaPlayback.java,
+// commit 0abbe2a (protoc 3.25.1); OpenCfMoto has no .proto files, and headunit-revived's originals did not come with the classes.
+//
+// What this file is: the .proto source of app/src/main/java/com/reau/app/aa/proto/MediaPlayback.java, REBUILT from the descriptor embedded in
+// that class (its file name, package, messages, fields, numbers, labels, types, defaults, options and order, as embedded). The
+// comments and the layout of the originals are not kept: the descriptor holds none. The package stays headunit-revived's
+// (com.andrerinas.headunitrevived.aap.protocol.proto) because the classes carry it. protoc 3.13 compiles this file, one file at
+// a time, to a descriptor equal to the embedded one (checked on 28/10/2026; only json_name, which protoc adds, differs).
+//
+// REau's build has no protoc step: the Java classes are kept in the source and this file is not compiled. It is here so that the
+// classes' preferred form for modification is in the repository (AGPL-3.0, section 1). Changing it changes nothing until the class
+// is generated again. Later upstream versions differ (open-headunit, commit 93c065dd, renamed the package and added fields and
+// messages); none of that is applied here. License: AGPL-3.0, like the rest of REau (LICENSE, NOTICE).
+
+syntax = "proto2";
+
+package com.andrerinas.headunitrevived.aap.protocol.proto;
+option java_outer_classname = "MediaPlayback";
+
+enum MsgType {
+  MSG_PLAYBACK_METADATA = 32769;
+  MSG_PLAYBACK_STARTRESPONSE = 32770;
+  MSG_PLAYBACK_METADATASTART = 32771;
+}
+
+message MediaPlaybackStatus {
+  enum State {
+    STOPPED = 1;
+    PLAYING = 2;
+    PAUSED = 3;
+  }
+  optional MediaPlaybackStatus.State state = 1;
+  optional string media_source = 2;
+  optional uint32 playback_seconds = 3;
+  optional bool shuffle = 4;
+  optional bool repeat = 5;
+  optional bool repeat_one = 6;
+}
+
+message MediaMetaData {
+  optional string song = 1;
+  optional string artist = 2;
+  optional string album = 3;
+  optional bytes album_art = 4;
+  optional string playlist = 5;
+  optional uint32 duration_seconds = 6;
+  optional int32 rating = 7;
+}

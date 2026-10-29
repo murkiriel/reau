@@ -10,5 +10,4 @@ paths = ['''app/src/main/res/raw/aa_privkey''']
 
 [[allowlists]]
 description = "The sample Sec-WebSocket-Key of RFC 6455, used by the web server's tests"
-paths = ['''app/src/test/java/com/reau/app/web/WsTestClient\.kt''', '''app/src/test/java/com/reau/app/web/WebServerTest\.kt''']
-regexes = ['''Sec-WebSocket-Key: [A-Za-z0-9+/=]+''']
+regexes = ['''dGhlIHNhbXBsZSBub25jZQ==''']   # the RFC's sample nonce itself: the rule tests the secret, not the header's name

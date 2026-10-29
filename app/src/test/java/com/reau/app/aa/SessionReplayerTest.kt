@@ -71,6 +71,24 @@ class SessionReplayerTest {
     }
 
     @Test
+    fun `what REau sent to Android Auto is in the recording and not in the replay`() {
+        val recorder = SessionRecorder(tmp.root, "reau_20261002_150000_000", 1_000_000, { }, { nowMs })
+        val handler = RecordingHandler(recorder, Seen())
+        handler.handle(incoming(Channel.ID_CTR, 0x0B, bytes(0x00, 0x05, 0x0A, 0x04)))
+        AaInput({ recorder.writeSent(it) }, clockUs = { 1L }, log = { }).sendKey(ServiceDiscoveryResponse.KEY_ENTER)
+        handler.handle(incoming(Channel.ID_VID, 0x0B, bytes(0x80, 0x04)))
+        recorder.close()
+        val recording = SessionRecorder.read(recorder.file)
+        val replayed = Seen()
+
+        val count = SessionReplayer.replay(recording, replayed)
+
+        assertEquals("the two messages Android Auto sent and the key's down and up", 4, recording.messages.size)
+        assertEquals(2, count)
+        assertEquals(listOf(Channel.ID_CTR, Channel.ID_VID), replayed.messages.map { it.channel })
+    }
+
+    @Test
     fun `an empty recording replays nothing`() {
         val replayed = Seen()
         assertEquals(0, SessionReplayer.replay(SessionRecording(0, emptyList(), false), replayed))

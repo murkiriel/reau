@@ -1,0 +1,102 @@
+# Qualidade do REau, uma vez por semana (e quando o mantenedor pedir): cobertura dos testes (JaCoCo) e teste de mutação.
+# Não é a integração contínua (ci.yml, que roda a cada PR e push): isto demora e não decide nada sobre um PR; só mostra
+# quanto do código os testes pisam e se os testes de verdade travam as decisões (cada mutação muda uma decisão e algum teste tem de falhar).
+# Só lê o código, não assina, não publica nada e não usa segredo. Actions só as oficiais da GitHub, fixadas pelo commit (as mesmas do ci.yml).
+name: Qualidade
+
+on:
+  schedule:
+    - cron: "17 5 * * 1" # segunda-feira, 05:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.console=plain
+
+jobs:
+  cobertura:
+    name: Cobertura dos testes (JaCoCo)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: JDK 21 (Temurin) com cache do Gradle
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      # Roda os testes da edição Completa e escreve o relatório em app/build/reports/jacoco/ (html e xml).
+      - name: Testes com cobertura
+        run: ./gradlew --console=plain --max-workers=2 :app:jacocoTestReport
+
+      - name: Resumo da cobertura
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import xml.etree.ElementTree as ET
+          raiz = ET.parse("app/build/reports/jacoco/jacoco.xml").getroot()
+          print("### Cobertura dos testes de unidade (edição Completa)")
+          for c in raiz.findall("counter"):
+              perdido, coberto = int(c.get("missed")), int(c.get("covered"))
+              total = perdido + coberto
+              print(f"- {c.get('type').lower()}: {coberto}/{total} ({100 * coberto / total:.1f} %)" if total else f"- {c.get('type').lower()}: 0")
+          PY
+
+      - name: Guardar o relatório
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: cobertura-jacoco
+          path: app/build/reports/jacoco/
+          retention-days: 30
+
+  mutacao:
+    name: Teste de mutação (fatia ${{ matrix.fatia }} de 10)
+    runs-on: ubuntu-24.04
+    # Mais de 440 mutações (python3 scripts/dev/mutacoes.py --lista conta; 451 em 28/10/2026), cada uma um Gradle de testes. Com o daemon ligado e o código já compilado
+    # cada uma leva de 10 a 60 s; uma fatia de um décimo (cerca de 45) cabe em meia hora. Medir na primeira execução e ajustar o número de fatias.
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        fatia: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    env:
+      # O daemon fica ligado nesta tarefa: com `daemon=false` cada mutação pagava a partida do Gradle (o que passava de 4 horas no total).
+      GRADLE_OPTS: -Dorg.gradle.console=plain
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: JDK 21 (Temurin) com cache do Gradle
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      # scripts/dev/mutacoes.py: uma mudança por vez em código escolhido (as decisões do trabalho de 20/10/2026), só os testes daquele código.
+      # Sai com 1 se alguma mutação sobreviver ou o trecho dela sumiu do arquivo; o log é guardado de qualquer jeito.
+      - name: Mutações
+        shell: bash # com -e e -o pipefail: o código de saída do Python (1 se uma mutação sobrevive) não é engolido pelo tee
+        run: python3 scripts/dev/mutacoes.py --fatia ${{ matrix.fatia }}/10 2>&1 | tee mutacoes.log
+
+      - name: Resumo das mutações
+        if: always()
+        run: |
+          { echo "### Teste de mutação, fatia ${{ matrix.fatia }} de 10"; echo '```'; tail -n 25 mutacoes.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Guardar o log
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: mutacoes-${{ matrix.fatia }}
+          path: mutacoes.log
+          retention-days: 30

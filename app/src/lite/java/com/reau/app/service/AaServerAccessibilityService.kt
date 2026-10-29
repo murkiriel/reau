@@ -5,7 +5,7 @@ package com.reau.app.service
  * does not declare one). This is what the shared code still names: a class for the component lookups and the calls that
  * do nothing here.
  */
-class AaServerAccessibilityService {
+class AaServerAccessibilityService private constructor() {
     companion object {
         /** The switch "Atender ligação" widens what the full edition's service hears; here there is nothing to widen. */
         @Suppress("UNUSED_PARAMETER")

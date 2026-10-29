@@ -19,7 +19,7 @@ class StreamGovernorTest {
     private var acks = 0L
 
     private fun governor(startFps: Int = 16, ceiling: Int = 16, clockSlowPercent: Int = 0, bitrateCeilingBps: Int = DashConfig.MAX_STREAM_BITRATE_BPS) =
-        StreamGovernor(AutoFpsController.Plan(startFps, ceiling, null), clockSlowPercent, bitrateCeilingBps = bitrateCeilingBps)
+        StreamGovernor(AutoFpsController.Plan(startFps, ceiling), clockSlowPercent, bitrateCeilingBps = bitrateCeilingBps)
 
     /** One poll, 250 ms after the one before. */
     private fun StreamGovernor.poll(
@@ -33,12 +33,13 @@ class StreamGovernorTest {
         keyframes: Int = 0,
         keyBytesMax: Int = 0,
         keyPacketsMax: Int = 0,
+        tickWaitsMs: List<Double> = emptyList(),
     ): List<Action> {
         nowMs += POLL_MS
         return onPoll(
             StreamGovernor.Poll(
                 nowMs = nowMs,
-                compositor = DashCompositor.Stats(sourceFrames = drawn * 2, drawn = drawn, repeated = repeated, composeNs = (drawn + repeated) * 2_000_000L),
+                compositor = DashCompositor.Stats(sourceFrames = drawn * 2, drawn = drawn, repeated = repeated, composeNs = (drawn + repeated) * 2_000_000L, tickWaitsMs = tickWaitsMs),
                 framesOut = framesOut, bytesOut = bytesOut, lateFrames = 0, encodeNs = framesOut * 8_000_000L,
                 dashAcks = acks, firstFrameConfirmed = confirmed, thermalOk = thermalOk, navSample = navSample,
                 keyframes = keyframes, keyBytesMax = keyBytesMax, keyPacketsMax = keyPacketsMax,
@@ -53,12 +54,14 @@ class StreamGovernorTest {
         sent: Int = composed,
         bytes: Long = sent * 1_000L,
         navSample: StreamGovernor.NavSample? = null,
+        tickWaitsMs: List<Double> = emptyList(),
     ): List<Action> =
         (0 until POLLS_PER_WINDOW).flatMap { i ->
             fun share(total: Int) = total * (i + 1) / POLLS_PER_WINDOW - total * i / POLLS_PER_WINDOW
             poll(
                 drawn = share(composed), framesOut = share(sent),
                 bytesOut = bytes * (i + 1) / POLLS_PER_WINDOW - bytes * i / POLLS_PER_WINDOW, navSample = navSample,
+                tickWaitsMs = if (i == 0) tickWaitsMs else emptyList(),
             )
         }
 
@@ -156,6 +159,15 @@ class StreamGovernorTest {
     }
 
     // ── the 5 s window ─────────────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `the window line tells how long the new pictures waited for the tick, or a dash when none was drawn`() {
+        val g = started()
+        val waits = g.window(composed = 80, tickWaitsMs = listOf(100.0, 200.0, 250.0)).filterIsInstance<Action.Log>().single().line
+        assertTrue("got: $waits", " tickwait=183/250/250ms " in waits)
+        val none = g.window(composed = 80).filterIsInstance<Action.Log>().single().line
+        assertTrue("got: $none", " tickwait=- " in none)
+    }
 
     @Test
     fun `every 5 s a line records the stream's measurements`() {
@@ -635,4 +647,25 @@ class StreamGovernorTest {
         const val POLL_MS = 250L
         const val POLLS_PER_WINDOW = 20
     }
+    /** Audit of 20/10/2026: an encoder rebuilt after a failure came back at the full bitrate while the stream was at the reduced one. */
+    @Test
+    fun `an encoder rebuilt after a failure takes the bitrate that is applied now, not the full one`() {
+        val g = governor()
+        g.start(nowMs)
+        // Still: the stream starts at the reduced bitrate and stays there while nothing moves on the map.
+        g.poll(drawn = 0, repeated = 4, confirmed = true)
+        val still = g.rebuildAction()
+        assertTrue("the applied bitrate is the still one: ${still.bitrateBps}", still.bitrateBps < g.activeBitrateBps)
+        // Moving: the full bitrate is applied, and that is what a rebuild takes.
+        g.poll(drawn = 4, confirmed = true)
+        assertEquals(g.activeBitrateBps, g.rebuildAction().bitrateBps)
+        assertEquals("built for the encoder's own rate, not the pace's", g.encoderFps, g.rebuildAction().fps)
+    }
+
+    @Test
+    fun `before any bitrate was applied a rebuild takes the full one`() {
+        val g = governor()
+        assertEquals(g.activeBitrateBps, g.rebuildAction().bitrateBps)
+    }
+
 }

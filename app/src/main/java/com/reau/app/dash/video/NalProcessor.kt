@@ -27,7 +27,7 @@ class NalProcessor(private val onNal: (ByteArray, Boolean) -> Unit) {
         for (nal in split(annexB)) {
             if (nal.isEmpty()) continue
             when (val type = nal[0].toInt() and 0x1F) {
-                7    -> sps = normalizeSpsForDash(nal)
+                7    -> sps = spsForDash(nal)
                 8    -> pps = nal
                 5    -> emitIdr(nal)
                 6, 9 -> Unit // SEI, AUD — discard
@@ -35,23 +35,6 @@ class NalProcessor(private val onNal: (ByteArray, Boolean) -> Unit) {
             }
         }
     }
-
-    /**
-     * The dash's firmware accepts one SPS shape (67 42 00 29…)
-     * before it will leave the loading state. MediaCodec emits a different
-     * constraint byte (e.g. 67 42 C0 29…); rewrite byte[2] to 0x00 to match.
-     * The constraint byte doesn't affect slice-header parsing, so this is safe.
-     */
-    private fun normalizeSpsForDash(sps: ByteArray): ByteArray {
-        if (looksLikeSps(sps) && sps[1] == 0x42.toByte() && sps[3] == 0x29.toByte()) {
-            val out = sps.copyOf()
-            out[2] = 0x00
-            return out
-        }
-        return sps
-    }
-
-    private fun looksLikeSps(nal: ByteArray): Boolean = nal.size >= 4 && (nal[0].toInt() and 0x1F) == 7
 
     private fun emitIdr(idr: ByteArray) {
         val s = sps; val p = pps
@@ -103,8 +86,26 @@ class NalProcessor(private val onNal: (ByteArray, Boolean) -> Unit) {
         else -> 0
     }
 
-    private companion object {
-        val START_CODE_4 = byteArrayOf(0, 0, 0, 1)
-        const val TAG = "NalProcessor"
+    companion object {
+        private val START_CODE_4 = byteArrayOf(0, 0, 0, 1)
+        private const val TAG = "NalProcessor"
+        private const val PROFILE_BASELINE = 0x42
+        private const val LEVEL_4_1 = 0x29
+
+        /**
+         * The dash's firmware accepts one SPS shape (67 42 00 29…) before it will leave the loading state. MediaCodec emits
+         * other constraint bytes (67 42 C0 29…) and, on some phones, another level (67 42 80 1F…, level 3.1; 0x1E, level 3.0):
+         * for a Baseline SPS of level 4.1 or lower the constraint byte becomes 0x00 and the level 0x29. Neither touches
+         * slice-header parsing, and a stream that fits a lower level fits 4.1 too, so this is safe. A higher level, or another
+         * profile (Main, High: the dash rejects them whatever the bytes say), is left as it came.
+         */
+        internal fun spsForDash(sps: ByteArray): ByteArray {
+            val baseline = sps.size >= 4 && (sps[0].toInt() and 0x1F) == 7 && (sps[1].toInt() and 0xFF) == PROFILE_BASELINE
+            if (!baseline || (sps[3].toInt() and 0xFF) > LEVEL_4_1) return sps
+            val out = sps.copyOf()
+            out[2] = 0x00
+            out[3] = LEVEL_4_1.toByte()
+            return out
+        }
     }
 }

@@ -1,0 +1,8 @@
+GET /ws?k=1234 HTTP/1.1
+Host: x
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+Sec-WebSocket-Version: 13
+Origin: http://192.168.1.50:8780
+

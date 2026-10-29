@@ -12,6 +12,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.reau.app.settings.AppPermissions
 import org.junit.Assert.assertEquals
+import org.junit.Assume
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -61,6 +62,9 @@ class PermissionsScreenTest {
         }
     }
 
+    /** The accessibility rows and their buttons are the full edition's: on the Lite the test is skipped (an assumption, listed as PULADO). */
+    private fun onlyTheFullEdition() = Assume.assumeTrue("the full edition's accessibility rows", com.reau.app.Edition.hasAccessibility)
+
     private fun row(permission: String) = compose.onNodeWithTag("permission_$permission").performScrollTo()
 
     /** The redesign: the why is folded until the row is tapped, and never cut. */
@@ -68,6 +72,7 @@ class PermissionsScreenTest {
 
     @Test
     fun eachRowSaysWhatItIsWhetherItIsGrantedAndWhy() {
+        onlyTheFullEdition()
         opened(AppPermissions.ACCESSIBILITY).assertTextContains("Acessibilidade", substring = true)
             .assertTextContains("Desligado", substring = true)
             .assertTextContains("encaixe", substring = true)
@@ -77,7 +82,9 @@ class PermissionsScreenTest {
             .assertTextContains("Gemini", substring = true)
             .assertTextContains("android.permission.RECORD_AUDIO", substring = true)
         opened("android.permission.INTERNET").assertTextContains("Liberada", substring = true)
-            .assertTextContains("127.0.0.1", substring = true)
+            .assertTextContains("dentro do celular", substring = true)
+            .assertTextContains("Open-Meteo", substring = true)
+            .assertTextContains("GitHub", substring = true)
         opened("com.reau.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION").assertTextContains("biblioteca", substring = true)
     }
 
@@ -94,6 +101,7 @@ class PermissionsScreenTest {
      */
     @Test
     fun restrictedAccessibilitySaysHowToFreeItAndLeadsToTheAppInfo() {
+        onlyTheFullEdition()
         shown = AppPermissions.rows(emptyList(), { false }, accessibilityOn = false, batteryExempt = true, accessibilityRestricted = true)
         opened(AppPermissions.ACCESSIBILITY).assertTextContains("Permitir configurações restritas", substring = true)
         compose.onNodeWithTag("permissions_allow_restricted").performScrollTo().performClick()
@@ -102,6 +110,7 @@ class PermissionsScreenTest {
 
     @Test
     fun withoutTheRestrictionThereIsNoWayToIt() {
+        onlyTheFullEdition()
         compose.onNodeWithTag("permissions_open_accessibility").performScrollTo()
         compose.onNodeWithTag("permissions_allow_restricted").assertDoesNotExist()
     }
@@ -136,6 +145,7 @@ class PermissionsScreenTest {
 
     @Test
     fun theButtonsGoBackAndToWhereThePermissionsAreSwitched() {
+        onlyTheFullEdition()
         // The way to the accessibility settings is in the special accesses' group, before the next one.
         val way = compose.onNodeWithTag("permissions_open_accessibility").performScrollTo().fetchSemanticsNode().boundsInRoot
         val next = compose.onNodeWithTag("permissions_section_ASKED").fetchSemanticsNode().boundsInRoot

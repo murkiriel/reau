@@ -36,9 +36,13 @@ class WebServerTest {
         val counts = CopyOnWriteArrayList<Int>()
         val logs = CopyOnWriteArrayList<String>()
         @Volatile var joinHook: (WebViewer) -> Unit = {}
-        val pageBytes = "<html>the page</html>".toByteArray()
+        @Volatile var pageFails = false
+        @Volatile var pageBytes = "<html>the page</html>".toByteArray()
 
-        override fun page() = pageBytes
+        override fun page(): ByteArray {
+            if (pageFails) throw IllegalStateException("the compositor is gone")
+            return pageBytes
+        }
         override fun onJoin(viewer: WebViewer) = joinHook(viewer)
         override fun onText(text: String) { texts.add(text) }
         override fun onViewers(count: Int) { counts.add(count) }
@@ -157,10 +161,34 @@ class WebServerTest {
         }
     }
 
+    /** A12 (28/10/2026): the page's own script and style run by a nonce that is new in every answer, never by 'unsafe-inline'. */
+    @Test
+    fun `the page asks the browser for no unsafe-inline, and each answer has its own nonce in the header and in the tags`() {
+        events.pageBytes = WebPage.compose(
+            "<html><style nonce=\"${HttpResponses.NONCE_MARK}\">a{}</style><!--JMUXER--></html>", "var a=1;",
+        ).toByteArray()
+        val server = start()
+        val answers = (1..3).map { get(server, "/") }
+        val nonces = answers.map { r ->
+            assertEquals(200, r.status)
+            assertFalse(r.head, r.head.contains("unsafe-inline"))
+            val nonce = Regex("script-src 'nonce-([^']+)'").find(r.head)!!.groupValues[1]
+            assertTrue(r.head, "style-src 'nonce-$nonce'" in r.head)
+            val html = String(r.body, Charsets.UTF_8)
+            assertEquals(html, 2, Regex("""<(script|style) nonce="$nonce">""").findAll(html).count())
+            assertFalse(html, HttpResponses.NONCE_MARK in html)
+            assertTrue(r.head, r.head.contains("Content-Length: ${r.body.size}"))
+            nonce
+        }
+        assertEquals("a new nonce each time: $nonces", 3, nonces.toSet().size)
+    }
+
     /**
-     * The server writes no text for the person: its errors are a status with no body and the page is one file for both languages
+     * The server writes no text for the person: its errors are a status with no body and the page is one file for all its languages
      * (the page picks by the browser's own language list), so the Accept-Language header changes nothing in an answer.
      */
+    private val NONCE = Regex("nonce-[A-Za-z0-9_-]+")
+
     @Test
     fun `the server's answers do not depend on the browser's language`() {
         limits = WebGuard.Limits(maxPerAddress = 99, rotateAfter = 999)
@@ -176,7 +204,8 @@ class WebServerTest {
             for (language in listOf("pt-BR,pt;q=0.9,en;q=0.8", "en-US,en;q=0.9", "es")) {
                 val r = ask(target, language)
                 assertEquals("$target $language", none.status, r.status)
-                assertEquals("$target $language", none.head, r.head)
+                // the one thing that differs is the page's nonce, new in each answer whatever the language
+                assertEquals("$target $language", none.head.replace(NONCE, "nonce-N"), r.head.replace(NONCE, "nonce-N"))
                 assertArrayEquals("$target $language", none.body, r.body)
                 if (target.startsWith("/auth")) assertEquals("a wrong pin is a status and nothing else, in any language", 0, r.body.size)
             }
@@ -473,21 +502,39 @@ class WebServerTest {
         val server = start()
         fun auth(origin: String?, key: String = pin): Int {
             val c = Client(server.port)
-            c.send("GET /auth?k=$key HTTP/1.1\r\nHost: phone:8780\r\n" + (origin?.let { "Origin: $it\r\n" } ?: "") + "\r\n")
+            c.send("GET /auth?k=$key HTTP/1.1\r\nHost: 192.168.1.50:8780\r\n" + (origin?.let { "Origin: $it\r\n" } ?: "") + "\r\n")
             return c.readHead().substringAfter(' ').substringBefore(' ').toInt().also { c.socket.close() }
         }
-        assertEquals("the page's own address", 204, auth("http://phone:8780"))
+        assertEquals("the page's own address", 204, auth("http://192.168.1.50:8780"))
         assertEquals("no Origin: not a browser's page", 204, auth(null))
         assertEquals("another site", 403, auth("http://evil.example"))
-        assertEquals("the same host on another port is another site", 403, auth("http://phone:9999"))
+        assertEquals("the same host on another port is another site", 403, auth("http://192.168.1.50:9999"))
         repeat(10) { assertEquals(403, auth("http://evil.example", "0000")) }
-        assertEquals("the guesses of another site are not counted against the right page", 204, auth("http://phone:8780"))
+        assertEquals("the guesses of another site are not counted against the right page", 204, auth("http://192.168.1.50:8780"))
         val c = Client(server.port)
         c.send(
-            "GET /ws?k=$pin HTTP/1.1\r\nHost: phone:8780\r\nOrigin: http://evil.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n" +
+            "GET /ws?k=$pin HTTP/1.1\r\nHost: 192.168.1.50:8780\r\nOrigin: http://evil.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n" +
                 "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
         )
         assertTrue(c.readHead().startsWith("HTTP/1.1 403"))
+    }
+
+    /** Audit of 20/10/2026: a page from a name that DNS points at the phone sends that name as both Host and Origin, and they matched. */
+    @Test
+    fun `a name of the internet pointed at the phone by DNS is not the page's own address, though Host and Origin are equal`() {
+        val server = start()
+        fun auth(host: String): Int {
+            val c = Client(server.port)
+            c.send("GET /auth?k=$pin HTTP/1.1\r\nHost: $host\r\nOrigin: http://$host\r\n\r\n")
+            return c.readHead().substringAfter(' ').substringBefore(' ').toInt().also { c.socket.close() }
+        }
+        assertEquals("rebinding", 403, auth("attacker.example:8780"))
+        assertEquals("a name that looks local", 403, auth("phone.local:8780"))
+        assertEquals("a public number", 403, auth("8.8.8.8:8780"))
+        assertEquals("a number of the local network", 204, auth("192.168.1.50:8780"))
+        assertEquals("the phone itself", 204, auth("127.0.0.1:8780"))
+        assertEquals("localhost", 204, auth("localhost:8780"))
+        assertEquals("a unique-local IPv6", 204, auth("[fd00::5]:8780"))
     }
 
     @Test
@@ -583,5 +630,25 @@ class WebServerTest {
         val c = Client(server.port)
         c.send("GET / HTTP/1.1\r\nHost: x\r\n")
         assertEquals(0, c.readRest().size)
+    }
+
+    /** A hook of the app (here the page's) that throws something other than an IOException ended the app: the thread had no handler. */
+    @Test
+    fun `a hook that throws ends its own connection, not the app, and the server goes on`() {
+        val uncaught = CopyOnWriteArrayList<Throwable>()
+        val before = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { _, e -> uncaught += e }
+        try {
+            val server = start()
+            events.pageFails = true
+            get(server, "/")
+            eventually("the failure is logged") { events.logs.any { it.contains("IllegalStateException") } }
+            assertTrue("nothing escaped the connection's thread: $uncaught", uncaught.isEmpty())
+
+            events.pageFails = false
+            assertEquals("the server still answers", 200, get(server, "/").status)
+        } finally {
+            Thread.setDefaultUncaughtExceptionHandler(before)
+        }
     }
 }

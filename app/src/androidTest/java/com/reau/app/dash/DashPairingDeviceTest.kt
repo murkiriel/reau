@@ -36,6 +36,15 @@ class DashPairingDeviceTest {
     }
 
     @Test
+    fun allTheScreensShareOnePairingForTheProcess() {
+        assertTrue("one pairing, not one store (and one Keystore lookup) per open", DashPairing.open(context) === DashPairing.open(context))
+        val p = DashPairing.open(context)
+        p.ssid = "RE_ZZ99_000000"
+        assertEquals("what one reads is what another wrote", "RE_ZZ99_000000", DashPairing.open(context).ssid)
+        assertTrue(p.warm() > 0)
+    }
+
+    @Test
     fun thePairingSurvivesARestartAndIsNotReadableInTheFile() {
         DashPairing.open(context).apply {
             ssid = "RE_AB12_345678"

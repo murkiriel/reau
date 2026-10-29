@@ -5,41 +5,43 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * The settings chosen after use are what a new install starts with. Not the debug ones (recordings, detailed log
- * stay off), not the slow pace experiment (decided after its report), and the card picture apart.
+ * The settings chosen after use are what a new install starts with. Not the debug ones (recordings, detailed log:
+ * on in a debug build, off in a release), not the slow pace experiment (decided after its report), and the card picture apart.
  */
 class AppDefaultsTest {
-    private val joystick = "media.left.once=PREVIOUS_SONG;media.right.once=NEXT_SONG;media.up.once=HOME;" +
-        "media.down.once=ASSISTANT;media.center.once=PLAY_PAUSE;map.down.once=CONFIRM"
+    // The owner's own page (28/10/2026): the app menu and Gemini in the media mode, zoom on the map mode's sides.
+    private val joystick = "media.up.once=HOME;media.down.once=ASSISTANT;map.left.once=ZOOM_OUT;map.right.once=ZOOM_IN"
 
     @Test
     fun `a new install starts with the chosen defaults`() {
         val s = REauSettings()
         assertEquals(180, s.density)
         assertEquals(0 to 0, s.marginW to s.marginH)
-        assertEquals(FitParams(Fit.CROP, 74, 0, 70, 0, 0), s.appsFit)
-        assertEquals(FitParams(Fit.CROP, 65, -80, -40, 8, 0), s.menuFit)
+        // The fits of the owner's phone, taken as the defaults on 25/10/2026 and again on 28/10/2026 (the apps' crop 64% at -34, 54) (no zoom, no black bands)
+        assertEquals(FitParams(Fit.WHOLE_VISIBLE, 64, -34, 54, 20, 0), s.appsFit)
+        assertEquals(FitParams(Fit.WHOLE_VISIBLE, 90, 32, 20, 20, 0), s.menuFit)
+        assertEquals(FitParams(Fit.CROP, 74, 0, 62, 0, 0), s.navFit)
         // The conservative envelope for the video (profile 1, FixedProfilesTest).
         assertEquals(4, s.fpsCeiling)
         assertEquals(MapTheme.AUTO, s.mapTheme)
         assertEquals(com.reau.app.dash.NavProfileMode.PESSIMISTA, s.navProfileMode)
         assertEquals(joystick, s.joystick)
-        val on = listOf(s.maneuverData, s.autoJoinWifi, s.answerCalls, s.dashMusic, s.dashCaller, s.gemini, s.aaServerAuto,
-            s.dashMask, s.phoneTouch, s.rideLog, s.maneuverFpsProfile, s.speedFpsProfile, s.aaNewProtocol)
+        val on = listOf(s.maneuverData, s.autoJoinWifi, s.dashMusic, s.dashCaller, s.aaServerAuto,
+            s.dashMask, s.phoneTouch, s.rideLog, s.maneuverFpsProfile, s.speedFpsProfile, s.aaNewProtocol,
+            s.useLocation, s.dashPhoneStatus, s.dashAlbumArt, s.answerCalls, s.gemini)
         assertEquals(
-            "manobra, Wi-Fi, atender, música, quem liga, Gemini, servidor, máscara, toque, registro, perfil por manobra, perfil por velocidade, protocolo 1.7",
-            List(13) { true },
+            "manobra, Wi-Fi, música, quem liga, servidor, máscara, toque, registro, perfil por manobra, perfil por velocidade, protocolo 1.7, " +
+                "localização, estado do celular, capa do álbum, atender ligação, Gemini (as quatro últimas só funcionam com a permissão liberada)",
+            List(16) { true },
             on,
         )
-        val off = listOf(
-            s.recordVideo, s.recordSessions, s.detailedLog, s.useLocation,
-        )
-        assertEquals(
-            "gravações, registro detalhado, localização",
-            List(4) { false },
-            off,
-        )
-        assertEquals(30, s.logKeepDays)
+        val off = listOf(s.maneuverRing)
+        assertEquals("anel de manobras (o painel fica mais limpo)", List(1) { false }, off)
+        // The debug options come on in a debug build (the owner's phone, 28/10/2026) and are written as the build type, so off in a release.
+        assertEquals(List(3) { com.reau.app.BuildConfig.DEBUG }, listOf(s.recordVideo, s.recordSessions, s.detailedLog))
+        assertEquals("o registro de diagnóstico vem ligado também na produção", true, s.rideLog)
+        assertEquals("o tempo sem o painel", 20, s.noDashStopMinutes)
+        assertEquals("nunca na build de debug, 30 dias na produção", if (com.reau.app.BuildConfig.DEBUG) 0 else 30, s.logKeepDays)
     }
 
     @Test
@@ -76,7 +78,7 @@ class AppDefaultsTest {
             .putBoolean("menu_fit_on", false).putBoolean("gemini", false).putString("joystick", "media.up.once=HOME").apply()
         val s = SettingsStore(prefs).load()
         assertEquals(160, s.density)
-        assertEquals(Fit.FILL_DOME, s.fit)
+        assertEquals("the fill-the-dome of before reads as the whole picture", Fit.WHOLE_VISIBLE, s.fit)
         // But for the video, which an older store gets conservative once.
         assertEquals(4, s.fpsCeiling)
         assertEquals("the menu's own fit switched off stays off", null, s.menuFit)

@@ -188,26 +188,23 @@ class KeystoreBackedPrefs(private val backing: SharedPreferences, private val ci
     // ── the real cipher ──────────────────────────────────────────────────────────
 
     /** AES-256-GCM with a non-exportable key in the Android Keystore (created on first use under [alias]). */
-    class KeystoreAesGcmCipher(private val alias: String = DEFAULT_ALIAS) : ValueCipher {
+    class KeystoreAesGcmCipher(
+        private val alias: String = DEFAULT_ALIAS,
+        private val lookup: (String) -> SecretKey? = ::keystoreKey,
+        private val create: (String) -> SecretKey = ::createKeystoreKey,
+    ) : ValueCipher {
         /** The Keystore handle, kept after the first lookup (a Keystore round trip per read is slow); dropped when a
          *  call fails, so a key that was deleted or replaced underneath us is looked up (or created) again. */
         @Volatile private var cachedKey: SecretKey? = null
 
-        private fun key(): SecretKey = cachedKey ?: loadOrCreateKey().also { cachedKey = it }
+        internal fun key(): SecretKey = cachedKey ?: loadOrCreateKey().also { cachedKey = it }
 
-        private fun loadOrCreateKey(): SecretKey {
-            val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-            (ks.getKey(alias, null) as? SecretKey)?.let { return it }
-            val gen = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
-            gen.init(
-                KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
-                    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                    .setKeySize(256)
-                    .build(),
-            )
-            return gen.generateKey()
-        }
+        /**
+         * Look up, and only if there is none create, under one lock for the whole process: two first writes at once (or
+         * two prefs files on the same alias, each with its own cipher) would both find no key, and the second key would
+         * replace the first, leaving whatever the first one's thread had encrypted unreadable (audit of 20/10/2026).
+         */
+        private fun loadOrCreateKey(): SecretKey = synchronized(KEY_LOCK) { lookup(alias) ?: create(alias) }
 
         override fun encrypt(plain: ByteArray, aad: ByteArray): ByteArray = withKey { k ->
             val c = Cipher.getInstance("AES/GCM/NoPadding")
@@ -234,6 +231,24 @@ class KeystoreBackedPrefs(private val backing: SharedPreferences, private val ci
         companion object {
             const val DEFAULT_ALIAS = "reau_prefs_v1"
             private const val IV_BYTES = 12
+            private val KEY_LOCK = Any()
+
+            private fun keystoreKey(alias: String): SecretKey? {
+                val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+                return ks.getKey(alias, null) as? SecretKey
+            }
+
+            private fun createKeystoreKey(alias: String): SecretKey {
+                val gen = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+                gen.init(
+                    KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+                        .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                        .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                        .setKeySize(256)
+                        .build(),
+                )
+                return gen.generateKey()
+            }
         }
     }
 
@@ -247,8 +262,15 @@ class KeystoreBackedPrefs(private val backing: SharedPreferences, private val ci
         private const val T_BOOL: Byte = 5
         private const val T_SET: Byte = 6
 
+        // One cipher per alias for the process: it holds the Keystore handle, and a cipher of each opened file looked the key up (a binder
+        // call to the Keystore) at every open, three of them in a start of the main screen (audit of 26/10/2026).
+        private val ciphers = java.util.concurrent.ConcurrentHashMap<String, ValueCipher>()
+
+        /** The cipher of [alias] for the whole process: [make] runs the first time only. */
+        internal fun cipherFor(alias: String, make: (String) -> ValueCipher): ValueCipher = ciphers.computeIfAbsent(alias) { make(it) }
+
         /** The prefs file [fileName] of this app, values encrypted with the Keystore key [alias]. */
         fun open(context: Context, fileName: String, alias: String = KeystoreAesGcmCipher.DEFAULT_ALIAS): KeystoreBackedPrefs =
-            KeystoreBackedPrefs(context.getSharedPreferences(fileName, Context.MODE_PRIVATE), KeystoreAesGcmCipher(alias))
+            KeystoreBackedPrefs(context.getSharedPreferences(fileName, Context.MODE_PRIVATE), cipherFor(alias) { KeystoreAesGcmCipher(it) })
     }
 }

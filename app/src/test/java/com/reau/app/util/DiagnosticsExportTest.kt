@@ -50,4 +50,17 @@ class DiagnosticsExportTest {
 
         assertEquals(1, count)
     }
+
+    @Test
+    fun `the zips of an earlier share are forgotten, and nothing else in the folder is touched`() {
+        val dir = tmp.newFolder("shared")
+        File(dir, "diagnostics-logs-20261026-101010-000.zip").writeText("logs")
+        File(dir, "diagnostics-logs.part").writeText("half")
+        File(dir, "something-else.txt").writeText("not ours to touch")
+
+        assertEquals(2, DiagnosticsExport.forgetZips(dir))
+
+        assertEquals(listOf("something-else.txt"), dir.list()!!.toList())
+        assertEquals("no folder, nothing to forget", 0, DiagnosticsExport.forgetZips(File(tmp.root, "absent")))
+    }
 }

@@ -156,4 +156,30 @@ class WebGuardTest {
         assertEquals(300_000L, l.lockMs)
         assertEquals(30, l.rotateAfter)
     }
+
+    // ── the tables by address do not only grow (audit of 20/10/2026) ──────────────────────────────────────────────
+
+    @Test
+    fun `a lock that ended is forgotten at the next check, even from another address`() {
+        val g = guard(WebGuard.Limits(maxPerAddress = 2, lockMs = 1_000, rotateAfter = 1_000))
+        for (address in listOf("a", "b", "c")) repeat(2) { g.check(address, "0000") }
+        assertEquals("three addresses locked", 3, g.testOnlyTracked().second)
+        now += 1_001
+        g.check("d", "0000")
+        assertEquals("the ended locks are gone though a, b and c never came back", 0, g.testOnlyTracked().second)
+    }
+
+    @Test
+    fun `the counts of many addresses that never come back do not grow without end`() {
+        val g = guard(WebGuard.Limits(maxPerAddress = 5, lockMs = 300_000, rotateAfter = 1_000_000))
+        repeat(2_000) { g.check("address-$it", "0000") }
+        assertTrue("kept ${g.testOnlyTracked().first} counts", g.testOnlyTracked().first <= 257)
+    }
+
+    @Test
+    fun `the pin still changes after enough wrong tries even when the counts were dropped`() {
+        val g = guard(WebGuard.Limits(maxPerAddress = 5, lockMs = 300_000, rotateAfter = 300))
+        repeat(300) { g.check("address-$it", "0000") }
+        assertEquals("the total counts across the dropped addresses", 1, rotated.size)
+    }
 }

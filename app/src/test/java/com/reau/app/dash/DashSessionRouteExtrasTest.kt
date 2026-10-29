@@ -10,8 +10,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Behind its switch, the route card carries the real time left and the maneuver after the
- * next; with the switch off it is the card of the captured template as before.
+ * The route card always carries the real time left and the maneuver after the next (28/10/2026: the switch "Rota real no painel" is gone,
+ * nobody can go back to the captured template's figures).
  */
 class DashSessionRouteExtrasTest {
     private val scope = CoroutineScope(SupervisorJob())
@@ -33,24 +33,16 @@ class DashSessionRouteExtrasTest {
         return out
     }
 
-    private fun guide(meters: Int, extras: Boolean, remaining: Long = 900L, next: Int = 0x14) = session.updateNavInfo(
+    private fun guide(meters: Int, remaining: Long = 900L, next: Int = 0x14) = session.updateNavInfo(
         0x14, meters, DashCommands.NAV_UNIT_METERS, 32, DashCommands.NAV_UNIT_KM_TENTHS,
-        remainingSeconds = remaining, nextManeuver = next, extras = extras,
+        remainingSeconds = remaining, nextManeuver = next,
     )
 
     private fun Tlv.byte() = value.single().toInt() and 0xFF
 
     @Test
-    fun `with the switch off the card keeps the template's time and maneuver`() {
-        guide(80, extras = false)
-        val t = tlvs(session.routeCardNow())
-        assertEquals("001000", String(t.single { it.type == 5 && it.sub == 0x0B }.value, Charsets.US_ASCII))
-        assertEquals(0x34, t.single { it.type == 5 && it.sub == 0x03 }.byte())
-    }
-
-    @Test
-    fun `with the switch on the card has the real time left and the next maneuver, close to the turn`() {
-        guide(80, extras = true)
+    fun `the card always has the real time left and the next maneuver, close to the turn, with nothing to switch on`() {
+        guide(80)
         val t = tlvs(session.routeCardNow())
         assertEquals("001500", String(t.single { it.type == 5 && it.sub == 0x0B }.value, Charsets.US_ASCII))
         assertEquals(0x20, t.single { it.type == 5 && it.sub == 0x55 }.byte())
@@ -58,14 +50,20 @@ class DashSessionRouteExtrasTest {
     }
 
     @Test
+    fun `the dash session takes no switch for them`() {
+        val params = DashSession::class.java.declaredMethods.filter { it.name == "updateNavInfo" }.flatMap { it.parameterTypes.toList() }
+        assertTrue("updateNavInfo takes no Boolean any more: $params", params.none { it == Boolean::class.javaPrimitiveType })
+    }
+
+    @Test
     fun `far from the turn the next maneuver is none`() {
-        guide(2_000, extras = true)
+        guide(2_000)
         assertEquals(DashCommands.NEXT_MANEUVER_NONE, tlvs(session.routeCardNow()).single { it.type == 5 && it.sub == 0x03 }.byte())
     }
 
     @Test
     fun `with no time left known the two fields are out`() {
-        guide(80, extras = true, remaining = DashCommands.REMAINING_OMIT)
+        guide(80, remaining = DashCommands.REMAINING_OMIT)
         val t = tlvs(session.routeCardNow())
         assertTrue(t.none { it.type == 5 && it.sub == 0x0B })
         assertTrue(t.none { it.type == 5 && it.sub == 0x55 })

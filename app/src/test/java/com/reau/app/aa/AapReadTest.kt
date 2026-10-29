@@ -166,6 +166,51 @@ class AapReadTest {
         assertTrue(handled.isEmpty())
     }
 
+    /** Audit of 20/10/2026: once every record failed to decrypt the loop read on and the session looked active, without a picture. */
+    @Test
+    fun `a few frames in a row that do not decrypt end the session`() {
+        val connection = ScriptedConnection(isSingleMessage = true)
+        val reader = single(connection, PassThroughSsl(fail = true))
+        repeat(DecryptFailures.LIMIT - 1) {
+            connection.put(2, 0x0B, 0, 6, 0x80, 0x04, 0x08, 7, 0x10, 1)
+            assertEquals("frame ${it + 1} is dropped", 0, reader.read())
+        }
+        connection.put(2, 0x0B, 0, 6, 0x80, 0x04, 0x08, 7, 0x10, 1)
+        assertEquals("the ${DecryptFailures.LIMIT}th in a row ends it", -1, reader.read())
+        assertTrue(handled.isEmpty())
+    }
+
+    @Test
+    fun `a frame that decrypts starts the count over`() {
+        val connection = ScriptedConnection(isSingleMessage = true)
+        var failNext = true
+        val ssl = object : AapSsl by PassThroughSsl() {
+            override fun decrypt(start: Int, length: Int, buffer: ByteArray): ByteArrayWithLimit? =
+                if (failNext) null else ByteArrayWithLimit(buffer.copyOfRange(start, start + length), length)
+        }
+        val reader = single(connection, ssl)
+        fun frame() = connection.put(2, 0x0B, 0, 6, 0x80, 0x04, 0x08, 7, 0x10, 1)
+        // Two failures, one good frame, two failures again: never three in a row.
+        failNext = true
+        repeat(2) { frame(); assertEquals(0, reader.read()) }
+        failNext = false
+        frame(); assertEquals(0, reader.read())
+        assertEquals(1, handled.size)
+        failNext = true
+        repeat(2) { frame(); assertEquals(0, reader.read()) }
+    }
+
+    @Test
+    fun `the count of failures`() {
+        val failures = DecryptFailures(limit = 3)
+        assertEquals(false, failures.failed())
+        assertEquals(false, failures.failed())
+        failures.ok()
+        assertEquals(false, failures.failed())
+        assertEquals(false, failures.failed())
+        assertEquals(true, failures.failed())
+    }
+
     @Test
     fun `a handler that throws does not end the loop`() {
         val connection = ScriptedConnection(isSingleMessage = true)

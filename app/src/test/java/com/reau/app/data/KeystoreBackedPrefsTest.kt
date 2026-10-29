@@ -7,6 +7,8 @@ import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotSame
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
@@ -272,5 +274,45 @@ class KeystoreBackedPrefsTest {
         p.getStringSet("s", null)!!.add("hacked")
         (p.all["s"] as MutableSet<String>).add("hacked-too")
         assertEquals(setOf("a"), p.getStringSet("s", null))
+    }
+
+    /**
+     * Audit of 20/10/2026: two first writes at once (here also two ciphers on one alias, as two prefs files have) each
+     * found no key and made one, the second replacing the first. The Keystore is a map here, slow to create.
+     */
+    @Test
+    fun `two first uses at once make one key, and both get it`() {
+        val keystore = java.util.concurrent.ConcurrentHashMap<String, javax.crypto.SecretKey>()
+        val made = java.util.concurrent.atomic.AtomicInteger()
+        fun cipher() = KeystoreBackedPrefs.KeystoreAesGcmCipher(
+            "alias",
+            lookup = { keystore[it] },
+            create = { alias ->
+                Thread.sleep(100)                           // the Keystore takes its time to make a key
+                made.incrementAndGet()
+                SecretKeySpec(ByteArray(32).also { SecureRandom().nextBytes(it) }, "AES").also { keystore[alias] = it }
+            },
+        )
+        val ciphers = List(6) { cipher() }
+        val start = java.util.concurrent.CountDownLatch(1)
+        val keys = java.util.concurrent.ConcurrentLinkedQueue<javax.crypto.SecretKey>()
+        val threads = ciphers.map { c -> Thread { start.await(); keys.add(c.key()) }.also { it.start() } }
+        start.countDown()
+        threads.forEach { it.join() }
+
+        assertEquals("one key made", 1, made.get())
+        assertEquals(6, keys.size)
+        assertEquals("all six got the same one", 1, keys.map { it.encoded.toList() }.toSet().size)
+    }
+
+    @Test
+    fun `a cipher is made once per alias for the process, not once per file opened`() {
+        val made = mutableListOf<String>()
+        val a = KeystoreBackedPrefs.cipherFor("test_alias_once") { made += it; SoftCipher() }
+        val b = KeystoreBackedPrefs.cipherFor("test_alias_once") { made += it; SoftCipher() }
+        val other = KeystoreBackedPrefs.cipherFor("test_alias_other") { made += it; SoftCipher() }
+        assertSame(a, b)
+        assertNotSame(a, other)
+        assertEquals(listOf("test_alias_once", "test_alias_other"), made)
     }
 }

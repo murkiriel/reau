@@ -3,7 +3,7 @@ package com.reau.app.data
 import java.io.File
 
 /**
- * Logs and debug recordings older than the rider's choice of days ([com.reau.app.settings.REauSettings.logKeepDays]) go
+ * Logs and recordings older than the rider's choice of days ([com.reau.app.settings.REauSettings.logKeepDays]) go
  * by themselves, whenever a log file is opened and when the app starts. Only the log files of the diag folder
  * ([DiagSpace.isLog]) and the files of the recording folders; never one that is open, never the reported marks; zero
  * days is never.

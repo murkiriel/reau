@@ -3,12 +3,17 @@ package com.reau.app.ui
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -149,6 +154,59 @@ class WifiScreenTest {
         compose.onNodeWithTag("bike_vin").assertDoesNotExist()
         compose.onNodeWithTag("show_identity").assertDoesNotExist()
         compose.onNodeWithTag("show_raw").assertDoesNotExist()
+    }
+
+    /** The low-fuel reminder is the pump before the range now, not a line of its own at the end of the page. */
+    @Test
+    fun theLowFuelReminderIsThePumpBesideTheRangeAndNotALine() {
+        for ((byte, word) in listOf(0x55 to "Ligado", 0xAA to "Desligado")) {
+            compose.runOnIdle {
+                DashReadings.clear()
+                DashReadings.onValue(0x0C, 0x07, byteArrayOf(0x00, 0xBA.toByte()))
+                DashReadings.onValue(0x0C, 0x05, byteArrayOf(byte.toByte()))
+                DashReadings.flush()
+            }
+            compose.onNodeWithTag("bike_range").performScrollTo()
+            compose.onNodeWithTag("bike_fuel", useUnmergedTree = true).assertContentDescriptionEquals("Aviso de combustível baixo: $word")
+            compose.onNodeWithTag("bike_abs").performScrollTo().assertIsDisplayed()
+        }
+        compose.onAllNodesWithText("Aviso de combustível baixo").assertCountEquals(0)
+        compose.runOnIdle { DashReadings.clear() }
+    }
+
+    /** On, the pump blinks a second shown and a second hidden, on its own clock (not Android's animation scale); off, it never hides (23/10/2026). */
+    @Test
+    fun theLowFuelPumpBlinksASecondShownAndASecondHidden() {
+        fun said(byte: Int) = compose.runOnIdle {
+            DashReadings.clear()
+            DashReadings.onValue(0x0C, 0x07, byteArrayOf(0x00, 0xBA.toByte()))
+            DashReadings.onValue(0x0C, 0x05, byteArrayOf(byte.toByte()))
+            DashReadings.flush()
+        }
+        fun assertHidden(hidden: Boolean, why: String) = compose.onNodeWithTag("bike_fuel_box", useUnmergedTree = true)
+            .assert(SemanticsMatcher.expectValue(FuelBlinkHidden, hidden).also { _ -> check(why.isNotEmpty()) })
+        compose.mainClock.autoAdvance = false
+        try {
+            said(0x55)
+            compose.mainClock.advanceTimeBy(50)
+            compose.onNodeWithTag("bike_range").performScrollTo()
+            assertHidden(false, "the first second is shown")
+            compose.mainClock.advanceTimeBy(1_000)
+            assertHidden(true, "the second second is hidden")
+            compose.mainClock.advanceTimeBy(1_000)
+            assertHidden(false, "the third is shown again")
+            compose.mainClock.advanceTimeBy(1_000)
+            assertHidden(true, "and hidden again")
+            said(0xAA)
+            compose.mainClock.advanceTimeBy(50)
+            for (i in 1..4) {
+                assertHidden(false, "with the reminder off the pump never hides ($i)")
+                compose.mainClock.advanceTimeBy(1_000)
+            }
+        } finally {
+            compose.mainClock.autoAdvance = true
+            compose.runOnIdle { DashReadings.clear() }
+        }
     }
 
     @Test

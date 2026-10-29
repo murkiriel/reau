@@ -23,6 +23,15 @@ class DashSessionZoomIconsTest {
     }
 
     @Test
+    fun `with the zoom label off every press gets the echo only`() {
+        for (code in listOf(0x13, 0x14, 0x15, 0x05)) {
+            val out = DashSession.repliesToButton(code.toByte(), zoomLabel = false)
+            assertEquals("0x%02X".format(code), 1, out.size)
+            assertArrayEquals(DashCommands.buttonAck(code.toByte()), out[0])
+        }
+    }
+
+    @Test
     fun `any other press gets the echo only`() {
         for (code in listOf(0x05, 0x06, 0x07, 0x09, 0x0A, 0x0B, 0x12, 0x16, 0x18, 0x22)) {
             val out = replies(code)

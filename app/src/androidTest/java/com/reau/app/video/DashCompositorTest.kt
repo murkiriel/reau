@@ -1,6 +1,7 @@
 package com.reau.app.video
 
 import android.graphics.Color
+import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.reau.app.dash.DashConfig
 import com.reau.app.dash.video.DashEncoder
@@ -424,7 +425,7 @@ class DashCompositorTest {
         assertEquals("nothing is drawn without an output", 0, c.takeStats().let { it.drawn + it.repeated })
 
         val enc = newEncoder()
-        c.setOutput(checkNotNull(enc.inputSurface), enc::frameSubmitted)
+        c.setOutput(checkNotNull(enc.inputSurface), onFrameSubmitted = enc::frameSubmitted)
         val picture = stopAndDecode(c).last()
         val d = FrameFit.fillDome(whole).dest
         // The twelfth picture was all yellow.
@@ -488,6 +489,134 @@ class DashCompositorTest {
         } finally {
             painter.getOrThrow().release()
         }
+    }
+
+    // ── the rider's input: the answer is drawn at once ─────────────────────────────────────────────────────
+
+    /** A slow compositor (a tick a second) just after a tick, with a new picture: the time of each frame the encoder was handed. */
+    private fun slowAfterATick(gapMs: Long, inputFresh: Boolean): List<Long> {
+        val c = newCompositor()
+        c.setPace(DashCompositor.Pace(activeMs = 1_000, idleMs = 1_000))
+        TestPattern.drawOn(checkNotNull(c.inputSurface))
+        awaitSource(c, 1)
+        val at = CopyOnWriteArrayList<Long>()
+        val enc = newEncoder()
+        c.setOutput(checkNotNull(enc.inputSurface)) { pts -> at += SystemClock.uptimeMillis(); enc.frameSubmitted(pts) }
+        assertTrue("the first two frames (a tick apart)", awaitTrue(4_000) { at.size >= 2 })
+        c.burstGapMs = gapMs
+        if (inputFresh) com.reau.app.stream.InputBurst.sent(SystemClock.uptimeMillis())
+        TestPattern.drawOn(checkNotNull(c.inputSurface), tint = Color.MAGENTA)
+        Thread.sleep(500)
+        val seen = at.toList()
+        c.release()
+        compositor = null
+        return seen
+    }
+
+    @Test
+    fun aNewPictureRightAfterTheRidersInputIsDrawnAtOnceNotAtTheNextTick() {
+        val at = slowAfterATick(gapMs = 80, inputFresh = true)
+        assertTrue("a third frame within 500 ms, not a second away: $at", at.size >= 3)
+        assertTrue("and soon after the second: $at", at[2] - at[1] < 400)
+    }
+
+    @Test
+    fun withTheBurstOffOrNoInputTheNewPictureWaitsForTheTick() {
+        assertEquals("burst off", 2, slowAfterATick(gapMs = 0, inputFresh = true).size)
+        // The input of the test above is still fresh (1.8 s): the second case runs later than that
+        Thread.sleep(2_000)
+        assertEquals("no fresh input", 2, slowAfterATick(gapMs = 80, inputFresh = false).size)
+    }
+
+    // ── the rider's black bands and the zoom ──────────────────────────────────────────────────────────────────
+
+    /** Bands over the picture: black where they are, the picture everywhere else (checked pixel by pixel in PictureCheck). */
+    @Test
+    fun theBlackBandsCoverThePictureAtTheFramesEdges() {
+        val mapping = FrameFit.fillDome(whole).copy(cover = FrameFit.Cover(top = 80, bottom = 30, left = 120, right = 60))
+        val c = running(mapping = mapping)
+        val picture = stopAndDecode(c).last()
+        assertShows(picture, mapping)
+        assertEquals("the top band", "black", name(picture.colorAt(300, 20)))
+        assertEquals("the left band", "black", name(picture.colorAt(40, 150)))
+        assertEquals("the right band", "black", name(picture.colorAt(DashGlass.FRAME_W - 20, 150)))
+        assertEquals("the bottom band", "black", name(picture.colorAt(300, DashGlass.FRAME_H - 10)))
+    }
+
+    @Test
+    fun theBandsCanChangeWhileRunning() {
+        val c = running(mapping = FrameFit.fillDome(whole).copy(cover = FrameFit.Cover(top = 100)))
+        Thread.sleep(300)
+        val open = FrameFit.fillDome(whole)
+        assertTrue("the new mapping was taken: $log", c.setMapping(open))
+        assertShows(stopAndDecode(c).last(), open)
+    }
+
+    /** Zoomed out the picture is smaller and black around it; zoomed in it is nearer (the source window smaller). */
+    @Test
+    fun theZoomIsDrawnAsASmallerOrANearerPicture() {
+        val farther = FrameFit.zoomed(FrameFit.wholeVisible(whole), 60)
+        val c = running(mapping = farther)
+        assertShows(stopAndDecode(c).last(), farther)
+    }
+
+    @Test
+    fun aNearerPictureShowsTheBottomOfTheSource() {
+        val nearer = FrameFit.zoomed(FrameFit.fillDome(whole), 150)
+        val c = running(mapping = nearer)
+        assertShows(stopAndDecode(c).last(), nearer)
+    }
+
+    /**
+     * The picture's look is told about every half second, with the rows the right way up and reduced by the average of each block (what [PictureLook]'s net was
+     * trained on): a picture lit in its top half and one lit in its bottom half are two different screens to it (the first an app, the second a map: see
+     * `PictureLookTest`), and swap if the copy comes upside down; a black one is unsure.
+     */
+    @Test
+    fun theLookReadsThePictureTheRightWayUp() {
+        val c = newCompositor()
+        val looks = CopyOnWriteArrayList<PictureLook.Kind>()
+        c.onLook = { looks += it }
+        val surface = checkNotNull(c.inputSurface)
+        // The picture the net reads as a map when it stands as it is (a gradient, 64x40 values in blocks of the 800x480) and not as one turned over.
+        fun gradient(turned: Boolean): android.graphics.Bitmap {
+            val pixels = IntArray(800 * 480) { i ->
+                val row = (i / 800) * 40 / 480
+                val v = (((i % 800) * 64 / 800) * 7 + (if (turned) 39 - row else row) * 3) % 256
+                Color.rgb(v, v, v)
+            }
+            return android.graphics.Bitmap.createBitmap(pixels, 800, 480, android.graphics.Bitmap.Config.ARGB_8888)
+        }
+        fun show(picture: android.graphics.Bitmap?) {
+            Thread.sleep(350)      // the compositor looks at most every 250 ms: a picture that comes sooner after the last look is not looked at
+            val canvas = surface.lockCanvas(null)
+            canvas.drawColor(Color.BLACK)
+            if (picture != null) canvas.drawBitmap(picture, 0f, 0f, null)
+            surface.unlockCanvasAndPost(canvas)
+        }
+        // the first look builds the filter program and the small framebuffer: seconds on the emulator's software GL
+        show(gradient(turned = false))
+        assertTrue("the picture as it is: a map, got $looks; log $log", awaitTrue(timeoutMs = 20_000) { looks.lastOrNull() == PictureLook.Kind.MAP })
+        show(gradient(turned = true))
+        assertTrue("turned over it is not the map, got $looks; log $log", awaitTrue { looks.lastOrNull().let { it != null && it != PictureLook.Kind.MAP } })
+        show(null)
+        assertTrue("a black picture is unsure, got $looks; log $log", awaitTrue { looks.lastOrNull() == PictureLook.Kind.UNSURE })
+    }
+
+    @Test
+    fun aPictureThatStaysStillIsLookedAtAgainAndAgain() {
+        val c = newCompositor()
+        val looks = CopyOnWriteArrayList<PictureLook.Kind>()
+        c.onLook = { looks += it }
+        val surface = checkNotNull(c.inputSurface)
+        val canvas = surface.lockCanvas(null)
+        canvas.drawColor(Color.BLACK)
+        canvas.drawRect(0f, 0f, canvas.width.toFloat(), canvas.height / 2f, android.graphics.Paint().apply { color = Color.rgb(200, 200, 200) })
+        surface.unlockCanvasAndPost(canvas)
+        // one picture only: the screen needs three looks of the same in a row, so they must keep coming without a new one
+        assertTrue("a still picture is looked at again, got $looks", awaitTrue(timeoutMs = 20_000) { looks.size >= 3 })
+        // what the net says of this synthetic picture is its own business (the retrained one is unsure of it); a still picture says the same every time
+        assertEquals("always the same: $looks", 1, looks.toSet().size)
     }
 
     private fun assertShows(picture: H264TestDecoder.Picture, mapping: FrameFit.Mapping) = PictureCheck.assertShows(picture, mapping)

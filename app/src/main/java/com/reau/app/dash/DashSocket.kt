@@ -1,6 +1,6 @@
 // Every control packet in and out, and every failed or held-back send, is counted in [stats]; with the detailed log
 // on, each one goes to it ([DashDump], the route card's text and the key exchange left out). The control and video
-// sockets carry a DSCP mark ([TOS_CONTROL], [TOS_VIDEO]).
+// sockets carry a DSCP mark ([TOS_CONTROL], [TOS_VIDEO]) in a release build; a debug build leaves them unmarked ([priorityMarks]).
 package com.reau.app.dash
 
 import android.util.Log
@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger
  *
  * Every control packet gets the rolling K1G seq byte patched on send.
  */
+@Suppress("TooManyFunctions") // the three sockets of the dash: sends, receive, close and the tests' views
 class DashSocket(
     private val network: android.net.Network? = null,
     // WHERE control packets/RTP are sent, injectable for a
@@ -64,6 +65,13 @@ class DashSocket(
         internal const val TOS_CONTROL = 48 shl 2
         internal const val TOS_VIDEO = 34 shl 2
 
+        /**
+         * The marks of the control and video sockets, or null for none: a debug build sends the dash's sockets unmarked (the owner's phone,
+         * 28/10/2026, to tell whether the dash's Wi-Fi restarts with them) and a release always marks them.
+         */
+        internal fun priorityMarks(debugBuild: Boolean = com.reau.app.BuildConfig.DEBUG): Pair<Int, Int>? =
+            if (debugBuild) null else TOS_CONTROL to TOS_VIDEO
+
         /** Marks [socket] with [tos]; false (and the socket as it was) where the system refuses. */
         internal fun mark(socket: DatagramSocket, tos: Int): Boolean =
             runCatching { socket.trafficClass = tos }.isSuccess
@@ -81,9 +89,12 @@ class DashSocket(
     // 4 Hz, logging every one would spam a ride log into uselessness). A sustained streak here is
     // the direct explanation for "video froze/disappeared mid-ride" that the RX watchdog only
     // catches indirectly (once the dash stops acking, after its own timeout).
+    // The control channel is sent on from several threads (the session, the heartbeat, the joystick's answers): its bookkeeping is
+    // changed under [txLock] (short sections, no I/O and no log inside), and its flag is volatile for the cheap read before it.
+    private val txLock = Any()
     private var txFailStreak = 0
     private var rtpFailStreak = 0
-    private var txSuppressed = false
+    @Volatile private var txSuppressed = false
     private var txProbeCounter = 0
     private var txSuppressedTotal = 0
     private var rtpSuppressed = false
@@ -109,7 +120,9 @@ class DashSocket(
                 network?.bindSocket(it)
             }
             rtp = DatagramSocket().also { network?.bindSocket(it) }
-            val marked = "control CS6=${mark(tx, TOS_CONTROL)} video AF41=${mark(rtp, TOS_VIDEO)}"
+            val marks = priorityMarks()
+            val marked = marks?.let { (control, video) -> "control CS6=${mark(tx, control)} video AF41=${mark(rtp, video)}" }
+                ?: "none (debug build: no priority marking)"
             Log.i(TAG, "Sockets open — TX :$CTRL_PORT→${ctrlDest.address.hostAddress}:${ctrlDest.port}, " +
                 "RX :$RX_PORT, RTP→${rtpDest.address.hostAddress}:${rtpDest.port}, DSCP $marked")
             com.reau.app.data.RideDiagnostics.log("dash", "sockets marked for Wi-Fi priority: $marked")
@@ -123,46 +136,92 @@ class DashSocket(
     }
 
     /** Send a K1G control packet (seq patched here, like K1GTx in the reference). */
-    @Suppress("TooGenericExceptionCaught") // a failed send is counted and logged; the link may be down
     fun send(data: ByteArray) {
-        if (txSuppressed) {
-            txProbeCounter++
-            if (txProbeCounter % PROBE_EVERY != 0) { txSuppressedTotal++; stats?.sendFailed(); return }
-            // Every PROBE_EVERY-th call falls through and actually hits the socket, so a
-            // recovered link is detected on its own instead of staying suppressed forever.
+        wire(data)?.let(::afterWire)
+    }
+
+    /**
+     * Sends [packets] one after another with nothing between them but the wire: the statistics and the logs of all of them come after the
+     * last. For the answer to a button, where every millisecond before the ring changes is seen by the rider (the log's lock is shared with
+     * the video and Android Auto threads, which write all the time).
+     */
+    fun sendBatch(packets: List<ByteArray>) {
+        packets.mapNotNull(::wire).forEach(::afterWire)
+    }
+
+    /** The packet on the wire, or null when it was not sent (the link is suppressed, or the send failed: counted and logged here). */
+    @Suppress("TooGenericExceptionCaught") // a failed send is counted and logged; the link may be down
+    private fun wire(data: ByteArray): ByteArray? {
+        if (txSuppressed && heldBack()) {
+            stats?.sendFailed()
+            return null
         }
+        // Every PROBE_EVERY-th call of a suppressed link falls through and actually hits the socket, so a
+        // recovered link is detected on its own instead of staying suppressed forever.
         val pkt = K1GPacket.patchSeq(data, seq.getAndIncrement())
-        // No packet bytes to logcat (the detailed log's DashDump shows them, behind its switch and without what is
-        // private): in hex they would carry the song and the caller.
         // UDP fire-and-forget: a dropped/unreachable link (ENETUNREACH, EBADF) must never
         // crash the app — the session will fail and reconnect.
-        try {
+        return try {
             txSocket.send(DatagramPacket(pkt, pkt.size, ctrlDest.address, ctrlDest.port))
-            stats?.sent(pkt)
-            com.reau.app.data.DetailedLog.offer("dash") { "tx " + DashDump.outgoing(pkt) }
-            if (txFailStreak > 0) {
-                Dbg.i(TAG) { "TX send recovered after $txFailStreak failures" }
-                com.reau.app.data.RideDiagnostics.log("dash", "TX send recovered after $txFailStreak failures")
-                txFailStreak = 0
-            }
-            if (txSuppressed) {
-                Dbg.i(TAG) { "TX link recovered — resuming normal sends (suppressed $txSuppressedTotal in between)" }
-                com.reau.app.data.RideDiagnostics.log("dash", "TX link recovered — resumed after suppressing $txSuppressedTotal sends")
-                txSuppressed = false; txProbeCounter = 0; txSuppressedTotal = 0
-            }
+            pkt
         } catch (e: Exception) {
-            Log.w(TAG, "TX send failed (link down?): ${e.message}")
-            stats?.sendFailed()
-            if (txFailStreak == 0) {
-                // Class name, not just message: some socket exceptions (seen in use) carry a null message, logging an unhelpful bare
-                // "null" with no clue which OS error actually fired.
-                com.reau.app.data.RideDiagnostics.warn("dash", "TX send failing (link down?): ${NetworkBlock.describe(e)}")
-            }
+            sendFailed(e)
+            null
+        }
+    }
+
+    /** True when this call of a suppressed link is not the probe and is not sent; the counters move together, under the lock. */
+    private fun heldBack(): Boolean = synchronized(txLock) {
+        if (!txSuppressed) return@synchronized false
+        txProbeCounter++
+        val held = txProbeCounter % PROBE_EVERY != 0
+        if (held) txSuppressedTotal++
+        held
+    }
+
+    private fun sendFailed(e: Exception) {
+        Log.w(TAG, "TX send failed (link down?): ${e.message}")
+        stats?.sendFailed()
+        val first: Boolean
+        val crossed: Int?
+        synchronized(txLock) {
+            first = txFailStreak == 0
             txFailStreak++
-            if (!txSuppressed && txFailStreak >= SUPPRESS_AFTER_STREAK) {
-                txSuppressed = true
-                RideDiagnostics.warn("dash", "TX link appears down after $txFailStreak failures — suppressing sends, probing every $PROBE_EVERY")
+            crossed = txFailStreak.takeIf { !txSuppressed && it >= SUPPRESS_AFTER_STREAK }?.also { txSuppressed = true }
+        }
+        if (first) {
+            // Class name, not just message: some socket exceptions (seen in use) carry a null message, logging an unhelpful bare
+            // "null" with no clue which OS error actually fired.
+            com.reau.app.data.RideDiagnostics.warn("dash", "TX send failing (link down?): ${NetworkBlock.describe(e)}")
+        }
+        if (crossed != null) {
+            RideDiagnostics.warn("dash", "TX link appears down after $crossed failures — suppressing sends, probing every $PROBE_EVERY")
+        }
+    }
+
+    /** What follows a packet that went out: the statistics, the detailed log (no packet bytes to logcat: in hex they would carry the song and the caller) and the recovery lines. */
+    private fun afterWire(pkt: ByteArray) {
+        stats?.sent(pkt)
+        com.reau.app.data.DetailedLog.offer("dash") { "tx " + DashDump.outgoing(pkt) }
+        val failures: Int
+        val resumedAfter: Int?
+        synchronized(txLock) {
+            failures = txFailStreak
+            txFailStreak = 0
+            resumedAfter = txSuppressedTotal.takeIf { txSuppressed }
+            if (txSuppressed) {
+                txSuppressed = false
+                txProbeCounter = 0
+                txSuppressedTotal = 0
             }
+        }
+        if (failures > 0) {
+            Dbg.i(TAG) { "TX send recovered after $failures failures" }
+            com.reau.app.data.RideDiagnostics.log("dash", "TX send recovered after $failures failures")
+        }
+        if (resumedAfter != null) {
+            Dbg.i(TAG) { "TX link recovered — resuming normal sends (suppressed $resumedAfter in between)" }
+            com.reau.app.data.RideDiagnostics.log("dash", "TX link recovered — resumed after suppressing $resumedAfter sends")
         }
     }
 
@@ -195,6 +254,10 @@ class DashSocket(
         }
     }
 
+    /** When the last packet came off the socket ([System.nanoTime]), before anything is logged: what the answer to a button is timed from. */
+    @Volatile var arrivedNs: Long = 0L
+        private set
+
     // One 64 KB buffer for every receive (it was one per call, and the loop calls at every packet or every
     // RECV_TIMEOUT_MS of silence: 130 to 400 KB/s of garbage). Only the receive loop may call [receiveBlocking].
     private val rxBuffer = ByteArray(BUF)
@@ -213,6 +276,7 @@ class DashSocket(
         rxPacket.setData(rxBuffer, 0, BUF)
         return try {
             rxSocket.receive(rxPacket)
+            arrivedNs = System.nanoTime()
             val bytes = rxBuffer.copyOf(rxPacket.length)
             com.reau.app.data.DetailedLog.offer("dash") { "rx " + DashDump.incoming(bytes) }
             bytes
@@ -230,6 +294,15 @@ class DashSocket(
     /** Test-only visibility into the link-suppression state — see [SUPPRESS_AFTER_STREAK]/[PROBE_EVERY]. */
     internal fun testOnlyTxSuppressed(): Boolean = txSuppressed
     internal fun testOnlyRtpSuppressed(): Boolean = rtpSuppressed
+    internal fun testOnlyTxSuppressedTotal(): Int = synchronized(txLock) { txSuppressedTotal }
+    internal fun testOnlyTxProbeCounter(): Int = synchronized(txLock) { txProbeCounter }
+    internal fun testOnlyRtpSuppressedTotal(): Int = rtpSuppressedTotal
+
+    /** Test-only: the RTP channel as after [SUPPRESS_AFTER_STREAK] failures, on a socket that can send (to see it come back). */
+    internal fun testOnlySuppressRtp() {
+        rtpFailStreak = SUPPRESS_AFTER_STREAK
+        rtpSuppressed = true
+    }
     internal fun testOnlyCtrlDest(): InetSocketAddress = ctrlDest
     internal fun testOnlyRtpDest(): InetSocketAddress = rtpDest
 

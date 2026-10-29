@@ -79,7 +79,7 @@ object DashReport {
 
     /** One partition of the dash's firmware as `0B02` lists them: block `BB`, version `MM.mm`. */
     data class Partition(val block: Int, val major: Int, val minor: Int) {
-        val version: String get() = "%d.%02d".format(major, minor)
+        val version: String get() = "%d.%02d".format(java.util.Locale.US, major, minor)
     }
 
     /**

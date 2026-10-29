@@ -38,14 +38,14 @@ class LiteTextsTest {
 
     private fun strings(flavor: String, folder: String) = read(File(src, "$flavor/res/$folder/strings.xml"))
 
-    /** The texts [folder] ("values" or "values-pt") shows in the Lite: main's, and over them the Lite's own. */
+    /** The texts [folder] ("values", "values-pt" or "values-es") shows in the Lite: main's, and over them the Lite's own. */
     private fun lite(folder: String): Map<String, String> = strings("main", folder) + strings("lite", folder)
 
-    /** What the phone shows in Portuguese: the Portuguese texts over the default (English) ones. */
+    /** What the phone shows in [folder]'s language: its texts over the default (English) ones. */
     private fun liteIn(folder: String): Map<String, String> = if (folder == "values") lite("values") else lite("values") + lite(folder)
 
-    private val folders = listOf("values", "values-pt")
-    private val words = Regex("accessib|acessibil|restricted setting|configura[çc][õo]es? restritas?", RegexOption.IGNORE_CASE)
+    private val folders = listOf("values", "values-pt", "values-es")
+    private val words = Regex("accessib|acessibil|accesibil|restricted setting|configura[çc][õo]es? restritas?|ajustes? restringidos?", RegexOption.IGNORE_CASE)
 
     private val names: Map<Int, String> = R.string::class.java.declaredFields
         .filter { Modifier.isStatic(it.modifiers) && it.type == Int::class.javaPrimitiveType }
@@ -142,8 +142,11 @@ class LiteTextsTest {
     @Test
     fun `a mute server sends the Lite rider to the menu of Android Auto, never to the force stop`() {
         val keys = listOf("aa_unresponsive_by_hand_warning", "sub_unresponsive_by_hand", "notif_text_unresponsive_by_hand")
-        val force = mapOf("values" to Regex("force", RegexOption.IGNORE_CASE), "values-pt" to Regex("for[\u00e7c]", RegexOption.IGNORE_CASE))
-        val head = mapOf("values" to "head unit server", "values-pt" to "servidor")
+        val force = mapOf(
+            "values" to Regex("force", RegexOption.IGNORE_CASE), "values-pt" to Regex("for[\u00e7c]", RegexOption.IGNORE_CASE),
+            "values-es" to Regex("fuerza", RegexOption.IGNORE_CASE),
+        )
+        val head = mapOf("values" to "head unit server", "values-pt" to "servidor", "values-es" to "servidor de unidad principal")
         for (folder in folders) {
             val shown = liteIn(folder)
             for (key in keys) {
@@ -166,12 +169,15 @@ class LiteTextsTest {
     fun `the server card of the Lite says the manual step and that the server must be turned on again every time`() {
         val en = liteIn("values")
         val pt = liteIn("values-pt")
+        val es = liteIn("values-es")
         val card = "server_warning"
         assertTrue(en.getValue(card), "Start head unit server" in en.getValue(card))
         assertTrue(pt.getValue(card), "Iniciar servidor da unidade principal" in pt.getValue(card))
         // The truth: Android Auto closes the server when the session ends, so it is turned on at each session.
         assertTrue(en.getValue(card), "turns off when the session ends" in en.getValue(card) && "every time" in en.getValue(card))
         assertTrue(pt.getValue(card), "desliga quando a sessão termina" in pt.getValue(card) && "a cada vez" in pt.getValue(card))
+        assertTrue(es.getValue(card), "Iniciar servidor de unidad principal" in es.getValue(card))
+        assertTrue(es.getValue(card), "se apaga cuando termina la sesión" in es.getValue(card) && "cada vez" in es.getValue(card))
         assertEquals("the way to Android Auto's settings stays", "Abrir as configurações do Android Auto", pt.getValue("action_open_aa_settings"))
         assertTrue(en.getValue("action_open_aa_settings").isNotBlank())
         // The full edition keeps its own text (it turns the server on and off by itself).
@@ -222,15 +228,16 @@ class LiteTextsTest {
     @Test
     fun `the Lite terms are the full terms without the accessibility clause`() {
         val cuts = mapOf(
-            "termos.pt.md" to "; a edição completa também usa um serviço de acessibilidade (a Lite não usa).",
-            "terms.en.md" to "; the full edition also uses an accessibility service (the Lite edition does not).",
+            "termos.pt.md" to "; a edição completa também usa um serviço de acessibilidade, para ligar o servidor do Android Auto e, com o \"Atender ligação\" ligado, ver as notificações de chamada do WhatsApp, do Telegram e do Signal (a Lite não usa).",
+            "terms.en.md" to "; the full edition also uses an accessibility service, to turn the Android Auto server on and, while \"Answer calls\" is on, to see the call notifications of WhatsApp, Telegram and Signal (the Lite edition does not).",
+            "terminos.es.md" to "; la edición completa también usa un servicio de accesibilidad, para encender el servidor de Android Auto y, con \"Contestar llamadas\" activado, ver las notificaciones de llamadas de WhatsApp, Telegram y Signal (la Lite no lo usa).",
         )
         for ((name, clause) in cuts) {
             val full = File(src, "main/assets/terms/$name").readText()
             val lite = File(src, "lite/assets/terms/$name").readText()
             assertTrue("$name: the full text keeps the clause", clause in full)
             assertEquals(name, full.replace(clause, "."), lite)
-            assertFalse("$name speaks of accessibility", lite.contains("acessib", ignoreCase = true) || lite.contains("accessib", ignoreCase = true))
+            assertFalse("$name speaks of accessibility", lite.contains("acessib", ignoreCase = true) || lite.contains("accessib", ignoreCase = true) || lite.contains("accesib", ignoreCase = true))
         }
     }
 }

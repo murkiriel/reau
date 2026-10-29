@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -36,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.reau.app.R
@@ -62,7 +64,10 @@ fun SettingsGroup(@DrawableRes icon: Int?, title: String?, rows: List<@Composabl
 @Composable
 fun GroupLabel(@DrawableRes icon: Int?, title: String, modifier: Modifier = Modifier) {
     val ink = MaterialTheme.colorScheme.onSurfaceVariant
-    Row(modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(
+        modifier.padding(horizontal = 4.dp).semantics { heading() },
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         icon?.let { MsIcon(it, 18.dp, ink) }
         Text(title.uppercase(), style = MaterialTheme.typography.labelMedium, color = ink)
     }
@@ -86,6 +91,16 @@ fun SwitchRow(
         Modifier.toggleable(value = checked, role = Role.Switch, onValueChange = onChange).testTag(tag), null,
         trailing = { REauSwitch(checked) },
         below = below,
+    )
+}
+
+/** A choice among several that can all be on: the whole row is the checkbox (tag [tag]). */
+@Composable
+fun CheckRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit, tag: String, sub: String? = null, info: Info? = null) {
+    SettingRow(
+        title, sub, false, info, null, tag,
+        Modifier.toggleable(value = checked, role = Role.Checkbox, onValueChange = onChange).testTag(tag), null,
+        trailing = { Checkbox(checked, onCheckedChange = null) },
     )
 }
 

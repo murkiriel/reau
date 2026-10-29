@@ -145,6 +145,17 @@ class AapMessageTest {
         assertEquals(4, AapMessageIncoming.EncryptedHeader.SIZE)
     }
 
+    /** Audit of 20/10/2026: the channel and the flags were read as signed bytes, so 0x80 and up came out negative. */
+    @Test
+    fun `a channel or flags byte with its top bit set is read unsigned`() {
+        for (value in 0x80..0xFF) {
+            val h = header(value, value, 0xFF, 0xFE)
+            assertEquals("channel $value", value, h.chan)
+            assertEquals("flags $value", value, h.flags)
+            assertEquals(0xFFFE, h.encLen)
+        }
+    }
+
     @Test
     fun `an incoming frame goes through decryption and comes out as the message that was sent`() {
         val sent = MediaAck(Channel.ID_VID, sessionId = 7).data // 02 0B 00 06 | 80 04 08 07 10 01
@@ -192,6 +203,23 @@ class AapMessageTest {
         // a first piece or a whole message still needs its two type bytes, and so does any other channel
         assertNull(AapMessageIncoming.decrypt(header(Channel.ID_VID, 0x09, 0, 1), 0, ByteArray(8), FakeSsl(ByteArrayWithLimit(bytes(0x7F), 1))))
         assertNull(AapMessageIncoming.decrypt(header(Channel.ID_AUD, 0x0A, 0, 1), 0, ByteArray(8), FakeSsl(ByteArrayWithLimit(bytes(0x7F), 1))))
+    }
+
+    /** The music and phone cards come in pieces too (AapCards puts them back together): their one-byte last piece is kept as the video's. */
+    @Test
+    fun `a one byte last piece of a music or phone message is kept, a one byte whole message is not`() {
+        for (channel in listOf(Channel.ID_MPB, Channel.ID_PHONE)) {
+            for (flags in listOf(0x08, 0x0A)) {
+                val piece = AapMessageIncoming.decrypt(header(channel, flags, 0, 1), 0, ByteArray(8), FakeSsl(ByteArrayWithLimit(bytes(0x7F), 1)))
+                assertNotNull("channel $channel flags $flags", piece)
+            }
+            for (flags in listOf(0x09, 0x0B)) {
+                assertNull("channel $channel flags $flags", AapMessageIncoming.decrypt(header(channel, flags, 0, 1), 0, ByteArray(8), FakeSsl(ByteArrayWithLimit(bytes(0x7F), 1))))
+            }
+        }
+        assertEquals(1, AapMessageIncoming.minimumPayload(Channel.ID_MPB, 0x0A))
+        assertEquals(2, AapMessageIncoming.minimumPayload(Channel.ID_MPB, 0x0B))
+        assertEquals(2, AapMessageIncoming.minimumPayload(Channel.ID_NAV, 0x0A))
     }
 
     // ── identity ───────────────────────────────────────────────────────────────────────────────────────────

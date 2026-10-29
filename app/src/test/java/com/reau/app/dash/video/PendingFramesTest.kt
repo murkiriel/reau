@@ -63,4 +63,16 @@ class PendingFramesTest {
         p.takeStats()
         assertEquals(PendingFrames.Stats(frames = 0, late = 0, latencySumNs = 0), p.takeStats())
     }
+
+    @Test
+    fun `an entry exactly at the stale limit is still matched, one nanosecond past it is skipped`() {
+        fun emittedAt(nowNs: Long): PendingFrames.Emitted {
+            val p = PendingFrames()
+            p.submitted(framePtsMs = 100, nowNs = 0)
+            p.submitted(framePtsMs = 200, nowNs = 10 * ms)
+            return p.emitted(nowNs)
+        }
+        assertEquals(PendingFrames.Emitted(100, late = true), emittedAt(PendingFrames.STALE_NS))
+        assertEquals(PendingFrames.Emitted(200, late = false), emittedAt(PendingFrames.STALE_NS + 1))
+    }
 }

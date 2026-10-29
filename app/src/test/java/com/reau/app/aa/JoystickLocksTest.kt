@@ -11,8 +11,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The joystick page: in the dash's map mode, up is the dash's own back and the
- * centre puts it in the media mode, so both are locked: no action, whatever was saved for them before.
+ * The joystick page: in the dash's map mode, up is the dash's own back and the centre puts it in the media mode, so the two are locked: no
+ * action, whatever was saved for them before. Down is REau's info ring by default and can be given another action ([JoystickInfoRingTest]).
  */
 class JoystickLocksTest {
     @Test
@@ -27,11 +27,10 @@ class JoystickLocksTest {
 
     @Test
     fun `a choice saved for a locked control does nothing and is not kept`() {
-        val page = JoystickBindings.decode("map.center.once=HOME;map.up.once=BACK;map.down.once=CONFIRM")
+        val page = JoystickBindings.decode("map.center.once=HOME;map.up.once=BACK")
         assertEquals(Action.NOTHING, page[Slot(Mode.MAP, Control.CENTER, Gesture.ONCE)])
         assertEquals(Action.NOTHING, page[Slot(Mode.MAP, Control.UP, Gesture.ONCE)])
-        assertEquals(Action.CONFIRM, page[Slot(Mode.MAP, Control.DOWN, Gesture.ONCE)])
-        assertEquals("map.down.once=CONFIRM", page.encode())
+        assertEquals("", page.encode())
     }
 
     @Test

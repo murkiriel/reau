@@ -15,9 +15,9 @@ class SystemEventsTest {
     fun `each broadcast has its line`() {
         val lines = listOf(
             Intent.ACTION_SCREEN_ON, Intent.ACTION_SCREEN_OFF, Intent.ACTION_POWER_CONNECTED, Intent.ACTION_POWER_DISCONNECTED,
-            Intent.ACTION_BATTERY_LOW, Intent.ACTION_BATTERY_OKAY,
+            Intent.ACTION_BATTERY_LOW, Intent.ACTION_BATTERY_OKAY, Intent.ACTION_USER_PRESENT,
         ).map { SystemEvents.describe(it, dozing = null, saver = null) }
-        assertEquals(listOf("screen on", "screen off", "charger in", "charger out", "battery low", "battery okay"), lines)
+        assertEquals(listOf("screen on", "screen off", "charger in", "charger out", "battery low", "battery okay", "screen unlocked"), lines)
     }
 
     @Test
@@ -107,5 +107,26 @@ class SystemEventsTest {
         v.stopped()
         v.started()
         assertEquals(listOf("app foreground"), said)
+    }
+
+    @Test
+    fun `a charger line says what is plugged in, and nothing for the other lines`() {
+        assertEquals(" (usb)", SystemEvents.plugSuffix(Intent.ACTION_POWER_CONNECTED, android.os.BatteryManager.BATTERY_PLUGGED_USB))
+        assertEquals(" (ac)", SystemEvents.plugSuffix(Intent.ACTION_POWER_CONNECTED, android.os.BatteryManager.BATTERY_PLUGGED_AC))
+        assertEquals(" (wireless)", SystemEvents.plugSuffix(Intent.ACTION_POWER_DISCONNECTED, android.os.BatteryManager.BATTERY_PLUGGED_WIRELESS))
+        assertEquals(" (dock)", SystemEvents.plugSuffix(Intent.ACTION_POWER_CONNECTED, android.os.BatteryManager.BATTERY_PLUGGED_DOCK))
+        assertEquals("unknown plug", "", SystemEvents.plugSuffix(Intent.ACTION_POWER_CONNECTED, null))
+        assertEquals("nothing plugged", "", SystemEvents.plugSuffix(Intent.ACTION_POWER_DISCONNECTED, 0))
+        assertEquals("not a charger line", "", SystemEvents.plugSuffix(Intent.ACTION_SCREEN_ON, android.os.BatteryManager.BATTERY_PLUGGED_USB))
+    }
+
+    @Test
+    fun `the USB data link says connected, configured and which functions`() {
+        assertEquals("usb connected, configured, adb", SystemEvents.usbLine(mapOf("connected" to true, "configured" to true, "adb" to true)))
+        assertEquals("usb connected, configured, adb+mtp", SystemEvents.usbLine(mapOf("mtp" to true, "adb" to true, "connected" to true, "configured" to true)))
+        assertEquals("usb connected, not configured", SystemEvents.usbLine(mapOf("connected" to true, "configured" to false)))
+        assertEquals("usb disconnected", SystemEvents.usbLine(mapOf("connected" to false, "configured" to false, "adb" to false)))
+        assertEquals("usb disconnected", SystemEvents.usbLine(emptyMap()))
+        assertEquals("a function that is off is not said", "usb connected, configured", SystemEvents.usbLine(mapOf("connected" to true, "configured" to true, "mtp" to false)))
     }
 }

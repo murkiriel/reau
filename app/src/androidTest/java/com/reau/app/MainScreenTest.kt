@@ -20,7 +20,8 @@ class MainScreenTest {
 
     @Test
     fun theInstalledPackageIsTheREauOne() {
-        assertEquals("com.reau.app", InstrumentationRegistry.getInstrumentation().targetContext.packageName)
+        val expected = if (com.reau.app.Edition.lite) "com.reau.app.lite" else "com.reau.app"
+        assertEquals(expected, InstrumentationRegistry.getInstrumentation().targetContext.packageName)
     }
 
     @Test

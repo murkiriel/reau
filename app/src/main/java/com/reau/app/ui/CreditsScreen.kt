@@ -88,13 +88,17 @@ fun CreditsScreen(onBack: () -> Unit, onCopy: (String) -> Unit) {
                             group.entries.forEachIndexed { i, entry ->
                                 if (i > 0) HorizontalDivider(thickness = 1.dp, color = hairline(0.14f, 0.6f))
                                 val holder = if (entry.holderText != 0) stringResource(entry.holderText) else entry.holder
-                                val line = if (holder.isBlank()) entry.licence else "$holder · ${entry.licence}"
+                                val licence = licenceText(entry)
+                                val line = if (holder.isBlank()) licence else "$holder · $licence"
                                 val name = if (entry.nameText != 0) stringResource(entry.nameText) else entry.name
                                 CreditRow(name, line, stringResource(entry.role), {
-                                    shown = shown + entry.name
-                                    onCopy(entry.url)
-                                    scope.launch { snackbar.showSnackbar(copiedText) }
-                                }, "credit_${entry.name}", shown = entry.url.takeIf { entry.name in shown })
+                                    // A line with no address (HeadQLink's is not known) has nothing to copy.
+                                    if (entry.url.isNotBlank()) {
+                                        shown = shown + entry.name
+                                        onCopy(entry.url)
+                                        scope.launch { snackbar.showSnackbar(copiedText) }
+                                    }
+                                }, "credit_${entry.name}", shown = entry.url.takeIf { it.isNotBlank() && entry.name in shown })
                             }
                         }
                     }
@@ -124,3 +128,8 @@ private fun sideTitle(side: Credits.Side): Int = when (side) {
     Credits.Side.DASH -> R.string.credits_dash
     Credits.Side.LIBRARIES -> R.string.credits_libraries
 }
+
+/** The licence as the rider reads it: the public domain in their language, every other licence by its own name ([Credits.PUBLIC_DOMAIN]). */
+@Composable
+private fun licenceText(entry: Credits.Entry): String =
+    if (entry.licence == Credits.PUBLIC_DOMAIN) stringResource(R.string.credit_licence_public_domain) else entry.licence

@@ -1,11 +1,10 @@
 """Builds the debug and test APKs and runs instrumented tests on the EMULATOR ONLY.
 
-Every adb call names emulator-5554. Gradle only assembles: its connected*/install* tasks pick whatever device is
+Every adb call names one emulator (emulator-5554, or the one REAU_EMU_SERIAL names). Gradle only assembles: its connected*/install* tasks pick whatever device is
 attached, and reinstalling on a real phone wipes that app's data, so they are never used here.
 
 Usage:
     run_instrumented.py                       whole suite, one process PER CLASS (see below)
-    run_instrumented.py --one-process         whole suite in a single process (the old way)
     run_instrumented.py MainScreenTest ...    these classes (short name, or fully qualified), one process each
     run_instrumented.py --no-build ...        skip the Gradle build (APKs already built)
 
@@ -15,10 +14,11 @@ Tests skipped by an assumption are listed as PULADO, never counted as passed.
 The Android SDK comes from ANDROID_HOME (or ANDROID_SDK_ROOT), else from sdk.dir in local.properties; Gradle needs a
 JDK 21 (JAVA_HOME set, or java on the PATH).
 
-Why one process per class: the whole suite in one process wore the
-Android 16 emulator down: compositor timing tests failed only there, an activity never reached DESTROYED, and twice
-the emulator's own system crashed mid-run (SystemUI's FinalizerWatchdog destroying a HardwareRenderer, load 14). The
-same classes one per process: all green, the encoder-bound ones skipped (EncoderCapacity).
+One process per class is the only way (the whole suite in a single process was retired on 28/10/2026): in one process the
+Android 16 emulator wore down, compositor timing tests failed only there, an activity never reached DESTROYED, twice
+the emulator's own system crashed mid-run (SystemUI's FinalizerWatchdog destroying a HardwareRenderer, load 14), and 13
+tests failed from the language and the state another class left behind. The same classes one per process: all green, the
+encoder-bound ones skipped (EncoderCapacity).
 """
 import os
 import subprocess
@@ -31,12 +31,26 @@ OUT = ROOT / "emu_out"
 SERIAL = os.environ.get("REAU_EMU_SERIAL", "emulator-5554")
 if not SERIAL.startswith("emulator-"):
     sys.exit(f"REAU_EMU_SERIAL={SERIAL}: only emulators, never a phone")
+# Which edition: completa unless REAU_EDITION=lite. The lite one is another application id (com.reau.app.lite), has no
+# accessibility service, and leaves out the tests in src/androidTestCompleta.
+EDITION = os.environ.get("REAU_EDITION", "completa")
+if EDITION not in ("completa", "lite"):
+    sys.exit(f"REAU_EDITION={EDITION}: completa or lite")
 PACKAGE = "com.reau.app"
-RUNNER = f"{PACKAGE}.test/{PACKAGE}.KeepAppStateRunner"
+APP_ID = PACKAGE if EDITION == "completa" else f"{PACKAGE}.lite"
+RUNNER = f"{APP_ID}.test/{PACKAGE}.KeepAppStateRunner"
 APKS = (
-    "app/build/outputs/apk/completa/debug/app-completa-debug.apk",
-    "app/build/outputs/apk/androidTest/completa/debug/app-completa-debug-androidTest.apk",
+    f"app/build/outputs/apk/{EDITION}/debug/app-{EDITION}-debug.apk",
+    f"app/build/outputs/apk/androidTest/{EDITION}/debug/app-{EDITION}-debug-androidTest.apk",
 )
+
+
+def test_roots():
+    """Where this edition's instrumented tests are: the shared folder, and the full edition's own."""
+    roots = [ROOT / "app/src/androidTest/java", ROOT / "app/src/sharedTest/java"]  # sharedTest: also runs on the JVM (FakeDashPeer, DashSessionFakeDashTest)
+    if EDITION == "completa":
+        roots.append(ROOT / "app/src/androidTestCompleta/java")
+    return [r for r in roots if r.is_dir()]
 
 
 def sdk_dir() -> Path:
@@ -64,7 +78,8 @@ def adb(*args, timeout=300):
 
 
 def build():
-    done = subprocess.run([str(GRADLEW), ":app:assembleCompletaDebug", ":app:assembleCompletaDebugAndroidTest",
+    name = EDITION.capitalize()
+    done = subprocess.run([str(GRADLEW), f":app:assemble{name}Debug", f":app:assemble{name}DebugAndroidTest",
                            "--console=plain", "-q"], cwd=ROOT, env=ENV, capture_output=True, text=True,
                           encoding="utf-8", errors="replace")
     if done.returncode:
@@ -84,11 +99,11 @@ def qualified(name):
     """Short class names are looked up under app/src/androidTest; a name with a dot is taken as given."""
     if "." in name:
         return name
-    hits = list((ROOT / "app/src/androidTest/java").rglob(f"{name}.kt"))
+    hits = [(root, f) for root in test_roots() for f in root.rglob(f"{name}.kt")]
     if len(hits) != 1:
         sys.exit(f"classe de teste '{name}': {len(hits)} arquivos encontrados")
-    rel = hits[0].relative_to(ROOT / "app/src/androidTest/java").with_suffix("")
-    return ".".join(rel.parts)
+    root, file = hits[0]
+    return ".".join(file.relative_to(root).with_suffix("").parts)
 
 
 def skipped():
@@ -121,12 +136,14 @@ def run(label, extra):
 
 
 def all_classes():
-    root = ROOT / "app/src/androidTest/java"
-    return sorted(".".join(f.relative_to(root).with_suffix("").parts) for f in root.rglob("*Test.kt"))
+    return sorted(".".join(f.relative_to(root).with_suffix("").parts) for root in test_roots() for f in root.rglob("*Test.kt"))
 
 
 def main():
     args = sys.argv[1:]
+    for arg in args:
+        if arg.startswith("-") and arg != "--no-build":
+            sys.exit(f"opção desconhecida: {arg} (o modo de um processo só foi aposentado: é sempre uma classe por processo)")
     devices = subprocess.run([ADB, "devices"], capture_output=True, text=True).stdout
     if SERIAL not in devices:
         sys.exit(f"{SERIAL} não está no ar:\n{devices}")
@@ -135,9 +152,7 @@ def main():
     else:
         build()
     install()
-    if "--one-process" in args:
-        passed = [run("suite", [])]
-    elif not args:
+    if not args:
         passed = [run(name.split(".")[-1], ["-e", "class", name]) for name in all_classes()]
         print(f"suite: {sum(passed)} de {len(passed)} classes verdes", flush=True)
     else:

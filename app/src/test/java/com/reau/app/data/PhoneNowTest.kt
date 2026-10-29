@@ -22,11 +22,20 @@ class PhoneNowTest {
     @Test
     fun `the phone's broadcasts say the screen, the charger and doze`() {
         PhoneNow.heard(Intent.ACTION_POWER_CONNECTED, dozing = false)
-        PhoneNow.heard(Intent.ACTION_SCREEN_ON, dozing = false)
-        assertEquals("charger in, screen on, doze off", PhoneNow.text())
+        PhoneNow.heard(Intent.ACTION_SCREEN_ON, dozing = false, nowMs = 1_000)
+        assertEquals("charger in, screen on, doze off, screen event 0.0 s before", PhoneNow.text(nowMs = 1_000))
         PhoneNow.heard(Intent.ACTION_POWER_DISCONNECTED, dozing = false)
-        PhoneNow.heard(Intent.ACTION_SCREEN_OFF, dozing = true)
-        assertEquals("charger out, screen off, doze on", PhoneNow.text())
+        PhoneNow.heard(Intent.ACTION_SCREEN_OFF, dozing = true, nowMs = 2_000)
+        assertEquals("charger out, screen off, doze on, screen event 0.5 s before", PhoneNow.text(nowMs = 2_500))
+    }
+
+    @Test
+    fun `the unlock is a screen event too, and a charger or doze broadcast is not`() {
+        PhoneNow.heard(Intent.ACTION_USER_PRESENT, dozing = null, nowMs = 5_000)
+        assertEquals("charger ?, screen ?, doze ?, screen event 2.3 s before", PhoneNow.text(nowMs = 7_300))
+        PhoneNow.testOnlyReset()
+        PhoneNow.heard(Intent.ACTION_POWER_CONNECTED, dozing = false, nowMs = 5_000)
+        assertEquals("charger in, screen ?, doze off", PhoneNow.text(nowMs = 7_300))
     }
 
     @Test

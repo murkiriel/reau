@@ -97,7 +97,10 @@ internal class AapCards(
         onNowPlaying?.invoke(song)
     }
 
-    /** The music app the status names ("Spotify"), said once per change, for the dash's title. */
+    /**
+     * The music app the status names ("Spotify"), said once per change. Nothing in the app listens yet (27/10/2026): kept as the signal
+     * for telling the music app later (the dash's title is always REau).
+     */
     private fun source(status: MediaPlayback.MediaPlaybackStatus) {
         val source = status.mediaSource?.trim().orEmpty()
         if (!status.hasMediaSource() || source.isEmpty() || source == lastSource) return

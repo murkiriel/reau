@@ -9,7 +9,8 @@ import kotlin.math.tan
  * How high the sun stands for a place and an instant, the one thing the day/night theme
  * ([DayNight][com.reau.app.service.DayNight]) needs to tell light from dark.
  *
- * It follows the equations NOAA publishes for its solar calculator (General Solar Position Calculations, public domain),
+ * It follows the equations NOAA publishes for its solar calculator (the script of its Solar Position Calculator page,
+ * gml.noaa.gov/grad/solcalc/azel.html; the government's pages are public domain),
  * which work in Julian centuries since J2000: the sun's mean longitude and anomaly, the equation of centre, the apparent
  * longitude and the corrected obliquity give the declination; the equation of time gives the true solar time, and from it
  * the hour angle. The answer is the geometric elevation (no refraction), good to a few hundredths of a degree, far finer

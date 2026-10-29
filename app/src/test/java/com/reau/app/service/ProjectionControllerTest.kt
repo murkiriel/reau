@@ -142,6 +142,48 @@ class ProjectionControllerTest {
         assertEquals(DashLink.CONNECTING, c.state.dash)
     }
 
+    /** Twenty minutes without the dash: the retry that falls due stops everything, tells the rider and says so in the ride log. */
+    @Test
+    fun `a retry due after twenty minutes without the dash stops the projection and tells the rider`() {
+        var now = 0L
+        val c = ProjectionController(Recording(), { log += it }, { changes += it }, clock = { now }, onNoDashStop = { minutes -> calls += "noDashStopped $minutes" })
+        c.submit(Start)
+        c.submit(AndroidAutoChanged(AaLinkState.ACTIVE))
+        c.submit(DashChanged(DashLink.DROPPED))
+        calls.clear()
+        log.clear()
+        now = ProjectionMachine.NO_DASH_STOP_MS
+        scheduled.last().second()
+        assertEquals(listOf("noDashStopped 20", "stopAndroidAuto", "stopDash", "release"), calls)
+        assertTrue(log.toString(), log.any { it.contains("no dash for 20 min, stopping by itself") })
+        assertEquals(Phase.STOPPED, c.state.phase)
+        assertEquals(false, c.state.stopping) // StopDone came after the effects
+    }
+
+    /** The rider's limit is read when the retry falls due: 5 minutes stop at 5, and "no limit" (0) never does. */
+    @Test
+    fun `the limit comes from the settings when a retry falls due`() {
+        var now = 0L
+        var limitMs = 5 * 60_000L
+        val c = ProjectionController(Recording(), { log += it }, { changes += it }, clock = { now }, onNoDashStop = { minutes -> calls += "noDashStopped $minutes" }, noDashStopMs = { limitMs })
+        c.submit(Start)
+        c.submit(AndroidAutoChanged(AaLinkState.ACTIVE))
+        c.submit(DashChanged(DashLink.DROPPED))
+        calls.clear()
+        now = 6 * 60_000L
+        limitMs = 0L // switched to "no limit" before the retry came due
+        scheduled.last().second()
+        assertTrue("stopped with no limit: $calls", "noDashStopped 0" !in calls && "startDash" in calls)
+        assertEquals(Phase.RUNNING, c.state.phase)
+
+        calls.clear()
+        c.submit(DashChanged(DashLink.DROPPED))
+        now = 12 * 60_000L
+        limitMs = 5 * 60_000L
+        scheduled.last().second()
+        assertEquals(listOf("noDashStopped 5", "stopAndroidAuto", "stopDash", "release"), calls.filterNot { it.startsWith("cancel") || it.startsWith("schedule") })
+    }
+
     /**
      * A ride log: `the dash is tried again in 60s` at 22:05:05, `bike network available` at 22:05:12, and the
      * dash only tried at 22:06:05, when the minute ended.
@@ -255,6 +297,51 @@ class ProjectionControllerTest {
         assertEquals("the dash side is started all the same", listOf("prepare", "startDash"), calls)
         assertTrue("got $log", log.any { "StartAndroidAuto" in it && "receiver broken" in it })
         assertEquals(Phase.RUNNING, c.state.phase)
+    }
+
+    /** Audit of 20/10/2026: an exception that was not a RuntimeException left `draining` set and nothing was ever taken again. */
+    @Test
+    fun `a port that throws something other than a RuntimeException still lets the rider's Desligar through`() {
+        for (failure in listOf<() -> Nothing>(
+            { throw java.io.IOException("socket gone") },
+            { throw java.util.concurrent.TimeoutException("too slow") },
+            { throw IllegalStateException("broken") },
+        )) {
+            calls.clear(); log.clear()
+            val c = controller(object : Recording() {
+                override fun startAndroidAuto() = failure()
+            })
+            c.submit(Start)
+            assertEquals(Phase.RUNNING, c.state.phase)
+            c.submit(Stop)
+            assertEquals("the stop was carried out", Phase.STOPPED, c.state.phase)
+            assertTrue("got $calls", "stopAndroidAuto" in calls && "release" in calls)
+            assertTrue("got $log", log.any { "StartAndroidAuto failed" in it })
+        }
+    }
+
+    @Test
+    fun `an Error no port is asked to contain gets out, but does not freeze the controller for good`() {
+        var fail = true
+        val c = controller(object : Recording() {
+            override fun startAndroidAuto() { if (fail) throw NoSuchMethodError("gone in this build") }
+        })
+        val thrown = runCatching { c.submit(Start) }.exceptionOrNull()
+        assertTrue("got $thrown", thrown is NoSuchMethodError)
+        fail = false
+        // A later event is still taken: the Desligar of a rider whose start went wrong.
+        c.submit(Stop)
+        assertEquals(Phase.STOPPED, c.state.phase)
+    }
+
+    @Test
+    fun `a preparation that throws a checked exception counts as one that said no`() {
+        val c = controller(object : Recording() {
+            override fun prepare(): String? = throw java.io.IOException("no wake lock")
+        })
+        c.submit(Start)
+        assertEquals(Phase.STOPPED, c.state.phase)
+        assertTrue("got ${c.state.problem}", c.state.problem?.contains("no wake lock") == true)
     }
 
     @Test

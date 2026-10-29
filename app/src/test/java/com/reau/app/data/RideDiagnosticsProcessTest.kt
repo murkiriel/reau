@@ -123,6 +123,25 @@ class RideDiagnosticsProcessTest {
         assertTrue(all.any { it.readText().contains("[ui] last") })
     }
 
+    /** Audit of 20/10/2026: a roll runs inside log(), and tidied the folder (list, sum, delete) on the thread that logged. */
+    @Test
+    fun `a roll inside log leaves the folder's tidying to its own thread, and the notes come when it is done`() {
+        RideDiagnostics.maxFileBytes = 300
+        RideDiagnostics.spaceCapBytes = 2 * 1024L
+        RideDiagnostics.startProcess("app")
+        RideDiagnostics.logAndWait("ui", "first")
+        val old = File(dir, "logcat-20261001-080000.txt").apply { writeBytes(ByteArray(4 * 1024)); setLastModified(1_000) }
+        val release = RideDiagnostics.testOnlyHoldTidy()
+        repeat(20) { RideDiagnostics.log("ui", "line $it with some text to fill the file up") }
+        assertTrue("a new file was opened", files().size > 1)
+        assertTrue("and the caller did not wait to tidy the folder", old.exists())
+        release()
+        RideDiagnostics.testOnlyAwaitTidy()
+        RideDiagnostics.logAndWait("ui", "last")
+        assertFalse("the old logcat went once the tidying ran", old.exists())
+        assertTrue("and the file says so", files().any { f -> f.readText().contains("diag space:") })
+    }
+
     @Test
     fun `a new file starts on a new day`() {
         RideDiagnostics.startProcess("app")

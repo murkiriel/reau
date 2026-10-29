@@ -8,7 +8,9 @@ import java.util.TreeMap
  * how long, how long streaming, drops of the dash and of Android Auto, the dash's failed tries to connect, watchdogs by name, frames sent, the mean fps
  * (frames over the time streaming) and the lowest of the whole 5 s windows (counted from the start of streaming), the
  * longest gap between two frames, the hottest thermal status, the battery from the start to the last look, the
- * rider's marks. [ProjectionSummary] holds the one of the running projection, for the parts that feed it.
+ * rider's marks, and when the dash was dark: the interruptions from the last frame delivered before the dash went to the first one
+ * after it came back (`dark=2/3m02s (max 1m08s)`, only when there were some; `streaming=` stops when the dash drops, so the hole shows in no
+ * other number). [ProjectionSummary] holds the one of the running projection, for the parts that feed it.
  */
 @Suppress("TooManyFunctions") // one small function per case; splitting them would only scatter the same thing
 class RideSummary(private val windowMs: Long = WINDOW_MS) {
@@ -29,6 +31,11 @@ class RideSummary(private val windowMs: Long = WINDOW_MS) {
     private var windowStart = -1L
     private var windowFrames = 0
     private var windowMin = Double.NaN
+    private var darkSince = -1L
+    private var darkResumed = false
+    private var darkCount = 0
+    private var darkTotalMs = 0L
+    private var darkMaxMs = 0L
 
     fun start(nowMs: Long, batteryPct: Int?) = synchronized(lock) {
         startMs = nowMs
@@ -38,6 +45,7 @@ class RideSummary(private val windowMs: Long = WINDOW_MS) {
 
     /** The video loop started ([on]) or stopped. */
     fun streaming(on: Boolean, nowMs: Long) = synchronized(lock) {
+        if (on && darkSince >= 0) darkResumed = true // the video is back; its first frame ends the interruption
         if (on && streamingSince < 0) {
             streamingSince = nowMs
             windowStart = nowMs
@@ -54,14 +62,33 @@ class RideSummary(private val windowMs: Long = WINDOW_MS) {
     fun frames(count: Int, nowMs: Long) = synchronized(lock) {
         if (count <= 0) return@synchronized
         if (windowStart >= 0) closeWindows(nowMs)
+        if (darkSince >= 0 && darkResumed) closeDark(nowMs - darkSince)
         if (lastFrameMs >= 0) gapMaxMs = maxOf(gapMaxMs, nowMs - lastFrameMs)
         lastFrameMs = nowMs
         frames += count
         windowFrames += count
     }
 
-    /** A dash that was connected is gone. Not a try that failed: that is [dashTryFailed]. */
-    fun dashDropped() = synchronized(lock) { dashDrops++ }
+    /**
+     * A dash that was connected is gone. Not a try that failed: that is [dashTryFailed]. With [nowMs] (not negative) and some
+     * frames already sent, the dark time begins at the last frame that went out, or now.
+     */
+    fun dashDropped(nowMs: Long = -1L) = synchronized(lock) {
+        dashDrops++
+        if (nowMs >= 0 && darkSince < 0 && frames > 0) {
+            darkSince = lastFrameMs.takeIf { it >= 0 } ?: nowMs
+            darkResumed = false
+        }
+    }
+
+    private fun closeDark(ms: Long) {
+        val dark = ms.coerceAtLeast(0)
+        darkCount++
+        darkTotalMs += dark
+        darkMaxMs = maxOf(darkMaxMs, dark)
+        darkSince = -1L
+        darkResumed = false
+    }
 
     /** A try to connect the dash (the first, or one to get it back) ended in failure. */
     fun dashTryFailed() = synchronized(lock) { dashFailedTries++ }
@@ -85,9 +112,13 @@ class RideSummary(private val windowMs: Long = WINDOW_MS) {
         val avg = if (streamed > 0) String.format(Locale.US, "%.1f", frames * MS_PER_S / streamed) else "-"
         val min = if (windowMin.isNaN()) "-" else String.format(Locale.US, "%.1f", windowMin)
         val gap = if (gapMaxMs < 0) "-" else String.format(Locale.US, "%.1fs", gapMaxMs / MS_PER_S)
+        // An interruption still going on counts up to now.
+        val ongoing = if (darkSince >= 0) (nowMs - darkSince).coerceAtLeast(0) else -1L
+        val count = darkCount + if (ongoing >= 0) 1 else 0
+        val dark = if (count == 0) "" else " dark=$count/${duration(darkTotalMs + maxOf(ongoing, 0))} (max ${duration(maxOf(darkMaxMs, ongoing))})"
         val dogs = if (watchdogs.isEmpty()) "" else watchdogs.entries.joinToString(" ", " (", ")") { "${it.key}=${it.value}" }
         "resumo duration=${duration(nowMs - startMs)} streaming=${duration(streamed)} drops dash=$dashDrops aa=$aaDrops retries dash=$dashFailedTries " +
-            "watchdogs=${watchdogs.values.sum()}$dogs frames=$frames fps avg=$avg min=$min gap max=$gap " +
+            "watchdogs=${watchdogs.values.sum()}$dogs frames=$frames fps avg=$avg min=$min gap max=$gap$dark " +
             "thermal max=${thermalName(thermalMax)} battery ${battery()} marks=$marks"
     }
 

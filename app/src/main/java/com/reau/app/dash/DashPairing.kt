@@ -41,6 +41,9 @@ class DashPairing(private val prefs: SharedPreferences) : JoinMemory {
         get() = prefs.getString(KEY_JOINED, null).orEmpty()
         set(v) = prefs.edit { putString(KEY_JOINED, v.trim()) }
 
+    /** Reads (and so decrypts and keeps) every value: called off the main thread at the start, so the screen's first reads cost nothing. */
+    fun warm(): Int = prefs.all.size
+
     /** True until a specific dash has been identified. */
     val needsDiscovery: Boolean get() = ssid.isBlank()
 
@@ -64,7 +67,16 @@ class DashPairing(private val prefs: SharedPreferences) : JoinMemory {
         private const val KEY_PASSWORD = "password"
         private const val KEY_JOINED = "joined_ssid"
 
-        /** The pairing of this install, in a preferences file whose values are encrypted under an Android Keystore key. */
-        fun open(context: Context): DashPairing = DashPairing(KeystoreBackedPrefs.open(context.applicationContext, FILE))
+        private val shared = com.reau.app.util.Once<DashPairing>()
+
+        /**
+         * The pairing of this install, in a preferences file whose values are encrypted under an Android Keystore key. One for the
+         * process: each `open` used to make a store of its own, with its own cipher and its own cache of what it had decrypted, and the
+         * main screen opened it on the main thread at every resume, at the first draw, at every reload and at the tap on Ligar.
+         */
+        fun open(context: Context): DashPairing = shared.get { DashPairing(KeystoreBackedPrefs.open(context.applicationContext, FILE)) }
+
+        /** Test-only: the next [open] makes a new one. */
+        internal fun testOnlyForget() = shared.forget()
     }
 }

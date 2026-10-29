@@ -23,6 +23,8 @@ data class MainUiState(
     val permissionsMissing: Int = 0,
     /** REau's traffic goes into a VPN, which keeps it off the bike's Wi-Fi. */
     val vpnHoldsREau: Boolean = false,
+    /** Android's Location switch is off although REau has the permission. */
+    val locationOff: Boolean = false,
     /** The other edition of REau is installed too ([com.reau.app.OtherEdition]): it may be holding Android Auto's server. */
     val otherEditionInstalled: Boolean = false,
     /** REau's own version, under Android Auto's at the foot. */
@@ -92,7 +94,7 @@ class SettingsActions(
     val onForgetDash: () -> Unit,
     val onBack: () -> Unit,
     val onPickCardImage: () -> Unit = {},
-    /** Share the logs (with the debug recordings when true). */
+    /** Share the logs (with the recordings when true). */
     val onShareLogs: (withRecordings: Boolean) -> Unit = {},
     /** Android's accessibility settings, to switch REau's service on. */
     val onOpenAccessibility: () -> Unit = {},
@@ -101,7 +103,7 @@ class SettingsActions(
     /** "Ver o registro": the logs, inside the app. */
     val onViewLogs: () -> Unit = {},
     /**
-     * Delete the logs (and the debug recordings when true), after a confirmation; [done] gets how many files and KB
+     * Delete the logs (and the recordings when true), after a confirmation; [done] gets how many files and KB
      * went, for the Snackbar.
      */
     val onDeleteLogs: (withRecordings: Boolean, done: (files: Int, kb: Long) -> Unit) -> Unit = { _, _ -> },

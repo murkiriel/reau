@@ -54,8 +54,32 @@ class WeatherKeeperTest {
         for (field in listOf("temperature_2m", "wind_gusts_10m", "surface_pressure", "uv_index", "sunrise", "forecast_days=14", "timezone=auto")) {
             assertTrue("$field in $url", url.contains(field))
         }
+        // The next two hours in quarters (the one now and seven more), for the dash's info ring.
+        assertTrue(url, url.contains("minutely_15=precipitation,weather_code,wind_gusts_10m&forecast_minutely_15=8"))
         // A finer place is cut to a tenth in the request itself, whatever the caller kept.
         assertTrue(WeatherKeeper.url(DayNight.Place(-23.5505, -46.6333)).contains("latitude=-23.6&longitude=-46.6&"))
+    }
+
+    /** Audit of 20/10/2026: a clock set back made the weather look newer than it was, so it was kept and told to the dash. */
+    @Test
+    fun `the age of this run's fetch comes off the monotonic clock, not the wall clock`() {
+        val fetched = WeatherKeeper.Snapshot(PointForecast(now(61), emptyList(), emptyList()), fetchedAtMs = 10_000_000L, monoAtMs = 1_000L)
+        // The wall clock went back by hours; three hours and a second went by on the monotonic one.
+        val wallAfterSetBack = 5_000_000L
+        val monoLater = 1_000L + WeatherKeeper.USABLE_MS + 1
+        assertEquals(WeatherKeeper.USABLE_MS + 1, fetched.ageMs(wallAfterSetBack, monoLater))
+        assertNull("too old to tell the dash", WeatherKeeper.forDash(fetched, wallAfterSetBack, monoLater))
+        assertEquals("a fresh one still goes", DashCommands.Weather(24, 3), WeatherKeeper.forDash(fetched, wallAfterSetBack, 61_000L))
+        assertTrue("and is not asked for again at 15 minutes less a second",
+            fetched.ageMs(wallAfterSetBack, 1_000L + WeatherKeeper.REFRESH_MS - 1_000) < WeatherKeeper.REFRESH_MS)
+    }
+
+    @Test
+    fun `what an earlier run kept ages by the wall clock, and a time in the future is not trusted`() {
+        val kept = snapshot(now(61), at = 10_000L)
+        assertEquals(5_000L, kept.ageMs(15_000L, 1L))
+        assertEquals("a clock that is before the fetch: stale, fetched again", Long.MAX_VALUE, kept.ageMs(9_000L, 1L))
+        assertNull(WeatherKeeper.forDash(kept, 9_000L, 1L))
     }
 }
 

@@ -18,13 +18,23 @@ class FitFollowerTest {
     private fun follower(settings: REauSettings?) = FitFollower({ settings }, { remapped += it }, { said += it })
 
     @Test
-    fun `the menu takes its own fit and the apps theirs`() {
+    fun `the menu takes the apps' fit, whatever fit was kept for it`() {
         val s = REauSettings(menuFit = menu)
         val f = follower(s)
         f.on(AaScreen.MENU)
         f.on(AaScreen.APPS)
-        assertEquals(listOf(s.menuMapping, s.mapping), remapped)
+        assertEquals(listOf(s.mapping, s.mapping), remapped)
         assertTrue(said.first(), said.first().contains("app menu"))
+    }
+
+    @Test
+    fun `navigation follows its own fit and the log names each screen`() {
+        val s = REauSettings(menuFit = menu, navFit = FitParams(Fit.CROP, 70, 12, 40, 2, -3))
+        val f = follower(s)
+        f.on(AaScreen.NAV)
+        f.on(AaScreen.APPS)
+        assertEquals(listOf(s.navMapping, s.mapping), remapped)
+        assertTrue(said.toString(), "navigation" in said[0] && "the apps" in said[1])
     }
 
     @Test

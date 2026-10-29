@@ -27,6 +27,13 @@ class DashSocketDscpTest {
     }
 
     @Test
+    fun `a debug build sends the dash sockets unmarked and a release marks them, control CS6 and video AF41`() {
+        assertEquals(null, DashSocket.priorityMarks(debugBuild = true))
+        assertEquals(DashSocket.TOS_CONTROL to DashSocket.TOS_VIDEO, DashSocket.priorityMarks(debugBuild = false))
+        assertEquals("the build the tests run decides the default", DashSocket.priorityMarks(com.reau.app.BuildConfig.DEBUG), DashSocket.priorityMarks())
+    }
+
+    @Test
     fun `control goes as CS6 and video as AF41, in the TOS byte`() {
         // DSCP is the TOS byte's top six bits: CS6 48 -> 0xC0, AF41 34 -> 0x88.
         assertEquals(0xC0, DashSocket.TOS_CONTROL)

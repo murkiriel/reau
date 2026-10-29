@@ -15,6 +15,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.reau.app.weather.AirQuality
+import com.reau.app.settings.SettingsStore
 import com.reau.app.weather.WeatherKeeper
 import com.reau.app.weather.WeatherParser
 import java.time.LocalDate
@@ -38,6 +39,8 @@ class WeatherScreenTest {
     @Before
     fun setUp() {
         WeatherKeeper.clear(context)
+        // The info ring is on by default now and keeps the weather too: these tests are of the weather switch alone.
+        SettingsStore.open(context).let { it.save(it.load().copy(infoRing = false)) }
         compose.setContent {
             WeatherScreen(on, { toggles += it; on = it }) { backs++ }
         }
@@ -89,7 +92,7 @@ class WeatherScreenTest {
         assertEquals(listOf(true), toggles)
         compose.onNodeWithTag("dash_weather").assertIsOn()
         compose.onNodeWithTag("dash_weather_info").performScrollTo().performClick()
-        compose.onNodeWithText("toda vez que você abre o REau", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("quando você abre o REau", substring = true).assertIsDisplayed()
     }
 
     @Test

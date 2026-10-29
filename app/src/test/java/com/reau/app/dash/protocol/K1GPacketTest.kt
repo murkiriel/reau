@@ -93,15 +93,45 @@ class K1GPacketTest {
     }
 
     @Test
-    fun `parseIncoming clamps a truncated TLV value instead of throwing`() {
-        // Declares a 2-byte segment count but only supplies a TLV header claiming
-        // len=100 with just 1 byte of actual value data following.
+    fun `parseIncoming leaves out a TLV that is cut short instead of taking its few bytes for the whole value, and does not throw`() {
+        // A TLV header claiming len=100 with just 1 byte of actual value data following: audit of 20/10/2026 (it used to be clamped
+        // to the 1 byte and handed on as if it were the value).
         val header = byteArrayOf(0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00)
         val truncatedTlv = byteArrayOf(0x01, 0x01, 0x00, 0x64, 0xFF.toByte()) // len=100, only 1B present
-        val tlvs = K1GPacket.parseIncoming(header + truncatedTlv)
+        val parsed = K1GPacket.parse(header + truncatedTlv)
 
-        assertEquals(1, tlvs.size)
-        assertArrayEquals(byteArrayOf(0xFF.toByte()), tlvs[0].value) // clamped to what's actually there
+        assertTrue(parsed.tlvs.isEmpty())
+        assertTrue(parsed.cutShort)
+        assertTrue(K1GPacket.parseIncoming(header + truncatedTlv).isEmpty())
+    }
+
+    @Test
+    fun `a packet cut at any point keeps the whole TLVs before the cut and none after, and says it was cut`() {
+        val header = byteArrayOf(0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00)
+        val first = byteArrayOf(0x0C, 0x07, 0x00, 0x02, 0x00, 0xCA.toByte())
+        val second = byteArrayOf(0x09, 0x06, 0x00, 0x01, 0x55)
+        val whole = header + first + second
+        for (cut in 0..whole.size) {
+            val parsed = K1GPacket.parse(whole.copyOf(cut))
+            val expected = when {
+                cut >= whole.size -> 2
+                cut >= header.size + first.size -> 1
+                else -> 0
+            }
+            assertEquals("cut at $cut", expected, parsed.tlvs.size)
+            // A TLV that is there is the whole one.
+            parsed.tlvs.forEach { assertTrue("cut at $cut", it.value.size == if (it.type == 0x0C) 2 else 1) }
+            val endsAtATlv = cut < 8 || cut == header.size || cut == header.size + first.size || cut == whole.size
+            assertEquals("cut at $cut: cut-short only when the cut is inside a TLV", !endsAtATlv, parsed.cutShort)
+        }
+    }
+
+    @Test
+    fun `a complete packet is not cut short`() {
+        val header = byteArrayOf(0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00)
+        val parsed = K1GPacket.parse(header + byteArrayOf(0x03, 0x05, 0x00, 0x00))
+        assertEquals(1, parsed.tlvs.size)
+        assertTrue(!parsed.cutShort)
     }
 
     @Test

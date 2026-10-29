@@ -23,6 +23,15 @@ class ProjectionNotificationTest {
     }
 
     @Test
+    fun `in the wallpaper mode the connecting text waits for the dash alone, and nothing else changes with it`() {
+        assertEquals(R.string.notif_title_connecting to R.string.notif_text_connecting_wallpaper, ProjectionNotification.contentFor(Headline.CONNECTING, card = true))
+        assertEquals(R.string.notif_title_connecting to R.string.notif_text_connecting, ProjectionNotification.contentFor(Headline.CONNECTING, card = false))
+        for (headline in Headline.entries.filter { it != Headline.CONNECTING }) {
+            assertEquals(headline.name, ProjectionNotification.contentFor(headline), ProjectionNotification.contentFor(headline, card = true))
+        }
+    }
+
+    @Test
     fun `a mute server's notification says the menu by hand only where the rider has to restart it`() {
         val title = R.string.notif_title_unresponsive
         assertEquals(title to R.string.notif_text_unresponsive, ProjectionNotification.contentFor(Headline.ANDROID_AUTO_UNRESPONSIVE))
@@ -109,5 +118,18 @@ class ProjectionNotificationTest {
         val strings = File("src/main/res/values-pt/strings.xml").readText()
         fun text(name: String) = Regex("""<string name="$name">(.*?)</string>""").find(strings)!!.groupValues[1]
         assertEquals(text("sub_streaming"), text("notif_text_streaming"))
+    }
+
+    @Test
+    fun `the notification of the projection that stopped for the dash being gone says the minutes in every form of the plural`() {
+        for (path in listOf("src/main/res/values/strings.xml", "src/main/res/values-pt/strings.xml")) {
+            val xml = File(path).readText()
+            val plural = Regex("""<plurals name="notif_text_no_dash_stopped">(.*?)</plurals>""", RegexOption.DOT_MATCHES_ALL).find(xml)
+            requireNotNull(plural) { "$path has no plural for the stopped notification" }
+            val items = Regex("""<item quantity="(\w+)">([^<]*)</item>""").findAll(plural.groupValues[1]).map { it.groupValues[1] to it.groupValues[2] }.toList()
+            assertEquals("$path: one and other at least", true, items.map { it.first }.containsAll(listOf("one", "other")))
+            for ((quantity, text) in items) assertEquals("$path $quantity says the minutes: $text", true, "%1\$d" in text)
+            assertEquals("$path: a title for it", true, Regex("""name="notif_title_no_dash_stopped">[^<]+<""").containsMatchIn(xml))
+        }
     }
 }

@@ -1,6 +1,7 @@
 package com.reau.app.dash
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -53,6 +54,32 @@ class LinkReportTest {
             line,
         )
         assertEquals("link at failure: no reading | no history", LinkReport.atFailure(null, emptyList()))
+    }
+
+    /** 22:35:25 on 19/10/2026: the line said 5 GHz, tx=468, the home network, as if it were the dash's. */
+    @Test
+    fun `at a failure with the dash network gone, the last sample of the dash network stands in for the moment`() {
+        val elsewhere = LinkSample(rssiDbm = -57, txMbps = 468, rxMbps = 6, mhz = 5_200, viaDashNetwork = false)
+        val line = LinkReport.atFailure(elsewhere, listOf(good, good.copy(rssiDbm = -60)))
+        assertEquals(
+            "link at failure: last sample of the dash network: rssi=-60 dBm tx=72 rx=65 Mbps 5 GHz powersave=off screen=on | " +
+                "last 10 s, every 5 s: rssi -58 -60 | tx 72 72",
+            line,
+        )
+        assertFalse(line, "468" in line)
+    }
+
+    @Test
+    fun `a probe that failed at the moment of the failure also falls back to the last sample of the dash network`() {
+        val line = LinkReport.atFailure(null, listOf(good))
+        assertTrue(line, line.startsWith("link at failure: last sample of the dash network: rssi=-58 dBm"))
+    }
+
+    @Test
+    fun `with nothing from the dash network at all the other network is still named for what it is`() {
+        val elsewhere = LinkSample(rssiDbm = -57, viaDashNetwork = false)
+        val line = LinkReport.atFailure(elsewhere, listOf(elsewhere))
+        assertTrue(line, "NOT the dash network" in line)
     }
 
     @Test

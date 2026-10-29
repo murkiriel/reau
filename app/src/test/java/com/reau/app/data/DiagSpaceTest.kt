@@ -69,6 +69,22 @@ class DiagSpaceTest {
     @Test
     fun `the phone's ceiling is 200 MB`() {
         assertEquals(200L * 1024 * 1024, DiagSpace.CAP_BYTES)
+        assertEquals(200L * 1024 * 1024, DiagSpace.capBytes(debugBuild = false))
         assertTrue(DiagSpace.isLog("logcat-20261004-101010.txt") && DiagSpace.isLog("ride-20261004-101010-2.log"))
+    }
+
+    @Test
+    fun `a debug build keeps up to 1 GB of logs`() {
+        assertEquals(1024L * 1024 * 1024, DiagSpace.capBytes(debugBuild = true))
+        assertEquals(1024L * 1024 * 1024, DiagSpace.DEBUG_CAP_BYTES)
+    }
+
+    @Test
+    fun `it stops as soon as the folder fits, a folder exactly at the ceiling needs no more removal`() {
+        file("ride-1.log", 40)
+        file("ride-2.log", 60)
+        file("ride-3.log", 100)
+        DiagSpace.trim(tmp.root, capBytes = 160L * 1024, open = emptySet())
+        assertEquals("only the oldest went: 200 KB down to exactly 160 KB", listOf("ride-2.log", "ride-3.log"), names())
     }
 }

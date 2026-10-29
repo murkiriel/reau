@@ -3,7 +3,7 @@ package com.reau.app.settings
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** A escolha de idioma: como uma etiqueta de idioma do Android vira uma das tres opcoes do app. */
+/** A escolha de idioma: como uma etiqueta de idioma do Android vira uma das quatro opcoes do app. */
 class AppLanguagesTest {
     @Test
     fun `qualquer portugues e portugues, em qualquer caixa`() {
@@ -20,8 +20,15 @@ class AppLanguagesTest {
     }
 
     @Test
+    fun `qualquer espanhol e espanhol`() {
+        for (tag in listOf("es", "es-CO", "es-ES", "es-419", "ES", "es_MX", "Es-ar")) {
+            assertEquals(tag, AppLanguage.ES, AppLanguages.fromTag(tag))
+        }
+    }
+
+    @Test
     fun `sem etiqueta, ou com um idioma que o app nao tem, vale o do telefone`() {
-        for (tag in listOf(null, "", "  ", "\t", "es", "fr-FR", "de", "ja", "zh-Hans", "xx")) {
+        for (tag in listOf(null, "", "  ", "\t", "fr-FR", "de", "ja", "zh-Hans", "xx")) {
             assertEquals("'$tag'", AppLanguage.AUTO, AppLanguages.fromTag(tag))
         }
     }
@@ -38,5 +45,6 @@ class AppLanguagesTest {
         assertEquals("", AppLanguage.AUTO.tag)
         assertEquals("pt-BR", AppLanguage.PT.tag)
         assertEquals("en", AppLanguage.EN.tag)
+        assertEquals("es", AppLanguage.ES.tag)
     }
 }

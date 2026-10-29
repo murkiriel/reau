@@ -2,6 +2,7 @@ package com.reau.app.dash
 
 import com.reau.app.dash.protocol.K1GPacket
 import com.reau.app.dash.protocol.Tlv
+import com.reau.app.util.MonotonicClock
 import java.util.Locale
 import java.util.TreeMap
 
@@ -25,7 +26,11 @@ class DashStats(private val onFirst: (String) -> Unit = {}) {
         var telemetry = 0L
         var heartbeats = 0L
         var txFailed = 0L
+        var malformed = 0L
     }
+
+    /** The last 30 s of packets, for the black-box lines (never a payload). */
+    val trail = PacketTrail()
 
     private val lock = Any()
     private var window = Counts()
@@ -39,10 +44,14 @@ class DashStats(private val onFirst: (String) -> Unit = {}) {
     }
 
     /** A control packet went out. */
-    fun sent(packet: ByteArray) {
+    fun sent(packet: ByteArray, nowMs: Long = MonotonicClock.nowMs()) {
         val key = sentKey(packet) ?: return
+        DashDump.outgoingTlvs(packet).forEach { trail.add(nowMs, tx = true, it) }
         both { tx.merge(key, 1L, Long::plus) }
     }
+
+    /** A packet from the dash ended inside a TLV and the cut one was left out ([K1GPacket.parse]). */
+    fun malformed() = both { malformed++ }
 
     /** A control packet could not go out (a socket error, or held back while the link is down). */
     fun sendFailed() = both { txFailed++ }
@@ -57,6 +66,7 @@ class DashStats(private val onFirst: (String) -> Unit = {}) {
             lastRxMs = nowMs
             for (tlv in tlvs) {
                 if (isHeader(tlv)) continue
+                trail.add(nowMs, tx = false, tlv)
                 both { rx.merge(key(tlv), 1L, Long::plus) }
                 classify(tlv)?.let { news += it }
             }
@@ -93,6 +103,8 @@ class DashStats(private val onFirst: (String) -> Unit = {}) {
         String.format(Locale.US, "dash-stats %.1fs: ", windowMs / MS_PER_S) +
             "tx=${w.tx.values.sum()} (${parts(w.tx)}) rx=${w.rx.values.sum()} (${parts(groupTelemetry(w.rx))}) acks=${w.acks} " +
             "buttons=${w.buttons} telemetry=${w.telemetry} heartbeats=${w.heartbeats} tx-fail=${w.txFailed} " +
+            // Only when there were some, so the line of a healthy window is the one it always was.
+            (if (w.malformed > 0) "cut-short=${w.malformed} " else "") +
             "last-rx=$lastRx | total tx=${total.tx.values.sum()} rx=${total.rx.values.sum()} acks=${total.acks} " +
             "buttons=${total.buttons} telemetry=${total.telemetry} tx-fail=${total.txFailed}"
     }

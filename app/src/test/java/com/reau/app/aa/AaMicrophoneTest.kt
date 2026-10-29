@@ -156,8 +156,8 @@ class AaMicrophoneTest {
         val mic = AaMicrophone(voice, { sent += it })
         assertTrue(mic.request(open = true))
         await("the broken voice is closed") { voice.closed == 1 }
-        assertTrue(mic.request(open = true))
-        assertEquals(2, voice.opened)
+        // The voice is closed a moment before the microphone notes it (a loaded machine showed the gap): asked again until it opens.
+        await("the next request opens it again") { mic.request(open = true) && voice.opened == 2 }
         mic.stop("end")
     }
 }

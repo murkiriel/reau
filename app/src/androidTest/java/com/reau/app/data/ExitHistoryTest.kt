@@ -35,6 +35,7 @@ class ExitHistoryTest {
 
     @After
     fun tearDown() {
+        endLeftoverExitTest()
         ProjectionService.stop(context)
         await("stopped") { ProjectionService.projection.value.phase == Phase.STOPPED }
         ProjectionService.sidesFactory = originalSides
@@ -66,6 +67,7 @@ class ExitHistoryTest {
 
     @Test
     fun anAnrIsToldWithTheTraceAndroidKept() {
+        endLeftoverExitTest()
         context.sendBroadcast(
             Intent().setComponent(ComponentName(context.packageName, "com.reau.app.debug.ExitTestReceiver"))
                 .addFlags(Intent.FLAG_RECEIVER_FOREGROUND).putExtra("holdMs", 60_000L),
@@ -115,13 +117,28 @@ class ExitHistoryTest {
     private fun exitTestProcess(): RunningAppProcessInfo? =
         manager.runningAppProcesses.orEmpty().firstOrNull { it.processName == "${context.packageName}:exittest" }
 
+    /**
+     * A fresh `:exittest` process, settled in the background. One left over from an earlier test is ended first (it would be handed back
+     * as the new one, and `am kill` finds nothing to kill in it), and the process is waited for until its activity has finished: a signal
+     * that comes while the activity still opens makes Android start the process again, and the exit the test looks for is not the one
+     * the next projection tells.
+     */
     private fun startExitTestProcess(): Int {
+        endLeftoverExitTest()
         context.startActivity(
             Intent().setComponent(ComponentName(context.packageName, "com.reau.app.debug.ExitTestActivity"))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )
         await("the :exittest process up") { exitTestProcess() != null }
+        await("the :exittest activity done") { exitTestProcess()?.let { it.importance >= RunningAppProcessInfo.IMPORTANCE_SERVICE } == true }
         return exitTestProcess()!!.pid
+    }
+
+    /** Ends a `:exittest` process left by an earlier test (one whose activity has finished is not started again by Android). */
+    private fun endLeftoverExitTest() {
+        val left = exitTestProcess() ?: return
+        Process.killProcess(left.pid)
+        await("the leftover :exittest gone") { exitTestProcess() == null }
     }
 
     private fun awaitRecorded(pid: Int, timeoutMs: Long = 15_000) =
@@ -141,7 +158,8 @@ class ExitHistoryTest {
         ProjectionService.sidesFactory = { _, _ -> ProjectionSides.None }
         ProjectionService.start(context)
         await("running") { ProjectionService.projection.value.phase == Phase.RUNNING }
-        val file = diag.listFiles { f -> f.name.startsWith("ride-") }!!.maxByOrNull { it.lastModified() }!!
+        // The file of this process: the `:exittest` process the test started has a ride log of its own, which may be the newest.
+        val file = File(diag, checkNotNull(RideDiagnostics.currentFileName()) { "no ride log open in the app's process" })
         ProjectionService.stop(context)
         await("stopped") { ProjectionService.projection.value.phase == Phase.STOPPED }
         await("the projection marked off", 5_000) { "projeção desligada" in file.readText() || "session end" in file.readText() }

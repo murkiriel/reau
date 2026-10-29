@@ -46,7 +46,7 @@ class OtherEditionTest {
 
     @Test
     fun `the warning texts exist in both languages and take the other edition's name`() {
-        for (folder in listOf("values", "values-pt")) {
+        for (folder in listOf("values", "values-pt", "values-es")) {
             val text = File(src, "main/res/$folder/strings.xml").readText()
             assertTrue("$folder title", Regex("""<string name="warn_other_edition_title">[^<]+</string>""").containsMatchIn(text))
             assertTrue("$folder text takes the name", Regex("""<string name="aa_other_edition_warning">[^<]*%1\${'$'}s[^<]*</string>""").containsMatchIn(text))

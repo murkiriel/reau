@@ -1,10 +1,13 @@
 package com.reau.app.web
 
+import com.reau.app.util.MonotonicClock
 import java.io.IOException
 import java.net.Socket
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 /**
  * One browser on the WebSocket. What is sent to it waits in a bounded queue and goes out on a thread of its own,
@@ -14,11 +17,15 @@ import java.util.concurrent.atomic.AtomicBoolean
 class WebViewer internal constructor(
     private val socket: Socket,
     queueFrames: Int,
+    private val pingMs: Long = PING_MS,
     private val onGone: (WebViewer) -> Unit,
 ) {
     private val queue = LinkedBlockingQueue<ByteArray>(queueFrames)
     private val soundLimit = maxOf(1, queueFrames / 2)
     private val closed = AtomicBoolean(false)
+
+    // Held while a frame is being written, so that a Close sent from the reading thread never lands in the middle of the writer's frame.
+    private val outLock = ReentrantLock()
 
     /** Set by the server once [WebServer.Events] knows of the viewer: only then does the broadcast reach it. */
     @Volatile internal var live = false
@@ -55,15 +62,44 @@ class WebViewer internal constructor(
         try {
             // Inside the try: a browser that closed the connection before this thread began leaves a socket with no output stream.
             val out = socket.getOutputStream()
+            var pinged = MonotonicClock.nowMs()
             while (!closed.get()) {
-                val frame = queue.poll(POLL_MS, TimeUnit.MILLISECONDS) ?: continue
-                out.write(frame)
-                out.flush()
+                val frame = queue.poll(POLL_MS, TimeUnit.MILLISECONDS)
+                // A ping every [pingMs] whatever else goes out: the browser's answer is what tells the reading side that a viewer
+                // which never sends anything (it only watches) is still there.
+                val pingDue = MonotonicClock.nowMs() - pinged >= pingMs
+                if (pingDue) pinged = MonotonicClock.nowMs()
+                if (frame == null && !pingDue) continue
+                outLock.withLock {
+                    frame?.let(out::write)
+                    if (pingDue) out.write(PING_FRAME)
+                    out.flush()
+                }
             }
         } catch (_: IOException) {
             close()
         } catch (_: InterruptedException) {
             close()
+        }
+    }
+
+    /**
+     * The browser asked to close: a Close frame goes back before the socket does (RFC 6455, 5.5.1), so the browser sees a clean
+     * close and not a lost connection. Written on the caller's thread, at once, between two frames of the writer; if the writer is
+     * stuck on a browser that stopped reading it is not waited for beyond [CLOSE_WAIT_MS].
+     */
+    internal fun answerClose(reply: ByteArray) {
+        if (closed.get()) return
+        if (!outLock.tryLock(CLOSE_WAIT_MS, TimeUnit.MILLISECONDS)) return
+        try {
+            socket.getOutputStream().apply {
+                write(reply)
+                flush()
+            }
+        } catch (_: IOException) {
+            // The browser is gone already: nothing to answer.
+        } finally {
+            outLock.unlock()
         }
     }
 
@@ -75,7 +111,12 @@ class WebViewer internal constructor(
         }
     }
 
-    private companion object {
+    internal companion object {
         const val POLL_MS = 200L
+        const val CLOSE_WAIT_MS = 300L
+
+        /** The default between pings ([WebServer.Settings.pingMs]). */
+        const val PING_MS = 10_000L
+        private val PING_FRAME = WebSocketCodec.encode(WebSocketCodec.PING, ByteArray(0))
     }
 }

@@ -32,6 +32,45 @@ object CompositorMath {
     }
 
     /**
+     * How long to wait before drawing a new picture at once, outside the tick (the rider's input is fresh), or null for the tick to
+     * do it: with no new picture, no frame drawn yet, or the burst off ([gapMs] 0). A frame is never closer than [gapMs] to the last.
+     */
+    fun burstWaitMs(newImage: Boolean, lastFrameAtMs: Long, nowMs: Long, gapMs: Long): Long? {
+        if (!newImage || gapMs <= 0 || lastFrameAtMs <= 0) return null
+        return (lastFrameAtMs + gapMs - nowMs).coerceIn(0, gapMs)
+    }
+
+    /**
+     * How long to wait before drawing again at once because the info ring changed: what is left of [gapMs] since the last frame, none when no
+     * frame has gone yet. The gap keeps a ring that flickers on and off from flooding the dash with frames.
+     */
+    fun redrawWaitMs(lastFrameAtMs: Long, nowMs: Long, gapMs: Long = RING_REDRAW_GAP_MS): Long =
+        if (lastFrameAtMs <= 0) 0L else (lastFrameAtMs + gapMs - nowMs).coerceIn(0L, gapMs)
+
+    /** The least time between two frames drawn because the info ring changed: the same as the rider's input burst. */
+    const val RING_REDRAW_GAP_MS = 80L
+
+    /** How often the compositor's clock looks at the picture to read the screen from it: every 50 ms while somebody listens and there is a picture. */
+    const val LOOK_POLL_MS = 50L
+
+    /** With nobody listening (the card mode) or no picture yet there is nothing to read; the clock wakes less often (audit of 26/10/2026). */
+    const val LOOK_IDLE_POLL_MS = 250L
+
+    fun lookPollMs(listening: Boolean, hasImage: Boolean): Long = if (listening && hasImage) LOOK_POLL_MS else LOOK_IDLE_POLL_MS
+
+    /**
+     * The black bands of [cover] as rectangles of the dash's frame in GL pixels (the origin at the bottom left), empty bands left out.
+     */
+    fun coverRects(cover: FrameFit.Cover): List<RectPx> = buildList {
+        val w = DashGlass.FRAME_W
+        val h = DashGlass.FRAME_H
+        if (cover.top > 0) add(RectPx(0, h - cover.top, w, cover.top))
+        if (cover.bottom > 0) add(RectPx(0, 0, w, cover.bottom))
+        if (cover.left > 0) add(RectPx(0, 0, cover.left, h))
+        if (cover.right > 0) add(RectPx(w - cover.right, 0, cover.right, h))
+    }
+
+    /**
      * A rectangle of the source picture in texture coordinates: `u = offsetU + s × scaleU`, `v = offsetV + t ×
      * scaleV`, for s and t running 0..1 across the drawn quad, left to right and BOTTOM to top.
      */

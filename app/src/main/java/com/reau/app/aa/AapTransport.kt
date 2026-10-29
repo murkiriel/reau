@@ -27,6 +27,8 @@ class AapTransport(
     private val context: Context,
     private val externalSsl: AapSslContext? = null,
     private val protocolMinor: Int = Messages.MINOR_DEFAULT,
+    /** How many times the version request may be sent; the last one waits out the whole budget. */
+    private val versionRequests: Int = AaConfig.VERSION_REQUESTS,
 ) {
     val ssl: AapSsl = externalSsl ?: AapSslContext(SingleKeyKeyManager(context))
 
@@ -36,7 +38,9 @@ class AapTransport(
 
     // Released when Android Auto answers REau's bye.
     private val byeAnswer = CountDownLatch(1)
-    private val startedSensors = HashSet<Int>(4)
+    private val quitLock = Any()
+    // Written by the read thread (Android Auto starts a sensor) and read by whoever reports the night mode.
+    private val startedSensors: MutableSet<Int> = java.util.concurrent.ConcurrentHashMap.newKeySet()
     private var connection: AccessoryConnection? = null
     private var aapRead: AapRead? = null
 
@@ -142,8 +146,9 @@ class AapTransport(
     }
 
     internal fun quit(clean: Boolean = false) {
-        val cb = onQuit ?: return
-        onQuit = null
+        // Taken in one step: the read thread, the bye's timeout and a stop from outside can all reach here at once, and a
+        // read-then-clear let two of them run the same callback and the same teardown.
+        val cb = synchronized(quitLock) { onQuit.also { onQuit = null } } ?: return
         AaLog.i("AapTransport quitting (clean=$clean)")
         ending = true
         cb.invoke(clean)
@@ -248,7 +253,7 @@ class AapTransport(
             var attempt = 0
             var received = false
             val versionDeadline = SystemClock.elapsedRealtime() + HANDSHAKE_TIMEOUT_MS
-            while (attempt < 3 && connection.isConnected) {
+            while (attempt < versionRequests && connection.isConnected) {
                 if (SystemClock.elapsedRealtime() >= versionDeadline) {
                     AaLog.e("Handshake: Version exchange timed out after $attempt attempt(s).")
                     return false
@@ -264,7 +269,7 @@ class AapTransport(
 
                 // The last request waits out the whole budget: a slow peer can answer after 6 s, and giving up
                 // there leaves its answers for the next attempt.
-                val recvDeadline = if (attempt < 3) SystemClock.elapsedRealtime() + 2000
+                val recvDeadline = if (attempt < versionRequests) SystemClock.elapsedRealtime() + 2000
                     else maxOf(versionDeadline, SystemClock.elapsedRealtime() + 2000)
                 while (SystemClock.elapsedRealtime() < recvDeadline) {
                     val remaining = (recvDeadline - SystemClock.elapsedRealtime()).toInt().coerceAtLeast(100)
@@ -280,7 +285,7 @@ class AapTransport(
                     AaLog.w("Handshake: Ignoring unexpected message (ch=$ch, type=0x${type.toString(16)}, len=$ret). Waiting for VERSION_RESPONSE.")
                 }
                 if (received) break
-                AaLog.w("Handshake: No VERSION_RESPONSE within ${if (attempt < 3) "2s" else "the handshake budget"} (attempt $attempt)")
+                AaLog.w("Handshake: No VERSION_RESPONSE within ${if (attempt < versionRequests) "2s" else "the handshake budget"} (attempt $attempt)")
                 SystemClock.sleep(200)
             }
 

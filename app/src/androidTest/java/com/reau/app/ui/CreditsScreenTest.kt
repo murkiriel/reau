@@ -9,6 +9,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.reau.app.R
 import com.reau.app.settings.Credits
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -40,8 +41,10 @@ class CreditsScreenTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         for (e in Credits.groups.flatMap { it.entries }) {
             val shownName = if (e.nameText != 0) context.getString(e.nameText) else e.name
+            // The public domain is told in the phone's language (the other licences are names that do not change).
+            val shownLicence = if (e.licence == Credits.PUBLIC_DOMAIN) context.getString(R.string.credit_licence_public_domain) else e.licence
             line(e.name).assertIsDisplayed().assertTextContains(shownName, substring = true)
-                .assertTextContains(e.licence, substring = true).assertTextContains(context.getString(e.role), substring = true)
+                .assertTextContains(shownLicence, substring = true).assertTextContains(context.getString(e.role), substring = true)
         }
         line("NorthStar").assertTextContains("© 2026 Aditya Dasika", substring = true)
     }

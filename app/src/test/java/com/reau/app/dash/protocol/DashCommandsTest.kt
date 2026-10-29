@@ -155,17 +155,6 @@ class DashCommandsTest {
     }
 
     @Test
-    fun `metadata 0030 matches the layout the dash accepts`() {
-        val pkt = DashCommands.metadata0030(weatherIcon = 0xA0)
-        val expected = ("0030000600000000020100054b31472000" + "060800" + "01a0" +
-            "054c000113052d00020000051b0001190521000132054d000132")
-        assertEquals(expected, pkt.joinToString("") { "%02x".format(it) })
-        val fields = heartbeatFields(pkt)
-        assertEquals(0xA0, fields[0x06 to 0x08])
-        assertEquals(((pkt[0].toInt() and 0xFF) shl 8) or (pkt[1].toInt() and 0xFF), pkt.size)
-    }
-
-    @Test
     fun `heartbeat with a status matching today's placeholder values reproduces the same bytes`() {
         // Confirms baselineStatus's own field values are read from HB_0049's real placeholder
         // bytes correctly (62%, not charging, GPS on, signal present, strength 5, 25C) -- not
@@ -449,7 +438,11 @@ class DashCommandsTest {
         )!!.let { String(it, Charsets.ISO_8859_1).trimEnd('\u0000') }
         assertEquals("20 characters stay whole", "12345678901234567890", named("12345678901234567890"))
         assertEquals("longer ones are cut to 19", "1234567890123456789", named("123456789012345678901"))
-        assertEquals("a character past Latin-1 is 0xFF", "A\u00FF", named("A\u4E2D"))
+        assertEquals("a character past Latin-1 is a question mark", "A?", named("A\u4E2D"))
+        assertEquals("ÿ is Latin-1 and stays", "A\u00FF", named("A\u00FF"))
+        assertEquals("decomposed accents are composed", "M\u00E3e", named("Ma\u0303e"))
+        assertEquals("an emoji is one mark, not two", "Ana ?", named("Ana \uD83D\uDE00"))
+        assertEquals("the cut never splits an emoji", "123456789012345678?", named("123456789012345678\uD83D\uDE00\uD83D\uDE00\uD83D\uDE00"))
     }
 
     /**
@@ -462,8 +455,6 @@ class DashCommandsTest {
         assertEquals(0x32, call(DashCommands.heartbeat()))
         assertEquals(0x0A, call(DashCommands.heartbeat(call = DashCommands.CallState.RINGING)))
         assertEquals(0x14, call(DashCommands.heartbeat(call = DashCommands.CallState.IN_CALL)))
-        assertEquals(0x32, call(DashCommands.metadata0030(3)))
-        assertEquals(0x0A, call(DashCommands.metadata0030(3, call = DashCommands.CallState.RINGING)))
         assertEquals(0x32, outgoingTlvs(DashCommands.heartbeat(call = DashCommands.CallState.RINGING))
             .single { it.type == 5 && it.sub == 0x4D }.value.single().toInt() and 0xFF)
     }
@@ -664,5 +655,12 @@ class DashCommandsTest {
         assertEquals(inBurst.size, query.size)
         assertArrayEquals(inBurst.copyOf().also { it[seq] = 0 }, query.copyOf().also { it[seq] = 0 })
         assertEquals("0A 02, 8 bytes: AA 55 and six zeros", listOf(0x0A, 0x02), listOf(query[17].toInt(), query[18].toInt()))
+    }
+
+    @Test
+    fun `the days of the time left stop at 99, the two digits the dash reads`() {
+        assertEquals("000099", DashCommands.remainingTime(99 * 86_400L).text)
+        assertEquals("000099", DashCommands.remainingTime(100 * 86_400L).text)
+        assertEquals("000099", DashCommands.remainingTime(400 * 86_400L).text)
     }
 }

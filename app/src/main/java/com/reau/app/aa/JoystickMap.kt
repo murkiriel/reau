@@ -22,6 +22,10 @@ sealed class AaCommand {
     data object EndCall : AaCommand()
     /** Not for Android Auto: the phone's call volume one [step] up (1) or down (-1), as the dash's own codes ask while a call goes on. */
     data class CallVolume(val step: Int) : AaCommand()
+    /** Not for Android Auto: the picture sent to the dash one [step] nearer (1) or farther (-1), the bottom edge kept ([com.reau.app.video.LiveZoom]). */
+    data class PanelZoom(val step: Int) : AaCommand()
+    /** Not for Android Auto: takes back the last [PanelZoom] step, if it changed the picture (a side that came with a press of the centre). */
+    data object PanelZoomUndo : AaCommand()
 }
 
 /**
@@ -30,7 +34,7 @@ sealed class AaCommand {
  * Which control: the dash tells its mode by the codes it sends. In its media mode the sides come as next and previous
  * track (0x09 right, 0x0A left), up and down as volume (0x06, 0x07) and the middle as play/pause (0x05); in its map
  * mode the sides come as zoom (0x13 right, 0x14 left: a capture on the bike and better-dash), the middle as
- * IN (0x18) and down as 0x15 (better-dash reads it so; still to be confirmed on the bike). 0x0B comes once as
+ * IN (0x18) and down as 0x15 (better-dash reads it so; confirmed on the bike on 28/10/2026). 0x0B comes once as
  * the dash connects and is no button: ignored. Back (0x12) is not on the page: back, and twice within
  * [DOUBLE_BACK_MS] home, as before.
  *
@@ -48,6 +52,7 @@ sealed class AaCommand {
  * was held back in use). [callState] is always idle unless the rider switched
  * answering on.
  */
+@Suppress("TooManyFunctions") // one small function per rule of the page; the call state read per tap is two more
 class JoystickMap(
     @Volatile var bindings: JoystickBindings = JoystickBindings.DEFAULT,
     private val assistant: Boolean = false,
@@ -64,9 +69,22 @@ class JoystickMap(
     private var lastCode = -1
     private var lastCodeMs = Long.MIN_VALUE / 2
     private var lastSideMs = Long.MIN_VALUE / 2
+    // The map mode's last side and what it sent, for the dash's press of the centre ([CenterUndo]).
+    private val centerUndo = CenterUndo()
+
+    // The call state read in this press: the state is a settings load, a permission check and a call to the phone service, and a press
+    // asked for it up to three times (audit of 26/10/2026); it cannot change between the first and the last in a tap.
+    private var pressCall: CallState? = null
+
+    private fun callNow(): CallState = pressCall ?: callState().also { pressCall = it }
+
+    /** The call state of the press just handled, for its log line; read now if the press never needed it. */
+    @Synchronized
+    fun callForLog(): CallState = pressCall ?: callState()
 
     @Synchronized
     fun press(event: DashButtonEvent, nowMs: Long): Press {
+        pressCall = null
         val place = whereOf(event)
         // The dash's bounce (the same code again within BOUNCE_MS; a 0x05 has come
         // twice about 20 ms apart) and two codes in one gesture (a centre or up within
@@ -75,7 +93,7 @@ class JoystickMap(
         lastCode = event.code
         lastCodeMs = nowMs
         val callScreen = callScreenSide(event)
-        return byCode(event, bounce) ?: when {
+        return byCode(event, bounce) ?: centerUndo.pressFor(place, nowMs) ?: when {
             event is DashButtonEvent.JoystickBack -> backPress(nowMs)
             callScreen != null -> {
                 if (callScreen != Control.CENTER) lastSideMs = nowMs
@@ -85,12 +103,9 @@ class JoystickMap(
             place.second in AFTER_SIDE && nowMs - lastSideMs < COMBO_MS -> Press(emptyList(), listOf("right after a side, ignored"))
             // While the phone rings the dash's middle comes as its media or map middle, not from its call screen (a
             // ride's play/pause there started or stopped the music under the call): it rejects, as the right does.
-            place.second == Control.CENTER && callState() == CallState.RINGING -> callScreenPress(Control.CENTER, nowMs)
+            place.second == Control.CENTER && callNow() == CallState.RINGING -> callScreenPress(Control.CENTER, nowMs)
                 ?: Press(emptyList(), listOf("not mapped -> nothing"))
-            else -> {
-                if (place.second == Control.LEFT || place.second == Control.RIGHT) lastSideMs = nowMs
-                callFirst(place.second, nowMs) ?: onPage(place.first, place.second)
-            }
+            else -> pressOfPage(place, nowMs)
         }
     }
 
@@ -100,7 +115,7 @@ class JoystickMap(
      */
     private fun callScreenSide(event: DashButtonEvent): Control? {
         val code = (event as? DashButtonEvent.Unknown)?.code ?: return null
-        val state = callState()
+        val state = callNow()
         return when {
             code == CALL_SCREEN_LEFT && state == CallState.RINGING -> Control.LEFT
             code == CALL_SCREEN_RIGHT && state != CallState.IDLE -> Control.RIGHT
@@ -120,11 +135,22 @@ class JoystickMap(
         }
     }
 
+    /** A press that is not the call's, through the page; a map mode side is remembered ([CenterUndo]). */
+    private fun pressOfPage(place: Pair<Mode, Control>, nowMs: Long): Press {
+        val side = place.second == Control.LEFT || place.second == Control.RIGHT
+        if (side) lastSideMs = nowMs
+        val press = callFirst(place.second, nowMs) ?: onPage(place.first, place.second)
+        if (side && place.first == Mode.MAP) centerUndo.remember(press.sent, nowMs)
+        return press
+    }
+
     /** A tap through the rider's page. */
     private fun onPage(mode: Mode, control: Control): Press {
         val slot = Slot(mode, control, Gesture.ONCE)
-        val command = bindings[slot].command(assistant)
-        val line = "${name(mode, control)} once -> ${command ?: Action.NOTHING.name.lowercase()}"
+        val action = bindings[slot]
+        val command = action.command(assistant)
+        // The info ring's switch sends nothing to Android Auto: the session shows or hides the ring by the code (DashSession.ringAfterPress).
+        val line = "${name(mode, control)} once -> ${command ?: if (action == Action.INFO_RING) "info ring" else Action.NOTHING.name.lowercase()}"
         return Press(listOfNotNull(command), listOf(line))
     }
 
@@ -134,7 +160,7 @@ class JoystickMap(
         return when {
             unknown?.code == DASH_NOTICE -> Press(emptyList(), listOf("the dash's notice, ignored"))
             bounce -> Press(emptyList(), listOf("bounce, ignored"))
-            unknown != null && unknown.code in CALL_VOLUME && callState() == CallState.IN_CALL -> callVolume(unknown.code)
+            unknown != null && unknown.code in CALL_VOLUME && callNow() == CallState.IN_CALL -> callVolume(unknown.code)
             else -> null
         }
     }
@@ -153,7 +179,7 @@ class JoystickMap(
     /** The calls, above the page: a [Press] when the tap was the call's, null when it goes through the page. */
     private fun callFirst(control: Control, nowMs: Long): Press? {
         val side = control.takeIf { it == Control.LEFT || it == Control.RIGHT } ?: return null
-        val state = callState()
+        val state = callNow()
         val call = callAction(state, side)
         val name = side.name.lowercase()
         return when {
@@ -185,6 +211,7 @@ class JoystickMap(
         const val CALL_QUIET_MS = 3_000L
         const val BOUNCE_MS = 60L
         const val COMBO_MS = 100L
+
 
         /** The controls a side can bring along in the same gesture. */
         private val AFTER_SIDE = setOf(Control.CENTER, Control.UP)
@@ -232,3 +259,34 @@ private fun callAction(state: CallState, side: Control): AaCommand? = when (stat
 
 /** A control as the ride log names it: `media right`. */
 private fun name(mode: Mode, control: Control) = "${mode.name.lowercase()} ${control.name.lowercase()}"
+
+/**
+ * The map mode's centre, which opens the dash's media mode by itself. The dash's own press of the centre brings a right 100 to 180 ms before
+ * its own code (6 of the 38 presses of the log of 22/10/2026), and that right zoomed the picture. So a centre right after a map side ([UNDO_MS])
+ * takes back that side's zoom step (a song skipped or a call answered cannot be taken back, and stays).
+ */
+internal class CenterUndo {
+    private var sideAtMs = Long.MIN_VALUE / 2
+    private var sideSent: List<AaCommand> = emptyList()
+
+    /** The map mode's side that was just pressed ([sent] is what it sent). */
+    fun remember(sent: List<AaCommand>, nowMs: Long) {
+        sideAtMs = nowMs
+        sideSent = sent
+    }
+
+    /** What the press of the map's centre at [nowMs] gives back, or null when it is no centre right after a side. */
+    fun pressFor(place: Pair<Mode, Control>?, nowMs: Long): JoystickMap.Press? {
+        if (place != Mode.MAP to Control.CENTER || nowMs - sideAtMs > UNDO_MS) return null
+        val undo = sideSent.filterIsInstance<AaCommand.PanelZoom>().map { AaCommand.PanelZoomUndo }
+        sideAtMs = Long.MIN_VALUE / 2
+        sideSent = emptyList()
+        val line = if (undo.isEmpty()) "map center right after a side: the side stays" else "map center right after a side: its zoom step is taken back"
+        return JoystickMap.Press(undo, listOf(line))
+    }
+
+    companion object {
+        /** How long after a map mode side a press of the centre still brings it back. */
+        const val UNDO_MS = 250L
+    }
+}

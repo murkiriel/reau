@@ -215,6 +215,7 @@ class ServerPolicyTest {
     fun `each outcome says something to the rider, and a touched start waits for the port`() {
         assertEquals(ServerResult.WORKING, ServerResult.of(ServerMenuRun.Outcome.TAPPED_START))
         assertEquals(ServerResult.STOPPED, ServerResult.of(ServerMenuRun.Outcome.TAPPED_STOP))
+        assertEquals("a server already answering is shown as started", ServerResult.STARTED, ServerResult.of(ServerMenuRun.Outcome.ALREADY_UP))
         assertEquals(ServerResult.DEVELOPER_MODE_OFF, ServerResult.of(ServerMenuRun.Outcome.DEVELOPER_MODE_OFF))
         assertEquals(ServerResult.INTERRUPTED, ServerResult.of(ServerMenuRun.Outcome.LOCKED))
         ServerMenuRun.Outcome.entries.forEach { assertTrue(it.name, ServerResult.of(it) != ServerResult.NONE) }
@@ -225,7 +226,7 @@ class ServerPolicyTest {
         val wait = PortWait()
         wait.walkBegun()
         assertFalse(wait.tapped(1_000))
-        assertEquals(30L, wait.answered(1_030))
+        assertEquals(PortWait.Answer(30L, late = false), wait.answered(1_030))
         assertFalse(wait.expired(1_000))
     }
 
@@ -245,7 +246,9 @@ class ServerPolicyTest {
         assertFalse(wait.tapped(1_000))
         assertTrue(wait.expired(1_000))
         assertFalse(wait.expired(1_000))
-        assertNull(wait.answered(7_000))
+        // Once the wait ran out the answer is still news: late, counted from the touched start, and only once.
+        assertEquals(PortWait.Answer(6_000L, late = true), wait.answered(7_000))
+        assertNull(wait.answered(8_000))
     }
 
     @Test
@@ -292,5 +295,115 @@ class ServerPolicyTest {
         assertFalse(ServerNotification.isServerStop(server.copy(creator = "com.other"), texts))
         assertFalse(ServerNotification.isServerStop(server.copy(isService = false), texts))
         assertFalse(ServerNotification.isServerStop(server.copy(actionTitle = "Conectar", text = "Conectado ao carro"), texts))
+    }
+
+    // ── the second walk when the port stays closed after "start" ─────────────────────────────────────
+
+    @Test
+    fun `a closed port after the start gives a visit and then one more walk, once each per projection`() {
+        assertEquals(Act.START, policy.state(AaLinkState.SERVER_OFF))
+        assertEquals("a visit first: it brought the server up in 5 of 7 cases", Act.VISIT, policy.portNotUp())
+        assertEquals("then the one more walk", Act.START_AGAIN, policy.portNotUp())
+        assertEquals("only once each", Act.NOTHING, policy.portNotUp())
+        assertEquals("the link saying closed again does not start by itself again", Act.NOTHING, policy.state(AaLinkState.SERVER_OFF))
+        policy.started()
+        assertEquals(Act.START, policy.state(AaLinkState.SERVER_OFF))
+        assertEquals("a new projection has its own visit", Act.VISIT, policy.portNotUp())
+        assertEquals(Act.START_AGAIN, policy.portNotUp())
+    }
+
+    @Test
+    fun `a visit that brought the port up leaves no walk to make`() {
+        policy.state(AaLinkState.SERVER_OFF)
+        assertEquals(Act.VISIT, policy.portNotUp())
+        assertEquals(Act.ANSWERED, policy.state(AaLinkState.CONNECTING))
+        assertEquals("the port answered during the visit", Act.NOTHING, policy.portNotUp())
+    }
+
+    @Test
+    fun `no second walk for an old projection, an answered link, or a projection that ended`() {
+        val first = policy.started()
+        policy.state(AaLinkState.SERVER_OFF, first)
+        policy.started()
+        assertEquals("the first projection is not the newest", Act.NOTHING, policy.portNotUp(first))
+
+        val answered = ServerPolicy().apply { started() }
+        answered.state(AaLinkState.SERVER_OFF)
+        assertEquals(Act.ANSWERED, answered.state(AaLinkState.CONNECTING))
+        assertEquals("the port answered meanwhile", Act.NOTHING, answered.portNotUp())
+
+        val active = ServerPolicy().apply { started() }
+        active.state(AaLinkState.SERVER_OFF)
+        active.state(AaLinkState.ACTIVE)
+        assertEquals("a session is up", Act.NOTHING, active.portNotUp())
+
+        val ended = ServerPolicy().apply { started() }
+        ended.state(AaLinkState.SERVER_OFF)
+        ended.stopped()
+        assertEquals("the projection ended", Act.NOTHING, ended.portNotUp())
+
+        assertEquals("the port was never seen closed", Act.NOTHING, ServerPolicy().apply { started() }.portNotUp())
+    }
+
+    @Test
+    fun `the second walk does not touch the retry for a service that connected late or the restart of a mute server`() {
+        assertEquals(Act.START, policy.state(AaLinkState.SERVER_OFF))
+        assertEquals(Act.VISIT, policy.portNotUp())
+        assertTrue(policy.retryOnServiceConnected(ServerResult.SERVICE_OFF))
+        assertEquals(Act.RESTART, policy.state(AaLinkState.UNRESPONSIVE))
+        assertEquals("the restart is still once", Act.NOTHING, policy.state(AaLinkState.UNRESPONSIVE))
+    }
+
+    @Test
+    fun `a walk ended because Android Auto stopped answering is told so, not as an interruption`() {
+        assertEquals(ServerResult.AA_GONE, ServerResult.of(ServerMenuRun.Outcome.AA_GONE))
+        assertEquals(ServerResult.INTERRUPTED, ServerResult.of(ServerMenuRun.Outcome.CANCELLED))
+    }
+
+    // ── a server that was answering before the walk began (the link's word, not only the wait's) ───────
+
+    @Test
+    fun `the server is answering now once the link was active, not before and not while it is closed or mute`() {
+        assertFalse("nothing said yet", policy.answeringNow())
+        policy.state(AaLinkState.CONNECTING)
+        assertFalse("a dial that goes through proves nothing before the link is active", policy.answeringNow())
+        policy.state(AaLinkState.ACTIVE)
+        assertTrue(policy.answeringNow())
+        policy.state(AaLinkState.SERVER_OFF)
+        assertFalse("the port closed", policy.answeringNow())
+        policy.state(AaLinkState.CONNECTING) // it came back: ANSWERED
+        assertTrue(policy.answeringNow())
+        policy.state(AaLinkState.UNRESPONSIVE)
+        assertFalse("accepts and stays mute: that one is restarted, not left alone", policy.answeringNow())
+        policy.state(AaLinkState.ACTIVE)
+        assertTrue("and it answers again", policy.answeringNow())
+    }
+
+    @Test
+    fun `the server still closing the previous session counts as answering, so a restart does not fall on it`() {
+        policy.state(AaLinkState.CLOSING_PREVIOUS)
+        assertTrue(policy.answeringNow())
+    }
+
+    @Test
+    fun `the end of the projection, and a new one, forget it`() {
+        policy.state(AaLinkState.ACTIVE)
+        assertTrue(policy.answeringNow())
+        policy.stopped()
+        assertFalse(policy.answeringNow())
+        policy.started()
+        assertFalse("a new projection starts from nothing", policy.answeringNow())
+    }
+
+    @Test
+    fun `a walk that begins with the server already answering hears it in the wait, and the start touched is answered at once`() {
+        val wait = PortWait()
+        wait.walkBegun()
+        assertFalse(wait.up)
+        wait.answeringAlready()
+        assertTrue(wait.up)
+        assertTrue("the wait has nothing left to wait for", wait.tapped(nowMs = 5_000))
+        wait.walkBegun()
+        assertFalse("the next walk starts from nothing", wait.up)
     }
 }

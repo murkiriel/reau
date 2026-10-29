@@ -150,6 +150,18 @@ class VideoRecordingTest {
     }
 
     @Test
+    fun aRollingRecordingGoesOnInPartsAfterTheLimit() {
+        val l = newLoop(VideoLoop.Settings(startFps = 16, ceilingFps = 16, recordFrames = 4, recordDir = dir, recordRolling = true))
+        assertTrue(l.start())
+        awaitThat("three parts of 4 units") { recordings().size >= 3 && framesSent() > 12 }
+        l.stop()
+
+        val names = recordings().map { it.nameWithoutExtension }.sorted()
+        assertTrue("the parts follow the first by name, got $names", names.drop(1).all { Regex("_p0\\d$").containsMatchIn(it) })
+        assertTrue("a part before the last holds its 4 units", File(dir, names.first() + ".csv").readLines().size == 5)
+    }
+
+    @Test
     fun everyStreamGetsItsOwnRecording() {
         val l = newLoop(VideoLoop.Settings(startFps = 16, ceilingFps = 16, recordFrames = 2, recordDir = dir))
         assertTrue(l.start())

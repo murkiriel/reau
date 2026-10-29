@@ -5,7 +5,7 @@ import java.io.File
 
 /**
  * The rider's "Apagar registros": everything the logs wrote goes (the diag folder,
- * the zip last shared and, if asked, the debug recordings), but the two marks of what was already reported. They hold
+ * the zip last shared and, if asked, the recordings), but the two marks of what was already reported. They hold
  * no ride, only how far the crashes and the exits were told; without them, the next start would tell the old ones
  * again into the new log.
  */
@@ -56,6 +56,6 @@ object LogsCleanup {
         return cleared
     }
 
-    /** The recordings of Ajustes → Depuração, under the app's external files (as DiagnosticsExport shares them). */
+    /** The recordings of Ajustes → Depuração, under the app's internal files (as DiagnosticsExport shares them). */
     private val RECORDINGS = listOf("video", "sessions")
 }

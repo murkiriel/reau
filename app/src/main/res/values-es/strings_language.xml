@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="group_language">Idioma</string>
+    <string name="language_title">Idioma de la app</string>
+    <string name="language_sub">El del teléfono, o uno de los tres que tiene la app</string>
+    <string name="language_auto">Auto</string>
+</resources>

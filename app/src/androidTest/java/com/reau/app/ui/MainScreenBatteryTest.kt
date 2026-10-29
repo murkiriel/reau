@@ -65,4 +65,13 @@ class MainScreenBatteryTest {
             .assertTextContains("VPN", substring = true)
             .assertTextContains("dividir túnel", substring = true)
     }
+
+    /** The system's Location switch off, with the permission given: the phone returns no Wi-Fi scan, and the card says so. */
+    @Test
+    fun locationSwitchedOffIsSaidWithWhatToDo() {
+        compose.setContent { MainScreen(MainUiState(Projection(), locationOff = true), {}, {}, {}) }
+        compose.onNodeWithTag("location_warning").performScrollTo().assertIsDisplayed()
+            .assertTextContains("Localização", substring = true)
+            .assertTextContains("configurações rápidas", substring = true)
+    }
 }

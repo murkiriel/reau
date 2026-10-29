@@ -103,6 +103,27 @@ class AppPermissionsAskTest {
         assertEquals(0, AppPermissions.missing(listOf(row("android.permission.POST_NOTIFICATIONS")), 32, false))
     }
 
+    /**
+     * The location, calls and Gemini switches are on by default (28/10/2026), so on a new install the permissions of all three are
+     * "missing" on the page and asked together by its button (never by themselves); each one is picked up as soon as it is granted.
+     */
+    @Test
+    fun `a new install counts the location, phone and microphone permissions as missing, and a granted one stops counting`() {
+        val s = REauSettings()
+        val functions = AppPermissions.functionsOf(s)
+        val location = listOf(row("android.permission.ACCESS_FINE_LOCATION"), row("android.permission.ACCESS_COARSE_LOCATION"))
+        assertEquals(5, AppPermissions.missing(all + location, sdk, s.useLocation, functions))
+        assertEquals(
+            setOf(
+                "android.permission.ANSWER_PHONE_CALLS", "android.permission.READ_PHONE_STATE", "android.permission.RECORD_AUDIO",
+                "android.permission.ACCESS_FINE_LOCATION", "android.permission.ACCESS_COARSE_LOCATION",
+            ),
+            AppPermissions.askAll(all + location, sdk, s.useLocation, functions).toSet(),
+        )
+        val grantedLater = listOf(row("android.permission.ACCESS_FINE_LOCATION", true), row("android.permission.ACCESS_COARSE_LOCATION", true))
+        assertEquals(3, AppPermissions.missing(all + grantedLater, sdk, s.useLocation, functions))
+    }
+
     @Test
     fun `the functions come from the settings`() {
         val settings = REauSettings(answerCalls = false, gemini = true)

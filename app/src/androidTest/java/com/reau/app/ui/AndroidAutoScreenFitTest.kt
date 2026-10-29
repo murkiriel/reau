@@ -62,12 +62,12 @@ class AndroidAutoScreenFitTest {
 
     @Test
     fun theFitIsChosenAndTheRectanglesItGivesAreShown() {
-        compose.onNodeWithTag("fit_FILL_DOME").performScrollTo().assertIsSelected()
+        compose.onNodeWithTag("fit_WHOLE_VISIBLE").performScrollTo().assertIsSelected()
         text("rects", "Do Android Auto: ${rect(PlanSettings.PLAN.mapping.source)} → no painel: ${rect(PlanSettings.PLAN.mapping.dest)}")
         compose.onNodeWithTag("crop_value").assertDoesNotExist()
 
-        tap("fit_WHOLE_VISIBLE")
-        assertEquals(Fit.WHOLE_VISIBLE, settings.fit)
+        tap("fit_CROP")
+        assertEquals(Fit.CROP, settings.fit)
         text("rects", "Do Android Auto: ${rect(settings.mapping.source)} → no painel: ${rect(settings.mapping.dest)}")
     }
 
@@ -144,57 +144,49 @@ class AndroidAutoScreenFitTest {
     fun theMaskSwitchIsThereWithTheFit() {
         // The redesign: the mask's chip sits in the fixed top bar.
         compose.onNodeWithTag("aa_screen_mask_switch").assertIsDisplayed()
-        compose.onNodeWithTag("fit_FILL_DOME").performScrollTo().assertIsDisplayed()
-    }
-
-    // ── the app menu's own fit ──────────────────────────────────────────────────────────────────────────────────
-
-    @Test
-    fun theMenuTabStartsWithTheAppsFitAndItsOwnIsSwitchedOn() {
-        tap("fit_tab_menu")
-        compose.onNodeWithTag("menu_fit_same").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("fit_WHOLE_VISIBLE").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("fit_FILL_DOME").assertDoesNotExist()
-        tap("menu_fit_own")
-        assertEquals("the menu's own default, not a copy of the apps' fit", REauSettings.DEFAULT_MENU_FIT, settings.menuFit)
-        compose.onNodeWithTag("fit_FILL_DOME").performScrollTo().assertIsDisplayed()
+    }
+
+    // ── the navigation apps' own fit (Waze and Google Maps share it) ──────────────────────────────────────────
+
+    @Test
+    fun theNavigationTabHasItsOwnFitAtOnceAndNoSwitchForIt() {
+        tap("fit_tab_nav")
+        compose.onNodeWithTag("fit_WHOLE_VISIBLE").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("nav_fit_own").assertDoesNotExist()
+        compose.onNodeWithTag("nav_fit_same").assertDoesNotExist()
     }
 
     @Test
-    fun onTheMenuTabTheStepsChangeTheMenusFitOnly() {
-        tap("fit_tab_menu")
-        tap("menu_fit_own")
+    fun onTheNavigationTabTheStepsChangeItsFitOnlyAndTheResetIsItsOwn() {
         val apps = settings.appsFit
-        val before = settings.menuFit!!
-        tap("fit_CROP")
-        tap("crop_center_x_plus")
-        assertEquals(Fit.CROP, settings.menuFit?.fit)
-        assertEquals("one step to the right of where its own fit was", before.cropX!! + 1, settings.menuFit?.cropX)
+        tap("fit_tab_nav")
+        tap("crop_minus10")
+        assertEquals(REauSettings.DEFAULT_NAV_FIT.cropPercent - 10, settings.navFit.cropPercent)
         assertEquals("the apps' fit stays", apps, settings.appsFit)
-        text("rects", "Do Android Auto: ${rect(settings.menuMapping.source)} → no painel: ${rect(settings.menuMapping.dest)}")
-        tap("fit_tab_apps")
-        tap("move_x_plus")
-        assertEquals(1, settings.moveX)
-        assertEquals("the menu's stays", before.moveX, settings.menuFit?.moveX)
+        tap("fit_reset")
+        assertEquals("the reset of a tab is that tab's only", REauSettings.DEFAULT_NAV_FIT, settings.navFit)
+        assertEquals(apps, settings.appsFit)
+    }
+
+    // ── the zoom and the black bands have no counters any more ───────────────────────────────────────────────
+
+    @Test
+    fun thereAreNoCountersForTheZoomNorForTheBands() {
+        for (tab in listOf("fit_tab_apps", "fit_tab_nav")) {
+            tap(tab)
+            for (tag in listOf("zoom_value", "cover_top_value", "cover_bottom_value", "cover_left_value", "cover_right_value")) {
+                compose.onNodeWithTag(tag).assertDoesNotExist()
+            }
+        }
     }
 
     @Test
-    fun switchingTheMenusOwnFitOffGoesBackToTheApps() {
-        tap("fit_tab_menu")
-        tap("menu_fit_own")
-        tap("menu_fit_own")
-        assertEquals(null, settings.menuFit)
-    }
-
-    /** A stray tap on the switch and back must not change the menu's fit, whatever the apps' fit is by then. */
-    @Test
-    fun switchingTheMenusOwnFitOffAndOnGivesBackTheOneItHad() {
-        tap("fit_tab_menu")
-        tap("menu_fit_own")
-        tap("crop_center_x_plus")
-        val own = settings.menuFit!!
-        tap("menu_fit_own")
-        tap("menu_fit_own")
-        assertEquals(own, settings.menuFit)
+    fun theResetOfATabTakesItsZoomAndBandsBackToo() {
+        settings = settings.copy(zoom = 120, cover = com.reau.app.video.FrameFit.Cover(right = 10))
+        tap("fit_reset")
+        assertEquals(100 to com.reau.app.video.FrameFit.Cover.NONE, settings.zoom to settings.cover)
     }
 
     // ── the density with the fit, one for the menu and the apps (moved from SettingsScreenTest) ──
@@ -215,9 +207,8 @@ class AndroidAutoScreenFitTest {
     }
 
     @Test
-    fun theDensityIsOneForTheMenuAndTheApps() {
-        tap("fit_tab_menu")
-        tap("menu_fit_own")
+    fun theDensityIsOneForTheNavigationAndTheOthers() {
+        tap("fit_tab_nav")
         tap("density_plus10")
         assertEquals(170, settings.density)
         tap("fit_tab_apps")
@@ -250,22 +241,5 @@ class AndroidAutoScreenFitTest {
     fun thereIsNoLineUnderTheTabsSayingWhichOpenedByItself() {
         compose.onNodeWithTag("fit_tab_apps").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("fit_tab_hint").assertDoesNotExist()
-    }
-
-    // ── on the same screen as Android Auto's picture: the margins asked of Android
-    // Auto, by one and by ten (they were in the settings, by ten), never below zero ──────────────────────────────────
-
-    @Test
-    fun theMarginsGoUpAndDownByOneAndByTenAndNeverBelowZero() {
-        text("margin_w_value", "0 px")
-        tap("margin_w_plus10")
-        tap("margin_w_plus10")
-        tap("margin_w_plus")
-        tap("margin_h_plus10")
-        assertEquals(21 to 10, settings.marginW to settings.marginH)
-        text("margin_w_value", "21 px")
-        tap("margin_h_minus10")
-        tap("margin_h_minus")
-        assertEquals("never below zero", 0, settings.marginH)
     }
 }

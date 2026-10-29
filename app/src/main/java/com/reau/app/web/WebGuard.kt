@@ -1,5 +1,6 @@
 package com.reau.app.web
 
+import com.reau.app.util.MonotonicClock
 import java.security.MessageDigest
 import java.security.SecureRandom
 
@@ -12,7 +13,7 @@ import java.security.SecureRandom
  */
 class WebGuard(
     private val limits: Limits = Limits(),
-    private val clock: () -> Long = System::currentTimeMillis,
+    private val clock: () -> Long = MonotonicClock::nowMs,
     private val draw: () -> Int = systemDraw,
     private val onRotated: (String) -> Unit = {},
 ) {
@@ -36,6 +37,7 @@ class WebGuard(
     fun check(address: String, given: String?): Verdict {
         var changedTo: String? = null
         val verdict = synchronized(lock) {
+            prune()
             when {
                 isHeld(address) -> Verdict.LOCKED
                 matches(given) -> Verdict.OK.also { failures.remove(address) }
@@ -45,6 +47,25 @@ class WebGuard(
         changedTo?.let(onRotated)
         return verdict
     }
+
+    /**
+     * The tables by address only grew: a lock that ended was forgotten only when that address came back, and the count of wrong
+     * tries of one that never returned stayed for ever. Locks that ended go at every check; and past [MAX_TRACKED] addresses the
+     * counts are dropped (the total of wrong tries still changes the PIN, so nobody gains from the reset) and the locks kept are
+     * the latest to end.
+     */
+    private fun prune() {
+        val now = clock()
+        lockedUntil.values.removeAll { it <= now }
+        if (failures.size > MAX_TRACKED) failures.clear()
+        if (lockedUntil.size > MAX_TRACKED) {
+            val keep = lockedUntil.entries.sortedByDescending { it.value }.take(MAX_TRACKED).map { it.key }.toSet()
+            lockedUntil.keys.retainAll(keep)
+        }
+    }
+
+    /** Test-only: how many addresses have a count of wrong tries and how many a lock. */
+    internal fun testOnlyTracked(): Pair<Int, Int> = synchronized(lock) { failures.size to lockedUntil.size }
 
     /** Whether [address] cannot try now: the whole guard is held after a change, or the address is locked (a lock that ended is forgotten). */
     private fun isHeld(address: String): Boolean {
@@ -85,6 +106,7 @@ class WebGuard(
     }
 
     companion object {
+        private const val MAX_TRACKED = 256
         private const val DIGITS = 4
         private const val PINS = 10_000
         private val random = SecureRandom()
@@ -93,6 +115,6 @@ class WebGuard(
         val systemDraw: () -> Int = { random.nextInt(PINS) }
 
         /** [number] (0 to 9999) as four digits, with the zeros in front. */
-        fun format(number: Int): String = "%04d".format(number)
+        fun format(number: Int): String = "%04d".format(java.util.Locale.US, number)
     }
 }

@@ -37,7 +37,6 @@ class DashStatsSentKeyTest {
         add(DashCommands.exitProjectionIdle())
         add(DashCommands.exitSessionBoundary())
         add(DashCommands.heartbeat())
-        add(DashCommands.metadata0030(3))
         add(DashCommands.routeCard("Casa"))
         add(DashCommands.routeCard("Casa", projectionOn = true, maneuver = 2, primaryUnit = 1, totalDist = 12, totalUnit = 2, etaHHMM = "1845"))
         add(DashCommands.standbyRouteCard("REau", projectionOn = false))

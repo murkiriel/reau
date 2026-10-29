@@ -230,13 +230,25 @@ internal class AapControlService(private val aapTransport: AapTransport, private
                 AaLog.i("RX: Channel Close Notification on chan ${message.channel}")
                 return 0
             }
+            // The phone's battery is low (Android Auto says so at 15 % and 5 %): news, not an error.
+            Control.ControlMsgType.MESSAGE_BATTERY_STATUS_NOTIFICATION_VALUE -> {
+                val status = message.parse(Control.BatteryStatusNotification.newBuilder()).build()
+                AaLog.i(
+                    AaBatteryNotice.line(
+                        status.batteryLevel.takeIf { status.hasBatteryLevel() },
+                        status.timeRemainingS.takeIf { status.hasTimeRemainingS() },
+                        status.criticalBattery.takeIf { status.hasCriticalBattery() },
+                    ),
+                )
+                return 0
+            }
             else -> AaLog.e("Unsupported Control message type: ${message.type}")
         }
         return 0
     }
 
     private fun serviceDiscoveryRequest(request: Control.ServiceDiscoveryRequest): Int {
-        AaLog.i("Service Discovery Request: %s", request.phoneName)
+        AaLog.i(DiscoveryLog.line(request.phoneName))
         aapTransport.send(ServiceDiscoveryResponse(config))
         return 0
     }

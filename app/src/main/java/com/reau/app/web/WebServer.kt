@@ -30,6 +30,14 @@ class WebServer(private val settings: Settings, private val events: Events) {
         val headTimeoutMs: Int = 5_000,
         /** Whether a client is the phone itself: it is sent no sound ([LocalNetwork.isThePhone]). */
         val thePhone: (InetAddress) -> Boolean = LocalNetwork::isThePhone,
+        /** A viewer is sent a WebSocket ping this often; a browser answers on its own. */
+        val pingMs: Long = 10_000L,
+        /**
+         * A viewer that has sent nothing (not even the answer to a ping) for this long is let go: a browser that vanished
+         * without closing the connection (the phone left the Wi-Fi) held one of the places until a video write failed, which
+         * could take minutes. Longer than two pings, so one lost answer does not end a healthy viewer.
+         */
+        val idleMs: Int = 25_000,
     )
 
     interface Events {
@@ -115,7 +123,12 @@ class WebServer(private val settings: Settings, private val events: Events) {
         Thread({ serve(socket, mine) }, "web-connection").apply { isDaemon = true }.start()
     }
 
-    /** One connection, from its first byte to its close. A WebSocket stays inside [route] until the viewer leaves. */
+    /**
+     * One connection, from its first byte to its close. A WebSocket stays inside [route] until the viewer leaves.
+     * A failure of the page's own hooks (the encoder, the compositor, a touch) ends this connection only: the web page is an
+     * optional feature and must not take the app down with it.
+     */
+    @Suppress("TooGenericExceptionCaught") // whatever a hook throws is logged by its class and ends this connection
     private fun serve(socket: Socket, mine: AtomicInteger) {
         val input = BufferedInputStream(socket.getInputStream())
         try {
@@ -126,6 +139,8 @@ class WebServer(private val settings: Settings, private val events: Events) {
             }
         } catch (_: IOException) {
             // the peer went, or stalled past the head's time: nothing to answer
+        } catch (e: RuntimeException) {
+            events.log("web: a connection ended on ${e.javaClass.simpleName}")
         } finally {
             HttpResponses.closeAfterAnswer(socket, input)
             handlers.decrementAndGet()
@@ -149,13 +164,17 @@ class WebServer(private val settings: Settings, private val events: Events) {
         val out = socket.getOutputStream()
         val verdict = settings.guard.verdictOf(socket, request, events::log)
         val key = upgradeKey(request)
-        val viewer = if (verdict == WebGuard.Verdict.OK && key != null) viewers.reserve(socket, soundOff = settings.isOnThePhone(socket)) else null
+        val viewer = if (verdict == WebGuard.Verdict.OK && key != null) {
+            viewers.reserve(socket, soundOff = settings.isOnThePhone(socket), pingMs = settings.pingMs)
+        } else {
+            null
+        }
         if (key == null || viewer == null) {
             return HttpResponses.empty(out, if (verdict != WebGuard.Verdict.OK) verdict.status else if (key == null) 400 else 503)
         }
         try {
             HttpResponses.upgrade(out, WebSocketCodec.acceptKey(key))
-            socket.soTimeout = 0
+            socket.soTimeout = settings.idleMs
             viewer.startWriter()
             events.onJoin(viewer)
             viewers.join(viewer)
@@ -178,7 +197,7 @@ class WebServer(private val settings: Settings, private val events: Events) {
  * said to [log] (the fact only: never the PIN tried, the PIN, or an address).
  */
 private fun WebGuard.verdictOf(socket: Socket, request: HttpRequest, log: (String) -> Unit): WebGuard.Verdict =
-    check(socket.inetAddress?.hostAddress.orEmpty(), request.query["k"]).also {
+    check(socket.inetAddress?.let(LocalNetwork::clientKey).orEmpty(), request.query["k"]).also {
         when (it) {
             WebGuard.Verdict.WRONG -> log("web: wrong pin")
             WebGuard.Verdict.LOCKED -> log("web: address held for too many wrong pins")
@@ -191,12 +210,14 @@ private fun WebServer.Settings.isOnThePhone(socket: Socket): Boolean = socket.in
 
 /**
  * Whether the request is from this server's own page (or from no browser at all): a browser says where the page came from in
- * `Origin`, and it must be this very address, port included. A request with no `Origin` is not a page of some other site.
+ * `Origin`, and it must be this very address, port included, and the address must be a local one written as a number (or
+ * `localhost`): a page from a name of the internet that a DNS answer points at the phone (DNS rebinding) sends the same name in
+ * `Host` and `Origin`, so equal is not enough. A request with no `Origin` is not a page of some other site.
  */
 private fun sameSite(request: HttpRequest): Boolean {
     val origin = request.headers["origin"] ?: return true
     val host = request.headers["host"] ?: return false
-    return origin.equals("http://$host", ignoreCase = true)
+    return origin.equals("http://$host", ignoreCase = true) && LocalNetwork.isLocalHost(host)
 }
 
 /** The key of a well formed WebSocket upgrade, or null. */

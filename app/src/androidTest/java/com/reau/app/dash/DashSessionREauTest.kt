@@ -75,23 +75,6 @@ class DashSessionREauTest {
         assertEquals(setOf("REau"), titles.toSet())
     }
 
-    /** The app Android Auto shows goes in the card repeated every second, from the next one. */
-    @Test
-    fun aBlankRouteCardTitleFallsBackToREau() {
-        val (s, fake) = connected()
-        val before = fake.receivedSinceHandshake().count { it.type == 0x05 && it.sub == 0x01 }
-
-        // Each call sends its card from a coroutine that reads the title when it runs: give the first one time
-        // to leave before changing the title again.
-        s.updateRouteCard("Casa")
-        runBlocking { delay(400) }
-        s.updateRouteCard("   ")
-        runBlocking { delay(400) }
-
-        val titles = fake.receivedSinceHandshake().filter { it.type == 0x05 && it.sub == 0x01 }.drop(before).map { it.text() }
-        assertEquals(listOf("Casa", "REau"), titles)
-    }
-
     /**
      * The zoom state with both icons (06 0C = 30), so the dash's ZOOM shows "-" and "+", goes once the nav mode opens,
      * after the start of navigation, and again after each zoom or recentre press' echo; other presses get the echo
@@ -118,6 +101,8 @@ class DashSessionREauTest {
     @Test
     fun theProjectionKeepAliveRepeatsAtAboutFourHertzWhileStreaming() {
         val (s, fake) = connected()
+        // No video here: the dash talks, as a real one does, so the 4 s watchdog keeps the session.
+        scope.launch { while (isActive) { fake.ackPFrame(); delay(500) } }
         fun projectionFrames() = fake.receivedSinceHandshake().count {
             it.type == 0x05 && it.sub == 0x56 && it.value.firstOrNull() == 0x55.toByte()
         }
@@ -140,6 +125,8 @@ class DashSessionREauTest {
     @Test
     fun withNoRouteTheCardEverySecondCarriesTheArrivalPinUnlessTheRiderHidesIt() {
         val (s, fake) = connected()
+        // No video here: the dash talks, as a real one does, so the 4 s watchdog keeps the session.
+        scope.launch { while (isActive) { fake.ackPFrame(); delay(500) } }
         fun glyphs() = fake.receivedSinceHandshake().filter { it.type == 0x05 && it.sub == 0x02 }.map { it.value.single().toInt() and 0xFF }
         s.startStreaming()
         runBlocking { delay(2_500) }
@@ -150,6 +137,33 @@ class DashSessionREauTest {
         runBlocking { delay(2_500) }
         val after = glyphs().drop(before)
         assertTrue("glyphs after hiding: $after", after.isNotEmpty() && after.last() == 0xFF)
+    }
+
+    /**
+     * With the rider's ring switch off, the ring still shows in the dash's map mode (a press of it shows it at once) and hides in the
+     * media mode (a press of it, or the map's middle, hides it).
+     */
+    @Test
+    fun withTheRingSwitchOffAMapPressShowsItAndAMediaPressHidesIt() {
+        val (s, fake) = connected()
+        scope.launch { while (isActive) { fake.ackPFrame(); delay(500) } }
+        fun lastGlyph() = fake.received.filter { it.type == 0x05 && it.sub == 0x02 }.map { it.value.single().toInt() and 0xFF }.last()
+        s.maneuverCircleEnabled = false
+        s.startStreaming()
+        runBlocking { delay(2_500) }
+        assertEquals("hidden until a press", 0xFF, lastGlyph())
+        fake.pressButton(0x13) // the map mode's right
+        runBlocking { delay(600) }
+        assertEquals("shown at once by a map mode press", 0x3C, lastGlyph())
+        fake.pressButton(0x18) // the map's middle: the media mode
+        runBlocking { delay(600) }
+        assertEquals("hidden by the middle", 0xFF, lastGlyph())
+        fake.pressButton(0x14)
+        runBlocking { delay(600) }
+        assertEquals(0x3C, lastGlyph())
+        fake.pressButton(0x05) // play/pause: the media mode
+        runBlocking { delay(600) }
+        assertEquals("hidden by a media mode press", 0xFF, lastGlyph())
     }
 
     /**

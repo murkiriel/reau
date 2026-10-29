@@ -161,4 +161,53 @@ class NalProcessorTest {
         assertEquals(2, received.size)
         assertArrayEquals(sps + startCode4 + pps + startCode4 + idr2, received[1])
     }
+
+    // ── the SPS the dash accepts: Baseline, no constraint flags, level 4.1 (audit of 20/10/2026, bug 7) ─────────────
+
+    private fun sps(profile: Int, constraint: Int, level: Int) = byteArrayOf(0x67, profile.toByte(), constraint.toByte(), level.toByte(), 0x11, 0x22)
+
+    @Test
+    fun `the SPS shape the dash accepts is left as it is`() {
+        val ok = sps(0x42, 0x00, 0x29)
+        assertArrayEquals(ok, NalProcessor.spsForDash(ok))
+    }
+
+    @Test
+    fun `a Baseline SPS with other constraint flags gets the constraint byte cleared`() {
+        assertArrayEquals(sps(0x42, 0x00, 0x29), NalProcessor.spsForDash(sps(0x42, 0xC0, 0x29)))
+    }
+
+    @Test
+    fun `an encoder that picked a lower level has it raised to 4_1, which any lower-level stream also fits`() {
+        for (level in listOf(0x1E, 0x1F, 0x28, 0x0B)) {
+            assertArrayEquals("level 0x%02X".format(level), sps(0x42, 0x00, 0x29), NalProcessor.spsForDash(sps(0x42, 0x80, level)))
+        }
+    }
+
+    @Test
+    fun `a level above 4_1 and a profile other than Baseline are left as they came`() {
+        val level42 = sps(0x42, 0xC0, 0x2A)
+        assertArrayEquals(level42, NalProcessor.spsForDash(level42))
+        val main = sps(0x4D, 0x40, 0x1F)
+        assertArrayEquals(main, NalProcessor.spsForDash(main))
+        val high = sps(0x64, 0x00, 0x29)
+        assertArrayEquals(high, NalProcessor.spsForDash(high))
+    }
+
+    @Test
+    fun `something that is not an SPS, or is too short, is left alone`() {
+        val pps = byteArrayOf(0x68, 0x42, 0xC0.toByte(), 0x1F)
+        assertArrayEquals(pps, NalProcessor.spsForDash(pps))
+        val short = byteArrayOf(0x67, 0x42)
+        assertArrayEquals(short, NalProcessor.spsForDash(short))
+    }
+
+    @Test
+    fun `an IDR is bundled with the corrected SPS whatever level the encoder chose`() {
+        val received = mutableListOf<ByteArray>()
+        val processor = NalProcessor { nal, _ -> received.add(nal) }
+        processor.process(annexB(sps(0x42, 0x80, 0x1F), nal(8, 0xCE), nal(5, 0x88)))
+        val bundle = received.single()
+        assertArrayEquals("the SPS inside the bundle is the corrected one", sps(0x42, 0x00, 0x29), bundle.copyOfRange(0, 6))
+    }
 }

@@ -1,0 +1,146 @@
+// media.proto: Android Auto protocol messages of the headunit lineage, as REau's generated class Media.java has them.
+//
+// Origin: headunit-revived (AGPL-3.0), https://github.com/andreknieriem/headunit-revived, from Michael A. Reid's "headunit"
+// (AGPL-3.0). REau took the generated classes from OpenCfMoto (AGPL-3.0), app/src/main/java/dev/zanderp/opencfmoto/aa/proto/Media.java,
+// commit 0abbe2a (protoc 3.25.1); OpenCfMoto has no .proto files, and headunit-revived's originals did not come with the classes.
+//
+// What this file is: the .proto source of app/src/main/java/com/reau/app/aa/proto/Media.java, REBUILT from the descriptor embedded in
+// that class (its file name, package, messages, fields, numbers, labels, types, defaults, options and order, as embedded). The
+// comments and the layout of the originals are not kept: the descriptor holds none. The package stays headunit-revived's
+// (com.andrerinas.headunitrevived.aap.protocol.proto) because the classes carry it. protoc 3.13 compiles this file, one file at
+// a time, to a descriptor equal to the embedded one (checked on 28/10/2026; only json_name, which protoc adds, differs).
+//
+// REau's build has no protoc step: the Java classes are kept in the source and this file is not compiled. It is here so that the
+// classes' preferred form for modification is in the repository (AGPL-3.0, section 1). Changing it changes nothing until the class
+// is generated again. Later upstream versions differ (open-headunit, commit 93c065dd, renamed the package and added fields and
+// messages); none of that is applied here. License: AGPL-3.0, like the rest of REau (LICENSE, NOTICE).
+
+syntax = "proto2";
+
+package com.andrerinas.headunitrevived.aap.protocol.proto;
+option java_outer_classname = "Media";
+
+enum MsgType {
+  MEDIA_MESSAGE_DATA = 0;
+  MEDIA_MESSAGE_CODEC_CONFIG = 1;
+  MEDIA_MESSAGE_SETUP = 32768;
+  MEDIA_MESSAGE_START = 32769;
+  MEDIA_MESSAGE_STOP = 32770;
+  MEDIA_MESSAGE_CONFIG = 32771;
+  MEDIA_MESSAGE_ACK = 32772;
+  MEDIA_MESSAGE_MICROPHONE_REQUEST = 32773;
+  MEDIA_MESSAGE_MICROPHONE_RESPONSE = 32774;
+  MEDIA_MESSAGE_VIDEO_FOCUS_REQUEST = 32775;
+  MEDIA_MESSAGE_VIDEO_FOCUS_NOTIFICATION = 32776;
+  MEDIA_MESSAGE_UPDATE_UI_CONFIG_REQUEST = 32777;
+  MEDIA_MESSAGE_UPDATE_UI_CONFIG_REPLY = 32778;
+  MEDIA_MESSAGE_AUDIO_UNDERFLOW_NOTIFICATION = 32779;
+}
+
+enum MediaCodecType {
+  MEDIA_CODEC_AUDIO_PCM = 1;
+  MEDIA_CODEC_AUDIO_AAC_LC = 2;
+  MEDIA_CODEC_VIDEO_H264_BP = 3;
+  MEDIA_CODEC_AUDIO_AAC_LC_ADTS = 4;
+  MEDIA_CODEC_VIDEO_VP9 = 5;
+  MEDIA_CODEC_VIDEO_AV1 = 6;
+  MEDIA_CODEC_VIDEO_H265 = 7;
+}
+
+enum AudioStreamType {
+  NONE = 0;
+  SPEECH = 1;
+  SYSTEM = 2;
+  MEDIA = 3;
+  ALARM = 4;
+  GUIDANCE = 5;
+  ANNOUNCEMENT = 6;
+  RING = 7;
+}
+
+enum VideoFocusMode {
+  VIDEO_FOCUS_PROJECTED = 1;
+  VIDEO_FOCUS_NATIVE = 2;
+  VIDEO_FOCUS_NATIVE_TRANSIENT = 3;
+  VIDEO_FOCUS_PROJECTED_NO_INPUT_FOCUS = 4;
+}
+
+message AudioConfiguration {
+  required uint32 sample_rate = 1;
+  required uint32 number_of_bits = 2;
+  required uint32 number_of_channels = 3;
+}
+
+message Start {
+  required int32 session_id = 1;
+  required uint32 configuration_index = 2;
+}
+
+message Ack {
+  required int32 session_id = 1;
+  required uint32 ack = 2;
+}
+
+message MicrophoneRequest {
+  required bool open = 1;
+  optional bool anc_enabled = 2;
+  optional bool ec_enabled = 3;
+  optional int32 max_unacked = 4;
+}
+
+message MicrophoneResponse {
+  required int32 status = 1;
+  required uint32 session_id = 2;
+}
+
+message VideoFocusRequestNotification {
+  enum VideoFocusReason {
+    UNKNOWN = 0;
+    PHONE_SCREEN_OFF = 1;
+    LAUNCH_NATIVE = 2;
+  }
+  optional int32 disp_channel_id = 1;
+  required VideoFocusMode mode = 2;
+  optional VideoFocusRequestNotification.VideoFocusReason reason = 3;
+}
+
+message VideoFocusNotification {
+  required VideoFocusMode mode = 1;
+  required bool unsolicited = 2;
+}
+
+message MediaSetupRequest {
+  required uint32 type = 1;
+}
+
+message Config {
+  enum ConfigStatus {
+    DEVICE = 1;
+    HEADUNIT = 2;
+  }
+  required Config.ConfigStatus status = 1;
+  required uint32 max_unacked = 2;
+  repeated uint32 configuration_indices = 3;
+}
+
+message Insets {
+  optional int32 top = 1;
+  optional int32 bottom = 2;
+  optional int32 left = 3;
+  optional int32 right = 4;
+}
+
+message UiConfig {
+  optional Insets margins = 1;
+  optional Insets content_insets = 2;
+  optional Insets stable_content_insets = 3;
+  optional int32 ui_theme = 4;
+}
+
+message UpdateUiConfigRequest {
+  required UiConfig ui_config = 1;
+}
+
+message UpdateUiConfigReply {
+  required uint32 status = 1;
+}

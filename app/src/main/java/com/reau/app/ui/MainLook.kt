@@ -20,7 +20,7 @@ object MainLook {
     /** The warnings, in display order; each is shown only while its trouble lasts. */
     enum class Warning {
         SERVER_OFF, UNRESPONSIVE, CLOSING_PREVIOUS, OTHER_EDITION, NOT_CALLING, NO_VIDEO,
-        BATTERY_EXEMPTION, BATTERY_SAVER, DASH_TAKEN, NAME_NEEDED, VPN,
+        BATTERY_EXEMPTION, BATTERY_SAVER, DASH_TAKEN, NAME_NEEDED, VPN, LOCATION_OFF,
     }
 
     /** The server warning's golden action, besides the way to Android Auto's settings. */
@@ -62,7 +62,8 @@ object MainLook {
         Headline.STOPPING -> R.string.sub_stopping
         Headline.PROBLEM -> null
         Headline.PREPARING -> R.string.sub_preparing
-        Headline.CONNECTING -> R.string.sub_connecting
+        // The wallpaper mode (the card) has no Android Auto to wait for: only the dash.
+        Headline.CONNECTING -> if (p.card) R.string.sub_connecting_wallpaper else R.string.sub_connecting
         Headline.STREAMING -> R.string.sub_streaming
         Headline.NETWORK_SERVER -> R.string.sub_network_server
         Headline.CARD -> R.string.sub_card
@@ -89,9 +90,15 @@ object MainLook {
 
     /**
      * [vpn]: REau's own traffic goes into a VPN, which keeps it off the bike's Wi-Fi. [otherEdition]: the other edition of
-     * REau is installed.
+     * REau is installed. [locationOff]: Android's Location switch is off although REau has the permission ([LocationSwitch]).
      */
-    fun warnings(p: Projection, battery: BatteryUi, vpn: Boolean = false, otherEdition: Boolean = false): List<Warning> = listOfNotNull(
+    fun warnings(
+        p: Projection,
+        battery: BatteryUi,
+        vpn: Boolean = false,
+        otherEdition: Boolean = false,
+        locationOff: Boolean = false,
+    ): List<Warning> = listOfNotNull(
         Warning.SERVER_OFF.takeIf { p.androidAuto == AaLinkState.SERVER_OFF },
         Warning.UNRESPONSIVE.takeIf { p.androidAuto == AaLinkState.UNRESPONSIVE },
         Warning.CLOSING_PREVIOUS.takeIf { p.androidAuto == AaLinkState.CLOSING_PREVIOUS },
@@ -103,6 +110,7 @@ object MainLook {
         Warning.DASH_TAKEN.takeIf { p.dash == DashLink.TAKEN },
         Warning.NAME_NEEDED.takeIf { p.dash == DashLink.NAME_NEEDED },
         Warning.VPN.takeIf { vpn },
+        Warning.LOCATION_OFF.takeIf { locationOff },
     )
 
     /**

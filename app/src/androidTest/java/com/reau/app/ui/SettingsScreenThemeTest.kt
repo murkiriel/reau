@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -19,7 +20,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** The map theme in the settings: by the sun, always day or always night. */
+/** The map theme in the settings: by the sun, always day, always night, or by the dash's light sensor. */
 @RunWith(AndroidJUnit4::class)
 class SettingsScreenThemeTest {
     @get:Rule val compose = createComposeRule()
@@ -39,6 +40,14 @@ class SettingsScreenThemeTest {
         compose.onNodeWithTag("map_theme").assertTextContains("pelo sol", substring = true)
         compose.infoSays("map_theme", "posição do celular", "fuso horário")
         compose.onNodeWithTag("theme_NIGHT").performScrollTo().assertIsNotSelected()
+    }
+
+    @Test
+    fun onlyThreeThemesAreOfferedAndNoLightReadingIsShown() {
+        for (tag in listOf("theme_AUTO", "theme_DAY", "theme_NIGHT")) compose.onNodeWithTag(tag).performScrollTo().assertExists()
+        compose.onNodeWithTag("theme_DASH_LIGHT").assertDoesNotExist()
+        compose.onNodeWithTag("dash_light_now").assertDoesNotExist()
+        compose.onNodeWithTag("dash_light_limit_row").assertDoesNotExist()
     }
 
     @Test

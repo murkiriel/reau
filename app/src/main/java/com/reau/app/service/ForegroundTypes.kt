@@ -7,15 +7,22 @@ import android.os.Build
 /**
  * The projection's foreground service types, the richest first. With Gemini (behind the
  * switch "Gemini pelo joystick", with the permission given) the microphone type comes along: without it Android hands a
- * service in the background silence instead of the rider's voice. If Android refuses it, the connected device alone
- * is tried next, as before: Gemini is lost, never the projection.
+ * service in the background silence instead of the rider's voice. With the info ring's GPS card on (and the location permission given) the
+ * location type comes along too: without it Android gives a service in the background no location with the phone's screen off. If Android
+ * refuses a type, the ones without it are tried next, down to the connected device alone, as before: the extras are lost, never the projection.
  */
 object ForegroundTypes {
-    /** The microphone type exists from Android 11 ([sdk] 30); before it, the connected device alone. */
-    @SuppressLint("InlinedApi") // the microphone type is used only where [sdk] has it
-    fun ladder(microphone: Boolean, sdk: Int = Build.VERSION.SDK_INT): List<Int> {
+    /** The microphone type exists from Android 11 ([sdk] 30), the location one from Android 10; before them, the connected device alone. */
+    @SuppressLint("InlinedApi") // each type is used only where [sdk] has it
+    fun ladder(microphone: Boolean, location: Boolean = false, sdk: Int = Build.VERSION.SDK_INT): List<Int> {
         val device = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
-        val withMicrophone = microphone && sdk >= Build.VERSION_CODES.R
-        return if (withMicrophone) listOf(device or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE, device) else listOf(device)
+        val mic = if (microphone && sdk >= Build.VERSION_CODES.R) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0
+        val loc = if (location && sdk >= Build.VERSION_CODES.Q) ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION else 0
+        return listOfNotNull(
+            (device or mic or loc).takeIf { mic != 0 && loc != 0 },
+            (device or mic).takeIf { mic != 0 },
+            (device or loc).takeIf { loc != 0 },
+            device,
+        )
     }
 }

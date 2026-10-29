@@ -32,6 +32,8 @@
     <string name="credit_role_open_headunit">remontagem dos quadros e recuperação do vídeo</string>
     <string name="credit_role_headunit">a origem de toda a linhagem</string>
     <string name="credit_role_moto_hub">canal de navegação do Android Auto</string>
+    <string name="credit_role_headqlink">a pausa de 1,5 s ao reiniciar o servidor (um valor, sem código)</string>
+    <string name="credit_role_aa_proxy_rs">fatos do protocolo: mensagens de estado do telefone e de mídia (sem código)</string>
     <string name="credit_role_northstar">primeira implementação do protocolo do painel (pelo EstrelaAustral)</string>
     <string name="credit_role_estrelaaustral">ponto de partida: o lado do painel, o clima, os testes e a organização</string>
     <string name="credit_role_better_dash">referência do protocolo K1G; algumas partes portadas dele</string>
@@ -45,11 +47,14 @@
     <string name="credit_role_hanken">textos da interface</string>
     <string name="credit_role_kotlin">a linguagem do app e as corrotinas</string>
     <string name="credit_role_jetbrains_mono">valores, rótulos e o registro</string>
+    <string name="credit_licence_public_domain">Domínio público</string>
+    <string name="credit_role_noaa">equações da posição do sol (o tema pelo sol)</string>
     <string name="credit_role_open_meteo">dados do clima e da qualidade do ar</string>
     <string name="credit_role_jmuxer">toca o vídeo no navegador (a página do servidor web)</string>
     <string name="credit_holder_opencfmoto">© 2026 Alexandru e colaboradores</string>
     <string name="credit_holder_headunit_revived">© andreknieriem e a linhagem headunit</string>
     <string name="credit_holder_moto_hub">© 2026 Vincenzo Buonomano e colaboradores</string>
+    <string name="credit_holder_headqlink">© Michael A. Reid e os autores do open-headunit</string>
     <string name="credit_holder_open_dash">© 2026 Subtle Sayak e colaboradores</string>
     <string name="credit_holder_kotlin">© JetBrains e colaboradores do Kotlin</string>
     <string name="credit_name_androidx">AndroidX e Jetpack Compose</string>

@@ -17,8 +17,30 @@ import android.media.AudioTrack
  * honour `ALLOW_CAPTURE_BY_NONE`, so the phone's sound plays with a usage it does not match, and the route the system gave the track is
  * checked after a few chunks: if it went to the loop-back, the lane stops and says so, rather than howl.
  */
-class AaAudioPlayer(private val log: (String) -> Unit = {}) {
-    private class Lane(val queue: AaAudioQueue, val track: AudioTrack, @Volatile var running: Boolean = true) {
+class AaAudioPlayer internal constructor(
+    private val log: (String) -> Unit,
+    private val speakerFor: (AaAudioFeed.Stream) -> PhoneSpeaker,
+) {
+    constructor(log: (String) -> Unit = {}) : this(log, ::audioTrackFor)
+
+    /**
+     * The speaker a lane plays on, as far as the lane needs it. Only the lane's own thread touches it once it plays, and that thread
+     * lets it go when it ends: [release] only asks the lane to stop and waits a moment, so the track is never released while
+     * a `write` is still inside it (a native crash on some phones: audit of 20/10/2026).
+     */
+    internal interface PhoneSpeaker {
+        fun play()
+        fun write(data: ByteArray)
+        fun pause()
+        fun flush()
+        fun stop()
+        fun release()
+
+        /** The type of the output device the system routed the track to, null when not known yet. */
+        val routedDeviceType: Int?
+    }
+
+    private class Lane(val queue: AaAudioQueue, val speaker: PhoneSpeaker, @Volatile var running: Boolean = true) {
         lateinit var thread: Thread
     }
 
@@ -39,32 +61,20 @@ class AaAudioPlayer(private val log: (String) -> Unit = {}) {
         }
         for (lane in all) {
             lane.running = false
-            runCatching { lane.track.stop() }
-            runCatching { lane.track.release() }
+            lane.queue.clear()
+            // Pausing and emptying the track lets a `write` that is blocked on a full buffer come back; the lane's thread then sees
+            // it is not running, and stops and releases the track itself.
+            runCatching { lane.speaker.pause() }
+            runCatching { lane.speaker.flush() }
+        }
+        for (lane in all) {
+            lane.thread.join(JOIN_MS)
+            if (lane.thread.isAlive) log("audio: a lane did not end in $JOIN_MS ms; it lets its speaker go when it does")
         }
     }
 
-    // False positive: AaAudioRoute.usageOf returns AudioAttributes.USAGE_UNKNOWN (0), but lint cannot see a constant behind a
-    // function call, so it flags the setUsage argument. AaAudioRouteTest pins the value.
-    @SuppressLint("WrongConstant")
     private fun newLane(stream: AaAudioFeed.Stream): Lane {
-        val media = stream == AaAudioFeed.Stream.MEDIA
-        val attributes = AudioAttributes.Builder()
-            .setUsage(AaAudioRoute.usageOf(stream))
-            .setContentType(if (media) AudioAttributes.CONTENT_TYPE_MUSIC else AudioAttributes.CONTENT_TYPE_SPEECH)
-            .setAllowedCapturePolicy(AudioAttributes.ALLOW_CAPTURE_BY_NONE)
-            .build()
-        val mask = if (stream.channels == 2) AudioFormat.CHANNEL_OUT_STEREO else AudioFormat.CHANNEL_OUT_MONO
-        val format = AudioFormat.Builder().setSampleRate(stream.sampleRate).setEncoding(AudioFormat.ENCODING_PCM_16BIT).setChannelMask(mask).build()
-        val wanted = AaAudioQueue.maxBytesFor(stream) * 2
-        val track = AudioTrack.Builder()
-            .setAudioAttributes(attributes)
-            .setAudioFormat(format)
-            .setBufferSizeInBytes(maxOf(wanted, AudioTrack.getMinBufferSize(stream.sampleRate, mask, AudioFormat.ENCODING_PCM_16BIT)))
-            .setTransferMode(AudioTrack.MODE_STREAM)
-            .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
-            .build()
-        val lane = Lane(AaAudioQueue(AaAudioQueue.maxBytesFor(stream)), track)
+        val lane = Lane(AaAudioQueue(AaAudioQueue.maxBytesFor(stream)), speakerFor(stream))
         lane.thread = Thread({ pump(stream, lane) }, "aa-audio-${stream.name.lowercase()}").apply { isDaemon = true; start() }
         log("audio: playing $stream on the phone, ${stream.sampleRate} Hz, ${stream.channels} channel(s)")
         return lane
@@ -73,25 +83,66 @@ class AaAudioPlayer(private val log: (String) -> Unit = {}) {
     /** The lane's thread: what the queue gives goes to the speaker, which may hold this thread, and nobody else. */
     private fun pump(stream: AaAudioFeed.Stream, lane: Lane) {
         try {
-            lane.track.play()
+            lane.speaker.play()
             var written = 0
             while (lane.running) {
-                val chunk = lane.queue.take(WAIT_MS) ?: continue
-                lane.track.write(chunk, 0, chunk.size)
-                written++
-                if (AaAudioRoute.checkNow(written) && AaAudioRoute.isTheLoop(lane.track.routedDevice?.type)) {
-                    log("audio: the phone's sound for $stream was routed into Android Auto's capture: not playing it on the phone")
-                    lane.running = false
-                    lane.queue.clear()
-                    lane.track.pause()
-                }
+                val chunk = lane.queue.take(WAIT_MS)
+                // Nothing written once the lane was asked to stop (a release is waiting for this thread to be out of the speaker).
+                if (chunk != null && lane.running) playChunk(stream, lane, chunk, ++written)
             }
         } catch (e: IllegalStateException) {
             log("audio: the phone's speaker for $stream stopped: ${e.javaClass.simpleName}")
+        } finally {
+            // The only place the speaker is let go: no other thread can be inside it any more.
+            runCatching { lane.speaker.stop() }
+            runCatching { lane.speaker.release() }
+        }
+    }
+
+    /** One chunk to the speaker; after a few, a look at where the system routed it (into Android Auto's capture, the lane stops). */
+    private fun playChunk(stream: AaAudioFeed.Stream, lane: Lane, chunk: ByteArray, written: Int) {
+        lane.speaker.write(chunk)
+        if (AaAudioRoute.checkNow(written) && AaAudioRoute.isTheLoop(lane.speaker.routedDeviceType)) {
+            log("audio: the phone's sound for $stream was routed into Android Auto's capture: not playing it on the phone")
+            lane.running = false
+            lane.queue.clear()
+            lane.speaker.pause()
         }
     }
 
     private companion object {
         const val WAIT_MS = 200L
+        const val JOIN_MS = 1_000L
+
+        // False positive: AaAudioRoute.usageOf returns AudioAttributes.USAGE_UNKNOWN (0), but lint cannot see a constant behind a
+        // function call, so it flags the setUsage argument. AaAudioRouteTest pins the value.
+        @SuppressLint("WrongConstant")
+        fun audioTrackFor(stream: AaAudioFeed.Stream): PhoneSpeaker {
+            val media = stream == AaAudioFeed.Stream.MEDIA
+            val attributes = AudioAttributes.Builder()
+                .setUsage(AaAudioRoute.usageOf(stream))
+                .setContentType(if (media) AudioAttributes.CONTENT_TYPE_MUSIC else AudioAttributes.CONTENT_TYPE_SPEECH)
+                .setAllowedCapturePolicy(AudioAttributes.ALLOW_CAPTURE_BY_NONE)
+                .build()
+            val mask = if (stream.channels == 2) AudioFormat.CHANNEL_OUT_STEREO else AudioFormat.CHANNEL_OUT_MONO
+            val format = AudioFormat.Builder().setSampleRate(stream.sampleRate).setEncoding(AudioFormat.ENCODING_PCM_16BIT).setChannelMask(mask).build()
+            val wanted = AaAudioQueue.maxBytesFor(stream) * 2
+            val track = AudioTrack.Builder()
+                .setAudioAttributes(attributes)
+                .setAudioFormat(format)
+                .setBufferSizeInBytes(maxOf(wanted, AudioTrack.getMinBufferSize(stream.sampleRate, mask, AudioFormat.ENCODING_PCM_16BIT)))
+                .setTransferMode(AudioTrack.MODE_STREAM)
+                .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
+                .build()
+            return object : PhoneSpeaker {
+                override fun play() = track.play()
+                override fun write(data: ByteArray) { track.write(data, 0, data.size) }
+                override fun pause() = track.pause()
+                override fun flush() = track.flush()
+                override fun stop() = track.stop()
+                override fun release() = track.release()
+                override val routedDeviceType: Int? get() = track.routedDevice?.type
+            }
+        }
     }
 }

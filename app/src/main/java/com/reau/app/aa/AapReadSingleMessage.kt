@@ -21,6 +21,7 @@ internal class AapReadSingleMessage(
     private val fragmentSizeBuffer = ByteArray(4)
     private val startedMs = System.currentTimeMillis()
     private var lastMessageMs = 0L
+    private val decryptFailures = DecryptFailures()
 
     @Suppress("TooGenericExceptionCaught") // a failed message is logged and skipped; the read loop goes on
     override fun doRead(connection: AccessoryConnection): Int {
@@ -90,8 +91,14 @@ internal class AapReadSingleMessage(
                     AaLog.i("AapRead: Magic Garbage detected in decryption. Triggering clean disconnect.")
                     return -2
                 }
+                if (decryptFailures.failed()) {
+                    AaLog.e("AapRead: ${DecryptFailures.LIMIT} messages in a row failed to decrypt: the TLS state is lost; disconnecting")
+                    noteTheEnd()
+                    return -1
+                }
                 return 0
             }
+            decryptFailures.ok()
 
             handler.handle(msg)
             lastMessageMs = System.currentTimeMillis()

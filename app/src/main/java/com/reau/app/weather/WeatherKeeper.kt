@@ -12,6 +12,7 @@ import com.reau.app.dash.protocol.DashCommands
 import com.reau.app.service.DayNight
 import com.reau.app.service.SunPlace
 import com.reau.app.settings.SettingsStore
+import com.reau.app.util.MonotonicClock
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
@@ -26,13 +27,32 @@ import kotlin.math.roundToInt
 /**
  * The weather for the dash, from Open-Meteo (free, no key, no account).
  *
- * Only while the rider's switch "Clima no painel" is on and "Usar a localização" has given a place. What leaves the phone:
+ * Only while the rider's switch "Clima no painel" or the info ring is on (both are on by default) and "Usar a localização" has given a place. What leaves the phone:
  * the request, with the place rounded to a tenth of a degree (about 11 km), to api.open-meteo.com; the answer is kept on
  * the phone ([Snapshot]). Never in the ride log: no place, no temperature of the place, only that an update happened or why not.
  */
 object WeatherKeeper {
     /** What one fetch gave and when. */
-    data class Snapshot(val forecast: PointForecast, val fetchedAtMs: Long, val air: AirQuality? = null)
+    data class Snapshot(
+        val forecast: PointForecast,
+        /** The wall-clock time of the fetch: for showing, and for the age of what an earlier run kept. */
+        val fetchedAtMs: Long,
+        val air: AirQuality? = null,
+        /** [MonotonicClock] at the fetch of this run, which the age is measured from (0 for what came off the disk). */
+        val monoAtMs: Long = 0L,
+    ) {
+        /**
+         * How old this is. Of a fetch made in this run it is read off the monotonic clock: the phone's clock is set by the
+         * network mid-ride, and one that went back made old weather look new, so it was never fetched again (audit of
+         * 20/10/2026). What an earlier run kept has only the wall clock; a time in the future there is not trusted
+         * (Long.MAX_VALUE: stale), so it is fetched again.
+         */
+        internal fun ageMs(wallNowMs: Long, monoNowMs: Long): Long = when {
+            monoAtMs > 0L -> monoNowMs - monoAtMs
+            wallNowMs >= fetchedAtMs -> wallNowMs - fetchedAtMs
+            else -> Long.MAX_VALUE
+        }
+    }
 
     /** Why there is no fresh weather, for the screen. */
     enum class Why { NONE, NO_PLACE, NO_NETWORK, FAILED }
@@ -45,6 +65,9 @@ object WeatherKeeper {
     private const val KEY_LNG = "lng"
     private const val ENDPOINT = "https://api.open-meteo.com/v1/forecast"
     private const val UA = "REau/1"
+
+    /** The forecast and the air quality are some hundreds of KB; an answer over this is not one of theirs and is dropped. */
+    private const val MAX_ANSWER_BYTES = 2_000_000
     private const val AIR_ENDPOINT = "https://air-quality-api.open-meteo.com/v1/air-quality"
     private const val AIR_FIELDS = "us_aqi,pm10,pm2_5,ozone"
 
@@ -53,6 +76,9 @@ object WeatherKeeper {
     private const val CURRENT_FIELDS = "temperature_2m,apparent_temperature,relative_humidity_2m,precipitation," +
         "weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,cloud_cover,is_day"
     private const val HOURLY_FIELDS = "temperature_2m,precipitation_probability,weather_code,uv_index"
+    /** The next two hours in quarters (the one now and seven more): the rain and the gusts the dash's info ring says. */
+    private const val MINUTELY_FIELDS = "precipitation,weather_code,wind_gusts_10m"
+    private const val MINUTELY_STEPS = 8
     private const val DAILY_FIELDS = "temperature_2m_max,temperature_2m_min,precipitation_probability_max," +
         "uv_index_max,sunrise,sunset,daylight_duration,wind_speed_10m_max,wind_gusts_10m_max,weather_code"
 
@@ -106,9 +132,9 @@ object WeatherKeeper {
     /** The weather as the dash's heartbeat takes it, or null: none yet, none usable, or a current reading with no temperature. */
     fun forDash(nowMs: Long = System.currentTimeMillis()): DashCommands.Weather? = forDash(snapshotState.value, nowMs)
 
-    internal fun forDash(snapshot: Snapshot?, nowMs: Long): DashCommands.Weather? {
+    internal fun forDash(snapshot: Snapshot?, nowMs: Long, monoNowMs: Long = MonotonicClock.nowMs()): DashCommands.Weather? {
         snapshot ?: return null
-        if (nowMs - snapshot.fetchedAtMs > USABLE_MS) return null
+        if (snapshot.ageMs(nowMs, monoNowMs) > USABLE_MS) return null
         val now = snapshot.forecast.current ?: return null
         val icon = WeatherCondition.forCode(now.weatherCode).dashIcon ?: DashCommands.WEATHER_NONE
         return DashCommands.Weather(now.temperatureC.roundToInt(), icon)
@@ -116,14 +142,19 @@ object WeatherKeeper {
 
     /**
      * Fetches when the weather kept is older than [maxAgeMs] ([REFRESH_MS]; [OPEN_GAP_MS] when REau was just opened) or from
-     * another place. With "Clima no painel" off it does nothing at all: never a request, never a trace. With "Usar a
+     * another place. With "Clima no painel" and the info ring both off it does nothing at all: never a request, never a trace. With "Usar a
      * localização" off, or no place learned yet, it says so ([why]) and fetches nothing.
      */
     @Suppress("CyclomaticComplexMethod") // one branch per field or case of the format it reads or writes
-    suspend fun refreshIfStale(context: Context, nowMs: Long = System.currentTimeMillis(), maxAgeMs: Long = REFRESH_MS) = lock.withLock {
+    suspend fun refreshIfStale(
+        context: Context,
+        nowMs: Long = System.currentTimeMillis(),
+        maxAgeMs: Long = REFRESH_MS,
+        monoNowMs: Long = MonotonicClock.nowMs(),
+    ) = lock.withLock {
         val app = context.applicationContext
         val settings = SettingsStore.open(app).load()
-        if (!settings.dashWeather) return@withLock
+        if (!settings.weatherWanted) return@withLock
         attach(app)
         val place = SunPlace.saved(app, settings.useLocation)
         if (place == null) {
@@ -131,7 +162,7 @@ object WeatherKeeper {
             return@withLock
         }
         val kept = snapshotState.value
-        if (kept != null && cachedPlace == place && nowMs - kept.fetchedAtMs < maxAgeMs) return@withLock
+        if (kept != null && cachedPlace == place && kept.ageMs(nowMs, monoNowMs) < maxAgeMs) return@withLock
         val networks = withInternet(app)
         if (networks.isEmpty()) {
             whyState.value = Why.NO_NETWORK
@@ -156,7 +187,7 @@ object WeatherKeeper {
         parsed?.exceptionOrNull()?.let { RideDiagnostics.log("weather", "the answer could not be read: ${it.javaClass.simpleName}") }
         val forecast = parsed?.getOrNull()
         // The rider may have switched it off while the answer was on its way: then nothing of it is kept.
-        if (!SettingsStore.open(app).load().dashWeather) return@withLock
+        if (!SettingsStore.open(app).load().weatherWanted) return@withLock
         if (forecast?.current == null) {
             whyState.value = Why.FAILED
             RideDiagnostics.log("weather", "the weather service gave nothing usable")
@@ -165,8 +196,8 @@ object WeatherKeeper {
         // Air quality is a separate host, asked through the network that worked; a failure there leaves only that card out.
         val airJson = reached?.let { net -> withContext(Dispatchers.IO) { runCatching { get(net, airUrl(place)) }.getOrNull() } }
         val air = airJson?.let { runCatching { AirQualityParser.parse(it) }.getOrNull() }
-        if (!SettingsStore.open(app).load().dashWeather) return@withLock
-        snapshotState.value = Snapshot(forecast, nowMs, air)
+        if (!SettingsStore.open(app).load().weatherWanted) return@withLock
+        snapshotState.value = Snapshot(forecast, nowMs, air, monoAtMs = MonotonicClock.nowMs())
         cachedPlace = place
         whyState.value = Why.NONE
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
@@ -184,7 +215,7 @@ object WeatherKeeper {
         val lat = "%.1f".format(Locale.US, place.lat)
         val lng = "%.1f".format(Locale.US, place.lng)
         return "$ENDPOINT?latitude=$lat&longitude=$lng&current=$CURRENT_FIELDS&hourly=$HOURLY_FIELDS&daily=$DAILY_FIELDS" +
-            "&forecast_days=$FORECAST_DAYS&timezone=auto"
+            "&minutely_15=$MINUTELY_FIELDS&forecast_minutely_15=$MINUTELY_STEPS&forecast_days=$FORECAST_DAYS&timezone=auto"
     }
 
     internal fun airUrl(place: DayNight.Place): String {
@@ -216,7 +247,11 @@ object WeatherKeeper {
         }
         return try {
             check(connection.responseCode in 200..299) { "HTTP ${connection.responseCode}" }
-            connection.inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
+            connection.inputStream.use {
+                val answer = com.reau.app.util.CappedRead.read(it, MAX_ANSWER_BYTES)
+                if (answer.truncated) throw java.io.IOException("the answer is larger than $MAX_ANSWER_BYTES bytes")
+                String(answer.bytes, Charsets.UTF_8)
+            }
         } finally {
             connection.disconnect()
         }

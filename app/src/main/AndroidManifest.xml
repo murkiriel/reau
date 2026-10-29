@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Opening any socket needs this, loopback included: the UDP link to the dash (192.168.1.x, no internet there)
-         and the TCP link to Android Auto on 127.0.0.1. Only the optional weather query goes online. -->
+         and the TCP link to Android Auto on 127.0.0.1. Only the weather query (on by default, it can be switched off) goes online. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- Joining the dash's own Wi-Fi (WifiNetworkSpecifier + ConnectivityManager.requestNetwork) and finding it in
@@ -15,7 +15,7 @@
     <!-- Reading the Wi-Fi list (WifiManager.startScan/getScanResults), to learn the dash's whole name, needs the fine
          location on every Android, and Android wants the coarse one asked with it; the nearby-devices permission does
          not open that list (Android's docs, and a test on Android 14), so it was removed. The
-         position itself is read only with the switch "Usar a localização" on, for the theme by the sun. -->
+         position itself is read only with the switch "Usar a localização" on (the default), for the theme by the sun, the weather and the info ring. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
@@ -24,12 +24,13 @@
          where the projection stands and has the switch-off button; from Android 13 it needs the rider's consent. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- The joystick answers and ends calls, behind a switch (asked when switched on). -->
+    <!-- The joystick answers and ends calls, behind a switch (on by default; asked on the permissions page, or when switched on again). -->
     <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
-    <!-- Gemini by the joystick, behind a switch (asked when switched on). The voice goes
+    <!-- Gemini by the joystick, behind a switch (on by default; asked on the permissions page, or when switched on again). The voice goes
          to Android Auto from the Bluetooth headset (choosing it needs MODIFY_AUDIO_SETTINGS) or the phone; the
          projection's service then also has the microphone type, or Android hands it silence in the background. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -73,22 +74,41 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.REau">
 
+        <!-- The release build can be profiled from the shell (Perfetto, simpleperf, a Macrobenchmark) without being debuggable: the numbers of a
+             debug build, with the detailed log and the recordings on, are not the ones the rider gets. Nothing but `adb shell` can use it. -->
+        <profileable android:shell="true" />
+
         <!-- The language is changed on the settings: the screen is told and redraws its texts, it is not destroyed and rebuilt (that
-             showed as a flash). A Compose screen reads its strings again on the change. -->
+             showed as a flash). A Compose screen reads its strings again on the change. The same for turning the phone: the "Tela do Android
+             Auto" goes full screen on its side (AaFullScreen), and a rebuilt Activity would drop its picture's surface and show it again. -->
         <activity
             android:name=".MainActivity"
-            android:configChanges="locale|layoutDirection"
+            android:configChanges="locale|layoutDirection|orientation|screenSize|smallestScreenSize|screenLayout"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- A long press on the icon: "Turn on" (QuickStart). -->
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity>
+
+        <!-- The Quick Settings tile that opens REau and switches the projection on (QuickStart). -->
+        <service
+            android:name=".service.QuickStartTile"
+            android:exported="true"
+            android:icon="@drawable/ic_stat_reau"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
 
         <service
             android:name=".service.ProjectionService"
             android:exported="false"
-            android:foregroundServiceType="connectedDevice|microphone" />
+            android:foregroundServiceType="connectedDevice|microphone|location" />
         <!-- The logs zip handed to the app the rider picks in the share sheet. -->
         <provider
             android:name="androidx.core.content.FileProvider"

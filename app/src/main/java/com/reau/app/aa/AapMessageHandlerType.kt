@@ -49,7 +49,7 @@ internal class AapMessageHandlerType(
 
     /** Media data (types 0 and 1) dealt with and acknowledged: true when [message] was that. */
     private fun tookMediaData(message: AapMessage): Boolean {
-        val data = message.type == 0 || message.type == 1
+        val data = isMediaData(message.type)
         return when {
             // 1. Video stream first (highest priority for smooth display).
             message.channel == Channel.ID_VID && video(message) -> {
@@ -70,5 +70,14 @@ internal class AapMessageHandlerType(
             }
             else -> false
         }
+    }
+
+    companion object {
+        /**
+         * Whether a message of [type] on a media channel is a data buffer, which Android Auto counts against its window of
+         * unacknowledged buffers and so wants acknowledged: the media indications 0 (with timestamp) and 1. Setup, start, stop and
+         * focus messages (0x8000 and up) are answered by their own handlers and never take a media ack.
+         */
+        internal fun isMediaData(type: Int): Boolean = type == 0 || type == 1
     }
 }

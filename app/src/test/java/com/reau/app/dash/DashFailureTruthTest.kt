@@ -79,4 +79,68 @@ class DashFailureTruthTest {
         val reason = DashSession.authTimeoutReason(heardFromDash = true, ssid = "RE_AB12_345678")
         assertTrue(reason, "Check SSID matches 'RE_****78'" in reason)
     }
+
+    // ── the key that never comes (20:24:02 on 19/10/2026: 15 s waiting, then a new attempt got the key in 50 ms) ───
+
+    @Test
+    fun `the burst goes out again only when the dash has not offered its key for three seconds`() {
+        assertFalse(DashSession.burstDue(sinceLastBurstMs = 2_999, keySeen = false, resends = 0))
+        assertTrue(DashSession.burstDue(sinceLastBurstMs = 3_000, keySeen = false, resends = 0))
+        assertFalse("the dash is already in the key exchange", DashSession.burstDue(sinceLastBurstMs = 9_000, keySeen = true, resends = 0))
+        assertTrue(DashSession.burstDue(sinceLastBurstMs = 3_000, keySeen = false, resends = DashSession.MAX_BURST_RESENDS - 1))
+        assertFalse("the resends stop at the deadline", DashSession.burstDue(sinceLastBurstMs = 3_000, keySeen = false, resends = DashSession.MAX_BURST_RESENDS))
+    }
+
+    @Test
+    fun `a dash that answered but never sent its key is not blamed on the SSID`() {
+        val reason = DashSession.authTimeoutReason(heardFromDash = true, ssid = "RE_AB12_345678", keySeen = false)
+        assertTrue(reason, "never sent its key" in reason)
+        assertFalse(reason, "SSID" in reason)
+    }
+
+    @Test
+    fun `a dash that sent its key and still did not accept points at the SSID as before`() {
+        val reason = DashSession.authTimeoutReason(heardFromDash = true, ssid = "RE_AB12_345678", keySeen = true)
+        assertTrue(reason, "Check SSID matches 'RE_****78'" in reason)
+    }
+
+    // ── the greeting the dash ignores (12:00:34 on 20/10/2026: the key came only with the second connect(), 17 s after the first) ──
+
+    @Test
+    fun `the burst is sent again every 3 seconds up to the deadline, 3 6 9 and 12 seconds`() {
+        assertEquals(4, DashSession.MAX_BURST_RESENDS)
+        var resends = 0
+        val at = mutableListOf<Long>()
+        var last = 0L
+        for (ms in 0L..15_000L step 100) {
+            if (DashSession.burstDue(ms - last, keySeen = false, resends)) {
+                resends++
+                last = ms
+                at += ms
+            }
+        }
+        assertEquals(listOf(3_000L, 6_000L, 9_000L, 12_000L), at)
+        assertFalse("and stops when the key shows", DashSession.burstDue(3_000, keySeen = true, resends = 2))
+    }
+
+    @Test
+    fun `the dash's 10 s mark with no key asks for the burst at once, once, only while authenticating`() {
+        assertTrue(DashSession.resendOnClockNotice(DashState.AUTHENTICATING, keySeen = false, alreadyDone = false))
+        assertFalse("the key came: the exchange is on", DashSession.resendOnClockNotice(DashState.AUTHENTICATING, keySeen = true, alreadyDone = false))
+        assertFalse("once a session", DashSession.resendOnClockNotice(DashState.AUTHENTICATING, keySeen = false, alreadyDone = true))
+        for (s in DashState.entries - DashState.AUTHENTICATING) {
+            assertFalse(s.name, DashSession.resendOnClockNotice(s, keySeen = false, alreadyDone = false))
+        }
+    }
+
+    @Test
+    fun `the failure says how many times the burst was sent and when the 10 s mark came`() {
+        val reason = DashSession.authTimeoutReason(
+            heardFromDash = true, ssid = "RE_AB12_345678", keySeen = false, resends = 5, noticeAfterMs = 10_200,
+        )
+        assertTrue(reason, "sent again 5 times" in reason)
+        assertTrue(reason, "10 s mark (09 06 55) came 10 s after the first burst" in reason)
+        val none = DashSession.authTimeoutReason(heardFromDash = true, ssid = "RE_AB12_345678", keySeen = false, resends = 4)
+        assertFalse(none, "10 s mark" in none)
+    }
 }

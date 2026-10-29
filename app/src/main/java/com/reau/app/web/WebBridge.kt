@@ -34,11 +34,14 @@ internal class WebBridge(private val env: Env) {
 
     private class Running(val server: WebServer, val stream: WebStream)
 
+    // Held by apply() and release() alone, which start and stop the server and so can take a while. What the other threads read
+    // (Android Auto's read loop with the sound, a viewer joining, the browser's touch) is volatile, so none of them waits behind
+    // a server that is starting or stopping (audit of 20/10/2026: pings and the picture's acknowledgements were delayed).
     private val lock = Any()
-    private var running: Running? = null
-    private var touchOn = false
-    private var audioOn = false
-    private var androidAutoOn = false
+    @Volatile private var running: Running? = null
+    @Volatile private var touchOn = false
+    @Volatile private var audioOn = false
+    @Volatile private var androidAutoOn = false
     private val strokes = WebStrokes(env.sendTouch)
 
     /**
@@ -58,15 +61,15 @@ internal class WebBridge(private val env: Env) {
     }
 
     /** Android Auto's session is up ([active]) or not. */
-    fun androidAutoChanged(active: Boolean) = synchronized(lock) {
-        if (androidAutoOn == active) return@synchronized
+    fun androidAutoChanged(active: Boolean) {
+        if (androidAutoOn == active) return
         androidAutoOn = active
         tell()
     }
 
     /** A piece of Android Auto's sound: to every viewer when the sound is to go to the browser, otherwise nowhere. */
     fun audio(pcm: AaAudioFeed.Pcm) {
-        val server = synchronized(lock) { if (audioOn) running?.server else null }
+        val server = if (audioOn) running?.server else null
         server?.publish(WebFrames.audio(pcm), sound = true)
     }
 
@@ -114,12 +117,12 @@ internal class WebBridge(private val env: Env) {
         override fun page(): ByteArray = env.page()
 
         override fun onJoin(viewer: WebViewer) {
-            viewer.sendText(synchronized(lock) { status() })
+            viewer.sendText(status())
             stream()?.viewerJoined { viewer.sendBinary(WebFrames.video(it)) }
         }
 
         override fun onText(text: String) {
-            if (synchronized(lock) { touchOn }) strokes.take(text)
+            if (touchOn) strokes.take(text)
         }
 
         override fun onViewers(count: Int) {

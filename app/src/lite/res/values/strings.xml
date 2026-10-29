@@ -22,5 +22,4 @@
     <string name="perm_accessibility_why"></string>
     <string name="permission_special_restricted"></string>
     <string name="action_allow_restricted"></string>
-    <string name="menu_fit_own"></string>
 </resources>

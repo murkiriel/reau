@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicReference
 private const val QUICK_STOP_MS = 500L
 private const val LONG_AFTER_DROP_MS = 3_000L
 private const val SWALLOW_MS = 300L
+private const val READER_JOIN_MS = 2_000L
 
 /**
  * The link to Android Auto: the receiver dials the head unit server Android Auto opens on 127.0.0.1:5277, keeps one
@@ -66,8 +67,12 @@ class AaReceiverTest {
     fun tearDown() {
         receiver?.stop()
         peers.forEach { it.close() }
-        reader.close()
+        // The reader is closed only once the thread that reads its pictures has stopped: closed under a picture being read it
+        // raised "buffer is inaccessible" in the test's decoder and took the whole test process down.
+        reader.setOnImageAvailableListener(null, null)
         readerThread.quitSafely()
+        readerThread.join(READER_JOIN_MS)
+        reader.close()
         AaLog.sink = null
     }
 
@@ -283,6 +288,35 @@ class AaReceiverTest {
             assertEquals(listOf("input"), calls)
         } finally {
             AaScreens.rereader = null
+        }
+    }
+
+    /** 21/10/2026: back to Waze by a tap on the phone's screen, the menu's fit stayed (only the select was said to leave the menu). */
+    @Test
+    fun aTapOnThePhoneInTheMenuSaysTheMenuWasLeftButADragDoesNot() {
+        val menu = listOf(AaScreenRule.Display(8, "GhostActivityDisplay:ComponentInfo{x/GhAppLauncherService}", true))
+        fun inTheMenu() {
+            AaScreens.watch.reset()
+            AaScreens.watch.update(menu, nowMs = 1_000)
+            AaScreens.watch.update(menu, nowMs = 1_500)
+            assertEquals(AaScreen.MENU, AaScreens.watch.screen.value)
+        }
+        val port = freePort()
+        peerOn(port)
+        val r = receiverOn(port)
+        r.start()
+        awaitState(AaLinkState.ACTIVE)
+        try {
+            inTheMenu()
+            r.sendInput(AaCommand.Touch(PhoneTouch.Action.DOWN, 300, 200))
+            r.sendInput(AaCommand.Touch(PhoneTouch.Action.MOVE, 420, 200)) // a scroll of the menu
+            r.sendInput(AaCommand.Touch(PhoneTouch.Action.UP, 420, 200))
+            assertEquals("a drag leaves the menu where it is", AaScreen.MENU, AaScreens.watch.screen.value)
+            r.sendInput(AaCommand.Touch(PhoneTouch.Action.DOWN, 300, 200))
+            r.sendInput(AaCommand.Touch(PhoneTouch.Action.UP, 300, 200))
+            assertEquals("a tap picks something: the apps' screen at once", AaScreen.APPS, AaScreens.watch.screen.value)
+        } finally {
+            AaScreens.watch.reset()
         }
     }
 

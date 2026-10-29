@@ -10,7 +10,7 @@ import org.junit.Test
 
 /**
  * A ride log showed the route card saying bar 4 while the nav packet said 5 or 6, every second: the card carries the
- * same proximity bar as the nav packet, whatever the "Rota real" switch says.
+ * same proximity bar as the nav packet (the route's extras are always on).
  */
 class DashSessionRouteBarTest {
     private val scope = CoroutineScope(SupervisorJob())

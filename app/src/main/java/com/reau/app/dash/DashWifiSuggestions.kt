@@ -33,6 +33,7 @@ object DashWifiSuggestions {
     }
 
     /** Reads the switch and what is remembered of the dash, and applies them. */
+    @Synchronized // the state is read under the same lock as it is applied: a slow sync cannot undo a newer one
     fun sync(context: Context) {
         val settings = runCatching { SettingsStore.open(context).load() }.getOrNull()
         val pairing = runCatching { DashPairing.open(context) }.getOrNull()
@@ -48,6 +49,7 @@ object DashWifiSuggestions {
      * Clears any suggestion this app registered and adds the current one, if any. Logged to the ride log, since this
      * runs at moments (app start, a name just learned) when nobody watches logcat.
      */
+    @Synchronized // sync runs from several threads now (the app's start, the screen, the projection): remove-then-add must not interleave
     fun apply(context: Context, enabled: Boolean, ssid: String, password: String) {
         val wifi = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
         // Removing with an empty list clears every suggestion this app has registered (documented WifiManager

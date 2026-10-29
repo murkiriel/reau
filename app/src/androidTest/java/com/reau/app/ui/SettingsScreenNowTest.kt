@@ -36,7 +36,7 @@ import java.util.Locale
  * The "NA HORA" / "LIVE" chip of the settings: which rows carry it (the ones whose value the running projection takes
  * at once, read in LiveTuning, MainActivity.settingsChanged and LiveSides) and that it fits, whole, beside the title and
  * the (i) in both languages. The list is written out on purpose: a row that gains or loses the chip must be a decision
- * here too (docs: AJUSTES_NA_HORA.md).
+ * here too, and in the text that lists them (`applies_next_time`).
  */
 @RunWith(AndroidJUnit4::class)
 class SettingsScreenNowTest {
@@ -52,10 +52,11 @@ class SettingsScreenNowTest {
         Row("answer_calls", "Atender ligação", "Answer calls"),
         Row("dash_phone_status", "Estado do celular", "Phone status"),
         Row("dash_album_art", "Capa do álbum", "Album art"),
-        Row("dash_route_extras", "Rota real no painel", "Real route on the dash"),
+        Row("dash_maneuver_ring", "Anel de manobras", "Maneuver ring"),
         Row("ride_log", "Registro de diagnóstico", "Diagnostic log"),
         Row("detailed_log", "Registro detalhado", "Detailed log"),
         Row("log_keep", "Apagar sozinho os mais velhos que", "Automatically delete those older than"),
+        Row("no_dash_stop", "Desligar sozinho sem o painel", "Turn off by itself without the dash"),
     )
 
     /** The rows that wait for the next start, are fixed, or are not settings at all (their buttons): no chip. */

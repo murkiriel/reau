@@ -46,11 +46,28 @@ class DashCompositor(private val log: (String) -> Unit) {
 
     /** Since the last [takeStats]: pictures that arrived, frames drawn from a new picture, frames that repeated
      *  the last one (or black), and the time spent composing all of them. */
-    data class Stats(val sourceFrames: Int, val drawn: Int, val repeated: Int, val composeNs: Long)
+    data class Stats(
+        val sourceFrames: Int,
+        val drawn: Int,
+        val repeated: Int,
+        val composeNs: Long,
+        /** How long each new picture drawn since the last take waited for the tick, in ms ([TickWait]). */
+        val tickWaitsMs: List<Double> = emptyList(),
+    )
 
     private val thread = HandlerThread("dash-compositor").apply { start() }
     private val handler = Handler(thread.looper)
     private val gl = CompositorGl()
+
+    /**
+     * The least time between two frames drawn at once on a new picture while the rider's input is fresh
+     * ([com.reau.app.stream.InputBurst]); 0 (the default): off, every picture waits for the tick. Set by the video loop.
+     */
+    @Volatile var burstGapMs = 0L
+
+    /** Told what Android Auto's picture looks like ([PictureLook]), about every [com.reau.app.stream.InputBurst.lookEveryMs], on the compositor's thread; null: no look is taken. */
+    @Volatile var onLook: ((PictureLook.Kind) -> Unit)? = null
+    private var lastLookAtMs = 0L
 
     /** Where the Android Auto decoder renders. Valid after [start]. */
     @Volatile var inputSurface: Surface? = null
@@ -61,6 +78,7 @@ class DashCompositor(private val log: (String) -> Unit) {
     private var sourceH = 0
     private var window = CompositorMath.TexWindow(0f, 0f, 1f, 1f)
     private var viewport = RectPx(0, 0, DashGlass.FRAME_W, DashGlass.FRAME_H)
+    private var cover = emptyList<RectPx>()
     private var previewW = 0
     private var previewH = 0
     private var webW = 0
@@ -72,19 +90,28 @@ class DashCompositor(private val log: (String) -> Unit) {
     private var sinceLastFrameMs = 0L
     private var tickSpanMs = 0L
     private var nextTickAtMs = 0L
+    private var lastFrameAtMs = 0L
+    private var burstPending = false
     private var ptsMs = 0.0
     private var lastStampMs = -1L
     private var onFrameSubmitted: (Long) -> Unit = {}
     private var postFailing = false
     private var overlay = StatsOverlay()
     private var overlayText = StatsOverlay.latest
+    private var buttonOverlay = ButtonOverlay()
+    private var buttonText: ButtonText? = null
 
     /** The words of the "picture stuck" badge on the dash's video, or null for none (Android Auto's picture is alive). */
     private var staleBadge: String? = null
 
+    /** What the info ring draws on the dash's video now, or null for no ring. */
+    private var infoRing: com.reau.app.weather.RingFrame? = null
+
     private val sourceFrames = AtomicInteger()
     private val drawn = AtomicInteger()
     private val repeated = AtomicInteger()
+    private val waitClock = TickWaitClock() // the compositor's own thread only
+    private val tickWaits = TickWaitLog()
     private val composeNs = AtomicLong()
 
     /**
@@ -107,7 +134,11 @@ class DashCompositor(private val log: (String) -> Unit) {
                     if (gl.latch()) {
                         hasImage = true
                         newImage = true
+                        waitClock.arrived(System.nanoTime())
+                        takeLook()
+                        com.reau.app.stream.InputLatency.pictureArrived()
                         sourceFrames.incrementAndGet()
+                        if (gl.hasOutput && com.reau.app.stream.InputBurst.fresh(SystemClock.uptimeMillis())) drawSoon()
                         // No dash yet (no output, no ticks): the phone's preview follows Android Auto's own pictures.
                         if (!gl.hasOutput && gl.hasPreview) drawPreview()
                         // The web viewers' encoder follows Android Auto's own pictures, never the dash's clock.
@@ -115,6 +146,7 @@ class DashCompositor(private val log: (String) -> Unit) {
                     }
                 }
                 ok = true
+                handler.postDelayed(lookTick, CompositorMath.LOOK_POLL_MS)
                 log("compositor ready: source ${sourceW}x$sourceH, no output yet")
             }.onFailure { log("${RideDiagnostics.ERROR}compositor init failed: $it") }
         }
@@ -132,6 +164,7 @@ class DashCompositor(private val log: (String) -> Unit) {
             if (problems.isEmpty()) {
                 window = CompositorMath.texWindow(mapping.source, sourceW, sourceH)
                 viewport = CompositorMath.viewport(mapping.dest)
+                cover = CompositorMath.coverRects(mapping.cover)
                 ok = true
             } else {
                 log("${RideDiagnostics.WARN}compositor mapping refused $problems: $mapping")
@@ -155,7 +188,7 @@ class DashCompositor(private val log: (String) -> Unit) {
     /** Changes the clock. Takes effect at the next tick. */
     fun setPace(pace: Pace) {
         onGlThread(wait = false) {
-            this.pace = pace.copy(activeMs = pace.activeMs.coerceAtLeast(1), idleMs = pace.idleMs.coerceAtLeast(pace.activeMs))
+            this.pace = CompositorRules.normalized(pace)
         }
     }
 
@@ -163,10 +196,23 @@ class DashCompositor(private val log: (String) -> Unit) {
      * Points the compositor at an encoder's input surface (526×300) and starts the clock; a frame goes out at
      * once. [onFrameSubmitted] is called with each frame's time right before the frame is posted (the encoder's
      * `frameSubmitted`). Returns only when the switch is done: from then on nothing more is drawn on a previous
-     * output, so its encoder can be released. The video clock carries on across outputs.
+     * output, so its encoder can be released. The video clock carries on across outputs. A caller's trailing lambda
+     * (`setOutput(surface) { pts -> … }`) is the frame callback; to release the encoder that was there, [swapOutputThen].
      */
-    fun setOutput(encoderSurface: Surface, onFrameSubmitted: (Long) -> Unit = {}) {
-        onGlThread(wait = true) {
+    fun setOutput(encoderSurface: Surface, onFrameSubmitted: (Long) -> Unit = {}) =
+        switchOutput(encoderSurface, onFrameSubmitted, after = {})
+
+    /**
+     * [setOutput] that also runs [after] on the GL thread right after the previous output is let go, so what it releases (the
+     * encoder whose surface this was) is never released while a frame can still be drawn on it. Two functions of their own, with
+     * no default for either callback: a trailing lambda written to release the old encoder used to compile, with the one-function
+     * form, as the frame callback.
+     */
+    fun swapOutputThen(encoderSurface: Surface, onFrameSubmitted: (Long) -> Unit, after: () -> Unit) =
+        switchOutput(encoderSurface, onFrameSubmitted, after)
+
+    private fun switchOutput(encoderSurface: Surface, onFrameSubmitted: (Long) -> Unit, after: () -> Unit) {
+        onGlThreadThen(after) {
             runCatching {
                 dropOutput()
                 gl.attachOutput(encoderSurface)
@@ -182,9 +228,13 @@ class DashCompositor(private val log: (String) -> Unit) {
         }
     }
 
-    /** Stops the clock and lets go of the output surface. Returns when nothing more will be drawn on it. */
-    fun clearOutput() {
-        onGlThread(wait = true) { runCatching { dropOutput() } }
+    /**
+     * Stops the clock and lets go of the output surface. Returns when nothing more will be drawn on it, or after
+     * [GL_WAIT_MS] if the GL thread does not answer; [after] runs on the GL thread right after the output is let go, whenever
+     * that is, so what it releases (the encoder whose surface this was) is never released while a frame can still be drawn on it.
+     */
+    fun clearOutput(after: () -> Unit = {}) {
+        onGlThreadThen(after) { runCatching { dropOutput() } }
     }
 
     /**
@@ -256,6 +306,23 @@ class DashCompositor(private val log: (String) -> Unit) {
         if (overlay.on) rebuildOverlay()
     }
 
+    /** The last-button text on the dash's video: on or off and where, taken at the next frame. Off, nothing is drawn and the picture is let go. */
+    fun setButtonOverlay(overlay: ButtonOverlay) = onGlThread(wait = false) {
+        buttonOverlay = overlay
+        rebuildButton()
+        redrawSoon()
+    }
+
+    /** The button the dash sent last ([ButtonOverlay.textFor]); it stays until the next one. Drawn again at once, as a press is rare and the video may be at the idle pace. */
+    fun setButtonText(text: ButtonText?) = onGlThread(wait = false) {
+        if (text == buttonText) return@onGlThread
+        buttonText = text
+        if (buttonOverlay.on) {
+            rebuildButton()
+            redrawSoon()
+        }
+    }
+
     /** Shows the "picture stuck" badge saying [text] on the dash's video from the next frame; null takes it off. */
     fun setStaleBadge(text: String?) = onGlThread(wait = false) {
         if (text == staleBadge) return@onGlThread
@@ -271,6 +338,46 @@ class DashCompositor(private val log: (String) -> Unit) {
         }.onFailure { log("compositor: the picture-stuck badge failed and is off: $it") }
     }
 
+    /** Lays the info ring in the place of the dash's manoeuvre bubble ([inPlace]) or on the right; drawn again at once. */
+    fun setInfoRingPlace(inPlace: Boolean) = onGlThread(wait = false) {
+        if (gl.ringInPlace == inPlace) return@onGlThread
+        gl.ringInPlace = inPlace
+        redrawSoon()
+    }
+
+    /** Shows the info ring ([frame]) on the right of the dash's video from the next frame; null takes it off. The same frame again does nothing. */
+    fun setInfoRing(frame: com.reau.app.weather.RingFrame?) = onGlThread(wait = false) {
+        if (frame == infoRing) return@onGlThread
+        infoRing = frame
+        runCatching {
+            if (frame == null) {
+                gl.setRing(null)
+            } else {
+                val picture = InfoRingInk.render(frame)
+                gl.setRing(picture)
+                picture.recycle()
+            }
+        }.onFailure {
+            infoRing = null
+            gl.setRing(null)
+            log("compositor: the info ring failed and is off: $it")
+        }
+        redrawSoon()
+    }
+
+    private fun rebuildButton() {
+        runCatching {
+            val text = buttonText
+            if (!buttonOverlay.on || text == null) {
+                gl.setButton(null)
+            } else {
+                val picture = ButtonOverlayInk.render(text, buttonOverlay.size)
+                gl.setButton(picture)
+                picture.recycle()
+            }
+        }.onFailure { log("compositor: the button text failed and is off: $it") }
+    }
+
     private fun rebuildOverlay() {
         runCatching {
             if (!overlay.on) {
@@ -284,15 +391,42 @@ class DashCompositor(private val log: (String) -> Unit) {
     }
 
     /** Totals since the previous call, then starts counting again. */
-    fun takeStats(): Stats = Stats(sourceFrames.getAndSet(0), drawn.getAndSet(0), repeated.getAndSet(0), composeNs.getAndSet(0))
+    fun takeStats(): Stats =
+        Stats(sourceFrames.getAndSet(0), drawn.getAndSet(0), repeated.getAndSet(0), composeNs.getAndSet(0), tickWaits.take())
 
     fun release() {
         onGlThread(wait = true) {
+            handler.removeCallbacks(lookTick)
             runCatching { dropOutput() }
             inputSurface = null
             gl.release()
         }
         thread.quitSafely()
+    }
+
+    /**
+     * Runs [block] on the GL thread and then [after], on the same thread, in that order, and waits for them up to [GL_WAIT_MS].
+     * Giving up the wait does not give up the order: a GL thread stuck for longer than that (audit of 20/10/2026) used to let the
+     * caller go on and release the encoder while the surface was still in use (EGL errors, a native crash). With the thread gone
+     * (the looper quit) nothing can draw any more, and [after] runs on the caller.
+     */
+    private fun onGlThreadThen(after: () -> Unit, block: () -> Unit) {
+        val done = CountDownLatch(1)
+        val posted = handler.post {
+            try {
+                block()
+            } finally {
+                runCatching(after).onFailure { log("${RideDiagnostics.ERROR}compositor: the step after the output failed: $it") }
+                done.countDown()
+            }
+        }
+        if (!posted) {
+            runCatching(after)
+            return
+        }
+        if (!done.await(GL_WAIT_MS, TimeUnit.MILLISECONDS)) {
+            log("${RideDiagnostics.WARN}compositor: the GL thread did not answer in $GL_WAIT_MS ms; what follows runs on it when it does")
+        }
     }
 
     /** Runs [block] on the GL thread; with [wait], returns when it has run (or the thread is gone). */
@@ -314,6 +448,8 @@ class DashCompositor(private val log: (String) -> Unit) {
 
     private fun dropOutput() {
         handler.removeCallbacks(tick)
+        handler.removeCallbacks(burstDraw)
+        burstPending = false
         gl.detachOutput()
         onFrameSubmitted = {}
     }
@@ -331,30 +467,106 @@ class DashCompositor(private val log: (String) -> Unit) {
             // interval behind, so there is never a burst to catch up.
             val now = SystemClock.uptimeMillis()
             tickSpanMs = pace.activeMs
-            nextTickAtMs = if (nextTickAtMs == 0L || nextTickAtMs + tickSpanMs <= now) now + tickSpanMs else nextTickAtMs + tickSpanMs
+            nextTickAtMs = CompositorRules.nextTickAt(nextTickAtMs, tickSpanMs, now)
             handler.postAtTime(this, nextTickAtMs)
         }
+    }
+
+    /**
+     * A new picture arrived while the rider's input is fresh: drawn at once (at least the burst gap after the last frame), and the tick
+     * grid re-anchored on it, so the video clock keeps the real time between frames and the next tick is a whole interval away.
+     */
+    private fun drawSoon() {
+        val wait = CompositorMath.burstWaitMs(newImage, lastFrameAtMs, SystemClock.uptimeMillis(), burstGapMs) ?: return
+        if (burstPending) return
+        burstPending = true
+        handler.postDelayed(burstDraw, wait)
+    }
+
+    /**
+     * The info ring changed (it came or went): the picture drawn again at once, with no wait for the next tick, which at the idle pace is up
+     * to a quarter of a second away: the dash's own maneuver ring changes the moment the dash gets its card, and this one rides on the video.
+     */
+    private fun redrawSoon() {
+        if (!gl.hasOutput || burstPending) return
+        burstPending = true
+        handler.postDelayed(ringDraw, CompositorMath.redrawWaitMs(lastFrameAtMs, SystemClock.uptimeMillis()))
+    }
+
+    private val ringDraw = Runnable {
+        burstPending = false
+        if (!gl.hasOutput) return@Runnable
+        val now = SystemClock.uptimeMillis()
+        handler.removeCallbacks(tick)
+        sinceLastFrameMs = now - lastFrameAtMs
+        emitFrame(repeat = !newImage)
+        tickSpanMs = pace.activeMs
+        nextTickAtMs = now + tickSpanMs
+        handler.postAtTime(tick, nextTickAtMs)
+    }
+
+    private val burstDraw = Runnable {
+        burstPending = false
+        if (!gl.hasOutput || !newImage) return@Runnable
+        val now = SystemClock.uptimeMillis()
+        handler.removeCallbacks(tick)
+        sinceLastFrameMs = now - lastFrameAtMs
+        emitFrame(repeat = false)
+        tickSpanMs = pace.activeMs
+        nextTickAtMs = now + tickSpanMs
+        handler.postAtTime(tick, nextTickAtMs)
+    }
+
+    /**
+     * The look on the clock too, not only on a new picture: a screen that stands still (the app menu) sends next to no pictures, and the
+     * screen needs three looks of it in a row to be sure ([com.reau.app.aa.PictureGate]); with a look only per new picture the screen stayed on
+     * the map for as long as the menu stood still (25/10/2026, the Lite edition). Same pace limit as the looks on a new picture.
+     */
+    private val lookTick = object : Runnable {
+        override fun run() {
+            takeLook()
+            handler.postDelayed(this, CompositorMath.lookPollMs(onLook != null, hasImage))
+        }
+    }
+
+    /** The picture just latched, shrunk and read, once every [com.reau.app.stream.InputBurst.lookEveryMs] while somebody listens ([onLook]). */
+    private fun takeLook() {
+        val listener = onLook ?: return
+        if (!hasImage) return
+        val now = SystemClock.uptimeMillis()
+        if (!CompositorRules.lookDue(now, lastLookAtMs, com.reau.app.stream.InputBurst.lookEveryMs(com.reau.app.stream.InputBurst.lookQuick(now)))) return
+        lastLookAtMs = now
+        val pixels = runCatching { gl.look() }.getOrNull() ?: return
+        listener(PictureLook.of(pixels, PictureLook.SAMPLE_W, PictureLook.SAMPLE_H))
     }
 
     /** Draws the latched picture (or black) on the output and posts it with the next time of the video clock. */
     private fun emitFrame(repeat: Boolean) {
         val startNs = System.nanoTime()
         gl.draw(window.takeIf { hasImage }, viewport)
+        gl.fillBlack(cover)
         if (overlay.on) gl.drawOverlay(overlay.x, overlay.y)
+        if (buttonOverlay.on) gl.drawButton(buttonOverlay.x, buttonOverlay.y)
+        if (infoRing != null) gl.drawRing()
         if (staleBadge != null) gl.drawBadge()
 
-        if (lastStampMs >= 0) ptsMs = DashLogic.nextVideoPts(ptsMs, sinceLastFrameMs, pace.clockSlowPercent)
-        val stampMs = CompositorMath.stamp(lastStampMs, ptsMs)
-        if (stampMs > ptsMs) ptsMs = stampMs.toDouble()
+        val clock = CompositorRules.advance(lastStampMs, ptsMs, sinceLastFrameMs, pace.clockSlowPercent)
+        ptsMs = clock.ptsMs
+        val stampMs = clock.stampMs
         onFrameSubmitted(stampMs)
         val posted = gl.post(stampMs)
-        if (!posted && !postFailing) log("${RideDiagnostics.WARN}compositor: the output surface refused a frame (encoder gone?)")
+        if (CompositorRules.refusalToTell(posted, postFailing)) log("${RideDiagnostics.WARN}compositor: the output surface refused a frame (encoder gone?)")
         postFailing = !posted
         if (gl.hasPreview && hasImage) drawPreview()
 
         lastStampMs = stampMs
+        lastFrameAtMs = SystemClock.uptimeMillis()
         sinceLastFrameMs = 0L
         newImage = false
+        if (!repeat) {
+            waitClock.drawn(System.nanoTime())?.let { tickWaits.add(it) }
+            com.reau.app.stream.InputLatency.pictureDrawn()
+        }
         (if (repeat) repeated else drawn).incrementAndGet()
         composeNs.addAndGet(System.nanoTime() - startNs)
     }
@@ -366,7 +578,7 @@ class DashCompositor(private val log: (String) -> Unit) {
     private val webIdle = object : Runnable {
         override fun run() {
             if (!gl.hasWeb) return
-            if (hasImage && System.nanoTime() - lastWebDrawNs >= WEB_IDLE_MS * NS_PER_MS) drawWeb()
+            if (CompositorRules.webDue(hasImage, System.nanoTime(), lastWebDrawNs, WEB_IDLE_MS * NS_PER_MS)) drawWeb()
             handler.postDelayed(this, WEB_IDLE_MS)
         }
     }
@@ -397,4 +609,43 @@ class DashCompositor(private val log: (String) -> Unit) {
         const val WEB_IDLE_MS = 100L
         const val NS_PER_MS = 1_000_000L
     }
+}
+
+/** What the compositor decides about its clock and its frames, kept away from OpenGL and the handler so a plain JVM test can run it. */
+internal object CompositorRules {
+    /** A pace as the clock can use it: a tick of at least a millisecond, and a repeat never sooner than the tick. */
+    fun normalized(pace: DashCompositor.Pace): DashCompositor.Pace =
+        pace.copy(activeMs = pace.activeMs.coerceAtLeast(1), idleMs = pace.idleMs.coerceAtLeast(pace.activeMs))
+
+    /**
+     * The next tick on an absolute grid, so a slow tick does not push every later one; re-anchored on [nowMs] when the grid was never set
+     * ([nextTickAtMs] 0) or fell a whole interval behind, so there is never a burst to catch up.
+     */
+    fun nextTickAt(nextTickAtMs: Long, tickSpanMs: Long, nowMs: Long): Long =
+        if (nextTickAtMs == 0L || nextTickAtMs + tickSpanMs <= nowMs) nowMs + tickSpanMs else nextTickAtMs + tickSpanMs
+
+    /** The time of a frame ([stampMs], strictly after the last) and where the video clock stands after it ([ptsMs]). */
+    class VideoClock(val ptsMs: Double, val stampMs: Long)
+
+    /**
+     * The video clock for the frame about to go out: it moves on by [sinceLastFrameMs] (less [clockSlowPercent]) from the second frame
+     * on; the frame's stamp is whole milliseconds and always after the last one ([lastStampMs], negative before the first), and the
+     * clock never stays behind the stamp.
+     */
+    fun advance(lastStampMs: Long, ptsMs: Double, sinceLastFrameMs: Long, clockSlowPercent: Int): VideoClock {
+        var pts = ptsMs
+        if (lastStampMs >= 0) pts = DashLogic.nextVideoPts(pts, sinceLastFrameMs, clockSlowPercent)
+        val stamp = CompositorMath.stamp(lastStampMs, pts)
+        if (stamp > pts) pts = stamp.toDouble()
+        return VideoClock(pts, stamp)
+    }
+
+    /** A refused frame is told once: only the first of a run of refusals goes to the log. */
+    fun refusalToTell(posted: Boolean, alreadyFailing: Boolean): Boolean = !posted && !alreadyFailing
+
+    /** While the web output is on and nothing new comes, the last picture is drawn again every [everyNs]. */
+    fun webDue(hasImage: Boolean, nowNs: Long, lastDrawNs: Long, everyNs: Long): Boolean = hasImage && nowNs - lastDrawNs >= everyNs
+
+    /** The look at the picture is taken at most once every [everyMs]. */
+    fun lookDue(nowMs: Long, lastLookMs: Long, everyMs: Long): Boolean = nowMs - lastLookMs >= everyMs
 }

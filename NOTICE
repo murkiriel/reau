@@ -46,7 +46,8 @@ EstrelaAustral (Apache License 2.0)
   AutoFpsController.kt, AutoKeyframeController.kt, dash/DashConfig.kt), the
   foreground service pattern (service/ProjectionService.kt and its locks and
   notification), the maneuver glyphs (dash/nav/DashManeuverGlyphs.kt,
-  dash/nav/ManeuverType.kt) and the tests
+  dash/nav/ManeuverType.kt), the weather (weather/ and its screen,
+  ui/WeatherScreen.kt) and the tests
   of those parts, including the fake dash used by the instrumented tests. Each
   copied file is changed only in its package name unless REau's own history says
   otherwise. EstrelaAustral's own files carry portions that come from other
@@ -119,11 +120,14 @@ OpenCfMoto (GNU Affero General Public License v3.0)
     commit). Kept: dialling out to Android Auto's head unit server on
     127.0.0.1:5277 with an 800 ms connect timeout and 2 s between dials, one
     session at a time, and the order of a session (handshake, decoder
-    surface, read loop). Not here: the listening socket on 5288 with its NSD
-    registration and the AaSelfMode pokes, the 20-dial limit, BikeWifi's
-    process-wide network bind, AaVideoBridge, the microphone, the input sinks
-    and the night timer (day and night are given to the receiver by the
-    service, AaReceiver.setNight). The link states and the tests
+    surface, read loop). Not here: the NSD registration, the 20-dial limit,
+    BikeWifi's process-wide network bind, AaVideoBridge, the input sinks and
+    the night timer (day and night are given to the receiver by the service,
+    AaReceiver.setNight); the microphone has its own files, below. The
+    listening socket on 127.0.0.1 for Android Auto 17.3 and older (in
+    AaReceiver) and the ask that makes Android Auto dial it (aa/AaCallsIn.kt)
+    are written for REau after reading OpenCfMoto's AaSelfMode; nothing of its
+    code is copied. The link states and the tests
     (AaReceiverTest, AaReceiverNightTest) are new.
   - Android Auto Projection receiver, input and microphone (package aa/ and
     phone/): aa/AaInput.kt is copied from the same folder and commit (one finger
@@ -151,7 +155,8 @@ OpenCfMoto (GNU Affero General Public License v3.0)
     new.
 
 open-headunit (GNU Affero General Public License v3.0)
-  https://github.com/andreknieriem/open-headunit, the continuation of
+  Copyright andreknieriem and contributors (as REau's Credits screen names the
+  holder). https://github.com/andreknieriem/open-headunit, the continuation of
   headunit-revived, by the same lineage of authors and contributors.
   - aa/HandshakeMessagePolicy.kt with HandshakeMessagePolicyTest, copied from
     app/src/main/java/com/andrerinas/openheadunit/aap/ and its test folder,
@@ -184,9 +189,16 @@ headunit-revived (GNU Affero General Public License v3.0)
   "headunit-reloaded" and "headunit-revived" (andreknieriem), and their
   respective contributors. All of them license it under the AGPL-3.0. The copied files keep the
   "Ported from headunit-revived (AGPLv3)" headers they came with.
-  The protobuf classes in aa/proto/ are generated code: their .proto sources
-  (proto package com.andrerinas.headunitrevived.aap.protocol.proto) are in
-  headunit-revived, not in OpenCfMoto and not in this repository.
+  The protobuf classes in aa/proto/ are generated code. Their .proto sources
+  are in app/src/main/proto/ (common, control, input, media, playback,
+  navigation, sensors and wireless), so that the classes' preferred form for
+  modification is in this repository. They are rebuilt from the descriptors
+  embedded in the classes, not copied: protoc compiles each of them back to the
+  descriptor the class carries. The original .proto files, with their comments,
+  are headunit-revived's (proto package
+  com.andrerinas.headunitrevived.aap.protocol.proto); they did not come with
+  OpenCfMoto's copy of the classes and are not here. Each file's header says so.
+  REau's build does not run protoc.
 
 MOTO-HUB (GNU Affero General Public License v3.0 only)
   Copyright (C) 2026 Vincenzo Buonomano and the MOTO-HUB contributors.
@@ -222,6 +234,11 @@ better-dash (Apache License 2.0)
   session and the layout of its sockets (dash/DashSession.kt, dash/DashSocket.kt,
   which follow it). Those portions are marked "ported" or "matching" in the
   file headers; they are derived work and this notice is their attribution.
+  Facts read from it, as the comments of the files say, with no code copied:
+  the captured route card with its arrival pin that the dash needs to pass its
+  joystick on in the map mode (dash/DashIdleCard.kt), and how it reads the map
+  mode's side presses and the down press (aa/JoystickMap.kt; the down press,
+  0x15, was confirmed on the bike on 28/10/2026).
 
 recon-dash (GNU Affero General Public License v3.0)
   Copyright MinotaurG. https://github.com/MinotaurG/recon-dash
@@ -240,6 +257,30 @@ open-dash (Apache License 2.0)
   is no longer online. The license and the holder are recorded as the
   project's own NOTICE states them.
 
+HeadQLink (GNU Affero General Public License v3.0)
+  A fork of open-headunit (above) for a car's screen. Its holder and its
+  repository address are not known to this repository: the copy kept for
+  reference (README, LICENSE and COPYRIGHT file) names none of its own and keeps
+  open-headunit's and Michael A. Reid's notices. Add them here when known.
+  The app's Credits screen lists it (with those holders and no address to copy).
+  What REau took is one value and an order, and no code: the 1.5 s between
+  "stop" and "start" when Android Auto's head unit server is restarted
+  (aa/ServerMenuRun.kt, RESTART_PAUSE_MS; HeadQLink's
+  AaServerStarter.restartAndWait does stop, 1.5 s, start).
+
+aa-proxy-rs (GNU General Public License v2.0)
+  Copyright Mariusz Białończyk (as the project's Cargo.toml names the author).
+  https://github.com/manio/aa-proxy-rs
+  Protocol facts read from its src/protos/protos.proto, no code copied: the
+  layout of the PhoneStatus message (calls = 1; phone_state = 1,
+  caller_number = 3, caller_id = 4), its call states (IN_CALL 1, ON_HOLD 2,
+  CONFERENCED 5, MUTED 6), the numbers of the media playback metadata (32771)
+  and phone status (32769) messages (aa/AapCards.kt), and the observation that
+  Android Auto holds some features back for the protocol version the head unit
+  asks for (aa/Messages.kt). The code that reads them is REau's own. Nothing of
+  aa-proxy-rs is in the APK; its GPL-2.0 is why no code is taken from it, as
+  that license does not combine with the AGPL-3.0.
+
 The full text of the Apache License 2.0, which applies to the entries above that
 name it, is in licenses/Apache-2.0.txt. The OFL texts are in licenses/fonts/.
 
@@ -253,12 +294,16 @@ Fonts (SIL Open Font License 1.1)
   the redesign; the outlines are unchanged and each file keeps
   its copyright and licence in its own name table. The license texts are in
   licenses/fonts/.
-  - Fraunces (Copyright 2020 The Fraunces Project Authors): fraunces_500.ttf
+  - Fraunces (Copyright 2020 The Fraunces Project Authors;
+    https://github.com/undercasetype/Fraunces): fraunces_500.ttf
     and fraunces_600.ttf, at opsz 28, SOFT 0, WONK 1, weights 500 and 600.
-  - Hanken Grotesk (Copyright 2021 The Hanken Grotesk Project Authors):
+  - Hanken Grotesk (Copyright 2021 The Hanken Grotesk Project Authors;
+    https://github.com/marcologous/hanken-grotesk):
     hanken_grotesk_400/500/600.ttf.
-  - JetBrains Mono (Copyright 2020 The JetBrains Mono Project Authors):
-    jetbrains_mono_400/500.ttf.
+  - JetBrains Mono (Copyright 2020 The JetBrains Mono Project Authors;
+    https://github.com/JetBrains/JetBrainsMono): jetbrains_mono_400/500.ttf.
+  The project addresses are the ones REau's Credits screen links; the files
+  themselves come from Google Fonts, as said above.
 
 Material Symbols (Apache License 2.0)
   Copyright Google LLC. https://github.com/google/material-design-icons
@@ -292,8 +337,10 @@ Protocol Buffers, protobuf-java (BSD 3-Clause License)
 Conscrypt (Apache License 2.0)
   Copyright 2013 The Android Open Source Project. https://github.com/google/conscrypt
   The TLS provider that the Android Auto handshake needs; the library is compiled
-  into the APK, unmodified, together with the BoringSSL code it bundles (see the
-  project's own NOTICE for that code's licenses).
+  into the APK, unmodified, together with the BoringSSL code it bundles. The
+  library's own NOTICE is in licenses/Conscrypt-NOTICE.txt and BoringSSL's own
+  license file, in licenses/BoringSSL-LICENSE.txt (Apache License 2.0; BoringSSL
+  began as a fork of OpenSSL).
 
 JMuxer (MIT License)
   Copyright (c) 2018 Samir Das. https://github.com/samirkumardas/jmuxer
@@ -304,9 +351,10 @@ JMuxer (MIT License)
   app/src/main/assets/web/jmuxer.LICENSE, and so inside the APK.
 
 NOAA solar position equations (public domain)
+  NOAA Global Monitoring Laboratory. https://gml.noaa.gov/grad/solcalc/azel.html
   data/SolarClock.kt is REau's own code, written from the equations the NOAA
-  Global Monitoring Laboratory publishes for its solar calculator (General Solar
-  Position Calculations). The equations are published for anyone's use; no
+  Global Monitoring Laboratory publishes for its solar calculator (the script of
+  the page above holds them). The equations are published for anyone's use; no
   third-party code is in the file.
 
 Open-Meteo (data under Creative Commons Attribution 4.0)

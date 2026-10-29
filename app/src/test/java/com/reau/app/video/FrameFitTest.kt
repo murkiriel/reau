@@ -235,4 +235,49 @@ class FrameFitTest {
             assertEquals("moved by ($dx, $dy)", emptyList<FrameFit.Problem>(), FrameFit.problems(FrameFit.moved(m, dx, dy), 800, 480))
         }
     }
+
+    // ── the zoom and the black bands ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a zoom of 100 changes nothing`() {
+        val whole = FrameFit.wholeVisible(whole800)
+        assertEquals(whole, FrameFit.zoomed(whole, 100))
+    }
+
+    @Test
+    fun `zooming out shrinks the destination keeping its bottom edge and its middle sideways, and keeps the source`() {
+        val whole = FrameFit.wholeVisible(whole800) // 370x222 at (78, 78)
+        val out = FrameFit.zoomed(whole, 50)
+        assertEquals(whole.source, out.source)
+        assertEquals(RectPx(78 + 92, 78 + 222 - 111, 185, 111), out.dest)
+        assertEquals(whole.dest.y + whole.dest.h, out.dest.y + out.dest.h)
+        assertEquals(emptyList<FrameFit.Problem>(), FrameFit.problems(out, 800, 480))
+    }
+
+    @Test
+    fun `zooming in shrinks the source keeping its bottom edge and its middle sideways, and keeps the destination`() {
+        val whole = FrameFit.wholeVisible(whole800)
+        val near = FrameFit.zoomed(whole, 200)
+        assertEquals(whole.dest, near.dest)
+        assertEquals(RectPx(200, 240, 400, 240), near.source)
+        assertEquals(whole.source.y + whole.source.h, near.source.y + near.source.h)
+        assertEquals(emptyList<FrameFit.Problem>(), FrameFit.problems(near, 800, 480))
+    }
+
+    @Test
+    fun `the zoom stays in its range, keeps the shape and the cover`() {
+        val whole = FrameFit.wholeVisible(whole800).copy(cover = FrameFit.Cover(top = 10, right = 20))
+        assertEquals(FrameFit.zoomed(whole, 50), FrameFit.zoomed(whole, -5))
+        assertEquals(FrameFit.zoomed(whole, 200), FrameFit.zoomed(whole, 900))
+        assertEquals(whole.cover, FrameFit.zoomed(whole, 70).cover)
+        for (z in FrameFit.ZOOM step 7) assertEquals("zoom $z", emptyList<FrameFit.Problem>(), FrameFit.problems(FrameFit.zoomed(whole, z), 800, 480))
+    }
+
+    @Test
+    fun `a cover is brought into what is offered, and none is none`() {
+        assertTrue(FrameFit.Cover.NONE.none)
+        assertFalse(FrameFit.Cover(top = 1).none)
+        val c = FrameFit.Cover(top = 900, bottom = -4, left = 900, right = 30).clamped()
+        assertEquals(FrameFit.Cover(FrameFit.MAX_COVER_Y, 0, FrameFit.MAX_COVER_X, 30), c)
+    }
 }
