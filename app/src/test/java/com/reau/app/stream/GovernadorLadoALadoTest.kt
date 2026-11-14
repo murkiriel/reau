@@ -25,13 +25,13 @@ class GovernadorLadoALadoTest {
      * The two governors on one bench. The polls are made as `GovernorBench` makes them (the same small model of the compositor and the
      * encoder, following the pace the governor set), once, and handed to both.
      */
-    private class Pair(private val config: GovernorConfig, private val said: String) {
+    private class Pair(private val config: GovernorConfig, private val said: String, keyframeSecBefore: Int = config.keyframeSec) {
         val now: StreamGovernor = config.governor()
 
         /** The governor of before the cut, made as `GovernorConfig.governor()` made it in step G0. */
         val before = EscadaGovernor(
             EscadaAutoFps.plan(DashConfig.AUTO_FPS_START, ThermalCeiling.capFor(COOL, config.ceilingFps)), 0, EscadaGovernor.WINDOW_MS,
-            config.bitrateBps, config.keyframeSec, lightScreenFps = config.lightScreenFps,
+            config.bitrateBps, keyframeSecBefore, lightScreenFps = config.lightScreenFps,
         )
         var nowMs = 0L
         var polls = 0
@@ -165,12 +165,43 @@ class GovernadorLadoALadoTest {
     }
 
     @Test
-    fun `and so do the settings the app does not use, no light-screen pace, a keyframe every 2 s and the automatic keyframe`() {
-        // The automatic keyframe interval (0) is the one case where a poll still asks for a new encoder: both must ask for it at the same poll.
-        val automaticKeyframe = GovernorConfig.REAL_400.copy(name = "400 kbps, automatic keyframe", keyframeSec = DashConfig.KEYFRAME_INTERVAL_AUTO)
-        for (config in listOf(GovernorConfig.NO_LIGHT_SCREEN, GovernorConfig.KEYFRAME_2S, automaticKeyframe)) {
+    fun `and so do the settings the app does not use, no light-screen pace and a keyframe every 2 s`() {
+        for (config in listOf(GovernorConfig.NO_LIGHT_SCREEN, GovernorConfig.KEYFRAME_2S)) {
             for (seed in 1..OTHER_SEEDS) sideBySide(config, "seed $seed", GovernorSequences.of(seed))
         }
+    }
+
+    /**
+     * The automatic keyframe interval was cut in step G2: a stored 0 is read as 1 s. So today's governor given 0 must answer, poll by poll, as the
+     * oracle given the fixed 1 s does (the oracle given 0 would still choose by itself, and replace the encoder: the test after this one).
+     */
+    @Test
+    fun `today's governor with a keyframe interval of 0 answers as the one of before with the fixed 1 s`() {
+        for (real in GovernorConfig.REAL) {
+            val stored = real.copy(name = "${real.name}, a stored 0 for the keyframe", keyframeSec = DashConfig.KEYFRAME_INTERVAL_AUTO)
+            for (seed in 1..OTHER_SEEDS) {
+                val pair = Pair(stored, "${stored.name}, seed $seed", keyframeSecBefore = 1).also { it.run(GovernorSequences.of(seed)) }
+                assertEquals(GovernorSequences.POLLS, pair.polls)
+            }
+        }
+    }
+
+    /** And the oracle is the governor with the automatic keyframe too: given 0, a minute of tight bit budget makes it ask for a new encoder at 2 s, where today's asks for none. */
+    @Test
+    fun `the oracle still chooses the keyframe interval by itself when given 0, where today's stays at 1 s`() {
+        val before = EscadaGovernor(EscadaAutoFps.plan(DashConfig.AUTO_FPS_START, 4), bitrateCeilingBps = 200_000, fixedKeyframeSec = DashConfig.KEYFRAME_INTERVAL_AUTO).also { it.start(0) }
+        val now = StreamGovernor(4, bitrateCeilingBps = 200_000, keyframeSec = DashConfig.KEYFRAME_INTERVAL_AUTO).also { it.start(0) }
+        var nowMs = 0L
+        val rebuilds = ArrayList<EscadaGovernor.Action.Rebuild>()
+        repeat(TIGHT_POLLS) {
+            nowMs += POLL_MS
+            // One frame a poll, 6 000 bytes each: whole windows at 4 fps with 192 of the 200 kbps in use.
+            val p = StreamGovernor.Poll(nowMs, DashCompositor.Stats(1, 1, 0, 0L), framesOut = 1, bytesOut = 6_000L, lateFrames = 0, encodeNs = 0L, dashAcks = 0L, firstFrameConfirmed = true)
+            rebuilds += before.onPoll(p.asBefore()).filterIsInstance<EscadaGovernor.Action.Rebuild>()
+            assertTrue(now.onPoll(p).none { it is Action.Rebuild })
+        }
+        assertEquals("the interval of before went to 2 s and had the encoder replaced", listOf(2), rebuilds.map { it.keyframeSec })
+        assertEquals(2 to 1, before.keyframeSec to now.keyframeSec)
     }
 
     /** The comparison would prove nothing if the oracle were not the ladder: where the ladder can be reached (a ceiling of 16, which the app never has), it climbs and the governor of today does not. */
@@ -197,6 +228,7 @@ class GovernadorLadoALadoTest {
         const val REAL_SEEDS = 300
         const val OTHER_SEEDS = 40
         const val CLIMB_POLLS = 100
+        const val TIGHT_POLLS = 300
         const val COOL = 0
         const val POLL_MS = 250L
         const val PERMILLE = 1000

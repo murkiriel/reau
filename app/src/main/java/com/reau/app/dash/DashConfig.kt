@@ -2,7 +2,7 @@ package com.reau.app.dash
 
 /**
  * The limits of the video stream to the dash, as found on a real dash.
- * The rules that use them are in `com.reau.app.stream` (DashLogic, StreamGovernor, AutoKeyframeController).
+ * The rules that use them are in `com.reau.app.stream` (DashLogic, StreamGovernor).
  */
 object DashConfig {
     /** Range of the stream rate. At 30 the dash went silent; 4 is the conservative rate it shows well. */
@@ -65,7 +65,10 @@ object DashConfig {
     const val EXPERIMENT_TARGET_BPS = 200_000
     const val EXPERIMENT_FLOOR_BPS = 64_000
 
-    /** "Automatic": the streaming loop picks 1 or 2 s itself. */
+    /**
+     * "Automatic", as a stored setting may still say: the stream used to pick 1 or 2 s itself. Nothing picks any more (cut on 14/11/2026):
+     * the settings turn it into 1 s when they are read, and the stream reads a 0 as 1 s too.
+     */
     const val KEYFRAME_INTERVAL_AUTO = 0
     val KEYFRAME_INTERVAL_OPTIONS = listOf(KEYFRAME_INTERVAL_AUTO, 1, 2)
 

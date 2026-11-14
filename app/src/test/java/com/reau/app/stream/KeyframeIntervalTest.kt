@@ -54,7 +54,7 @@ class KeyframeIntervalTest {
     private var acks = 0L
 
     private fun governor(lightFps: Int = 6, keyframeSec: Int = 1) =
-        StreamGovernor(4, fixedKeyframeSec = keyframeSec, lightScreenFps = lightFps).also { it.start(nowMs) }
+        StreamGovernor(4, keyframeSec = keyframeSec, lightScreenFps = lightFps).also { it.start(nowMs) }
 
     private fun far(distance: Int) = StreamGovernor.NavSample(
         maneuverProfileEnabled = true, speedProfileEnabled = false, distanceToManeuverMeters = distance, speedKmh = null,
@@ -170,15 +170,16 @@ class KeyframeIntervalTest {
     }
 
     @Test
-    fun `the rebuild for an automatic keyframe interval that moved asks for the interval of the light pace`() {
-        // The automatic interval (no fixed one) goes to 2 s after a minute of windows with the bitrate in use: 96 kbit a frame at 8 fps is 768 of 1024 kbps.
-        // Light pace 16 fps over an encoder built for 8: 2 s at 16 fps is 4 s of the encoder's counting, so 5 s.
+    fun `a minute of windows with the bitrate in use moves no keyframe interval, and the rebuild after a failure still asks for the one of the light pace`() {
+        // 96 kbit a frame at 8 fps is 768 of 1024 kbps: what moved the interval that chose itself to 2 s, with a new encoder (cut on 14/11/2026).
+        // Light pace 16 fps over an encoder built for 8: 1 s at 16 fps is 2 s of the encoder's counting, so 3 s.
         val g = StreamGovernor(8, lightScreenFps = 16).also { it.start(nowMs); it.window(composed = 1) }
-        val moved = (1..14).flatMap { g.window(composed = 40, bytesPerFrame = 12_000L) }.filterIsInstance<Action.Rebuild>()
-        assertEquals(1, moved.size)
-        assertEquals(8, moved.single().fps)
-        assertEquals(2, moved.single().keyframeSec)
-        assertEquals(2 * 16 / 8 + 1, moved.single().encoderKeyframeSec)
+        val all = (1..14).flatMap { g.window(composed = 40, bytesPerFrame = 12_000L) }
+        assertTrue("got ${all.filterIsInstance<Action.Rebuild>()}", all.none { it is Action.Rebuild })
+        assertEquals(1, g.keyframeSec)
+        assertEquals(8, g.rebuildAction().fps)
+        assertEquals(1, g.rebuildAction().keyframeSec)
+        assertEquals(1 * 16 / 8 + 1, g.rebuildAction().encoderKeyframeSec)
     }
 
     @Test

@@ -46,7 +46,7 @@ data class REauSettings(
     /** The bitrate while the picture moves, half of it still; raised as needed so a higher rate keeps its bits per frame. */
     val streamBitrateBps: Int = DEFAULT_STREAM_BITRATE,
     val bitrateMode: BitrateMode = BitrateMode.CBR,
-    /** 1 or 2 s, or 0: chosen by the stream itself (AutoKeyframeController), as it was before the fixed keyframe. */
+    /** 1 or 2 s. A stored 0 ("chosen by the stream itself", which is no more) is still read: [sanitized] makes it 1 s, and the stream would take it as 1 s too. */
     val keyframeSec: Int = DEFAULT_KEYFRAME_SEC,
     val clockSlowPercent: Int = 0,
     /**

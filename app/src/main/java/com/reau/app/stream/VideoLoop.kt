@@ -72,7 +72,7 @@ internal class VideoLoop(
     /**
      * [ceilingFps] is the pace of the full profile, the one the stream runs at for all of it (the reduced profile is half
      * of it; the name is the setting's, from when a rate climbed up to it). [clockSlowPercent] is the video clock knob. [bitrateBps], [bitrateMode] and
-     * [keyframeSec] (0: automatic) are the rider's; their defaults here are what the stream had before.
+     * [keyframeSec] (0: read as 1 s by the governor) are the rider's; their defaults here are what the stream had before.
      *
      * Optional recording: with [recordFrames] above zero and a [recordDir], the first [recordFrames] units of every
      * stream are also written to a file there ([H264Recorder]); with [recordRolling] the stream goes on in further parts, to its end.

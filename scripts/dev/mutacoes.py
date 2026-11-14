@@ -1019,10 +1019,7 @@ MUTATIONS = [
      "if (!DashLogic.paceSyncNeeded(fps, encoderFps, gopFps)) {", "if (fps >= encoderFps) {", ["KeyframeIntervalTest"]),
     ("StreamGovernor: a reconstrução por falha não leva o intervalo do codificador", MAIN + "stream/StreamGovernor.kt",
      "bitrateBps.takeIf { it > 0 } ?: activeBitrateBps, encoderKeyframeSec)", "bitrateBps.takeIf { it > 0 } ?: activeBitrateBps)", ["KeyframeIntervalTest"]),
-    # (The rebuild for a change of profile left with the fps ladder on 14/11/2026, plan 27 step G1, and its mutation with it; the window's is now only the automatic keyframe's.)
-    ("StreamGovernor: a reconstrução da janela não leva o intervalo do codificador", MAIN + "stream/StreamGovernor.kt",
-     "            actions += Action.Rebuild(encoderFps, keyframeSec, bitrateBps, encoderKeyframeSec)",
-     "            actions += Action.Rebuild(encoderFps, keyframeSec, bitrateBps)", ["KeyframeIntervalTest"]),
+    # (The rebuild for a change of profile left with the fps ladder on 14/11/2026, step G1, and the window's with the automatic keyframe interval the same day, step G2; their mutations with them.)
     ("VideoLoop: o codificador do início é feito com o intervalo do rider", MAIN + "stream/VideoLoop.kt",
      "buildEncoder(out, g.encoderFps, g.activeBitrateBps, g.encoderKeyframeSec)", "buildEncoder(out, g.encoderFps, g.activeBitrateBps, g.keyframeSec)", ["KeyframeIntervalTest"]),
     ("VideoLoop: o codificador reconstruído é feito com o intervalo do rider", MAIN + "stream/VideoLoop.kt",
@@ -3206,6 +3203,16 @@ MUTATIONS = [
      'if (!thermalOk) add("thermal")', 'if (false) add("thermal")', ["StreamGovernorTest"]),
     ("Governador G1 14/11: a taxa acima do teto não é dita no colchete", MAIN + "stream/StreamGovernor.kt",
      'if (!withinBitrate) add(', 'if (false) add(', ["StreamGovernorTest"]),
+    # Governador G2 14/11 (14/11/2026, step G2): the automatic keyframe interval is cut. The interval is the one the stream was started with (1 s in the app), a stored 0
+    # is read as 1 s, and a window that closes only writes its line: no poll asks for a new encoder.
+    ("Governador G2 14/11: o quadro-chave 0 guardado é lido como 2 s e não 1 s", MAIN + "stream/StreamGovernor.kt",
+     "const val DEFAULT_KEYFRAME_SEC = 1", "const val DEFAULT_KEYFRAME_SEC = 2", ["StreamGovernorTest", "GovernadorLadoALadoTest"]),
+    ("Governador G2 14/11: o quadro-chave 0 guardado passa como 0", MAIN + "stream/StreamGovernor.kt",
+     "keyframeSec.takeIf { it > 0 } ?: DEFAULT_KEYFRAME_SEC", "keyframeSec", ["StreamGovernorTest", "GovernadorLadoALadoTest"]),
+    ("Governador G2 14/11: a janela que fecha volta a pedir um codificador novo", MAIN + "stream/StreamGovernor.kt",
+     "        return listOf(Action.Log(line))\n", "        return listOf(Action.Log(line), rebuildAction())\n", ["StreamGovernorTest", "GovernadorLadoALadoTest"]),
+    ("Governador G2 14/11: o kf= da linha diz o intervalo do codificador e não o do fluxo", MAIN + "stream/StreamGovernor.kt",
+     "w.link.text(), keyframeSec,", "w.link.text(), encoderKeyframeSec,", ["StreamGovernorTest", "GovernadorOuroTest"]),
 ]
 
 

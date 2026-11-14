@@ -326,8 +326,8 @@ class StreamGovernorTest {
     }
 
     @Test
-    fun `with a fixed keyframe interval no poll ever asks for a new encoder, whatever changes around the stream`() {
-        val g = StreamGovernor(4, bitrateCeilingBps = 400_000, fixedKeyframeSec = 1, lightScreenFps = 6).also { it.start(nowMs) }
+    fun `no poll ever asks for a new encoder, whatever changes around the stream`() {
+        val g = StreamGovernor(4, bitrateCeilingBps = 400_000, keyframeSec = 1, lightScreenFps = 6).also { it.start(nowMs) }
         val both = { meters: Int?, kmh: Double? -> StreamGovernor.NavSample(true, true, meters, kmh, NavProfileMode.PESSIMISTA) }
         val samples = listOf(
             null, both(500, 40.0), both(1200, 40.0), both(1450, 40.0), both(500, 70.0), both(null, null),
@@ -352,13 +352,43 @@ class StreamGovernorTest {
             listOf("[ok]", "[not judged]", "[short: ").all { text -> all.windowLines().any { text in it } })
     }
 
+    // ── the keyframe interval is fixed: no window moves it, and a window only writes its line ────────────
+
     @Test
-    fun `a minute of tight bit budget moves the keyframe interval to 2 s`() {
-        val g = started()
-        // 0.8 of 1024 kbps: 512 000 bytes in 5 s.
-        val rebuilds = (1..13).flatMap { g.window(composed = 80, bytes = 512_000) }.filterIsInstance<Action.Rebuild>()
-        assertEquals(listOf(Action.Rebuild(fps = 16, keyframeSec = 2, bitrateBps = 1_024_000)), rebuilds)
-        assertEquals(2, g.keyframeSec)
+    fun `a window that closes gives its line and nothing else, never a new encoder, for the 1 s, the 2 s and the stored 0`() {
+        for (sec in listOf(1, 2, DashConfig.KEYFRAME_INTERVAL_AUTO)) {
+            val g = StreamGovernor(16, keyframeSec = sec).also { it.start(nowMs); it.poll(drawn = 1) }
+            val interval = g.keyframeSec
+            // Two minutes of a tight bit budget (0.8 of 1024 kbps: 512 000 bytes in 5 s), then of a dash that acknowledges half of what was sent:
+            // each used to move the interval that chose itself, with a new encoder.
+            val tight = (1..24).map { g.window(composed = 80, bytes = 512_000) }
+            val lossy = (1..24).map {
+                (0 until POLLS_PER_WINDOW).flatMap {
+                    acks += 2
+                    g.poll(drawn = 4)
+                }
+            }
+            for (window in tight + lossy) {
+                assertEquals("keyframe $sec: got $window", 1, window.size)
+                assertTrue("keyframe $sec: got $window", window.single() is Action.Log)
+            }
+            assertEquals(interval, g.keyframeSec)
+            assertTrue((tight + lossy).flatten().windowLines().all { " kf=${interval}s " in it })
+        }
+    }
+
+    @Test
+    fun `a keyframe interval of 0, the automatic one a stored setting may still say, is read as 1 s`() {
+        val stored = StreamGovernor(4, keyframeSec = DashConfig.KEYFRAME_INTERVAL_AUTO, lightScreenFps = 6).also { it.start(nowMs) }
+        val one = StreamGovernor(4, keyframeSec = 1, lightScreenFps = 6)
+        assertEquals(1, stored.keyframeSec)
+        assertEquals(one.encoderKeyframeSec, stored.encoderKeyframeSec)
+        assertEquals(1, stored.rebuildAction().keyframeSec)
+        assertEquals("and so does a governor made with no interval at all", 1, StreamGovernor(4).keyframeSec)
+        assertEquals("a negative one too", 1, StreamGovernor(4, keyframeSec = -1).keyframeSec)
+        assertEquals("the 2 s stay 2 s", 2, StreamGovernor(4, keyframeSec = 2).keyframeSec)
+        val line = (1..2).flatMap { stored.window(composed = 20) }.windowLines().last()
+        assertTrue(line, " kf=1s " in line)
     }
 
     // ── the navigation-driven quality profile ────────────────────────────────────────────────────────

@@ -10,7 +10,7 @@ import java.util.Locale
 
 /**
  * The decisions of the video loop, with the clock and every measurement passed in, so they run in a plain JVM
- * test. It applies the stream rules ([DashLogic], [AutoKeyframeController]) to
+ * test. It applies the stream rules ([DashLogic]) to
  * a source that is Android Auto instead of a map:
  *
  * - **Pace.** The still pace until the dash has confirmed the first frame of the stream; then a tick at the
@@ -23,12 +23,13 @@ import java.util.Locale
  *   rider's [bitrateCeilingBps], raised as needed so the rate keeps [DashLogic.MIN_BITS_PER_FRAME]. In the REDUCED
  *   tier (profile 2) it is [reducedBitrateBps] at most, whatever the picture does: the pace and the bits come down
  *   together, and go back up together.
- * - **Keyframes.** Every [fixedKeyframeSec] seconds, or, with it at 0, as [AutoKeyframeController] decides.
+ * - **Keyframes.** Every [keyframeSec] seconds, fixed for the whole stream (1 in the app). Nothing a window measured changes it (the
+ *   interval that chose 1 or 2 s by itself, `AutoKeyframeController`, was never reached with the fixed 1 s and was cut on 14/11/2026).
  * - **Keyframes while still.** One every [DashLogic.IDLE_SYNC_EVERY_MS], when the encoder's own would be further
  *   apart than that.
  * - **The window.** Every [windowMs] one line with the stream's measurements, the bike's speed and
- *   Wi-Fi among it ([LinkWindow]), ending with what the window showed ([windowVerdict]); the automatic keyframe
- *   interval gets to judge it. A change of the keyframe interval means a new encoder: the only rebuild a poll asks for.
+ *   Wi-Fi among it ([LinkWindow]), ending with what the window showed ([windowVerdict]). A window only writes its line:
+ *   it never asks for a new encoder. The one rebuild left is the loop's own, for an encoder that failed ([rebuildAction]).
  * - **The navigation profiles** change the pace and the live bitrate, never the encoder: the encoder is always built
  *   for the full rate ([encoderFps]) and REDUCED just feeds it fewer frames, at the lower bitrate, set live, so a change
  *   of tier costs no rebuild. The last tier is held [NAV_HOLD_MS] when the data it came from goes missing.
@@ -43,7 +44,8 @@ internal class StreamGovernor(
     private val clockSlowPercent: Int = 0,
     private val windowMs: Long = WINDOW_MS,
     private val bitrateCeilingBps: Int = DashConfig.MAX_STREAM_BITRATE_BPS,
-    private val fixedKeyframeSec: Int = DashConfig.KEYFRAME_INTERVAL_AUTO,
+    /** The keyframe interval, in seconds, for the whole stream. 0 (a stored "automatic", which is no more) or less is read as [DEFAULT_KEYFRAME_SEC]. */
+    keyframeSec: Int = DashConfig.KEYFRAME_INTERVAL_AUTO,
     /** The bitrate of profile 2 (REDUCED), set live with its pace; profile 1's is [bitrateCeilingBps]. */
     private val reducedBitrateBps: Int = DashConfig.PROFILE_REDUCED_BPS,
     /** The pace on a light screen of Android Auto ([LightScreen]); 0: off, the pace is always the profile's. */
@@ -156,7 +158,6 @@ internal class StreamGovernor(
 
     /** The full pace on an even step, like every rate. */
     private val fullFps = DashConfig.snapStreamFps(fullFps)
-    private val autoKeyframe = AutoKeyframeController()
     private val maneuverProfile = ManeuverProfile()
     private val speedProfile = SpeedProfile()
     private var navTier: QualityTier? = null
@@ -180,7 +181,9 @@ internal class StreamGovernor(
 
     /** The pace of the profile (the navigation tier, or the full pace with none), without the light-screen pace: what the heat is judged against. */
     val profileFps: Int get() = navTier?.let(::tierFps) ?: fullFps
-    val keyframeSec: Int get() = fixedKeyframeSec.takeIf { it > 0 } ?: autoKeyframe.currentSec
+
+    /** The keyframe interval of the stream, in seconds: the one it was started with, never changed. */
+    val keyframeSec: Int = keyframeSec.takeIf { it > 0 } ?: DEFAULT_KEYFRAME_SEC
 
     /**
      * The rate the encoder is built for (its frame-rate hint, and so the bits each frame gets): always the full pace.
@@ -447,16 +450,6 @@ internal class StreamGovernor(
         val decodedFps = DashLogic.computeActualFps((p.dashAcks - w.ackStart).toInt(), elapsedMs)
         val kbps = w.bytes * 8.0 / elapsedMs
         val judged = w.allFull && composedFps >= target * DELIVERY_RATIO
-        val auto = autoKeyframe.onWindow(
-            AutoKeyframeController.Window(
-                sentFps = sentFps,
-                // Acks far below the sent rate do not track frames at all: then only the bitrate rule applies.
-                decodedFps = decodedFps.takeIf { sentFps > 0 && it >= sentFps * ACK_TRACKING_MIN_RATIO },
-                kbps = kbps, appliedKbps = bitrateBps / 1000.0, allActive = judged,
-            ),
-        )
-        // A fixed interval is the rider's: the automatic one only counts, it never changes it.
-        val keyframe = if (fixedKeyframeSec > 0) AutoKeyframeController.Decision(fixedKeyframeSec, false, "fixed") else auto
         val perFrame = { ns: Long, frames: Int -> if (frames > 0) ns / 1e6 / frames else 0.0 }
         val line = String.format(
             Locale.US,
@@ -466,16 +459,11 @@ internal class StreamGovernor(
             target, sentFps, w.frames, elapsedMs / 1000.0, composedFps, dashPart(decodedFps, p.dashAcks - w.ackStart), kbps, bitrateBps / 1000,
             if (w.frames > 0) w.bytes / w.frames else 0L,
             w.source, w.drawn, w.repeated, perFrame(w.composeNs, w.drawn + w.repeated), perFrame(w.encodeNs, w.frames), w.late,
-            com.reau.app.video.TickWait.text(w.tickWaits), judged, if (w.thermalOk) "OK" else "HOT", w.link.text(), keyframe.intervalSec,
+            com.reau.app.video.TickWait.text(w.tickWaits), judged, if (w.thermalOk) "OK" else "HOT", w.link.text(), keyframeSec,
             w.keyframes, w.keyBytesMax, w.keyPacketsMax, syncSummary(), fullFps, windowVerdict(judged, target, sentFps, kbps, w.thermalOk),
         ) + StageReport.text(w.compose.stats(), w.encode.stats(), w.look.stats(), w.latch.stats(), w.wakeups, elapsedMs)
-        val actions = mutableListOf<Action>(Action.Log(line))
-        // Only the automatic keyframe interval asks for a new encoder here (the app runs with a fixed one: never).
-        if (keyframe.changed) {
-            actions += Action.Rebuild(encoderFps, keyframeSec, bitrateBps, encoderKeyframeSec)
-            actions += paceChange(p.firstFrameConfirmed)
-        }
-        return actions
+        // The line is all a window gives: nothing it measured moves the pace or the keyframe interval, so it asks for no new encoder.
+        return listOf(Action.Log(line))
     }
 
     /** "2[stream start:1,idle:1]", or "0"; the counts start again. */
@@ -499,8 +487,8 @@ internal class StreamGovernor(
          */
         const val BITRATE_TOLERANCE = 1.10
 
-        /** Acks under this fraction of the frames sent do not track frames at all (a dash that acknowledges only the keyframes). */
-        const val ACK_TRACKING_MIN_RATIO = 0.3
+        /** The keyframe interval when none is given (0): 1 s, what the stream started at when it chose the interval by itself. */
+        const val DEFAULT_KEYFRAME_SEC = 1
 
         /**
          * The text in brackets that ends the window's line, after `auto=Nfps` (N is the stream's full pace): what this
