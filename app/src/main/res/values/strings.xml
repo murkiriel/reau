@@ -398,8 +398,6 @@
     <string name="exp_encoder_watch_sub">Experimental: if the video encoder takes frames in and gives none out for 3 s, it is rebuilt (up to 3 times per stream)</string>
     <string name="exp_focus_gap_title">Longer pause when asking for a keyframe</string>
     <string name="exp_focus_gap_sub">Experimental: when the picture breaks and a keyframe is asked of Android Auto, the video focus comes back after 400 ms instead of 100 ms. Counts from the next request</string>
-    <string name="exp_wifi_band_title">Ask for the dash on 2.4 GHz only</string>
-    <string name="exp_wifi_band_sub">Experimental: the request for the dash\'s Wi-Fi names the 2.4 GHz band (Android 12 or later). A request that is not answered is asked once without the band. Counts from the next request</string>
     <string name="exp_start_guard_title">Guard the start</string>
     <string name="exp_start_guard_sub">Experimental: if the app dies within 10 s of a start made with experimental switches on, they are switched off the next time the app opens, and the log says so</string>
     <string name="exp_night_memory_title">Day and night with memory</string>

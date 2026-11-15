@@ -11,7 +11,7 @@ package com.reau.app.dash.protocol
  *
  * [NextTrack]/[PrevTrack] (0x09/0x0A) do arrive on our hardware: the ride logs of 04, 06, 07 and 08/11/2026 have them 122 times,
  * always after a [JoystickIn] (0x18) put the dash in its own media mode, where the joystick's sides send these instead of the map's
- * zoom codes (0x14/0x13); Android Auto answered and redrew at each one. The earlier note here, taken from another project, said they would never arrive because the dash's
+ * zoom codes (0x14/0x13); Android Auto answered and redrew at each one. The earlier note here said they would never arrive because the dash's
  * "now playing" widget is not wired; the dash's media mode is reached by its own joystick, without that widget.
  */
 sealed class DashButtonEvent {

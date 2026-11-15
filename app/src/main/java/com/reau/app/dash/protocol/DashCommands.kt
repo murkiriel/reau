@@ -445,7 +445,7 @@ object DashCommands {
     /** Straight arrow. NOT 0x0B (draws roundabout exit 1): see [com.reau.app.dash.nav.DashManeuverGlyphs]. */
     const val NAV_MANEUVER_CONTINUE = 0x09
 
-    /** Hides the nav bubble entirely (any byte from 0x5A up does, field-verified on another project's dash): "no maneuver". */
+    /** Hides the nav bubble entirely (any byte from 0x5A up does, by the glyph scan the NOTICE credits): "no maneuver". */
     const val NAV_MANEUVER_NONE = 0xFF
     /**
      * No glyph field at all for a route with no maneuver the dash can draw (05 02 left out), which hides the ring; it

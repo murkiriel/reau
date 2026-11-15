@@ -79,12 +79,12 @@ class ExperimentsGuardTest {
 
     @Test
     fun `a process that finds the mark switches every experiment off, keeps the guard and the rest, and says which were on`() {
-        store.save(guarded.copy(density = 200, experimentWifiBand = true))
+        store.save(guarded.copy(density = 200, experimentWifiBind = true))
         ExperimentsGuard.projectionStarted(store.load(), mark, nowMs = 1_000)
         val line = ExperimentsGuard.atProcessStart(store, mark)
         assertEquals(
             "start guard (experiment): the app ended within 10 s of a start made with experimental switches on " +
-                "(experimentRtpPacing, experimentWifiBand, experimentEncoderWatch): they were switched off; the guard stays on",
+                "(experimentRtpPacing, experimentWifiBind, experimentEncoderWatch): they were switched off; the guard stays on",
             line,
         )
         val after = store.load()
@@ -100,7 +100,7 @@ class ExperimentsGuardTest {
         val names = REauSettings::class.java.declaredFields.map { it.name }.filter { it.startsWith("experiment") && it != "experimentStartGuard" }
         val allOn = REauSettings(
             experimentRtpPacing = true, experimentDebugDscp = true, experimentAdaptiveBitrate = true, experimentWifiBind = true,
-            experimentWifiBand = true, experimentEncoderWatch = true, experimentFocusGap = true, experimentNightMemory = true,
+            experimentEncoderWatch = true, experimentFocusGap = true, experimentNightMemory = true,
             experimentStartGuard = true, experimentWeatherAge = true, experimentHeatCeiling = true, experimentGpsSpeed = true,
             experimentRecalcInactive = true, experimentColorMatrix = true, experimentProtocolSix = true, experimentTolerantRx = true,
         )

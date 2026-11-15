@@ -243,8 +243,7 @@ internal class LiveSides(
 
             private fun phoneLinkUp(context: Context, scope: CoroutineScope): DashLinkUp {
                 val pairing = DashPairing.open(context)
-                // The band (an experiment) is read at each request: a switch changed while the projection runs counts from the next one.
-                val wifi = DashWifiManager(context, scope, pairing, band24 = { SettingsStore.open(context).load().experimentWifiBand })
+                val wifi = DashWifiManager(context, scope, pairing)
                 return WifiDashLinkUp(
                     scope, wifi.state, { wifi.network },
                     { ssid, password, prefix -> wifi.connect(ssid, password, prefix) },

@@ -214,8 +214,6 @@ data class REauSettings(
     val experimentDebugDscp: Boolean = false,
     val experimentAdaptiveBitrate: Boolean = false,
     val experimentWifiBind: Boolean = false,
-    /** Experimental: the dash's Wi-Fi is asked for on the 2.4 GHz band only (Android 12 and later; [com.reau.app.dash.BandChoice]). Off, no band is asked, as always. */
-    val experimentWifiBand: Boolean = false,
     /**
      * The guard of the start: if the app's process ends within 10 s of a projection started with experimental switches on, the next opening switches them off
      * ([ExperimentsGuard]). On by default (the owner's decision of 11/11/2026): it acts only when another experimental switch is on, so with none nothing changes. Whoever

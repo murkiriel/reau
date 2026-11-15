@@ -241,7 +241,6 @@ class SettingsStore(private val prefs: SharedPreferences) {
             experimentDebugDscp = prefs.getBoolean(KEY_EXPERIMENT_DEBUG_DSCP, defaults.experimentDebugDscp),
             experimentAdaptiveBitrate = prefs.getBoolean(KEY_EXPERIMENT_ADAPTIVE_BITRATE, defaults.experimentAdaptiveBitrate),
             experimentWifiBind = prefs.getBoolean(KEY_EXPERIMENT_WIFI_BIND, defaults.experimentWifiBind),
-            experimentWifiBand = prefs.getBoolean(KEY_EXPERIMENT_WIFI_BAND, defaults.experimentWifiBand),
             experimentStartGuard = prefs.getBoolean(KEY_EXPERIMENT_START_GUARD, defaults.experimentStartGuard),
             experimentEncoderWatch = prefs.getBoolean(KEY_EXPERIMENT_ENCODER_WATCH, defaults.experimentEncoderWatch),
             experimentFocusGap = prefs.getBoolean(KEY_EXPERIMENT_FOCUS_GAP, defaults.experimentFocusGap),
@@ -351,7 +350,6 @@ class SettingsStore(private val prefs: SharedPreferences) {
             putBoolean(KEY_EXPERIMENT_DEBUG_DSCP, s.experimentDebugDscp)
             putBoolean(KEY_EXPERIMENT_ADAPTIVE_BITRATE, s.experimentAdaptiveBitrate)
             putBoolean(KEY_EXPERIMENT_WIFI_BIND, s.experimentWifiBind)
-            putBoolean(KEY_EXPERIMENT_WIFI_BAND, s.experimentWifiBand)
             putBoolean(KEY_EXPERIMENT_START_GUARD, s.experimentStartGuard)
             putBoolean(KEY_EXPERIMENT_ENCODER_WATCH, s.experimentEncoderWatch)
             putBoolean(KEY_EXPERIMENT_FOCUS_GAP, s.experimentFocusGap)
@@ -473,7 +471,6 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val KEY_EXPERIMENT_DEBUG_DSCP = "experiment_debug_dscp"
         private const val KEY_EXPERIMENT_ADAPTIVE_BITRATE = "experiment_adaptive_bitrate"
         private const val KEY_EXPERIMENT_WIFI_BIND = "experiment_wifi_bind"
-        private const val KEY_EXPERIMENT_WIFI_BAND = "experiment_wifi_band"
         private const val KEY_EXPERIMENT_START_GUARD = "experiment_start_guard"
         private const val KEY_EXPERIMENT_ENCODER_WATCH = "experiment_encoder_watch"
         private const val KEY_EXPERIMENT_FOCUS_GAP = "experiment_focus_gap"

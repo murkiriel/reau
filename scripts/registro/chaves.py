@@ -36,6 +36,7 @@ CHAVES = [
     ("experimentDebugDscp", "DSCP na debug", "priority marks"),
     ("experimentAdaptiveBitrate", "bitrate menor", "lower adaptive bitrate"),
     ("experimentWifiBind", "Wi-Fi e EPERM", "bind retries on the same network"),
+    # A chave "só 2,4 GHz" saiu do app em 15/11/2026; a entrada fica para ler os registros antigos, que ainda a trazem.
     ("experimentWifiBand", "só 2,4 GHz", "2.4 GHz only"),
     ("experimentEncoderWatch", "codificador mudo", "mute encoder watch"),
     ("experimentFocusGap", "pausa do foco", "focus gap"),

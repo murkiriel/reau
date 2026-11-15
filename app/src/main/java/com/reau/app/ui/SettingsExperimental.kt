@@ -8,7 +8,7 @@ import com.reau.app.ui.components.SettingsGroup
 import com.reau.app.ui.components.SwitchRow
 
 /**
- * "Conexão experimental": switches, all off by default (the first four are of 10/11/2026; the band and the start guard came after), each a way of putting less load on the dash's Wi-Fi or of keeping the link up
+ * "Conexão experimental": switches, all off by default (the first four are of 10/11/2026; the start guard came after), each a way of putting less load on the dash's Wi-Fi or of keeping the link up
  * (REauSettings.experimentRtpPacing, experimentDebugDscp, experimentAdaptiveBitrate, experimentWifiBind). With all of them off the app does exactly what it did
  * before them. The lines say "Experimental", which paints the rows red (ExperimentalMark). The first and the third restart the stream and count at once; the other two
  * count from the next connection.
@@ -39,12 +39,6 @@ internal fun ConnectionExperimentsGroup(s: REauSettings, change: (REauSettings) 
             SwitchRow(
                 stringResource(R.string.exp_wifi_title), s.experimentWifiBind, { change(s.copy(experimentWifiBind = it)) }, "exp_wifi_bind",
                 sub = stringResource(R.string.exp_wifi_sub),
-            )
-        },
-        {
-            SwitchRow(
-                stringResource(R.string.exp_wifi_band_title), s.experimentWifiBand, { change(s.copy(experimentWifiBand = it)) }, "exp_wifi_band",
-                sub = stringResource(R.string.exp_wifi_band_sub),
             )
         },
         {

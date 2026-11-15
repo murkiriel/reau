@@ -386,8 +386,6 @@
     <string name="exp_encoder_watch_sub">Experimental: se o codificador de vídeo recebe quadros e não devolve nenhum por 3 s, ele é refeito (até 3 vezes por transmissão)</string>
     <string name="exp_focus_gap_title">Pausa maior ao pedir quadro-chave</string>
     <string name="exp_focus_gap_sub">Experimental: quando a imagem quebra e um quadro-chave é pedido ao Android Auto, o foco de vídeo volta depois de 400 ms em vez de 100 ms. Vale a partir do próximo pedido</string>
-    <string name="exp_wifi_band_title">Pedir o painel só em 2,4 GHz</string>
-    <string name="exp_wifi_band_sub">Experimental: o pedido do Wi-Fi do painel diz a banda de 2,4 GHz (Android 12 ou mais novo). Um pedido sem resposta é refeito uma vez sem a banda. Vale a partir do próximo pedido</string>
     <string name="exp_start_guard_title">Proteger a partida</string>
     <string name="exp_start_guard_sub">Experimental: se o app morre até 10 s depois de uma partida feita com chaves experimentais ligadas, elas são desligadas na próxima abertura do app, e o registro diz isso</string>
     <string name="exp_night_memory_title">Dia e noite com memória</string>

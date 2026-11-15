@@ -57,36 +57,36 @@ class ConnectionExperimentsTest {
     }
 
     @Test
-    fun `the four later ones are off by default, kept by sanitized, stored each on its own and said in the log`() {
+    fun `the three later ones are off by default, kept by sanitized, stored each on its own and said in the log`() {
         val none = REauSettings()
-        assertFalse(none.experimentWifiBand || none.experimentEncoderWatch || none.experimentFocusGap)
+        assertFalse(none.experimentEncoderWatch || none.experimentFocusGap)
         assertTrue("the guard comes on by default", none.experimentStartGuard)
-        val later = REauSettings(experimentWifiBand = true, experimentStartGuard = true, experimentEncoderWatch = true, experimentFocusGap = true)
+        val later = REauSettings(experimentStartGuard = true, experimentEncoderWatch = true, experimentFocusGap = true)
         for (debug in listOf(true, false)) assertEquals(later.sanitized(debug), later.sanitized(debug).copy(
-            experimentWifiBand = true, experimentStartGuard = true, experimentEncoderWatch = true, experimentFocusGap = true,
+            experimentStartGuard = true, experimentEncoderWatch = true, experimentFocusGap = true,
         ))
         val store = SettingsStore(KeystoreBackedPrefsTest.FakePrefs())
         val each = listOf<(REauSettings) -> Boolean>(
-            { it.experimentWifiBand }, { it.experimentStartGuard }, { it.experimentEncoderWatch }, { it.experimentFocusGap },
+            { it.experimentStartGuard }, { it.experimentEncoderWatch }, { it.experimentFocusGap },
         )
         val off = REauSettings(experimentStartGuard = false)
         val ones = listOf(
-            off.copy(experimentWifiBand = true), off.copy(experimentStartGuard = true),
+            off.copy(experimentStartGuard = true),
             off.copy(experimentEncoderWatch = true), off.copy(experimentFocusGap = true),
         )
         for ((i, one) in ones.withIndex()) {
             store.save(one)
-            assertEquals("switch $i alone", List(4) { it == i }, each.map { it(store.load()) })
+            assertEquals("switch $i alone", List(3) { it == i }, each.map { it(store.load()) })
             assertFalse("the first four stay off", store.load().let { it.experimentRtpPacing || it.experimentDebugDscp || it.experimentAdaptiveBitrate || it.experimentWifiBind })
         }
         val line = SettingsInUse.line(later)
-        assertTrue(line, "experimentWifiBand=true experimentStartGuard=true experimentEncoderWatch=true experimentFocusGap=true" in line)
+        assertTrue(line, "experimentStartGuard=true experimentEncoderWatch=true experimentFocusGap=true" in line)
         val said = SettingsInUse.experimentsLine(later)!!
-        for (part in listOf("2.4 GHz", "mute encoder watch", "400 ms focus gap")) assertTrue("$part in: $said", part in said)
+        for (part in listOf("mute encoder watch", "400 ms focus gap")) assertTrue("$part in: $said", part in said)
         assertNull(SettingsInUse.experimentsLine(none))
         assertNull("the guard, on by default, is no experiment on", SettingsInUse.experimentsLine(REauSettings(experimentStartGuard = true)))
         assertFalse("and it is not said among the others", "start guard" in said)
-        // The ninth: day and night with memory.
+        // The eighth: day and night with memory.
         assertFalse(none.experimentNightMemory)
         store.save(off.copy(experimentNightMemory = true))
         assertTrue(store.load().experimentNightMemory)

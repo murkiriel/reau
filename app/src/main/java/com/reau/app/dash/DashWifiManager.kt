@@ -56,11 +56,7 @@ class DashWifiManager(
     private val scope: CoroutineScope,
     /** Which network the rider already let REau join; null (a scan-only manager, a test) assumes nothing about it. */
     private val joinMemory: JoinMemory? = null,
-    /** The experimental switch of the band ([BandChoice]), read at each request; off (the default), no request names a band. */
-    private val band24: () -> Boolean = { false },
 ) {
-    private val bandChoice = BandChoice()
-
     companion object {
         private const val TAG              = "DashWifiManager"
         /** How many refused networks are remembered (they are few: one per refusal, cleared when the rider switches off). */
@@ -330,8 +326,6 @@ class DashWifiManager(
         if (useAlreadyConnectedNetwork()) return
 
         val specBuilder = WifiNetworkSpecifier.Builder()
-        // The experimental band, decided only for a request that is really made (a network the phone already joined needs none).
-        bandChoice.nameOn(specBuilder, band24(), requests)
         if (pendingPrefix) specBuilder.setSsidPattern(PatternMatcher(pendingSsid, PatternMatcher.PATTERN_PREFIX))
         else specBuilder.setSsid(pendingSsid)
         if (pendingPassword.isNotBlank()) {
@@ -601,7 +595,6 @@ class DashWifiManager(
             // Android has dropped the callback itself, wanted or not.
             callbackRegistered = false
             if (!wantConnected) return
-            bandChoice.endedUnanswered()
             this@DashWifiManager.network = null
             val tookMs = MonotonicClock.nowMs() - requestStartMs
             // Mid-ride drop where the dash AP went missing (we HAD connected): keep retrying so a

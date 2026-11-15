@@ -73,7 +73,7 @@ class SettingsScreenNowTest {
         "record_video", "record_sessions",
         "fps", "bitrate", "bitrate_mode", "keyframe", "maneuver_fps_profile", "speed_fps_profile",
         "open_joystick", "card_now", "view_logs", "share", "delete",
-        "exp_debug_dscp", "exp_wifi_bind", "exp_wifi_band", "exp_start_guard", "exp_focus_gap", "exp_night_memory",
+        "exp_debug_dscp", "exp_wifi_bind", "exp_start_guard", "exp_focus_gap", "exp_night_memory",
         "exp_color_matrix", "exp_protocol_six", "exp_tolerant_rx",
     )
 

@@ -23,9 +23,9 @@ enum class DrivingSide {
 /**
  * The byte the dash's nav bubble is told to draw (`05 02 00 01 XX`), and what every byte draws.
  *
- * Source: a glyph scan published by another project (credited in the NOTICE, in the entry on the dash maneuver glyph bytes). Its author, not REau,
+ * Source: a published scan of the dash's glyphs (credited in the NOTICE, in the entry on the dash maneuver glyph bytes). Its author, not REau,
  * sent every byte 0x00..0xFF to a real K1G dash and photographed each one; what each byte draws is read from that scan. Only those
- * observed facts (byte -> drawing) are used here, in REau's own words and code: no code, text or images of that project.
+ * observed facts (byte -> drawing) are used here, in REau's own words and code: no code, text or images of the scan's source.
  * What was looked at on REau's own dash: only the roundabout's direction (its rider saw it the wrong way round and it was put right).
  * Everything else in this table is NOT yet confirmed on REau's own dash: the debug card ([testSequence]) is the tool for it.
  *

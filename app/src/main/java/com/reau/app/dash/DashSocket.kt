@@ -55,11 +55,10 @@ class DashSocket(
         private const val BUF             = 65535
         private const val RECV_TIMEOUT_MS = 500
         private const val TAG             = "DashSocket"
-        // Another project's DashSocket logged "34k+ RTP + 5k+ TX 'ENETUNREACH'" in a
-        // single ride during a WiFi outage. Once a channel has failed this many sends in a row,
-        // stop actually hitting the socket (and stop hex-logging) for most calls — just probe
-        // once every [PROBE_EVERY] to detect recovery on its own, self-contained (no external
-        // wiring to DashWifiManager/DashSession needed).
+        // While the Wi-Fi is down every send fails (ENETUNREACH), and a ride's outage is tens of thousands
+        // of them. Once a channel has failed this many sends in a row, most calls no longer hit the socket
+        // (nor write the hex log): one in every [PROBE_EVERY] still does, and the first that succeeds ends
+        // the suppression. The socket does this on its own; DashWifiManager and DashSession are not told.
         private const val SUPPRESS_AFTER_STREAK = 5
         private const val PROBE_EVERY = 20
 

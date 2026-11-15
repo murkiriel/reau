@@ -26,7 +26,6 @@ object ExperimentsGuard {
         "experimentDebugDscp".takeIf { settings.experimentDebugDscp },
         "experimentAdaptiveBitrate".takeIf { settings.experimentAdaptiveBitrate },
         "experimentWifiBind".takeIf { settings.experimentWifiBind },
-        "experimentWifiBand".takeIf { settings.experimentWifiBand },
         "experimentEncoderWatch".takeIf { settings.experimentEncoderWatch },
         "experimentFocusGap".takeIf { settings.experimentFocusGap },
         "experimentNightMemory".takeIf { settings.experimentNightMemory },
@@ -42,7 +41,7 @@ object ExperimentsGuard {
     /** [settings] with every experimental switch off but the guard. */
     fun allOff(settings: REauSettings): REauSettings = settings.copy(
         experimentRtpPacing = false, experimentDebugDscp = false, experimentAdaptiveBitrate = false, experimentWifiBind = false,
-        experimentWifiBand = false, experimentEncoderWatch = false, experimentFocusGap = false, experimentNightMemory = false,
+        experimentEncoderWatch = false, experimentFocusGap = false, experimentNightMemory = false,
         experimentWeatherAge = false, experimentHeatCeiling = false, experimentGpsSpeed = false, experimentRecalcInactive = false,
         experimentColorMatrix = false, experimentProtocolSix = false, experimentTolerantRx = false,
     )
