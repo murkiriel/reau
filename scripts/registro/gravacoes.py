@@ -208,7 +208,7 @@ def secao(raiz, linhas, blocos):
     total = s_bytes + v_bytes
     pct = 100 * total / (TETO_MB * 1048576)
     saida = [f"ocupação: sessions/ {_mb(s_bytes)} + video/ {_mb(v_bytes)} = {_mb(total)} de {TETO_MB} MB do anel ({pct:.0f} %)" +
-             (f": perto do teto, o app apaga as mais antigas (coletar a cada 2 dias de uso)" if pct >= OCUPACAO_AVISO_PCT else "")]
+             (": perto do teto, o app apaga as mais antigas (coletar a cada 2 dias de uso)" if pct >= OCUPACAO_AVISO_PCT else "")]
     sessoes = [ler_sessao(f) for f in sorted(pastas.get("sessions", raiz).glob("*.aasession"))] if "sessions" in pastas else []
     videos = [ler_video(f) for f in sorted(pastas.get("video", raiz).glob("*.h264"))] if "video" in pastas else []
     de_sessoes, de_videos = atribuir(sessoes, blocos), atribuir(videos, blocos)

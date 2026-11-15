@@ -3,7 +3,6 @@ o painel ligado → unido, o recorte por data e o resto). Cada teste diz de qual
 
     python -B scripts\\registro\\test_ler_registro_17a.py
 """
-import os
 import subprocess
 import sys
 import tempfile

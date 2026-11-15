@@ -14,7 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 ENV = dict(os.environ)
 GRADLEW = ROOT / ("gradlew.bat" if os.name == "nt" else "gradlew")
-sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]  # a TextIOWrapper, from a terminal or a pipe
 
 
 def main(classes):

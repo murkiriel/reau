@@ -27,7 +27,7 @@ esses arquivos, então rodam de novo sozinhos quando um texto muda. Os testes in
 emulador, como diz o README; os scripts estão em `scripts/emu/`.
 Os scripts em Python têm testes próprios (`python3 -B -m unittest discover -p "test_*.py"` dentro de `scripts/`, `scripts/registro/`,
 `scripts/dev/`, `scripts/emu/`, `scripts/painel_falso/` e `bench/`; o último precisa do Pillow, fixado em `scripts/requirements.txt`), e a
-integração contínua também os roda.
+integração contínua também os roda. Ela também confere o estilo deles: `ruff check .` na raiz (regras em `ruff.toml`), `mypy --ignore-missing-imports *.py` dentro de cada pasta de scripts e `shellcheck -S warning` nos `.sh`; as versões do ruff e do mypy estão em `scripts/requirements-estilo.txt`.
 
 Toda mudança de código vem com um teste novo ou ajustado. O projeto tem três idiomas: os textos que as pessoas leem vão em
 inglês (o padrão), português (pt-BR) e espanhol, nos `strings.xml` de `values`, `values-pt` e `values-es`, e a documentação tem um arquivo

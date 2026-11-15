@@ -196,7 +196,6 @@ class Reencodar200kTest(unittest.TestCase):
         return f
 
     def test_the_average_rate_comes_from_the_index_and_defaults_without_it(self):
-        import reencodar_200k
         self.assertAlmostEqual(4.0, reencodar_200k.ritmo_medio(self.coleta / "video" / "reau_20261101_100000_000.h264"))  # 3 intervals in 750 ms
         self.assertAlmostEqual(2.0, reencodar_200k.ritmo_medio(self.coleta / "video" / "reau_20261101_110000_000.h264"))
         solto = self.dir / "sem_indice.h264"
@@ -239,7 +238,6 @@ class Reencodar200kTest(unittest.TestCase):
         self.assertIn("abra só depois de escolher", feito.stdout)
 
     def test_the_draw_is_fixed_by_the_seed_and_changes_with_it(self):
-        import reencodar_200k
         h264s = reencodar_200k.gravacoes(self.coleta)
         a = reencodar_200k.planejar(h264s, self.saida, 200, 15, False, "ffmpeg")[1]
         self.assertEqual(a, reencodar_200k.planejar(h264s, self.saida, 200, 15, False, "ffmpeg")[1])

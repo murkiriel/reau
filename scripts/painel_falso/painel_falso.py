@@ -341,7 +341,7 @@ def selftest(out_dir=None, verbose=False, stream=None):
             for i, nal in enumerate(nals):
                 phone.send_frame(nal, 1000 + 250 * i)
                 # One frame at a time, as a stream is: a burst of them would only test this machine's socket buffers.
-                _until(lambda: sink.complete + sink.damaged > i, 2.0)
+                _until(lambda i=i: sink.complete + sink.damaged > i, 2.0)
             check(sink.complete == len(nals), "every frame of the video arrives whole (%d of %d)" % (sink.complete, len(nals)))
             check(sink.fault_count == 0 and sink.lost == 0, "no RTP rule is broken and no packet is lost")
             check(sink.annex_b() == b"".join(rtp.START_CODE + n for n in nals), "the frames put back together are the ones sent, byte for byte")

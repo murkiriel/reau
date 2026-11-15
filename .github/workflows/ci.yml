@@ -155,6 +155,36 @@ jobs:
             (cd "$dir" && python3 -B -m unittest discover -p "test_*.py" -v)
           done
 
+  estilo:
+    # Só regras que pegam defeito (ruff.toml: nome sem uso, erro de sintaxe, armadilhas comuns); o estilo de escrita fica de fora. O mypy roda
+    # pasta por pasta, porque os scripts se importam pelo diretório de cada um; o shellcheck é o do runner e só falha de "warning" para cima.
+    name: Estilo dos scripts (ruff, mypy, shellcheck)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: ruff e mypy (versões e hashes fixados)
+        run: python3 -m pip install --target "$RUNNER_TEMP/estilo" --require-hashes --no-deps -r scripts/requirements-estilo.txt
+
+      - name: ruff
+        run: '"$RUNNER_TEMP/estilo/bin/ruff" check --no-cache .'
+
+      - name: mypy
+        env:
+          PYTHONPATH: ${{ runner.temp }}/estilo
+        run: |
+          for dir in scripts scripts/dev scripts/dev/teste_cego scripts/registro scripts/emu scripts/painel_falso bench; do
+            echo "== $dir"
+            (cd "$dir" && python3 -m mypy --ignore-missing-imports --no-incremental *.py)
+          done
+
+      - name: shellcheck
+        run: git ls-files -z '*.sh' | xargs -0 shellcheck -S warning
+
   segredos:
     name: Segredos (gitleaks)
     runs-on: ubuntu-24.04

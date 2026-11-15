@@ -38,6 +38,7 @@ import struct
 import subprocess
 import sys
 import zipfile
+from typing import Any
 
 import elf_16kb_check
 
@@ -207,13 +208,13 @@ def manifest_text(aapt2: str, apk: str) -> str:
 def parse_manifest(text: str) -> dict:
     """O manifesto como `aapt2 dump xmltree` o imprime: {"package", "debuggable", "components": [(tag, nome, exportado)]}.
     "exportado" é o efetivo: o atributo, ou, sem ele, ter um intent-filter (como o Android decide; provedor: nunca)."""
-    root = None
-    stack: list[tuple[int, dict]] = []
+    root: dict[str, Any] | None = None
+    stack: list[tuple[int, dict[str, Any]]] = []
     for line in text.splitlines():
         element = re.match(r"^(\s*)E: ([\w:.-]+) \(line=\d+\)", line)
         if element:
             indent = len(element.group(1))
-            node = {"tag": element.group(2), "attrs": {}, "children": []}
+            node: dict[str, Any] = {"tag": element.group(2), "attrs": {}, "children": []}
             while stack and stack[-1][0] >= indent:
                 stack.pop()
             if stack:

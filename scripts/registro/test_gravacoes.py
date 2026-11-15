@@ -1,6 +1,5 @@
 """Tests of gravacoes.py: the sessions (`sessions/`) and the video (`video/`) of a collection read beside the log (item 36, 11/11/2026). The recordings are built here, byte by byte,
 in the format of SessionRecorder.kt; nothing reads a real one."""
-import os
 import struct
 import subprocess
 import sys

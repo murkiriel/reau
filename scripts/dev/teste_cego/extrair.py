@@ -51,7 +51,7 @@ def main(argv=None):
     for f in partes:
         inicio, msgs = ler(f)
         if t0 is None: t0 = inicio
-        for t, ch, fl, p in juntar(msgs):
+        for t, ch, _fl, p in juntar(msgs):
             if ch != 2: continue
             ty = tipo(p)
             if ty == 1 and cfg is None: cfg = p[2:]

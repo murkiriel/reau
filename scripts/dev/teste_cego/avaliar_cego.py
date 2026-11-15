@@ -19,7 +19,7 @@ for nome, lista in ROT['grupos'].items():
         lo, hi = (item, item) if isinstance(item, int) else item
         for i in range(lo, hi + 1): grupo[i] = nome
 dados = []
-for k, (tag, idx, t) in enumerate(amostra, 1):
+for k, (tag, idx, _t) in enumerate(amostra, 1):
     r = rotulo[k]
     if r == 'T': continue
     c = struct.unpack_from('<10H', open(f'{W}/{tag}/lit.bin', 'rb').read(), (idx - 1) * 20)
@@ -29,7 +29,7 @@ def voto(sh, regra):
     return 'NAV' if f >= M else ('OTHER' if f <= D else None)
 def mostrar(regra, titulo):
     por = collections.defaultdict(lambda: [0, 0, 0])
-    for k, cl, g, sh in dados:
+    for _k, cl, g, sh in dados:
         v = voto(sh, regra); p = por[g]
         if v is None: p[2] += 1
         elif v == cl: p[0] += 1

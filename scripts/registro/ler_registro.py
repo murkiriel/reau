@@ -2193,7 +2193,7 @@ def _crash_da_coleta(caminhos, linhas):
 
 def _por_data_e_build(linhas):
     """Uma linha por dia e build do app: quantas projeções ligaram, quantas quedas e quanto transmitiu (o resumo de cada projeção); só o que o registro tem."""
-    versoes, atual, por = _versao_de_cada_projecao(linhas), None, {}
+    versoes, por = _versao_de_cada_projecao(linhas), {}
     for bloco in projecoes(linhas):
         dia = bloco[0].dia or "sem data"
         build = versoes.get(id(bloco[0])) or "sem versão"
@@ -2342,5 +2342,5 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]  # a TextIOWrapper, from a terminal or a pipe
     sys.exit(main(sys.argv[1:]))

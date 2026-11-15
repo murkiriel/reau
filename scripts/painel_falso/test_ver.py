@@ -340,7 +340,7 @@ class LoopbackViewTest(unittest.TestCase):
                 bench.phone.start_projection()
                 for i, nal in enumerate((SPS, IDR, P1, P2, P3)):
                     bench.phone.send_frame(nal, 1000 + 33 * i)
-                    self.assertTrue(until(lambda: bench.panel.sink.complete > i))
+                    self.assertTrue(until(lambda i=i: bench.panel.sink.complete > i))
                 # The phone's answer to the last notice is waited for, so that it is not the first packet of a session after this one.
                 self.assertTrue(until(lambda: sum(bench.panel.replies.values()) == 5))
                 bench.phone.goodbye()

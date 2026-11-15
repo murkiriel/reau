@@ -23,7 +23,7 @@ TIMEOUT_S = 900
 # outlived a restore, and an original .pyc hid three mutations). So no Python process of a run writes bytecode, and each run reads bytecode
 # only from a cache folder of its own that starts empty ([run], PYTHONPYCACHEPREFIX): the sources are always compiled as they are on the disk.
 ENV = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONDONTWRITEBYTECODE": "1"}
-sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]  # a TextIOWrapper, from a terminal or a pipe
 
 
 def _write_durably(path, data):

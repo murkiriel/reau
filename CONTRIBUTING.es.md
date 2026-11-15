@@ -27,7 +27,7 @@ se ejecutan de nuevo solas cuando cambia un texto. Las pruebas instrumentadas (`
 emulador, como dice el README; `scripts/emu/` tiene los scripts.
 Los scripts en Python tienen sus propias pruebas (`python3 -B -m unittest discover -p "test_*.py"` dentro de `scripts/`, `scripts/registro/`,
 `scripts/dev/`, `scripts/emu/`, `scripts/painel_falso/` y `bench/`; el último necesita Pillow, fijado en `scripts/requirements.txt`), y la
-integración continua también las ejecuta.
+integración continua también las ejecuta. También revisa su estilo: `ruff check .` en la raíz (reglas en `ruff.toml`), `mypy --ignore-missing-imports *.py` dentro de cada carpeta de scripts y `shellcheck -S warning` en los `.sh`; las versiones de ruff y mypy están en `scripts/requirements-estilo.txt`.
 
 Todo cambio de código viene con una prueba nueva o ajustada. El proyecto tiene tres idiomas: los textos que lee la gente van en inglés
 (el predeterminado), portugués (pt-BR) y español, en los `strings.xml` de `values`, `values-pt` y `values-es`, y los documentos tienen un archivo

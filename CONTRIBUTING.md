@@ -27,7 +27,7 @@ they run again by themselves when a text changes. The instrumented tests (`app/s
 emulator, as the README says; `scripts/emu/` has the scripts.
 The Python scripts have their own tests (`python3 -B -m unittest discover -p "test_*.py"` inside `scripts/`, `scripts/registro/`,
 `scripts/dev/`, `scripts/emu/`, `scripts/painel_falso/` and `bench/`; the last one needs Pillow, pinned in `scripts/requirements.txt`), and the
-continuous integration runs them too.
+continuous integration runs them too. It also checks their style: `ruff check .` at the root (rules in `ruff.toml`), `mypy --ignore-missing-imports *.py` inside each scripts folder and `shellcheck -S warning` on the `.sh` files; the versions of ruff and mypy are in `scripts/requirements-estilo.txt`.
 
 Every code change comes with a new or adjusted test. The project has three languages: texts that people read go in English
 (the default), Portuguese (pt-BR) and Spanish, in the `strings.xml` files of `values`, `values-pt` and `values-es`, and the docs have one file
