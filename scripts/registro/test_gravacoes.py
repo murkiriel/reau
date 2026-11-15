@@ -138,6 +138,14 @@ class ContasDoAppTest(unittest.TestCase):
     def test_one_file_removed_in_the_singular_is_read_too(self):
         self.assertEqual([(1, 62978, 1035507, 1048576)], gravacoes.contas_do_app(self.linhas("recordings space: 1 file removed (62978 KB), 1035507 KB left of 1048576 KB"))["espaco"])
 
+    def test_the_line_of_the_sessions_share_is_read_apart_from_the_ceiling_line(self):
+        c = gravacoes.contas_do_app(self.linhas(
+            "recordings space: sessions over their share: 2 files removed (230000 KB), 524288 KB of sessions left of 524288 KB",
+            "recordings space: 1 file removed (62978 KB), 1035507 KB left of 1048576 KB",
+            "recordings space: sessions over their share: 1 file removed (100 KB), 524000 KB of sessions left of 524288 KB"))
+        self.assertEqual([(1, 62978, 1035507, 1048576)], c["espaco"])
+        self.assertEqual([(2, 230000, 524288, 524288), (1, 100, 524000, 524288)], c["subteto"])
+
 
 def registro_com(hora_ligar, hora_desligar, *meio, nome="ride-20261108-100000.log"):
     return (f"{hora_ligar}  +  1000ms  ---- projeção ligada: projection ----\n" + "".join(meio) +
@@ -252,6 +260,17 @@ class SecaoTest(unittest.TestCase):
         s = "\n".join(gravacoes.secao(*self._tres(log, preparar)))
         self.assertIn("1 gravações que o app diz ter fechado não estão na pasta", s)
         self.assertIn("teto de pasta: 5 arquivos apagados (45 MB) em 2 vezes; a última deixou 977 MB de 1024 MB", s)
+
+    def test_the_files_the_share_removed_are_told_apart_from_those_of_the_ceiling(self):
+        def preparar(raiz):
+            (raiz / "sessions" / "reau_20261108_100005_000.aasession").write_bytes(sessao([mensagem(0, 2, QUADRO)]))
+        log = registro_com("10:00:01.000", "10:10:00.000",
+                           linha("10:02:00.000", "stream", "recordings space: sessions over their share: 2 files removed (230400 KB), 524288 KB of sessions left of 524288 KB"),
+                           linha("10:02:00.001", "stream", "recordings space: 3 files removed (45351 KB), 1042833 KB left of 1048576 KB"),
+                           linha("10:03:00.000", "stream", "recordings space: sessions over their share: 1 file removed (102400 KB), 500000 KB of sessions left of 524288 KB"))
+        s = "\n".join(gravacoes.secao(*self._tres(log, preparar)))
+        self.assertIn("cota das sessões: 3 arquivos apagados (325 MB) em 2 vezes, antes do vídeo; a última deixou 488 MB de sessões de 512 MB", s)
+        self.assertIn("teto de pasta: 3 arquivos apagados (44 MB) em 1 vezes; a última deixou 1018 MB de 1024 MB", s)
 
     def test_recordings_from_before_the_projections_read_are_counted_and_not_listed(self):
         def preparar(raiz):

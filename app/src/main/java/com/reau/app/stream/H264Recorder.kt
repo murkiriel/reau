@@ -98,7 +98,7 @@ internal class H264Recorder(
 
     private fun open(): OutputStream {
         dir.mkdirs()
-        com.reau.app.data.RecordingsSpace.makeRoom(dir)?.let(log) // Both recording folders together under their ceiling
+        com.reau.app.data.RecordingsSpace.makeRoom(dir)?.lines()?.forEach(log) // Both recording folders together under their ceiling
         index = indexFile.bufferedWriter().also { it.write("$INDEX_HEADER\n") }
         return BufferedOutputStream(videoFile.outputStream()).also { video = it }
     }

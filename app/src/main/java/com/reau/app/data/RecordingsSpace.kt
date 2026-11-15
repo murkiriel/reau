@@ -9,7 +9,8 @@ import java.io.File
  * the recordings would, with "Nunca" chosen, never go: about 35 MB for each Android Auto connection, hundreds of MB after a few.
  *
  * A video and its index (`x.h264`, `x.csv`) go together. A recording written to in the last [BUSY_MS] is in use and stays,
- * even if that leaves the folders over. Called when a recorder opens a file ([makeRoom]) and when the app starts.
+ * even if that leaves the folders over. The sessions have a share of their own, half of the ceiling ([sessionsCapBytes]): when `sessions/` passes it, its
+ * oldest go first, before the video sent to the dash, and only then does the ceiling of the two folders together apply, by age. Called when a recorder opens a file ([makeRoom]) and when the app starts.
  */
 object RecordingsSpace {
     const val CAP_BYTES = 200L * 1024 * 1024
@@ -41,32 +42,73 @@ object RecordingsSpace {
     private const val KB = 1024L
     private val FOLDERS = listOf("video", "sessions")
 
-    /** For a recorder about to open a file in [dir] (`video` or `sessions`): both folders, beside each other, under the ceiling. */
-    fun makeRoom(dir: File, capBytes: Long = capBytes(), nowMs: Long = System.currentTimeMillis()): String? {
+    /**
+     * The share of the Android Auto session recordings (`sessions/`) in the ceiling: half of [capBytes], 512 MB in a debug build, 100 MB in a release.
+     * The sessions are about three quarters of what is recorded (about 240 MB for an hour of ride, against 80 MB of video sent to the dash), so without
+     * a share of their own they filled the ring in about 3 h of projection and took the video of whole days with them.
+     */
+    fun sessionsCapBytes(debugBuild: Boolean = com.reau.app.BuildConfig.DEBUG): Long = capBytes(debugBuild) / 2
+
+    /**
+     * For a recorder about to open a file in [dir] (`video` or `sessions`): the sessions under their share ([sessionsCapBytes]), then both folders,
+     * beside each other, under the ceiling. What was removed, said, one line for each step (the share first, the total last), or null if nothing was.
+     */
+    fun makeRoom(
+        dir: File,
+        capBytes: Long = capBytes(),
+        nowMs: Long = System.currentTimeMillis(),
+        sessionsCapBytes: Long = sessionsCapBytes(),
+    ): String? {
         val parent = dir.parentFile ?: return null
-        return trim(FOLDERS.map { File(parent, it) }, capBytes, nowMs)
+        val said = listOfNotNull(
+            trimSessions(File(parent, "sessions"), sessionsCapBytes, nowMs),
+            trim(FOLDERS.map { File(parent, it) }, capBytes, nowMs),
+        )
+        return said.joinToString("\n").ifEmpty { null }
+    }
+
+    /** First step: [sessions] over [sessionsCapBytes] loses its oldest idle groups until it fits (or none is idle); what was removed, said, or null. */
+    fun trimSessions(sessions: File, sessionsCapBytes: Long, nowMs: Long): String? {
+        val groups = groupsOf(sessions)
+        val total = groups.sumOf { group -> group.sumOf { it.length() } }
+        if (total <= sessionsCapBytes) return null
+        val (removed, removedBytes) = removeOldestIdle(groups, total, sessionsCapBytes, nowMs)
+        val word = if (removed == 1) "file" else "files"
+        val left = (total - removedBytes) / KB
+        val share = sessionsCapBytes / KB
+        return if (removed == 0) null else
+            "recordings space: sessions over their share: $removed $word removed (${removedBytes / KB} KB), $left KB of sessions left of $share KB"
     }
 
     /** Fits [dirs] together under [capBytes]; what was removed, said, or null if nothing was. */
     fun trim(dirs: List<File>, capBytes: Long, nowMs: Long): String? {
-        val groups = dirs.flatMap { dir -> dir.listFiles().orEmpty().filter { it.isFile }.groupBy { it.nameWithoutExtension }.values }
-        var total = groups.sumOf { group -> group.sumOf { it.length() } }
+        val groups = dirs.flatMap { groupsOf(it) }
+        val total = groups.sumOf { group -> group.sumOf { it.length() } }
         if (total <= capBytes) return null
+        val (removed, removedBytes) = removeOldestIdle(groups, total, capBytes, nowMs)
+        val word = if (removed == 1) "file" else "files"
+        val left = (total - removedBytes) / KB
+        return if (removed == 0) null else "recordings space: $removed $word removed (${removedBytes / KB} KB), $left KB left of ${capBytes / KB} KB"
+    }
+
+    private fun groupsOf(dir: File): List<List<File>> =
+        dir.listFiles().orEmpty().filter { it.isFile }.groupBy { it.nameWithoutExtension }.values.toList()
+
+    /** Removes the oldest idle [groups] (none written to in the last [BUSY_MS]) until [total] fits [limit]; how many files went, and their bytes. */
+    private fun removeOldestIdle(groups: List<List<File>>, total: Long, limit: Long, nowMs: Long): Pair<Int, Long> {
         val idle = groups.filter { group -> group.all { nowMs - it.lastModified() > BUSY_MS } }
         var removed = 0
         var removedBytes = 0L
         for (group in idle.sortedBy { group -> group.maxOf { it.lastModified() } }) {
-            if (total <= capBytes) break
+            if (total - removedBytes <= limit) break
             for (file in group) {
                 val size = file.length()
                 if (runCatching { file.delete() }.getOrDefault(false)) {
-                    total -= size
                     removed++
                     removedBytes += size
                 }
             }
         }
-        val word = if (removed == 1) "file" else "files"
-        return if (removed == 0) null else "recordings space: $removed $word removed (${removedBytes / KB} KB), ${total / KB} KB left of ${capBytes / KB} KB"
+        return removed to removedBytes
     }
 }

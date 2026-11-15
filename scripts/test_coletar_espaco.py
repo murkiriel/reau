@@ -161,6 +161,22 @@ class EspacoDasGravacoesTest(unittest.TestCase):
         with tmp:
             self.assertNotIn("gravações em", done.stderr)
 
+    def test_the_sessions_share_line_is_not_the_total_even_when_it_is_the_last(self):
+        cota = "10:05:00.000  + 5ms  [diag] recordings space: sessions over their share: 2 files removed (230400 KB), 524288 KB of sessions left of 524288 KB\n"
+        done, saida, _, tmp = rodar(ride=linha_de_espaco(900 * 1024) + cota)
+        with tmp:
+            self.assertIn("gravações em 900 MB de 1024 MB", done.stderr)
+            info = (saida / "INFO.txt").read_text(encoding="utf-8")
+            self.assertIn("3 files removed (45351 KB), 921600 KB left of 1048576 KB", info)
+            self.assertNotIn("sessions over their share", info)
+
+    def test_a_share_line_alone_says_there_is_no_total_line(self):
+        cota = "10:05:00.000  + 5ms  [diag] recordings space: sessions over their share: 2 files removed (230400 KB), 900000 KB of sessions left of 524288 KB\n"
+        done, saida, _, tmp = rodar(ride=cota)
+        with tmp:
+            self.assertNotIn("gravações em", done.stderr)
+            self.assertIn("(nenhuma", (saida / "INFO.txt").read_text(encoding="utf-8"))
+
     def test_a_cap_other_than_1024_mb_is_taken_from_the_line(self):
         done, _, _, tmp = rodar(ride=linha_de_espaco(900 * 1024, 2 * 1048576))
         with tmp:

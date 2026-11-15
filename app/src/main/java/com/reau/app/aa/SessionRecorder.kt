@@ -178,7 +178,7 @@ internal class SessionRecorder(
         dir.mkdirs()
         // No count of recordings: they all stay until the two folders together pass their ceiling, and then the oldest go (a few short tests had
         // pushed the night ride of 24/10/2026 out of a count of three).
-        com.reau.app.data.RecordingsSpace.makeRoom(dir)?.let(log)
+        com.reau.app.data.RecordingsSpace.makeRoom(dir)?.lines()?.forEach(log) // One line for each step
         startedAtMs = nowMs()
         return DataOutputStream(BufferedOutputStream(file.outputStream())).also {
             out = it

@@ -14,6 +14,7 @@
 #   - o espaço das gravações (item 11c): a última linha `recordings space: N files removed (X KB), Y KB left of Z KB` dos registros copiados (Y é o que ficou ocupado do
 #     teto Z; o app só a escreve quando apagou algo) e o tamanho de sessions/ + video/ copiados. Ocupado a partir de REAU_AVISO_MB (padrão 800) MB, o teto está perto:
 #     o app apaga os arquivos mais antigos e um evento raro some; colete a cada ≤ 2 dias de uso.
+#     A linha `recordings space: sessions over their share: …` (a cota das sessões, metade do teto) é de outra conta e não vale aqui: só a do total.
 #
 # ATENÇÃO: o logcat do sistema tem dado pessoal (o nome do dono, e-mails, o nome inteiro das redes Wi-Fi, a lista de apps).
 # Não compartilhe a pasta sem filtrar (só os buffers crash e as linhas do gearhead e do com.reau.app).
@@ -142,7 +143,7 @@ rmdir "$OUT/antigo-lite" 2>/dev/null || true
 # O espaço das gravações (sessions/ e video/), pelo `left of` que o app escreve ao apagar o mais antigo e pelo tamanho do que veio na cópia. Só lê arquivos já copiados.
 AVISO_MB="${REAU_AVISO_MB:-800}"
 ESPACO_PADRAO_KB=1048576
-ultima="$(cat "$OUT"/diag/ride-*.log 2>/dev/null | awk '/recordings space:/ {ultima = $0} END {print ultima}' || true)"
+ultima="$(cat "$OUT"/diag/ride-*.log 2>/dev/null | awk '/recordings space:/ && !/sessions over their share/ {ultima = $0} END {print ultima}' || true)"
 ocupado_kb=""; teto_kb="$ESPACO_PADRAO_KB"
 if [ -n "$ultima" ]; then
   ocupado_kb="$(printf '%s\n' "$ultima" | sed -n 's/.*, \([0-9][0-9]*\) KB left of \([0-9][0-9]*\) KB.*/\1/p')"

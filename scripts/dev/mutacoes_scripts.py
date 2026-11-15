@@ -14,7 +14,9 @@ MUTATIONS_SCRIPTS = [
     ("leva2/coleta: o espaço das gravações a exatamente 800 MB deixa de avisar", COLETA,
      'if [ "$kb" -ge $((AVISO_MB * 1024)) ]; then', 'if [ "$kb" -gt $((AVISO_MB * 1024)) ]; then', ["test_coletar_espaco.py"]),
     ("leva2/coleta: só a primeira linha 'recordings space' vale e não a última", COLETA,
-     "awk '/recordings space:/ {ultima = $0} END {print ultima}'", "awk '/recordings space:/ {if (!ultima) ultima = $0} END {print ultima}'", ["test_coletar_espaco.py"]),
+     "awk '/recordings space:/ && !/sessions over their share/ {ultima = $0} END {print ultima}'", "awk '/recordings space:/ && !/sessions over their share/ {if (!ultima) ultima = $0} END {print ultima}'", ["test_coletar_espaco.py"]),
+    ("leva2/coleta: a linha da cota das sessões vale como a do total", COLETA,
+     "awk '/recordings space:/ && !/sessions over their share/ {ultima = $0} END {print ultima}'", "awk '/recordings space:/ {ultima = $0} END {print ultima}'", ["test_coletar_espaco.py"]),
     ("leva2/coleta: o teto lido da linha é ignorado", COLETA,
      '  [ -z "$teto_lido" ] || teto_kb="$teto_lido"\n', "", ["test_coletar_espaco.py"]),
     ("leva2/coleta: o aviso de espaço se repete pela linha e pela cópia", COLETA,
@@ -30,6 +32,11 @@ MUTATIONS_SCRIPTS = [
     ("leva2/coleta: o tamanho dos buffers é lido depois das outras leituras", COLETA,
      'BUFFERS="$("$ADB" -s "$SERIAL" logcat -g 2>&1 || true)"', 'BUFFERS="$(sleep 0; "$ADB" -s "$SERIAL" shell dumpsys battery >/dev/null 2>&1; "$ADB" -s "$SERIAL" logcat -g 2>&1 || true)"',
      ["test_coletar_espaco.py"]),
+    # ── gravacoes.py: a cota das sessões ───────────────────────────────────────────────────────────────────────────────────────────────
+    ("leva2/gravacoes: o que a cota das sessões apagou entra na conta do teto", REG + "gravacoes.py",
+     'contas["subteto"].append(', 'contas["espaco"].append(', ["registro/test_gravacoes.py"]),
+    ("leva2/gravacoes: a cota das sessões conta os KB e não os arquivos", REG + "gravacoes.py",
+     "{sum(e[0] for e in contas['subteto'])} arquivos", "{sum(e[1] for e in contas['subteto'])} arquivos", ["registro/test_gravacoes.py"]),
     # ── mascarar.py ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────
     ("leva2/mascarar: o MAC de cinco grupos também é escondido", REG + "mascarar.py",
      'MAC = re.compile(r"\\b(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}\\b")', 'MAC = re.compile(r"\\b(?:[0-9A-Fa-f]{2}:){4}[0-9A-Fa-f]{2}\\b")', ["registro/test_mascarar.py"]),

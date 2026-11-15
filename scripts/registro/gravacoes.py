@@ -36,6 +36,8 @@ SESSAO_FECHADA = re.compile(r"session recording closed: (\d+) messages, (\d+) by
 SESSAO_ROLOU = re.compile(r"session recording rolled over \(#(\d+)\): ([\w.]+\.aasession) keeps the first (\d+) s")
 VIDEO_PARADO = re.compile(r"video recording (?:stopped early|part \d+ complete, the next follows): (\d+) frames, (\d+) bytes, \S*?/([\w.]+\.h264)")
 ESPACO = re.compile(r"recordings space: (\d+) files? removed \((\d+) KB\), (\d+) KB left of (\d+) KB")
+# A cota das sessões (a pasta `sessions/` passou da metade do teto): a linha vem antes da do teto e não é contada com ela.
+SUBTETO = re.compile(r"recordings space: sessions over their share: (\d+) files? removed \((\d+) KB\), (\d+) KB of sessions left of (\d+) KB")
 FOLGA_INICIO_S = 60.0
 
 
@@ -116,8 +118,9 @@ def ocupacao(raiz):
 
 def contas_do_app(linhas):
     """O que o app disse das gravações, em todas as linhas: {sessoes: {nome: {mensagens, bytes, cobre_s}}, rolagens: [(n, nome, s)], videos: {nome: {quadros, bytes}},
-    espaco: [(apagados, kb_apagados, kb_ficou, kb_teto)]}."""
-    contas = {"sessoes": {}, "rolagens": [], "videos": {}, "espaco": []}
+    espaco: [(apagados, kb_apagados, kb_ficou, kb_teto)], subteto: [(apagados, kb_apagados, kb_sessoes_ficou, kb_cota)]}. `espaco` é só o teto das duas pastas;
+    o que a cota das sessões apagou fica à parte, em `subteto`."""
+    contas = {"sessoes": {}, "rolagens": [], "videos": {}, "espaco": [], "subteto": []}
     for x in linhas:
         t = x.texto
         m = SESSAO_FECHADA.search(t)
@@ -132,6 +135,9 @@ def contas_do_app(linhas):
         m = ESPACO.search(t)
         if m:
             contas["espaco"].append(tuple(int(m.group(i)) for i in range(1, 5)))
+        m = SUBTETO.search(t)
+        if m:
+            contas["subteto"].append(tuple(int(m.group(i)) for i in range(1, 5)))
     return contas
 
 
@@ -243,6 +249,9 @@ def secao(raiz, linhas, blocos):
     if contas["espaco"]:
         saida.append(f"teto de pasta: {sum(e[0] for e in contas['espaco'])} arquivos apagados ({sum(e[1] for e in contas['espaco']) / 1024:.0f} MB) em {len(contas['espaco'])} vezes; "
                      f"a última deixou {contas['espaco'][-1][2] / 1024:.0f} MB de {contas['espaco'][-1][3] / 1024:.0f} MB")
+    if contas["subteto"]:
+        saida.append(f"cota das sessões: {sum(e[0] for e in contas['subteto'])} arquivos apagados ({sum(e[1] for e in contas['subteto']) / 1024:.0f} MB) em {len(contas['subteto'])} vezes, "
+                     f"antes do vídeo; a última deixou {contas['subteto'][-1][2] / 1024:.0f} MB de sessões de {contas['subteto'][-1][3] / 1024:.0f} MB")
     return saida
 
 

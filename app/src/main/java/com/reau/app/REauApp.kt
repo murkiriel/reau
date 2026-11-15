@@ -23,7 +23,8 @@ class REauApp : Application() {
             val moved = com.reau.app.data.AppFolders.migrate(this)
             if (moved > 0) RideDiagnostics.log("diag", "moved $moved files from the old external folder to the app's own")
             // The recordings under their own ceiling when the app opens (the recorders do it again at each file).
-            com.reau.app.data.RecordingsSpace.makeRoom(com.reau.app.data.AppFolders.recordings(this, "video"))?.let { RideDiagnostics.log("diag", it) }
+            val room = com.reau.app.data.RecordingsSpace.makeRoom(com.reau.app.data.AppFolders.recordings(this, "video"))
+            room?.lines()?.forEach { RideDiagnostics.log("diag", it) }
         }
         RideDiagnostics.init(this)
         // The experimental guard of the start: with it on, a process that ended right after a start made with experiments leaves them off.
