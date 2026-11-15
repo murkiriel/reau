@@ -605,8 +605,11 @@ internal class LiveSides(
         if (card != null) return showCard(card)
         val running = receiver ?: return
         dialNumber = AaDialNow.started { running.dialSoon() }
+        // The first moments of the screen watch count from this projection's first picture, not from a look at the old one the compositor still holds:
+        // the gate is shut and the watch forgotten before Android Auto's decoder can draw (in this order, and both before start).
+        compositor.awaitNewPicture()
+        com.reau.app.aa.AaScreens.projectionStarting()
         running.start()
-        com.reau.app.aa.AaScreens.projection(true)
     }
 
     override fun stopAndroidAuto() {

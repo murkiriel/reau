@@ -70,7 +70,8 @@ e compara cada grupo com o «nenhuma» (todas desligadas). CRITÉRIOS, escritos 
 (sinal do painel de -75 dBm ou melhor antes da queda; a moto desligada não é queda) por hora transmitindo; as secundárias, só mostradas, são `late` (janelas de 5 s com atraso), kbps
 médio em movimento, segundos sem imagem por hora e quedas totais por hora; só há veredito com 1 h e 3 projeções de cada lado; PIOR/MELHOR pede 1,5 vez a taxa da referência e 2 quedas a
 mais ou a menos. A legibilidade do mapa não se mede aqui (é o teste cego do vídeo). (2) A seção "LEITURAS DO CLASSIFICADOR DE IMAGEM" lista as `picture look:` com p < 0,98 e a
-tela do `aa-screen:` na hora, e o alarme (em PROBLEMAS) dispara com mais de 3 % de leituras sem certeza (7 por minuto sem as linhas `video fps`) e ao menos 10 delas; o limite e o porquê
+tela do `aa-screen:` na hora, e o alarme (em PROBLEMAS) dispara com mais de 3 % de leituras sem certeza, isto é, com p < 0,90 (a classe UNSURE, a que o app não acata; a faixa de 0,90 a 0,98
+é só informação), ou 7 por minuto sem as linhas `video fps`, e ao menos 10 delas; a auditoria do app cortada pelo limite de linhas aparece nos AVISOS DA LEITURA; o limite e o porquê
 estão em `olhadas.py`. (3) O batimento e o grupo `03` do painel, por conexão, saem da seção "PACOTES DO PAINEL" (`detalhes.py`, do registro `[detail]`). (4) As sessões (`sessions/`) e o
 vídeo (`video/`) de uma coleta saem da seção "GRAVAÇÕES DA COLETA" (`gravacoes.py`: cobertura, partes, rolagem, ocupação do anel, índice do vídeo). (5) O tempo sem imagem conta do
 `last dash packet` a partir da linha que o diz, não da primeira linha da queda (98,3 s onde eram ~96 s); a união que a linha `connected` não diz de quem foi não é mais chamada de
@@ -598,6 +599,7 @@ def avisos_da_leitura(caminhos, linhas, janela=None):
     for bloco in projecoes(linhas):
         saida += _apps_provisorio(bloco)
         saida += _informes(bloco)
+    saida += olhadas.avisos(projecoes(linhas))  # the app's audit of the picture classifier hit its line limit: the count after it is incomplete
     saida += [achado for achado, do_app in _crash_da_coleta(caminhos, linhas) if not do_app]
     # What this reader does not read: the recordings of the sessions and the video (done with scripts of the draft folder so far).
     if any((Path(c) / pasta).is_dir() or (Path(c).parent / pasta).is_dir() for c in caminhos for pasta in ("sessions", "video")):
@@ -2332,7 +2334,7 @@ def main(argv):
                 print(f"  {t}")
     leituras = olhadas.secao(projecoes(linhas))
     if leituras:
-        print("\nLEITURAS DO CLASSIFICADOR DE IMAGEM (picture look com p < 0,98; o alarme está em PROBLEMAS):")
+        print("\nLEITURAS DO CLASSIFICADOR DE IMAGEM (picture look com p < 0,98; só as de p < 0,90, a classe UNSURE, entram no alarme, que está em PROBLEMAS; a faixa de 0,90 a 0,98 é informação):")
         for t in leituras:
             print(f"  {t}")
     avisos = avisos_da_leitura(caminhos, linhas, janela)

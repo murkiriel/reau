@@ -41,10 +41,19 @@ object AaScreens {
         watch.homeSent(android.os.SystemClock.elapsedRealtime())
     }
 
-    /** Android Auto's side of the projection started or stopped (LiveSides). */
+    /** Android Auto's side of the projection stopped (LiveSides); [projectionStarting] is the start. */
     fun projection(on: Boolean) {
         // The next session starts from nothing: a screen left over from this one (the menu, say) must not shape its first moments.
         if (!on) watch.reset()
+    }
+
+    /**
+     * Android Auto's side of a projection is about to start (LiveSides), after the compositor's looks were held ([com.reau.app.video.LookGate]):
+     * forgets again what the watch took in since the last projection ended. The compositor outlives the sessions and goes on looking at its old
+     * picture, and a look of it marks the start of the first moments (`FIRST_LOOKS_MS`): the next projection's 3 s shrank to 0 to 1.3 s.
+     */
+    fun projectionStarting() {
+        watch.reset()
     }
 }
 

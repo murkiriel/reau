@@ -83,6 +83,9 @@ class DashCompositor(private val log: (String) -> Unit) {
     private val lookResult = ScreenNet.Result()
     private val lookAudit = LookAudit()
 
+    // Shut from the start of a projection until its first picture ([awaitNewPicture]): the compositor outlives Android Auto's sessions and would otherwise look at the old picture.
+    private val lookGate = LookGate()
+
     /** Whether the net's class and confidence go to the ride log (the debug build only; a test may set it). */
     @Volatile var auditLooks: Boolean = com.reau.app.BuildConfig.DEBUG
 
@@ -163,6 +166,7 @@ class DashCompositor(private val log: (String) -> Unit) {
                         hasImage = true
                         newImage = true
                         waitClock.arrived(System.nanoTime())
+                        lookGate.pictureArrived()
                         takeLook()
                         com.reau.app.stream.InputLatency.pictureArrived()
                         sourceFrames.incrementAndGet()
@@ -180,6 +184,12 @@ class DashCompositor(private val log: (String) -> Unit) {
         }
         return ok
     }
+
+    /**
+     * A new Android Auto projection is about to start: no look is handed on (and none is in flight when this returns) until a picture of its own is
+     * latched, so the old picture the compositor still holds is not the new projection's first look ([LookGate]).
+     */
+    fun awaitNewPicture() = onGlThread(wait = true) { lookGate.awaitPicture() }
 
     /**
      * Which part of the source goes where on the dash's frame. Refused (false, previous mapping kept) if
@@ -563,7 +573,7 @@ class DashCompositor(private val log: (String) -> Unit) {
     /** The picture just latched, shrunk and read, once every [com.reau.app.stream.InputBurst.lookEveryMs] while somebody listens ([onLook]). */
     private fun takeLook() {
         val listener = onLook ?: return
-        if (!hasImage) return
+        if (!hasImage || !lookGate.open) return
         val now = SystemClock.uptimeMillis()
         if (!CompositorRules.lookDue(now, lastLookAtMs, com.reau.app.stream.InputBurst.lookEveryMs(com.reau.app.stream.InputBurst.lookQuick(now)))) return
         lastLookAtMs = now
