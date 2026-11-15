@@ -240,6 +240,8 @@ data class REauSettings(
     val experimentProtocolSix: Boolean = false,
     /** Experimental: a tolerant watch of the dash's silence (12 s only in the log, 60 s ends the session, a keyframe when it speaks again) and the control packets 12 ms apart ([com.reau.app.dash.RxQuiet]). Off, 4 s of silence end the session and the packets go as they come. */
     val experimentTolerantRx: Boolean = false,
+    /** Experimental: before the first dial of a projection, and once after a negotiation that got no answer, Android Auto is woken by opening its settings, and the dial waits 700 ms ([com.reau.app.aa.AaWake]). Off, it is dialled as always. */
+    val experimentWakeAa: Boolean = false,
 ) {
     /**
      * The bitrate the stream is built for and asked for while pictures keep coming: the profile's ([streamBitrateBps], 400 kbps) or, with
@@ -303,6 +305,7 @@ data class REauSettings(
         media = dashMusic, phone = dashCaller,
         protocolMinor = if (aaNewProtocol) com.reau.app.aa.Messages.MINOR_NEWER else com.reau.app.aa.Messages.MINOR_DEFAULT,
         protocolSix = experimentProtocolSix,
+        wakeBeforeDial = experimentWakeAa,
     )
 
     /**

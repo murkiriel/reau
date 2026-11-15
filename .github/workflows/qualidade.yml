@@ -64,8 +64,8 @@ jobs:
   mutacao:
     name: Teste de mutação (fatia ${{ matrix.fatia }} de 15)
     runs-on: ubuntu-24.04
-    # 1 529 mutações em 15/11/2026 (python3 scripts/dev/mutacoes.py --lista conta), cada uma um Gradle de testes. Com o daemon ligado e o código já compilado
-    # cada uma leva de 10 a 60 s; uma fatia de um quinze avos (102) leva de 17 a 102 min, dentro do limite de 120 (com dez fatias, de 148, o pior caso era 150 min).
+    # 1 577 mutações em 15/11/2026 (python3 scripts/dev/mutacoes.py --lista conta), cada uma um Gradle de testes. Com o daemon ligado e o código já compilado
+    # cada uma leva de 10 a 60 s; uma fatia de um quinze avos (106) leva de 18 a 106 min, dentro do limite de 120 (com dez fatias, de 148, o pior caso era 150 min).
     # Medir a cada execução e ajustar o número de fatias se a lista crescer (o script aceita qualquer N).
     # (mutacao-mensal.yml roda uma fatia de doze por mês, como rede mais leve.)
     timeout-minutes: 120

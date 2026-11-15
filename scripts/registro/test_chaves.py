@@ -85,6 +85,16 @@ class LinhasDeChavesTest(unittest.TestCase):
         self.assertEqual((set(escritas), True), chaves.chaves_da_linha(todas))
         self.assertEqual("clima velho some + teto pelo calor da bateria + velocidade do GPS", chaves.rotulo(frozenset(list(escritas)[:3]), True))
 
+    def test_the_wake_key_of_15_11_is_found_by_the_line_the_app_writes_and_only_by_it(self):
+        # the phrase as SettingsInUse.experimentsLine writes it (app/src/main/java/com/reau/app/settings/SettingsInUse.kt)
+        escrita = "Android Auto woken (its settings opened) before a dial that may find it frozen by Android"
+        self.assertEqual(({"experimentWakeAa"}, True), chaves.chaves_da_linha(f"connection experiments ON: {escrita}"))
+        self.assertEqual(({"experimentWakeAa", "experimentFocusGap"}, True),
+                         chaves.chaves_da_linha(f"connection experiments ON: 400 ms focus gap when a keyframe is asked of Android Auto; {escrita}"))
+        self.assertEqual(({"experimentWakeAa"}, True), chaves.chaves_da_linha("settings in use: density=180 experimentWakeAa=true experimentStartGuard=true"))
+        self.assertEqual("acordar o Android Auto", chaves.rotulo(frozenset({"experimentWakeAa"}), True))
+        self.assertEqual("bitrate menor + acordar o Android Auto", chaves.rotulo(frozenset({"experimentWakeAa", "experimentAdaptiveBitrate"}), True))
+
     def test_the_bind_retries_key_is_found_in_the_old_line_with_the_lock_and_in_the_new_one_without_it(self):
         antes = "connection experiments ON: Wi-Fi low-latency lock and bind retries on the same network"
         agora = "connection experiments ON: bind retries on the same network"

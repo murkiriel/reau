@@ -36,6 +36,7 @@ object ExperimentsGuard {
         "experimentColorMatrix".takeIf { settings.experimentColorMatrix },
         "experimentProtocolSix".takeIf { settings.experimentProtocolSix },
         "experimentTolerantRx".takeIf { settings.experimentTolerantRx },
+        "experimentWakeAa".takeIf { settings.experimentWakeAa },
     )
 
     /** [settings] with every experimental switch off but the guard. */
@@ -43,7 +44,7 @@ object ExperimentsGuard {
         experimentRtpPacing = false, experimentDebugDscp = false, experimentAdaptiveBitrate = false, experimentWifiBind = false,
         experimentEncoderWatch = false, experimentFocusGap = false, experimentNightMemory = false,
         experimentWeatherAge = false, experimentHeatCeiling = false, experimentGpsSpeed = false, experimentRecalcInactive = false,
-        experimentColorMatrix = false, experimentProtocolSix = false, experimentTolerantRx = false,
+        experimentColorMatrix = false, experimentProtocolSix = false, experimentTolerantRx = false, experimentWakeAa = false,
     )
 
     /** Whether a start with [settings] is one the guard watches: the guard is on and so is some other experimental switch. */

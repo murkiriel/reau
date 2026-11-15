@@ -49,6 +49,8 @@ CHAVES = [
     ("experimentColorMatrix", "cores do codificador", "BT.601 limited-range"),
     ("experimentProtocolSix", "protocolo 6.0", "protocol 6.0 asked"),
     ("experimentTolerantRx", "vigia tolerante", "tolerant dash silence watch"),
+    # A de 15/11/2026: o Android Auto acordado (as configurações dele abertas) antes de uma discagem que pode achá-lo congelado pelo Android.
+    ("experimentWakeAa", "acordar o Android Auto", "Android Auto woken"),
 ]
 GUARDA = "experimentStartGuard"
 SETTINGS = "settings in use:"

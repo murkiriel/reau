@@ -38,6 +38,8 @@ data class AaConfig(
     val versionRequests: Int = VERSION_REQUESTS,
     /** Experimental: protocol 6.0 is asked first ([ProtocolAsk]); [protocolMinor] is the version to go back to. */
     val protocolSix: Boolean = false,
+    /** Experimental: Android Auto is woken before a dial that may find it frozen by Android ([AaWake]). */
+    val wakeBeforeDial: Boolean = false,
 ) {
     companion object {
         /**

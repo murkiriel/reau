@@ -86,6 +86,8 @@ internal class AaReceiver(
         val dialTimeoutMs: Int = 800,
         /** How often a session writes its `aa-stats` line. */
         val statsEveryMs: Long = STATS_EVERY_MS,
+        /** How long a dial waits after Android Auto was woken ([AaWake]). */
+        val wakeWaitMs: Long = AaWake.WAIT_MS,
     )
 
     /**
@@ -130,6 +132,8 @@ internal class AaReceiver(
         val focusGapMs: () -> Long = { FocusGap.DEFAULT_MS },
         /** The changes of the phone's USB, to tell a session that Android Auto closed because of one ([UsbSessionEnd]). */
         val usb: UsbSessionEnd = UsbSessionEnd.shared,
+        /** What waking Android Auto does ([AaConfig.wakeBeforeDial]); null: its settings are opened, as when the head unit server is off. */
+        val wake: (() -> Unit)? = null,
     )
 
     private val port = options.port
@@ -147,6 +151,7 @@ internal class AaReceiver(
     private val callIn = options.callIn
     private val downstreamBusyMs = options.downstreamBusyMs
     private val usb = options.usb
+    private val wake = options.wake ?: ::openAndroidAutoSettings
 
     @Volatile var state: AaLinkState = AaLinkState.IDLE
         private set
@@ -361,17 +366,22 @@ internal class AaReceiver(
         // is counted from here. Not for a REau ended mid-session (quick: its server is known to hold the old session
         // and does not clear by itself) nor for the old Android Auto, which dials in and has no such server.
         if (callIn == null && !quickUnresponsive) AaRestartGap.dialBegun(android.os.SystemClock.elapsedRealtime())
+        // The wake of Android Auto before a dial that may find it frozen by Android, behind its switch; the Android Auto of 17.3 and older is not dialled.
+        val waking = AaWake(
+            enabled = { config.wakeBeforeDial && callIn == null }, wake = wake, pause = { Thread.sleep(it) }, say = ::logReceiver,
+            waitMs = timing.wakeWaitMs,
+        )
         try {
             waitAfterTheLastStop()
             while (isCurrent(mine)) {
-                val socket = nextSocket(mine, tries = refused.count)
+                val socket = waking.dialing({ SystemClock.elapsedRealtime() }, { AaRestartGap.lastEndedAtMs }) { nextSocket(mine, tries = refused.count) }
                 if (socket == null) {
                     refused.refused(android.os.SystemClock.elapsedRealtime())
                     refused.progress(android.os.SystemClock.elapsedRealtime())?.let(::logReceiver)
                     continue
                 }
                 // Switched off while the dial was being answered: the socket is nobody's, and the loop ends with the next check.
-                if (hold(mine, socket)) serve(mine, socket, refused, unanswered) else runCatching { socket.close() }
+                if (hold(mine, socket)) serve(mine, socket, refused, unanswered, waking) else runCatching { socket.close() }
             }
         } catch (_: InterruptedException) {
             // stop() woke the loop
@@ -381,7 +391,7 @@ internal class AaReceiver(
     }
 
     /** One dialled connection: its state report, and the session on it. */
-    private fun serve(mine: Int, socket: Socket, refused: RefusedDials, unanswered: HandshakeStreak) {
+    private fun serve(mine: Int, socket: Socket, refused: RefusedDials, unanswered: HandshakeStreak, waking: AaWake) {
         refused.connected(android.os.SystemClock.elapsedRealtime())?.let(::logReceiver)
         // A "still closing the previous session" or a "not responding" already said is not taken back by the next
         // dial being accepted: only an answer (or the port refusing) takes it back.
@@ -393,7 +403,26 @@ internal class AaReceiver(
                 AaRestartGap.maybeClosingSinceMs,
             ),
         )
-        afterSession(mine, unanswered, handshook = runSession(mine, socket))
+        val result = runSession(mine, socket)
+        // A negotiation Android Auto never answered: the next dial is preceded by one wake, once in a projection (it may be frozen by Android).
+        if (result == Handshake.MUTE) waking.muteNegotiation()
+        afterSession(mine, unanswered, handshook = result == Handshake.DONE)
+    }
+
+    /** How a session's handshake went: done, failed after Android Auto answered the version request, or never answered at all. */
+    private enum class Handshake {
+        DONE, FAILED, MUTE;
+
+        companion object {
+            /** A handshake that did not complete: mute when Android Auto never answered the version request. */
+            fun failed(androidAutoAnswered: Boolean) = if (androidAutoAnswered) FAILED else MUTE
+        }
+    }
+
+    /** The default wake: what the app does when the head unit server is off, Android Auto's settings screen. */
+    private fun openAndroidAutoSettings() {
+        if (AndroidAuto.installedVersion(context) == null) return logReceiver("Android Auto is not installed: nothing to wake")
+        logReceiver("Android Auto's settings: ${AndroidAuto.openSettings(context, say = ::logReceiver)}")
     }
 
     /**
@@ -476,7 +505,7 @@ internal class AaReceiver(
         if (PreviousSessionClosing.windowEnded(lastUnansweredState, kind)) {
             AaLog.w(
                 "AaReceiver: the wait for the previous session to close ran out (${PreviousSessionClosing.WINDOW_MS / 1_000} s) and " +
-                    "Android Auto is still mute: it is stuck, not closing",
+                    "Android Auto is still mute: it is stuck or frozen by Android (restricted battery), not closing",
             )
         }
         lastUnansweredState = kind
@@ -487,8 +516,8 @@ internal class AaReceiver(
                     when {
                         kind != AaLinkState.CLOSING_PREVIOUS -> " force-stopping Android Auto clears it"
                         PreviousSessionClosing.within(now, AaRestartGap.lastStoppedAtMs) ->
-                            " it is still closing the previous session, which clears by itself"
-                        else -> " it may be closing a session this REau did not see end (another app on its server), which clears by itself"
+                            CLOSING_NOTE
+                        else -> FROZEN_NOTE
                     } + OtherEdition.logNote(context),
             )
         }
@@ -518,11 +547,13 @@ internal class AaReceiver(
         }
     }
 
-    /** Runs one session on [socket] and returns when it has ended: whether its handshake was answered. */
+    /** Runs one session on [socket] and returns when it has ended: how its handshake went. */
     @Suppress("LongMethod") // one straight run of setup/serialization; cutting it adds indirection and no clarity
-    private fun runSession(mine: Int, socket: Socket): Boolean {
+    private fun runSession(mine: Int, socket: Socket): Handshake {
         val config = this.config
         val link = SocketAccessoryConnection(socket)
+        // The proof that 6.0 works with the installed Android Auto, kept across processes, so that a silence is not taken for a refusal (ProtocolAsk).
+        if (config.protocolSix) ProtocolAsk.use(ProtocolAsk.proofIn(context))
         val asked = ProtocolAsk.resolve(config.protocolSix, config.protocolMinor)
         val transport = AapTransport(
             context, protocolMajor = asked.major, protocolMinor = asked.minor, versionRequests = config.versionRequests, focusGapMs = focusGapMs,
@@ -551,14 +582,16 @@ internal class AaReceiver(
         val microphone = voice?.let { AaMicrophone(it(), transport::send, log = { line -> AaLog.i(line) }) }
         var handler: AapMessageHandlerType? = null
         val silence = VideoSilence()
+        var answered = false
         try {
             AaLog.i("AaReceiver: connected to the head unit server on :$port, starting the handshake")
             if (!transport.startHandshake(link)) {
                 AaLog.w("AaReceiver: the handshake failed")
-                return false
+                return Handshake.failed(transport.versionAnswered)
             }
             // Answered: a later process (this one killed mid-session) has no old stop to count a window from.
             AaRestartGap.answered(context)
+            answered = true
             sink.setSurface(videoSurface)
             // The music and phone status channels, read when announced and asked for.
             val cards = if (onNowPlaying != null || onCaller != null) AapCards(onNowPlaying, onCaller, onMediaApp) else null
@@ -611,8 +644,15 @@ internal class AaReceiver(
             sink.release()
             connection = null
             forgetDialled(socket)
+            // The end of a session that was answered, with REau's stop or without it (Android Auto leaving): where the wake of AaWake counts from.
+            keepEnd(answered)
         }
-        return true
+        return Handshake.DONE
+    }
+
+    /** The end of a session that was answered is kept ([AaRestartGap.sessionEnded]); a session that was never answered ended nothing Android Auto had to close. */
+    private fun keepEnd(answered: Boolean) {
+        if (answered) AaRestartGap.sessionEnded(context, SystemClock.elapsedRealtime(), System.currentTimeMillis())
     }
 
     /** The video sink must not be released under a read loop that may still hand it a message. */
@@ -641,6 +681,13 @@ internal class AaReceiver(
 
         /** Only the first try of a round of refused dials is written to the log in full (the others would repeat it every 2 s). */
         internal fun firstTry(refusedBefore: Int): Boolean = refusedBefore == 0
+
+        /** What the log says of an Android Auto that accepts the connection and answers nothing, right after REau's own stop. */
+        private const val CLOSING_NOTE =
+            " it is still closing the previous session, or Android froze it (restricted battery); it clears by itself or when Android Auto is opened"
+
+        /** What the log says of an Android Auto that accepts the connection and answers nothing, outside the window of REau's own stop. */
+        private const val FROZEN_NOTE = " Android Auto may be frozen by Android (restricted battery), which usually clears when it is opened"
 
         /** The port of Android Auto's head unit server: the one Google's Desktop Head Unit talks to. */
         const val HEAD_UNIT_SERVER_PORT = 5277

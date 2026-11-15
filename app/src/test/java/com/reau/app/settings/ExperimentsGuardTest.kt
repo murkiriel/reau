@@ -103,6 +103,7 @@ class ExperimentsGuardTest {
             experimentEncoderWatch = true, experimentFocusGap = true, experimentNightMemory = true,
             experimentStartGuard = true, experimentWeatherAge = true, experimentHeatCeiling = true, experimentGpsSpeed = true,
             experimentRecalcInactive = true, experimentColorMatrix = true, experimentProtocolSix = true, experimentTolerantRx = true,
+            experimentWakeAa = true,
         )
         assertEquals("a new experimental switch needs its line in the guard", names.sorted(), ExperimentsGuard.experimentsOn(allOn).sorted())
         assertEquals(REauSettings(experimentStartGuard = true), ExperimentsGuard.allOff(allOn))

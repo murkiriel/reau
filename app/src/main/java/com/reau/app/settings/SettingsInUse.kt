@@ -27,7 +27,7 @@ object SettingsInUse {
         "experimentRtpPacing", "experimentDebugDscp", "experimentAdaptiveBitrate", "experimentWifiBind", "experimentStartGuard",
         "experimentEncoderWatch", "experimentFocusGap", "experimentNightMemory",
         "experimentWeatherAge", "experimentHeatCeiling", "experimentGpsSpeed", "experimentRecalcInactive", "experimentColorMatrix",
-        "experimentProtocolSix", "experimentTolerantRx",
+        "experimentProtocolSix", "experimentTolerantRx", "experimentWakeAa",
     )
 
     /** Left out on purpose: the fine placement of the picture and the numbers on it (said when they change), and the joystick's text. */
@@ -64,6 +64,7 @@ object SettingsInUse {
             "encoder asked for BT.601 limited-range colours".takeIf { settings.experimentColorMatrix },
             "protocol 6.0 asked of Android Auto first (1.7 if it does not take it)".takeIf { settings.experimentProtocolSix },
             "tolerant dash silence watch (12 s noted, 60 s ends the session) and control packets 12 ms apart".takeIf { settings.experimentTolerantRx },
+            "Android Auto woken (its settings opened) before a dial that may find it frozen by Android".takeIf { settings.experimentWakeAa },
         )
         return if (on.isEmpty()) null else "connection experiments ON: ${on.joinToString("; ")}"
     }

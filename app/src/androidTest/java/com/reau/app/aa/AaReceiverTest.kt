@@ -164,7 +164,7 @@ class AaReceiverTest {
             receiverOn(mute.port).start()
             awaitState(AaLinkState.CLOSING_PREVIOUS, timeoutMs = 45_000)
             assertTrue("three tries before saying so: ${mute.accepted.get()}", mute.accepted.get() >= 3)
-            assertTrue("the log says it did not see the session end: $log", log.any { "this REau did not see end" in it })
+            assertTrue("the log says Android Auto may be frozen by Android: $log", log.any { "may be frozen by Android" in it })
         }
     }
 
@@ -692,5 +692,77 @@ class AaReceiverTest {
         assertTrue("got '$line'", line.startsWith("Android Auto ") && line.endsWith(ending))
         receiverOn(freePort()).start()
         await("the version line '$line'") { log.any { line in it } }
+    }
+
+    // ── waking Android Auto before a dial (the experimental switch; AaWake) ────────────────────────────────
+
+    /** Accepts every connection and says nothing, like [MuteServer], writing each accepted connection into [events] (the receiver's wake writes there too). */
+    private class RecordingMuteServer(private val events: MutableList<String>) : java.io.Closeable {
+        private val server = ServerSocket(0)
+        private val held = CopyOnWriteArrayList<java.net.Socket>()
+        val port get() = server.localPort
+        private val worker = kotlin.concurrent.thread(name = "recording-mute-android-auto") {
+            runCatching { while (true) { held += server.accept(); events += "accepted" } }
+        }
+
+        override fun close() {
+            server.close()
+            held.forEach { runCatching { it.close() } }
+            worker.join(1_000)
+        }
+    }
+
+    private val events = CopyOnWriteArrayList<String>()
+    private val wakeConfig = config.copy(wakeBeforeDial = true)
+    private val fastWake = AaReceiver.Timing(redialMs = 200, afterDropMs = 100, wakeWaitMs = 50)
+
+    private fun wakingReceiverOn(port: Int, config: AaConfig = wakeConfig) =
+        AaReceiver(context, config, reader.surface, { states += it }, AaReceiver.Options(port, fastWake, wake = { events += "wake" })).also { receiver = it }
+
+    @Test
+    fun insideTheWindowTheWakeComesBeforeTheFirstDialAndOnlyOnce() {
+        // Escrito, não rodado (sem emulador nesta rodada): um fim de sessão há 60 s, dentro da janela de 8 s a 45 min.
+        RecordingMuteServer(events).use { server ->
+            AaRestartGap.lastEndedAtMs = android.os.SystemClock.elapsedRealtime() - 60_000
+            wakingReceiverOn(server.port).start()
+            await("the first connection", timeoutMs = 5_000) { events.count { it == "accepted" } >= 1 }
+            assertEquals("the wake first, then the dial: $events $log", listOf("wake", "accepted"), events.take(2))
+            assertEquals("once: $events", 1, events.count { it == "wake" })
+            assertTrue("the log says why and how long ago: $log", log.any { "waking Android Auto before the first dial" in it && "ended 60 s ago" in it })
+        }
+    }
+
+    @Test
+    fun outsideTheWindowThereIsNoWakeBeforeTheDial() {
+        RecordingMuteServer(events).use { server ->
+            AaRestartGap.lastEndedAtMs = android.os.SystemClock.elapsedRealtime() - 3_000
+            wakingReceiverOn(server.port).start()
+            await("the first connection", timeoutMs = 5_000) { events.count { it == "accepted" } >= 1 }
+            assertEquals("no wake in the first seconds: $events", listOf("accepted"), events.toList())
+        }
+    }
+
+    @Test
+    fun aMuteNegotiationMakesOneWakeAndOneDialAndThenTheCadenceGoesOnAsItWas() {
+        // The handshake waits 10 s for the version answer: the first negotiation ends mute after that.
+        RecordingMuteServer(events).use { server ->
+            AaRestartGap.lastEndedAtMs = null
+            wakingReceiverOn(server.port).start()
+            await("the wake after the first mute negotiation", timeoutMs = 30_000) { events.contains("wake") }
+            await("the dial after it", timeoutMs = 5_000) { events.count { it == "accepted" } >= 2 }
+            assertEquals("a dial, the wake, a dial: ${events.take(3)} $log", listOf("accepted", "wake", "accepted"), events.take(3))
+            await("a third and a fourth dial", timeoutMs = 45_000) { events.count { it == "accepted" } >= 4 }
+            assertEquals("one wake only: $events", 1, events.count { it == "wake" })
+        }
+    }
+
+    @Test
+    fun withTheSwitchOffNothingIsWoken() {
+        RecordingMuteServer(events).use { server ->
+            AaRestartGap.lastEndedAtMs = android.os.SystemClock.elapsedRealtime() - 60_000
+            wakingReceiverOn(server.port, config = config).start()
+            await("two connections", timeoutMs = 30_000) { events.count { it == "accepted" } >= 2 }
+            assertFalse("no wake: $events", events.contains("wake"))
+        }
     }
 }

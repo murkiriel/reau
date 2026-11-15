@@ -143,7 +143,7 @@
     <string name="link_unresponsive">No responde</string>
     <string name="link_closing_previous">Cerrando la sesión anterior</string>
     <string name="headline_android_auto_closing_previous">Android Auto está cerrando la sesión anterior</string>
-    <string name="aa_closing_previous_warning">Android Auto todavía está cerrando la sesión anterior. Tarda hasta 1 minuto y REau lo intenta de nuevo sola. Para saltarte la espera, en los ajustes de Android Auto detén y vuelve a iniciar el servidor de unidad principal.</string>
+    <string name="aa_closing_previous_warning">Android Auto todavía está cerrando la sesión anterior, o Android lo congeló (batería restringida). Tarda hasta 1 minuto y REau lo intenta de nuevo sola; abrir Android Auto suele despertarlo. Para saltarte la espera, en los ajustes de Android Auto detén y vuelve a iniciar el servidor de unidad principal.</string>
     <string name="headline_android_auto_unresponsive">Android Auto no responde</string>
     <string name="headline_android_auto_image_stale">Android Auto: imagen congelada</string>
     <string name="headline_android_auto_no_video">Android Auto: sin imagen</string>
@@ -405,6 +405,8 @@
     <string name="exp_protocol_six_sub">Experimental: el apretón de manos pide la versión 6.0 del protocolo (hoy, 1.7). Si Android Auto la rechaza o el apretón de manos falla, se vuelve a pedir 1.7 hasta que la app se cierre, y el registro dice lo que se pidió y se respondió. Vale desde el próximo encendido</string>
     <string name="exp_tolerant_rx_title">Vigilancia del tablero más tolerante</string>
     <string name="exp_tolerant_rx_sub">Experimental: el silencio del tablero solo entra en el registro a los 12 s y tumba la sesión a los 60 s (hoy, 4 s); cuando el tablero vuelve, se pide un cuadro clave. Los paquetes de control salen con 12 ms entre sí. Vale desde la próxima conexión</string>
+    <string name="exp_wake_aa_title">Despertar Android Auto antes de marcar</string>
+    <string name="exp_wake_aa_sub">Experimental: con la batería restringida, Android congela Android Auto después de cada sesión, por hasta unos 45 minutos. Antes de la primera marcación de un arranque, si la última sesión terminó entre 8 segundos y 45 minutos atrás, y una vez después de un apretón de manos sin respuesta, REau abre los ajustes de Android Auto, espera 700 ms y solo entonces marca. La pantalla de ajustes puede asomar por un instante. Vale desde el próximo encendido</string>
     <string name="pairing_known_title">Tablero conocido</string>
     <string name="pairing_known_info">Este es el tablero cuyo nombre completo de Wi-Fi REau ya conoce y que necesita para conectarse. \"Olvidar\" borra ese nombre, todo lo que el tablero ha reportado (los datos de la moto de abajo) y la red sugerida a Android; después, REau vuelve a buscar el tablero (con REau abierta, el nombre aparece solo) o tú escribes el nombre completo. Úsalo cuando cambies de moto o de tablero.</string>
     <string name="pairing_unknown_title">Ningún tablero conocido</string>

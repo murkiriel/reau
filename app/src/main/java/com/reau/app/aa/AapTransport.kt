@@ -290,6 +290,9 @@ class AapTransport(
     /** What Android Auto answered to the version request of this handshake ("1.7, status 0"); null before an answer. */
     @Volatile private var answeredVersion: String? = null
 
+    /** Whether Android Auto answered the version request of the last handshake at all (a handshake that ended without it got no answer: it was mute). */
+    internal val versionAnswered: Boolean get() = answeredVersion != null
+
     /** Bytes 4 and 5 of a frame header hold the message type; 2 is VERSION_RESPONSE. */
     private fun isVersionResponseType(buffer: ByteArray): Boolean = buffer[4] == 0.toByte() && buffer[5] == 2.toByte()
 

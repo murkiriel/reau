@@ -59,6 +59,12 @@ internal fun ConnectionExperimentsGroup(s: REauSettings, change: (REauSettings) 
                 sub = stringResource(R.string.exp_tolerant_rx_sub),
             )
         },
+        {
+            SwitchRow(
+                stringResource(R.string.exp_wake_aa_title), s.experimentWakeAa, { change(s.copy(experimentWakeAa = it)) }, "exp_wake_aa",
+                sub = stringResource(R.string.exp_wake_aa_sub),
+            )
+        },
     ), tag = "group_connection_experiments")
 }
 

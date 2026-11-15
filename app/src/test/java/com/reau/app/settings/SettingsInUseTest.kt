@@ -33,7 +33,7 @@ class SettingsInUseTest {
                 "gemini=true clearAaFocus=true dashMask=true " +
                 "statsOverlay=false buttonOverlay=false dashPhoneStatus=true dashAlbumArt=true maneuverRing=false dashWeather=true infoRing=false infoRingData=7 infoRingCarousel=true infoRingSeconds=7 infoRingInPlace=false webView=false webTouch=false webAudio=PHONE " +
                 "experimentRtpPacing=false experimentDebugDscp=false experimentAdaptiveBitrate=false experimentWifiBind=false experimentStartGuard=true experimentEncoderWatch=false experimentFocusGap=false experimentNightMemory=false experimentWeatherAge=false experimentHeatCeiling=false experimentGpsSpeed=false " +
-                "experimentRecalcInactive=false experimentColorMatrix=false experimentProtocolSix=false experimentTolerantRx=false",
+                "experimentRecalcInactive=false experimentColorMatrix=false experimentProtocolSix=false experimentTolerantRx=false experimentWakeAa=false",
             SettingsInUse.line(REauSettings()),
         )
     }

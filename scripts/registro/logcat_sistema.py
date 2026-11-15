@@ -103,9 +103,18 @@ def _instante(e, ano, byebyes):
     return candidatos[0] if candidatos else None
 
 
-def travadas_do_android_auto(entradas, byebyes, ano):
+NAO_E_DO_REAU = "não é do REau"  # no fim da linha de uma queda do Android Auto que o REau não causou: o `ler_registro.py` a tira dos PROBLEMAS e a põe nos avisos
+SEM_DISCAR = "sem discar do REau nos 60 s antes — o REau estava congelado, morto ou sem projeção"
+
+
+def travadas_do_android_auto(entradas, byebyes, ano, discagens=()):
     """`11:45:19  o Android Auto (gearhead:projection) travou: NullPointerException … (1,2 s depois do byebye do REau)` para cada
-    `FATAL EXCEPTION` cujo processo é o do Android Auto. `byebyes` são os instantes (datetime) em que o REau mandou o byebye."""
+    `FATAL EXCEPTION` cujo processo é o do Android Auto (a `Failed to start connection` do `:projection` congelado é uma delas).
+    `byebyes` são os instantes (datetime) em que o REau mandou o byebye e `discagens` os em que ele discou o servidor do Android Auto.
+
+    A queda que vem até `BYE_ATE_S` s depois de um discar ou de um byebye do REau é dele: diz o intervalo (a do discar é a do Android Auto congelado que o REau
+    acordou sem querer, 13/11 03:36 e 14/11 19:47). A que não tem nenhum dos dois por perto não é dele (o REau estava congelado, morto ou sem projeção, e o Android
+    Auto caiu sozinho ao descongelar): a linha termina com `NAO_E_DO_REAU` e o leitor a põe nos avisos, não nos problemas."""
     saida = []
     for i, e in enumerate(entradas):
         if e.tag != "AndroidRuntime" or not e.texto.startswith("FATAL EXCEPTION"):
@@ -117,9 +126,15 @@ def travadas_do_android_auto(entradas, byebyes, ano):
         mensagem = next((y.texto for y in seguintes if not PROCESSO.match(y.texto) and not y.texto.startswith("\t")), "")
         excecao = mensagem.split(":")[0].strip()  # the class only: the message is free text
         nome = f"gearhead:{proc.group(2)}" if proc.group(2) else "gearhead"
-        quando = _instante(e, ano, byebyes)
-        antes = [(quando - b).total_seconds() for b in byebyes if quando and 0 <= (quando - b).total_seconds() <= BYE_ATE_S]
-        depois = f" ({min(antes):.1f} s depois do byebye do REau)".replace(".", ",") if antes else " (sem byebye do REau nos 60 s antes)"
+        quando = _instante(e, ano, [*byebyes, *discagens])
+        antes_do_bye = [(quando - b).total_seconds() for b in byebyes if quando and 0 <= (quando - b).total_seconds() <= BYE_ATE_S]
+        antes_do_discar = [(quando - d).total_seconds() for d in discagens if quando and 0 <= (quando - d).total_seconds() <= BYE_ATE_S]
+        if antes_do_discar and (not antes_do_bye or min(antes_do_discar) <= min(antes_do_bye)):
+            depois = f" ({min(antes_do_discar):.1f} s depois do discar do REau)".replace(".", ",")
+        elif antes_do_bye:
+            depois = f" ({min(antes_do_bye):.1f} s depois do byebye do REau)".replace(".", ",")
+        else:
+            depois = f" (sem byebye do REau nos 60 s antes) ({SEM_DISCAR}; {NAO_E_DO_REAU})"
         saida.append(f"{tempo.hora8(e)}: o Android Auto ({nome}) travou — {excecao[:100] or 'FATAL EXCEPTION'}{depois}")
     return saida
 

@@ -211,6 +211,8 @@ NEGOCIACAO_OK = "Handshake successful"
 NEGOCIACAO_FALHOU = "AaReceiver: the handshake failed"
 CALADO = "WiFi read timeout (15s)"
 BYE = "AapTransport stopping and sending byebye"
+# O REau discou o servidor do Android Auto (a conexão aceita): a queda do `gearhead:projection` até 60 s depois é gatilho dele (`logcat_sistema.travadas_do_android_auto`).
+DISCAR = "AaReceiver: connected to the head unit server on"
 BYE_S = 2.0
 # The detailed log's lines (~98% of a file with the switch on); nothing here reads them, so they are skipped.
 DETALHE = "  [detail] "
@@ -424,6 +426,7 @@ def do_sistema(caminhos, linhas, janela=None):
     if not entradas and not do_app:
         return []
     byebyes = [t for x in linhas if BYE in x.texto for t in [instante(x)] if t]
+    discagens = [t for x in linhas if DISCAR in x.texto for t in [instante(x)] if t]
     dias = [x.dia for x in linhas if x.dia]
     ano = int(dias[0][:4]) if dias else datetime.now().year
     # Only the days of the registros read: the logcat files of a whole folder cover many days, and the report is about these.
@@ -438,7 +441,7 @@ def do_sistema(caminhos, linhas, janela=None):
     janelas = _aberturas(linhas)
     entradas = [e for e in entradas if not _da_abertura(e, ano, janelas)]
     do_app = [e for e in do_app if not _da_abertura(e, ano, janelas)]
-    saida = logcat_sistema.travadas_do_android_auto(entradas, byebyes, ano) if entradas else []
+    saida = logcat_sistema.travadas_do_android_auto(entradas, byebyes, ano, discagens) if entradas else []
     # What the system said of the dash's Wi-Fi around each of its drops (wpa_supplicant's reasons, ConnectivityService), when the collection has it.
     quedas = [t for x in linhas if "link lost — reconnecting" in x.texto for t in [instante(x)] if t]
     da_moto = _da_moto(linhas)
@@ -600,6 +603,7 @@ def avisos_da_leitura(caminhos, linhas, janela=None):
         saida += _apps_provisorio(bloco)
         saida += _informes(bloco)
     saida += olhadas.avisos(projecoes(linhas))  # the app's audit of the picture classifier hit its line limit: the count after it is incomplete
+    saida += _bateria_do_android_auto(caminhos)
     saida += [achado for achado, do_app in _crash_da_coleta(caminhos, linhas) if not do_app]
     # What this reader does not read: the recordings of the sessions and the video (done with scripts of the draft folder so far).
     if any((Path(c) / pasta).is_dir() or (Path(c).parent / pasta).is_dir() for c in caminhos for pasta in ("sessions", "video")):
@@ -633,6 +637,24 @@ def avisos_da_leitura(caminhos, linhas, janela=None):
     if len(versoes) > 1:
         saida.append(f"os registros são de {len(versoes)} versões do app: " + "; ".join(versoes_do_app(linhas)))
     return saida
+
+
+BATERIA_RESTRITA = re.compile(r"^\s*RUN_ANY_IN_BACKGROUND:\s*ignore\b")
+AVISO_BATERIA_RESTRITA = "o Android Auto está com a bateria restrita: o Android o congela entre as sessões"
+
+
+def _bateria_do_android_auto(caminhos):
+    """O aviso de que o Android Auto está com a bateria restrita, quando o `INFO.txt` da coleta traz `RUN_ANY_IN_BACKGROUND: ignore` na seção do Android Auto
+    (`--- o Android Auto em segundo plano`, ou a do pacote dele): é o que faz o Android congelar o `gearhead:projection` cerca de 10 s depois de cada sessão, por minutos.
+    Uma linha só, por mais coletas que digam o mesmo; vazio sem `INFO.txt` ou com a bateria sem restrição."""
+    for info in wifi_sistema._info_da_coleta(caminhos, None):
+        secao = ""
+        for bruta in info.read_text(encoding="utf-8", errors="replace").splitlines():
+            if bruta.startswith("--- "):
+                secao = bruta[4:].strip()
+            elif ("Android Auto" in secao or logcat_sistema.GEARHEAD in secao) and BATERIA_RESTRITA.match(bruta):
+                return [AVISO_BATERIA_RESTRITA]
+    return []
 
 
 def _cobertura_por_buffer(entradas, ano, projecoes_):
@@ -2302,6 +2324,9 @@ def main(argv):
     achados += [a for a, do_app in _crash_da_coleta(caminhos, linhas) if do_app]
     moto = [a for a in achados if MOTO_DESLIGADA in a]
     achados = [a for a in achados if MOTO_DESLIGADA not in a]
+    # A queda do Android Auto que o REau não causou (nenhum discar nem byebye dele nos 60 s antes) é informação, não defeito: vai para os avisos.
+    do_android_auto = [a for a in achados if logcat_sistema.NAO_E_DO_REAU in a]
+    achados = [a for a in achados if logcat_sistema.NAO_E_DO_REAU not in a]
     print("\nPROBLEMAS:" if achados else "\nnenhum problema conhecido")
     for p in achados:
         print(f"  - {p}")
@@ -2337,7 +2362,7 @@ def main(argv):
         print("\nLEITURAS DO CLASSIFICADOR DE IMAGEM (picture look com p < 0,98; só as de p < 0,90, a classe UNSURE, entram no alarme, que está em PROBLEMAS; a faixa de 0,90 a 0,98 é informação):")
         for t in leituras:
             print(f"  {t}")
-    avisos = avisos_da_leitura(caminhos, linhas, janela)
+    avisos = avisos_da_leitura(caminhos, linhas, janela) + do_android_auto
     if avisos:
         print("\nAVISOS DA LEITURA (não são defeitos do app):")
         for a in avisos:
