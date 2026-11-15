@@ -249,6 +249,8 @@ EVENTOS = [
     # The entry: how long the dash had been on at its first heartbeat, and what its key cost.
     ("dash heartbeat age", "auth: idade do painel"),
     ("key arrived", "auth: chave"),
+    # Since 14/11/2026: the dash's Wi-Fi came back as another Android network and the session, bound to the one that went, was redone.
+    ("the dash's Wi-Fi is now network", "sessão refeita: o Wi-Fi do painel voltou como outra rede"),
     ("watchdog:", "vigia"),
     ("Decoder restart requested", "vigia do decodificador"),
     ("the app crashed", "o app travou"),

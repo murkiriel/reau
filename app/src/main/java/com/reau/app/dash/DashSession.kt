@@ -85,6 +85,8 @@ class DashSession(
         /** With the tolerant watch: the silence that ends the session, and the one that is only noted in the log ([RxQuiet]). */
         val rxGiveUpMs: Long = RxQuiet.GIVE_UP_MS,
         val rxNoteMs: Long = RxQuiet.NOTE_MS,
+        /** The video failing at every send for longer than this is a loss of the link ([RtpStall]). */
+        val rtpStallMs: Long = RtpStall.LIMIT_MS,
     )
 
     /** What this session and the dash exchanged. */
@@ -695,6 +697,19 @@ class DashSession(
 
     fun sendRtp(packet: ByteArray) { socket?.sendRtp(packet) }
 
+    /**
+     * The Wi-Fi manager has the dash's network up, and it is [now]. When this session's sockets were opened on another one ([opened]; the
+     * default is the session's own, a test passes its own) they are bound to a network that is gone ([NetworkSwitch]): the session is lost, as
+     * by a loss of the link, and the next one opens on [now]. True then. The same network, or a session with no sockets open, is left alone.
+     */
+    internal fun networkNow(now: Any?, opened: Any? = linkNetwork): Boolean {
+        if (socket == null || !NetworkSwitch.changed(opened, now)) return false
+        Log.w(TAG, NetworkSwitch.line(opened, now))
+        com.reau.app.data.RideDiagnostics.warn("session", NetworkSwitch.line(opened, now))
+        fail(NetworkSwitch.FAILURE)
+        return true
+    }
+
     /** A keyframe went out in [packets] RTP packets: kept for the line written when the dash goes quiet ([SendTail]). */
     fun keyframeSent(bytes: Int, packets: Int) = stats.sendTail.keyframe(bytes, packets)
 
@@ -1240,6 +1255,7 @@ class DashSession(
                     fail("Dash stopped responding — connection lost", mine)
                     break
                 }
+                if (rtpStallFails(sock, mine)) break
                 // First-ack watchdog: a real gap the RX watchdog above does not catch, because it
                 // needs the dash to have spoken at least once — it detects a link that WORKED and
                 // then died, not one that never worked in the first place. Confirmed
@@ -1274,6 +1290,22 @@ class DashSession(
                 delay(timing.watchdogTickMs)
             }
         }
+    }
+
+    /**
+     * The video's safety net ([RtpStall]), looked at once a second whatever the silence watch is set to: every video send failing for longer than
+     * [Timing.rtpStallMs] ends the session, even with the dash still heard and the control packets going out. True when it did.
+     */
+    private fun rtpStallFails(sock: DashSocket, mine: Int): Boolean {
+        val stalledMs = sock.rtpStall.stalledMs(timing.rtpStallMs)
+        if (stalledMs == null || !RtpStall.fails(_state.value, stalledMs)) return false
+        val line = RtpStall.line(stalledMs, lastRxMs.takeIf { it > 0L }?.let { MonotonicClock.nowMs() - it })
+        Log.w(TAG, line)
+        com.reau.app.data.RideDiagnostics.error("error", line)
+        logLinkAtFailure()
+        com.reau.app.data.ProjectionSummary.current.watchdog("dash-rtp")
+        fail(RtpStall.FAILURE, mine)
+        return true
     }
 
     /** The tolerant watch ([RxQuiet]), when its switch is on: a silence noted in the log, and the dash's return from one passed on to [onRxBack]. */

@@ -106,4 +106,15 @@ class DashRecoveryIsWiredTest {
         assertTrue(wifi.contains("using already-connected WiFi '\${maskSsid(activeSsid)}' (network \$activeNetwork, \${networkOwner("))
         assertTrue(wifi.contains("in \${tookMs}ms (network \$network, \${networkOwner("))
     }
+
+    @Test
+    fun `the dash's Wi-Fi coming up reaches the session before the machine, and the video's safety net is in the session's watch`() {
+        val up = live.between("up.onBikeNetwork {", "com.reau.app.dash.DashSighting.listener")
+        assertTrue(up.contains("session.networkNow(up.bikeNetwork)"))
+        assertTrue("the session is lost first, then the machine hears of the Wi-Fi", up.indexOf("session.networkNow(up.bikeNetwork)") < up.indexOf("report(ProjectionEvent.BikeNetworkAvailable)"))
+        assertTrue("the manager tells of every network it gets", wifi.between("override fun onAvailable(network: Network)", "override fun onCapabilitiesChanged").contains("onNetworkAvailable?.invoke()"))
+        val watch = session.between("private fun launchStatusHeartbeat(", "private fun noteQuiet(")
+        assertTrue(watch.contains("if (rtpStallFails(sock, mine)) break"))
+        assertTrue(watch.contains("sock.rtpStall.stalledMs(timing.rtpStallMs)"))
+    }
 }

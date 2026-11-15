@@ -8,6 +8,7 @@ import android.util.Log
 import com.reau.app.dash.protocol.K1GPacket
 import com.reau.app.data.RideDiagnostics
 import com.reau.app.util.Dbg
+import com.reau.app.util.MonotonicClock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.DatagramPacket
@@ -120,6 +121,9 @@ class DashSocket(
     private var rtpSuppressed = false
     private var rtpProbeCounter = 0
     private var rtpSuppressedTotal = 0
+
+    /** How long the video has been failing at every send ([RtpStall]); the session's 1 Hz watch reads it. */
+    internal val rtpStall = RtpStall()
 
     init {
         var tx:  DatagramSocket? = null
@@ -290,6 +294,7 @@ class DashSocket(
         try {
             rtpSocket.send(DatagramPacket(data, data.size, rtpDest.address, rtpDest.port))
             stats?.sendTail?.rtp(data.size)
+            rtpStall.sent()
             if (rtpFailStreak > 0) {
                 com.reau.app.data.RideDiagnostics.log("dash", "RTP send recovered after $rtpFailStreak failures")
                 rtpFailStreak = 0
@@ -299,16 +304,22 @@ class DashSocket(
                 rtpSuppressed = false; rtpProbeCounter = 0; rtpSuppressedTotal = 0
             }
         } catch (e: Exception) {
-            Log.d(TAG, "RTP send failed (link down?): ${e.message}")
-            if (rtpFailStreak == 0) {
-                com.reau.app.data.RideDiagnostics.warn("dash", "RTP send failing (link down?): ${NetworkBlock.describe(e)}")
-            }
-            rtpFailStreak++
-            if (!rtpSuppressed && rtpFailStreak >= SUPPRESS_AFTER_STREAK) {
-                rtpSuppressed = true
-                RideDiagnostics.warn("dash", "RTP link appears down after $rtpFailStreak failures — suppressing sends, probing every $PROBE_EVERY")
-            }
+            rtpSendFailed(e, MonotonicClock.nowMs())
         }
+    }
+
+    /** A video send failed at [nowMs]: logged at the start of the run, suppressed after [SUPPRESS_AFTER_STREAK] in a row, and told to [rtpStall]. */
+    private fun rtpSendFailed(e: Exception, nowMs: Long) {
+        Log.d(TAG, "RTP send failed (link down?): ${e.message}")
+        if (rtpFailStreak == 0) {
+            com.reau.app.data.RideDiagnostics.warn("dash", "RTP send failing (link down?): ${NetworkBlock.describe(e)}")
+        }
+        rtpFailStreak++
+        if (!rtpSuppressed && rtpFailStreak >= SUPPRESS_AFTER_STREAK) {
+            rtpSuppressed = true
+            RideDiagnostics.warn("dash", "RTP link appears down after $rtpFailStreak failures — suppressing sends, probing every $PROBE_EVERY")
+        }
+        rtpStall.failed(nowMs, rtpSuppressed)
     }
 
     /** When the last packet came off the socket ([System.nanoTime]), before anything is logged: what the answer to a button is timed from. */
@@ -372,6 +383,8 @@ class DashSocket(
         rtpFailStreak = SUPPRESS_AFTER_STREAK
         rtpSuppressed = true
     }
+    /** Test-only: a video send that failed with [e] at [nowMs], as the socket's own failure is handled by [sendRtp]. */
+    internal fun testOnlyRtpSendFailed(e: Exception, nowMs: Long = MonotonicClock.nowMs()) = rtpSendFailed(e, nowMs)
     internal fun testOnlyCtrlDest(): InetSocketAddress = ctrlDest
     internal fun testOnlyRtpDest(): InetSocketAddress = rtpDest
 

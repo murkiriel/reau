@@ -87,6 +87,21 @@ class Ler(unittest.TestCase):
         self.assertIn("Wi-Fi da moto caiu", tempo)
         self.assertIn("vigia: RX watchdog: dash silent 4s", tempo)
 
+    def test_a_sessao_refeita_pela_troca_de_rede_entra_na_linha_do_tempo_e_o_vigia_do_video_e_acusado(self):
+        texto = projecao(
+            linha("19:41:01.000", "wifi", "W: link lost — reconnecting in 4000ms"),
+            linha("19:41:10.000", "wifi", "connected 'RE_…' in 4397ms (network 300, the answer to REau's request #2)"),
+            linha("19:41:10.010", "session", "W: the dash's Wi-Fi is now network 300 and this session's sockets are bound to network 299, "
+                                              "which is gone: link lost, the session is redone on the new network"),
+            linha("19:41:10.020", "error", "E: session fail: The dash's Wi-Fi came back as another network — reconnecting"),
+            linha("19:50:00.000", "error", "E: RTP watchdog: every video send failed for 5.6 s (last dash packet 0.3 s ago) → link lost"),
+        )
+        linhas = ler_registro.ler([self.arquivo(texto)])
+        tempo = "\n".join(ler_registro.linha_do_tempo(linhas))
+        self.assertIn("19:41:10.010  sessão refeita: o Wi-Fi do painel voltou como outra rede", tempo)
+        self.assertIn("vigia: RTP watchdog: every video send failed for 5.6 s", tempo)
+        self.assertTrue(any(p.startswith("19:50:00.000: vigia — RTP watchdog") for p in ler_registro.problemas(linhas)), ler_registro.problemas(linhas))
+
     def test_a_linha_dos_ajustes_em_uso_abre_a_linha_do_tempo_da_projecao(self):
         texto = projecao(
             linha("10:00:01.500", "settings", "settings in use: aaSlowPace=true detailedLog=false reduction=DEFAULT"),

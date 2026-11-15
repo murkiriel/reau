@@ -264,4 +264,6 @@ MUTATIONS_SCRIPTS = [
      "        if got not in self.COMMANDS:\n            return None\n", "", ["painel_falso/test_painel.py"]),
     ("painel/painel: o fim de projeção antigo faz do eco do botão de voltar uma saída cortada", "scripts/painel_falso/painel.py",
      "        if 0 < self.at < self.UNMISTAKABLE and now - self.last_step >= EXIT_STALL_S:\n", "        if False:\n", ["painel_falso/test_painel.py"]),
+    ("registro/ler_registro: a sessão refeita pela troca de rede some da linha do tempo", "scripts/registro/ler_registro.py",
+     '    ("the dash\'s Wi-Fi is now network", "sessão refeita: o Wi-Fi do painel voltou como outra rede"),\n', "", ["registro/test_ler_registro.py"]),
 ]

@@ -323,7 +323,12 @@ internal class LiveSides(
         tolerantRx = { tuned?.experimentTolerantRx == true },
     )
     private val linkUp = setup.linkUp(context, scope).also { up ->
-        up.onBikeNetwork { report(ProjectionEvent.BikeNetworkAvailable) }
+        up.onBikeNetwork {
+            // The dash's Wi-Fi back as another Android network: the session's sockets are bound to the one that went, so the session is lost
+            // first (NetworkSwitch) and the machine, told of the Wi-Fi as always, opens the next one on the new network.
+            session.networkNow(up.bikeNetwork)
+            report(ProjectionEvent.BikeNetworkAvailable)
+        }
         com.reau.app.dash.DashSighting.listener = { report(ProjectionEvent.DashSighted) }
         up.onFirstJoin { report(ProjectionEvent.DashFirstJoin(it)) }
         session.onBindResult = { network, refused -> up.onBindResult?.invoke(network, refused) }
