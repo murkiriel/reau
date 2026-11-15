@@ -10,7 +10,9 @@ import java.io.Reader
  * rules, as `scripts/registro/mascarar.py` (the script that masks the copy of a collection made for sharing), written again here so the zip
  * that "Compartilhar" exports is masked the same way (the owner, 11/11/2026).
  *
- * - The dash's Wi-Fi name, `RE_<4 letters or digits>_<6 digits>`, and any other name that starts the way a dash's does, become [MASK].
+ * - The dash's Wi-Fi name, `RE_<4 letters or digits>_<6 digits>`, even glued to other text or escaped in an address (`%22RE_…%22`), and any other
+ *   name that starts the way a dash's does (at the start of a word, after a character that is not of a word, or after a `%XX` escape; `MODE_RE_ABCD`
+ *   is left), become [MASK].
  * - Every MAC address (six pairs of hex digits split by colons) becomes [MASK_MAC].
  * - The names of the Wi-Fi networks that are not the dash's (home, work): the name that follows `SSID`, `ssid=`, `configKey=` or `SSID:`, quoted or
  *   not, becomes [MASK_NETWORK]. A name found that way is also hidden everywhere else in the same export (where a line says it without the
@@ -26,8 +28,11 @@ object LogMask {
     const val MASK_NETWORK = "<rede>"
     const val MINIMUM_NAME = 3
 
-    private val DASH = Regex("""\bRE_[A-Za-z0-9]{4}_\d{6}\b""")
-    private val OTHER = Regex("""\bRE_[A-Za-z0-9_]{4,}""")
+    // Any name that starts the way a dash's does is hidden first, then the dash's own pattern. OTHER's left edge is the start of a word, a character that
+    // is not of a word, or a URL escape (`%22RE_…%22`: the `2` and the `R` are both word characters, so `\b` alone lets it through), and not "anywhere",
+    // so an ordinary identifier that holds `RE_` (`MODE_RE_ABCD`, `PURE_REF`) stays. DASH has no edge at all: it is hidden glued to any text before or after.
+    private val OTHER = Regex("""(?:(?<=%[0-9A-Fa-f]{2})|\b)RE_[A-Za-z0-9_]{4,}""")
+    private val DASH = Regex("""RE_[A-Za-z0-9]{4}_\d{6}""")
     private val MAC = Regex("""\b(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}\b""")
 
     // `SSID: "Name"`, `ssid="Name"`, `configKey="Name"WPA_PSK`, `SSID 'Name'`: the quoted name after the keyword.
@@ -57,7 +62,7 @@ object LogMask {
     /** [text] with the dash's Wi-Fi names, every MAC and the other networks' names replaced; [names]: more names to hide wherever they stand. */
     fun mask(text: String, names: Collection<String> = emptySet()): String {
         var out = text
-        if (out.contains("RE_")) out = OTHER.replace(DASH.replace(out, MASK), MASK)
+        if (out.contains("RE_")) out = DASH.replace(OTHER.replace(out, MASK), MASK)
         if (out.contains(':')) out = MAC.replace(out, MASK_MAC)
         if (hasKeyword(out)) {
             out = QUOTED.replace(out) { m ->

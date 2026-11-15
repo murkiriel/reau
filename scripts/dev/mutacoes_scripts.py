@@ -2,7 +2,7 @@
 "Leva 2". Same format as MUTATIONS in mutacoes.py, which appends this list to its own: (name, file, old text, new text, test files that must catch it).
 
 The test files are Python (`registro/test_chaves.py` is found in scripts/registro, a bare name in scripts/, `dev/test_teste_cego.py` in scripts/dev): no Gradle runs for these.
-Every name of that work starts with `leva2/`, so `python3 scripts/dev/mutacoes.py leva2/` runs only these; the ones of the bench panel
+Every name of that work starts with `leva2/` (`leva3/` for the masking made fast, 15/11/2026), so `python3 scripts/dev/mutacoes.py leva2/` runs only these; the ones of the bench panel
 (scripts/painel_falso, 13/11/2026) start with `painel/`.
 """
 
@@ -58,6 +58,20 @@ MUTATIONS_SCRIPTS = [
      '            if not args:\n                return None\n            nomes.append(args.pop(0))', '            nomes.append(args.pop(0) if args else "")', ["registro/test_mascarar.py"]),
     ("leva2/mascarar: o nome entre aspas simples não é escondido", REG + "mascarar.py",
      '_ENTRE_ASPAS = re.compile(r"""(?i)\\b(ssid|configKey)(\\s*[=:]?\\s*)(["\'])([^"\'\\n]*)\\3""")', '_ENTRE_ASPAS = re.compile(r"""(?i)\\b(ssid|configKey)(\\s*[=:]?\\s*)(["])([^"\\n]*)\\3""")', ["registro/test_mascarar.py"]),
+    # ── mascarar.py, the names in one regex and the dash's name glued to text (batch 3, 15/11/2026) ───────────────────────────────────
+    ("leva3/mascarar: o padrão do painel volta a ter a borda \\b e escapa colado a texto", REG + "mascarar.py",
+     r'_DASH = re.compile(r"RE_[A-Za-z0-9]{4}_\d{6}")', r'_DASH = re.compile(r"\bRE_[A-Za-z0-9]{4}_\d{6}\b")', ["registro/test_mascarar_rapido.py"]),
+    ("leva3/mascarar: o nome mais curto antes do mais longo deixa um pedaço dos nomes que contêm outros", REG + "mascarar.py",
+     "key=len, reverse=True)", "key=len)", ["registro/test_mascarar_rapido.py"]),
+    ("leva3/mascarar: os nomes voltam a ser escondidos um por vez e o arquivo grande leva horas", REG + "mascarar.py",
+     r'    return re.compile(r"(?<![\w])(?:" + "|".join(map(re.escape, ordenados)) + r")(?![\w])")',
+     r'    return type("PorNome", (), {"sub": lambda self, r, t: __import__("functools").reduce(lambda a, n: re.sub(r"(?<![\w])" + re.escape(n) + r"(?![\w])", r, a), ordenados, t)})()', ["registro/test_mascarar_rapido.py"]),
+    ("leva3/mascarar: o identificador MODE_RE_ABCD é escondido (a borda esquerda some)", REG + "mascarar.py",
+     r'_OTHER = re.compile(r"(?:(?<=%[0-9A-Fa-f]{2})|\b)RE_[A-Za-z0-9_]{4,}")', r'_OTHER = re.compile(r"RE_[A-Za-z0-9_]{4,}")', ["registro/test_mascarar_rapido.py"]),
+    ("leva3/mascarar: o %XX de endereço não vale como borda e o nome do painel escapa", REG + "mascarar.py",
+     r'_OTHER = re.compile(r"(?:(?<=%[0-9A-Fa-f]{2})|\b)RE_[A-Za-z0-9_]{4,}")', r'_OTHER = re.compile(r"\bRE_[A-Za-z0-9_]{4,}")', ["registro/test_mascarar_rapido.py"]),
+    ("leva3/mascarar: o padrão do painel é escondido antes do outro e a variante comprida deixa um resto", REG + "mascarar.py",
+     "texto = _DASH.sub(MASK, _OTHER.sub(MASK, texto))", "texto = _OTHER.sub(MASK, _DASH.sub(MASK, texto))", ["registro/test_mascarar_rapido.py"]),
     # ── quedas.py / leitor: the gaps of 17b and 17e ──────────────────────────────────────────────────────────────────────────────────
     ("leva2/quedas: o último pacote conta da primeira linha da queda e não da que o diz", REG + "quedas.py",
      "perda = tempo.dif(ancora[0].segundos, ancora[1]) if ancora else inicio.segundos", "perda = tempo.dif(inicio.segundos, ancora[1]) if ancora else inicio.segundos", ["registro/test_ler_registro_1111.py"]),

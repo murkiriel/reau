@@ -100,6 +100,60 @@ class LogMaskTest {
         )
     }
 
+    // -- the dash's name glued to other text ------------------------------------------------------------------------------
+
+    /**
+     * The same table as `CASOS` in `scripts/registro/test_mascarar_rapido.py`: the app and the script must hide exactly the same. The left edge of "any
+     * RE_ name" is the start of a word, a character that is not of a word, or a `%XX` URL escape; the dash's own pattern has no edge.
+     */
+    private fun cases(): List<Pair<String, String>> {
+        val m = LogMask.MASK
+        return listOf(
+            // the dash's name, glued to anything or escaped in an address
+            "url=%22$dash%22" to "url=%22$m%22",
+            "x$dash" to "x$m",
+            "${dash}y" to m, // a name that goes on after the digits is the "odd variant": all of it goes
+            "x${dash}y" to "x${m}y",
+            "MODE_$dash" to "MODE_$m",
+            "a $dash, b ($dash)" to "a $m, b ($m)",
+            // any other name that starts with RE_: after a non-word character, the start of the line or a URL escape
+            "RE_ABCD up" to "$m up",
+            "(RE_ABCDEF)" to "($m)",
+            "name=RE_ABCDEF" to "name=$m",
+            "%22RE_ABCDEF%22" to "%22$m%22",
+            "%2fRE_ABCDEF" to "%2f$m",
+            // an ordinary identifier that holds RE_ in the middle stays
+            "MODE_RE_ABCD" to "MODE_RE_ABCD",
+            "PURE_REF" to "PURE_REF",
+            "PURE_RE_ABCD" to "PURE_RE_ABCD",
+            "_RE_ABCD" to "_RE_ABCD",
+            "xRE_ABCD" to "xRE_ABCD",
+            "%2RE_ABCD" to "%2RE_ABCD",
+            "%zzRE_ABCD" to "%zzRE_ABCD",
+            "REAU is not RE_" to "REAU is not RE_",
+            // a common network name and a MAC
+            "SSID: \"CasaDoZe\" up" to "SSID: \"<rede>\" up",
+            "bssid $macA ok" to "bssid ${LogMask.MASK_MAC} ok",
+        )
+    }
+
+    @Test
+    fun `the table of cases is hidden like the script hides it, the dash's name glued to text or escaped in an address included`() {
+        for ((input, expected) in cases()) {
+            assertEquals(input, expected, LogMask.mask(input, LogMask.networkNames(input)))
+        }
+    }
+
+    @Test
+    fun `an address with the dash's name escaped in it does not leak through a file either`() {
+        val file = tmp.newFile("ride-3.log").apply { writeText("GET /x?n=%22$dash%22&m=1\nxx${dash}yy\n") }
+        val out = ByteArrayOutputStream()
+        LogMask.write(file, out, emptySet())
+        val text = out.toString(Charsets.UTF_8)
+        assertEquals("GET /x?n=%22RE_****_******%22&m=1\nxxRE_****_******yy\n", text)
+        assertFalse(text.contains("AB12"))
+    }
+
     // -- the files and the zip ---------------------------------------------------------------------------------------------
 
     @Test
