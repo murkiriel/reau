@@ -82,6 +82,10 @@ codificador, protocolo 6.0 do Android Auto, vigia tolerante do painel) entram no
 em português, o que elas escrevem (`RX quiet`/`RX back`, `route: a short inactive …`, `speed profile: …`, `encoder colour: …`, `Handshake: asked protocol …`, o teto pela bateria na etiqueta
 `heat`). A chave do EPERM não fala mais da trava de Wi-Fi (`bind retries on the same network`); os registros de antes, que diziam a trava, continuam achados por `chaves.py`.
 
+Desde 15/11/2026: as linhas `device …` trazem `current=<mA>mA charge=<mAh>mAh cpu=<N>%` (a corrente da bateria, o contador de carga e o uso de CPU do REau, `-` quando o aparelho não deu o valor),
+e a linha do tempo diz, ao fim de cada projeção, a corrente média sem o carregador com o painel transmitindo e sem ele, a carga consumida e a CPU média e máxima (`corrente.py`; a corrente
+negativa na maioria das olhadas sem carregador é tomada por convenção do aparelho e o sinal é invertido, dizendo isso). Registro de antes dos campos não traz nada disso e não gera aviso.
+
 Em registros de versões até a 0.2.0 (o serviço que ligava o servidor sozinho não existe mais), por Ligar, o bloco `servidor do AA:` conta a caminhada que liga o servidor do Android Auto (toque, início
 da caminhada, clique em Iniciar, Voltar, fim, primeira conexão, em ms) e acusa a causa: porta fechada 5 s depois do clique, servidor
 que só atendeu quando a tela do Android Auto abriu, menu lido pela metade (Android Auto frio?). Sem linhas `aa-server` (o serviço desligado, o caso comum) não diz nada.
@@ -95,6 +99,7 @@ from pathlib import Path
 # With `python -I` (or a script run from another folder) the script's own folder is not on the path: the helpers beside it are found by this file's place.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import chaves  # noqa: E402
+import corrente  # noqa: E402
 import detalhes  # noqa: E402
 import gravacoes  # noqa: E402
 import logcat_sistema  # noqa: E402
@@ -994,6 +999,7 @@ def linha_do_tempo(linhas):
                     saida.append(f"{x.hora}  {quedas.texto_da_interrupcao(sem_imagem_final)}")
                 if bateria:
                     saida.append(f"{x.hora}  bateria {bateria[0]}% → {bateria[-1]}%")
+                saida += [f"{x.hora}  {linha}" for linha in corrente.texto(bloco)]  # the current, the charge and the CPU of the REau (the device line's new fields; nothing in an old log)
                 presa = _leitura_presa(bloco)
                 if presa:
                     saida.append(f"{x.hora}  {presa}")

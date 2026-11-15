@@ -22,7 +22,7 @@ class DeviceStateTest {
     @Test
     fun `the line says every part in a fixed order`() {
         assertEquals(
-            "device battery=57% charging=yes temp=31.5C volt=4.123V thermal=light headroom=0.42 " +
+            "device battery=57% charging=yes temp=31.5C volt=4.123V thermal=light headroom=0.42 current=- charge=- cpu=- " +
                 "mem=45/512MB phone=1830MB low=no screen=on interactive=yes doze=no saver=off exempt=no " +
                 "bike=-55dBm/5180MHz/433Mbps data=cell/ok",
             full.line(),
@@ -39,7 +39,7 @@ class DeviceStateTest {
             bikeWifi = null, data = DeviceState.Data.NONE, dataValidated = false,
         )
         assertEquals(
-            "device battery=? charging=? temp=? volt=? thermal=? " +
+            "device battery=? charging=? temp=? volt=? thermal=? current=- charge=- cpu=- " +
                 "mem=45/512MB phone=? low=? screen=? interactive=? doze=? saver=? exempt=? bike=none data=none",
             unknown.line(),
         )
@@ -47,10 +47,10 @@ class DeviceStateTest {
 
     @Test
     fun `a headroom the phone gives is said, one that is not a number is left out`() {
-        assertTrue(full.line(), "thermal=light headroom=0.42 mem=" in full.line())
+        assertTrue(full.line(), "thermal=light headroom=0.42 current=" in full.line())
         val nan = full.copy(headroom = Float.NaN).line()
         assertFalse(nan, "headroom" in nan)
-        assertTrue(nan, "thermal=light mem=" in nan)
+        assertTrue(nan, "thermal=light current=" in nan)
     }
 
     @Test

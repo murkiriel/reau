@@ -33,12 +33,18 @@ data class DeviceState(
     /** The phone's default network, the one Waze gets its data through. */
     val data: Data,
     val dataValidated: Boolean,
+    /** The battery's current in mA, with the sign the phone gives (it varies by maker); null when it could not be read. */
+    val currentMa: Int? = null,
+    /** The battery's charge counter in mAh; null when it could not be read or the phone has none. */
+    val chargeMah: Int? = null,
+    /** REau's CPU use since the look before, in percent of ONE core (it can pass 100); null on the first look. */
+    val cpuPct: Int? = null,
 ) {
     data class BikeWifi(val dbm: Int, val mhz: Int, val mbps: Int)
 
     enum class Data { NONE, WIFI, CELL, OTHER }
 
-    fun line(): String = (powerParts() + phoneParts()).joinToString(" ", prefix = "device ")
+    fun line(): String = (powerParts() + usageParts() + phoneParts()).joinToString(" ", prefix = "device ")
 
     // A phone that gives no thermal headroom (some always answer `?`) leaves the field out.
     private fun powerParts() = listOfNotNull(
@@ -48,6 +54,13 @@ data class DeviceState(
         "volt=" + (batteryMv?.let { String.format(Locale.US, "%.3fV", it / MV_PER_V) } ?: "?"),
         "thermal=" + (thermal?.let { THERMAL_NAMES.getOrElse(it) { n -> "status$n" } } ?: "?"),
         headroom?.takeIf { !it.isNaN() }?.let { String.format(Locale.US, "headroom=%.2f", it) },
+    )
+
+    // What the battery and the process spent, for the analysis; `-` when it could not be read. They change at every look, so they are never a reason to write a line.
+    private fun usageParts() = listOf(
+        "current=" + (currentMa?.let { "${it}mA" } ?: "-"),
+        "charge=" + (chargeMah?.let { "${it}mAh" } ?: "-"),
+        "cpu=" + (cpuPct?.let { "$it%" } ?: "-"),
     )
 
     private fun phoneParts() = listOf(

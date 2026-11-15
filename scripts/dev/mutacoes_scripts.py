@@ -294,4 +294,6 @@ MUTATIONS_SCRIPTS = [
     ('aa-conserto/R3 leitor: allow também acusa a bateria restrita', 'scripts/registro/ler_registro.py', 'BATERIA_RESTRITA = re.compile(r"^\\s*RUN_ANY_IN_BACKGROUND:\\s*ignore\\b")', 'BATERIA_RESTRITA = re.compile(r"^\\s*RUN_ANY_IN_BACKGROUND:\\s*(?:ignore|allow)\\b")', ['registro/test_ler_registro_1511.py']),
     ('aa-conserto/R3 leitor: a bateria restrita vale em qualquer seção do INFO.txt', 'scripts/registro/ler_registro.py', 'elif ("Android Auto" in secao or logcat_sistema.GEARHEAD in secao) and BATERIA_RESTRITA.match(bruta):', 'elif BATERIA_RESTRITA.match(bruta):', ['registro/test_ler_registro_1511.py']),
     ('aa-conserto/R1 chaves.py: a frase da chave de acordar não casa com a linha do app', 'scripts/registro/chaves.py', '"acordar o Android Auto", "Android Auto woken")', '"acordar o Android Auto", "Android Auto awakened")', ['registro/test_chaves.py']),
+    ("registro/corrente: o aparelho que dá a corrente negativa ao descarregar não tem o sinal invertido", "scripts/registro/corrente.py",
+     "    sinal = -1 if invertido else 1\n", "    sinal = 1\n", ["registro/test_corrente.py"]),
 ]

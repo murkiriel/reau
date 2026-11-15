@@ -3328,6 +3328,23 @@ MUTATIONS = [
     ('aa-conserto/R3 textos: a mensagem volta a falar de uma sessão que o REau não viu acabar', MAIN + 'aa/AaReceiver.kt', '" Android Auto may be frozen by Android (restricted battery), which usually clears when it is opened"', '" it may be closing a session this REau did not see end (another app on its server), which clears by itself"', ['AaFrozenTextsTest']),
     ('aa-conserto/R3 textos: a irmã da janela de REau volta a só fechar a sessão', MAIN + 'aa/AaReceiver.kt', '" it is still closing the previous session, or Android froze it (restricted battery); it clears by itself or when Android Auto is opened"', '" it is still closing the previous session, which clears by itself"', ['AaFrozenTextsTest']),
     ('aa-conserto/R3 textos: a espera esgotada não fala do congelamento', MAIN + 'aa/AaReceiver.kt', 'it is stuck or frozen by Android (restricted battery), not closing', 'it is stuck, not closing', ['AaFrozenTextsTest']),
+    # ── the current, the charge and the CPU in the device line (15/11/2026) ──
+    ("Corrente do celular: a divisão de µA em mA sai por outro número", MAIN + "data/PowerReadings.kt",
+     "else (microAmps / MICRO_PER_MILLI).toInt()", "else (microAmps / 100L).toInt()", ["PowerReadingsTest"]),
+    ("Carga do celular: a divisão de µAh em mAh sai por outro número", MAIN + "data/PowerReadings.kt",
+     "else (microAmpHours / MICRO_PER_MILLI).toInt()", "else (microAmpHours / 100L).toInt()", ["PowerReadingsTest"]),
+    ("Corrente do celular: o Int.MIN_VALUE do aparelho que não sabe vira um número", MAIN + "data/PowerReadings.kt",
+     "fun currentMa(microAmps: Int): Int? = if (microAmps == Int.MIN_VALUE) null else currentMa(microAmps.toLong())", "fun currentMa(microAmps: Int): Int? = currentMa(microAmps.toLong())",
+     ["PowerReadingsTest"]),
+    ("Carga do celular: o Int.MIN_VALUE do aparelho que não sabe vira um número", MAIN + "data/PowerReadings.kt",
+     "fun chargeMah(microAmpHours: Int): Int? = if (microAmpHours == Int.MIN_VALUE) null else chargeMah(microAmpHours.toLong())", "fun chargeMah(microAmpHours: Int): Int? = chargeMah(microAmpHours.toLong())",
+     ["PowerReadingsTest"]),
+    ("Carga do celular: o contador 0 (aparelho sem contador) vira 0 mAh", MAIN + "data/PowerReadings.kt",
+     "if (microAmpHours == Long.MIN_VALUE || microAmpHours == 0L) null", "if (microAmpHours == Long.MIN_VALUE) null", ["PowerReadingsTest"]),
+    ("CpuWindow: a CPU é o total do processo e não o que passou desde a olhada anterior", MAIN + "data/PowerReadings.kt",
+     "val used = cpuMs - (beforeCpu ?: return null)", "val used = cpuMs - 0L * (beforeCpu ?: return null)", ["PowerReadingsTest"]),
+    ("CpuWindow: a janela de relógio de 0 ms vale", MAIN + "data/PowerReadings.kt",
+     "return if (window <= 0L || used < 0L) null else", "return if (window < 0L || used < 0L) null else", ["PowerReadingsTest"]),
 ]
 
 

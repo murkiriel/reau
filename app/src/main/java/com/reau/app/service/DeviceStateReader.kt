@@ -11,9 +11,13 @@ import android.net.NetworkCapabilities
 import android.net.wifi.WifiInfo
 import android.os.BatteryManager
 import android.os.PowerManager
+import android.os.Process
+import android.os.SystemClock
 import android.view.Display
 import androidx.core.content.ContextCompat
+import com.reau.app.data.CpuWindow
 import com.reau.app.data.DeviceState
+import com.reau.app.data.PowerReadings
 
 /**
  * Reads the phone's [DeviceState] with no new permission: the battery from its sticky
@@ -25,6 +29,8 @@ class DeviceStateReader(private val context: Context, private val bikeNetwork: (
     private val activity = context.getSystemService(ActivityManager::class.java)
     private val connectivity = context.getSystemService(ConnectivityManager::class.java)
     private val display = context.getSystemService(DisplayManager::class.java)
+    private val batteryManager = context.getSystemService(BatteryManager::class.java)
+    private val cpu = CpuWindow()
 
     /** The state now; what it says of the charger, the screen and doze is also kept for the line on a link's end. */
     fun read(): DeviceState = readNow().also { com.reau.app.data.PhoneNow.update(it.charging, it.screenOn, it.dozing, it.batteryTempC) }
@@ -63,6 +69,9 @@ class DeviceStateReader(private val context: Context, private val bikeNetwork: (
                 else -> DeviceState.Data.OTHER
             },
             dataValidated = defaultCaps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true,
+            currentMa = runCatching { PowerReadings.currentMa(batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)) }.getOrNull(),
+            chargeMah = runCatching { PowerReadings.chargeMah(batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)) }.getOrNull(),
+            cpuPct = runCatching { cpu.offer(Process.getElapsedCpuTime(), SystemClock.elapsedRealtime()) }.getOrNull(),
         )
     }
 
