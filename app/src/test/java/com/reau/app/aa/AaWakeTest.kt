@@ -26,20 +26,24 @@ class AaWakeTest {
     private var enabled = true
     private var server: ServerSocket? = null
     private val accepted = Collections.synchronizedList(mutableListOf<Socket>())
+    private var accepting: Thread? = null
 
     @Before
     fun fakeHeadUnitServer() {
         val listening = ServerSocket(0, 10, InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1)))
         server = listening
-        Thread {
+        accepting = Thread {
             runCatching { while (true) accepted += listening.accept() }
-        }.apply { isDaemon = true }.start()
+        }.apply { isDaemon = true }.also { it.start() }
     }
 
     @After
     fun closeServer() {
-        accepted.forEach { runCatching { it.close() } }
+        // The server first, and its thread let finish: a connection it is still taking must not land in the list while the list is walked.
         server?.close()
+        accepting?.join(2_000)
+        synchronized(accepted) { accepted.toList() }.forEach { runCatching { it.close() } }
+        synchronized(dialled) { dialled.toList() }.forEach { runCatching { it.close() } }
         AaRestartGap.testOnlyNewProcess()
     }
 
