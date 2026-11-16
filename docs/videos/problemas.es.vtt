@@ -1,0 +1,86 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:03.000
+Video de una versión anterior: la app de hoy no tiene la Lite ni el paso de Accesibilidad
+
+2
+00:00:00.000 --> 00:00:04.267
+Problemas de instalación y de Wi-Fi de REau, y cómo resolverlos
+
+3
+00:00:04.267 --> 00:00:09.600
+1. Play Protect bloqueó la instalación: es lo esperado en la edición Completa
+
+4
+00:00:09.600 --> 00:00:16.133
+Pausa la verificación de apps en Play Store, instala el APK de nuevo y vuelve a activar Play Protect después
+
+5
+00:00:16.133 --> 00:00:22.533
+2. Al activar Accesibilidad aparece Configuración restringida o Acceso denegado a la app
+
+6
+00:00:22.533 --> 00:00:29.667
+Intenta activarla primero. Después, en Apps, REau, menú de tres puntos, toca Permitir configuración restringida
+
+7
+00:00:29.667 --> 00:00:36.333
+Vuelve a Accesibilidad y activa REau. Si el interruptor estaba gris, es esa configuración restringida
+
+8
+00:00:36.333 --> 00:00:41.400
+En Samsung, la Accesibilidad de REau está en Aplicaciones instaladas
+
+9
+00:00:41.400 --> 00:00:49.267
+3. Servidor de Android Auto apagado: en la Completa, activa Accesibilidad y el interruptor Encender el servidor automáticamente
+
+10
+00:00:49.267 --> 00:00:56.600
+En la Lite, enciéndelo a mano: ajustes de Android Auto, menú de tres puntos, Iniciar servidor de la unidad principal
+
+11
+00:00:56.600 --> 00:01:04.267
+4. Modo desarrollador de Android Auto desactivado: abre sus ajustes y toca diez veces en Versión
+
+12
+00:01:04.267 --> 00:01:12.400
+5. Después de Apagar, Android Auto tarda hasta un minuto en cerrar la sesión anterior: espera o reinicia el servidor
+
+13
+00:01:12.400 --> 00:01:21.200
+6. Una VPN está frenando a REau: apaga la VPN o deja a REau fuera de ella con túnel dividido, y vuelve a conectar la VPN
+
+14
+00:01:21.200 --> 00:01:29.933
+7. Wi-Fi del tablero no encontrado: revisa la llave de la moto, que la ubicación esté permitida y, en Datos de la moto, el nombre completo de la red
+
+15
+00:01:29.933 --> 00:01:35.800
+Si cambiaste de moto o hay más de un tablero cerca, toca Olvidar y busca de nuevo
+
+16
+00:01:35.800 --> 00:01:41.400
+La primera vez, Android pregunta Conectar al dispositivo: toca Conectar
+
+17
+00:01:41.400 --> 00:01:48.200
+8. Si aparece Otra app tiene el tablero, detén la transmisión de la otra app, como la app oficial
+
+18
+00:01:48.200 --> 00:01:54.600
+Si el tablero rechaza la conexión, apaga la moto con la llave, espera unos treinta segundos y enciéndela de nuevo
+
+19
+00:01:54.600 --> 00:02:00.800
+9. Android Auto sin imagen: fuerza la detención de Android Auto, apaga y enciende REau
+
+20
+00:02:00.800 --> 00:02:07.467
+10. Si encendiste el servidor de red, REau no busca el tablero: apaga ese interruptor para usar la moto
+
+21
+00:02:07.467 --> 00:02:11.467
+Hay más respuestas en las preguntas frecuentes de REau
+
