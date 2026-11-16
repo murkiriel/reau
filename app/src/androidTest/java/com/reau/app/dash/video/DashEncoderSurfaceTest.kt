@@ -1,10 +1,15 @@
 package com.reau.app.dash.video
 
 import android.graphics.Color
+import android.media.MediaCodec
 import android.media.MediaCodecList
 import android.media.MediaFormat
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import com.reau.app.dash.DashConfig
+import com.reau.app.data.RideLogProbe
+import com.reau.app.util.CodecMetrics
+import com.reau.app.util.CodecReport
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -12,6 +17,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.concurrent.CopyOnWriteArrayList
@@ -24,6 +30,17 @@ import java.util.concurrent.atomic.AtomicInteger
  *
  * The encoder is fed on its surface only (no Canvas `renderFrame`, no `drain` to pull with), so the cases are written
  * here on EGL.
+ *
+ * The last group reads what the codec itself gives (the `encoder accepted:` line with the input and output formats read once the codec
+ * runs, the keyframe interval of 1 s kept by the real encoder, and `getMetrics()` read at the release without holding it beyond its
+ * limit): the ride log is read back through [RideLogProbe].
+ *
+ * To run later (not run when written; the machine had no device): an emulator booted with the app and its test APK installed,
+ * `ANDROID_SERIAL=<emulator serial>` for adb and `REAU_EMU_SERIAL=<emulator serial>` for
+ * `scripts/emu/run_instrumented.py DashEncoderSurfaceTest`, which runs this class in a process of its own. The emulator needs no Wi-Fi,
+ * location or `dumpsys deviceidle`; it needs an AVC encoder and a recordable EGL config (the tests fail on a device without them, as the
+ * ones above do), and the ride log switched on (a test that finds it off is skipped). The emulator's only encoder is a software one: the
+ * times asked of it are for 4 and 6 frames a second, which it keeps up with.
  */
 @RunWith(AndroidJUnit4::class)
 class DashEncoderSurfaceTest {
@@ -35,6 +52,7 @@ class DashEncoderSurfaceTest {
     }
 
     private val out = CopyOnWriteArrayList<Out>()
+    private val probe = RideLogProbe(InstrumentationRegistry.getInstrumentation().targetContext)
     private var encoder: DashEncoder? = null
     private var painter: EglPainter? = null
     private val colors = listOf(Color.RED, Color.GREEN, Color.BLUE, Color.WHITE, Color.YELLOW)
@@ -330,8 +348,215 @@ class DashEncoderSurfaceTest {
         assertTrue("frames must keep coming out after requestBitrate(), got ${frames().size}", frames().size >= 9)
     }
 
+    // ── what the ride log says of the codec, read from the running codec ───────────────────────────────────
+
+    /** A prepared encoder, [report] as the video loop sets it (true for a stream's first encoder, false for one it rebuilds), 6 frames through it; the ride log since the test began. */
+    private fun encodeSomeFramesAndReadTheLog(report: Boolean): String {
+        probe.begin()
+        val enc = newEncoder().also { encoder = it }
+        enc.reportCodecs = report
+        assertTrue("prepare failed: ${enc.lastPrepareError}", enc.prepare(4, 200_000, 1))
+        painter = EglPainter(checkNotNull(enc.inputSurface))
+        paint(6, firstPtsMs = STEP_MS)
+        awaitFrames(6)
+        return probe.text()
+    }
+
+    private fun onlyLine(text: String, needle: String): String {
+        val found = RideLogProbe.lines(text, needle)
+        assertEquals("exactly one \"$needle\" line, got $found", 1, found.size)
+        return found.single()
+    }
+
+    /** The `key=value` pairs of a log line like `prefix a=1 b=2; not echoed: c`: the part before the first `;`, as a map. */
+    private fun keysOf(line: String, prefix: String): Map<String, String> =
+        line.substringAfter(prefix).substringBefore(";").trim().split(" ").filter { '=' in it }
+            .associate { it.substringBefore('=') to it.substringAfter('=') }
+
+    @Test
+    fun theLogSaysWhatTheCodecAcceptedOnceItsFormatsCanBeRead() {
+        encodeSomeFramesAndReadTheLog(report = true)
+        val text = probe.await("the line of what the codec accepted") { "[stream] encoder accepted: " in it }
+
+        val codecs = onlyLine(text, "[stream] codecs: encoder ")
+        assertTrue(codecs, "video/avc 526x300 baseline [" in codecs && " chosen=" in codecs)
+        assertTrue(codecs, codecs.endsWith("(hw)") || codecs.endsWith("(sw)"))
+        val outputLine = onlyLine(text, "[stream] encoder output format: ")
+        val acceptedLine = onlyLine(text, "[stream] encoder accepted: ")
+        val output = keysOf(outputLine, "encoder output format: ")
+        val accepted = keysOf(acceptedLine, "encoder accepted: ")
+
+        assertTrue("the codec must have echoed some key of the format it was asked for, got: $acceptedLine", accepted.isNotEmpty())
+        output.forEach { (key, value) ->
+            assertEquals("the output format's $key must be the one in the accepted line", value, accepted[key])
+        }
+        // A value the codec changed is told as such: what it echoes of the 200 kbps and 4 a second asked is the same, or the line says "differs".
+        accepted["bitrate"]?.let { assertTrue(acceptedLine, it == "200000" || "bitrate asked 200000" in acceptedLine) }
+        accepted["frame-rate"]?.let { assertTrue(acceptedLine, it == "4" || "frame-rate asked 4" in acceptedLine) }
+    }
+
+    /**
+     * The codec's input format is read once it runs (before, a surface encoder has none to give): so the accepted line holds every
+     * key that its input format or its output format holds. The input format is read here from a codec of the same name, configured the same way.
+     */
+    @Test
+    fun theAcceptedLineHoldsWhatTheInputFormatReadAfterStartHasBesideTheOutputFormat() {
+        encodeSomeFramesAndReadTheLog(report = true)
+        val text = probe.await("the line of what the codec accepted") { "[stream] encoder accepted: " in it }
+        val codecs = onlyLine(text, "[stream] codecs: encoder ")
+        val started = RideLogProbe.lines(text, "[stream] encoder: ").last()
+        val accepted = keysOf(onlyLine(text, "[stream] encoder accepted: "), "encoder accepted: ")
+        val output = keysOf(onlyLine(text, "[stream] encoder output format: "), "encoder output format: ")
+        painter?.release()
+        painter = null
+        encoder?.release()
+        encoder = null
+        assumeTrue("the encoder took the full format on its first try, the one this test builds again: $started", "lowLatency=on" in started)
+        val name = checkNotNull(Regex("""chosen=(\S+)""").find(codecs)?.groupValues?.get(1)) { "no codec named in: $codecs" }
+
+        val format = DashEncoder.buildFormat(DashEncoder.Companion.Ask(4, 200_000, 1, false), lowLatency = true)
+        val bare = MediaCodec.createByCodecName(name)
+        var surface: android.view.Surface? = null
+        val inputKeys = try {
+            bare.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+            surface = bare.createInputSurface()
+            bare.start()
+            val input = bare.inputFormat
+            CodecReport.KEYS.filter { key -> input.containsKey(key) && runCatching { input.getNumber(key) }.getOrNull() != null }
+        } finally {
+            runCatching { bare.stop() }
+            bare.release()
+            surface?.release()
+        }
+
+        val left = (inputKeys + output.keys).filter { it !in accepted }
+        assertTrue("the accepted line leaves out $left, which the codec's input format ($inputKeys) or output format (${output.keys}) holds; it has ${accepted.keys}", left.isEmpty())
+    }
+
+    @Test
+    fun anEncoderTheLoopRebuildsTellsNothingOfItsCodecButStillLogsItsStart() {
+        val text = encodeSomeFramesAndReadTheLog(report = false)
+
+        assertTrue("the start of the encoder is logged all the same, got: $text", "[stream] encoder: " in text)
+        for (once in listOf("[stream] codecs: encoder ", "[stream] encoder accepted: ", "[stream] encoder output format: ")) {
+            assertFalse("a rebuilt encoder must not tell \"$once\" again, got: $text", once in text)
+        }
+    }
+
+    // ── the keyframe interval of the real encoder ──────────────────────────────────────────────────────────
+
+    /** [seconds] of frames painted at [fps], the encoder asked for a keyframe every [intervalSec] s at that rate hint; the times of the keyframes that came out. */
+    private fun keyframeTimesMs(fps: Int, intervalSec: Int, seconds: Int): List<Long> {
+        val enc = newEncoder().also { encoder = it }
+        assertTrue("prepare failed: ${enc.lastPrepareError}", enc.prepare(fps, 200_000, intervalSec))
+        painter = EglPainter(checkNotNull(enc.inputSurface))
+        val total = fps * seconds
+        repeat(total) { i ->
+            checkNotNull(painter).paint(colors[i % colors.size], (i + 1) * 1000L / fps)
+            Thread.sleep(1000L / fps)
+        }
+        awaitFrames(total - 1)
+        return frames().filter { it.isKey }.map { it.ptsMs }
+    }
+
+    /** One keyframe per window of [intervalSec] s: about [seconds] / [intervalSec] of them, each about that long after the one before. */
+    private fun assertAKeyframeEvery(intervalSec: Int, seconds: Int, keys: List<Long>) {
+        val windowMs = intervalSec * 1000L
+        val expected = seconds / intervalSec
+        assertTrue("keyframes at $keys ms: expected about $expected, one every $intervalSec s", keys.size in expected - 1..expected + 1)
+        val gaps = keys.zipWithNext { a, b -> b - a }
+        assertTrue("gaps of $gaps ms between the keyframes: each must be about $windowMs ms", gaps.all { it in windowMs * 3 / 4..windowMs * 5 / 4 })
+    }
+
+    @Test
+    fun theEncoderKeepsAKeyframeEverySecondAtFourFramesASecond() {
+        probe.begin()
+        val keys = keyframeTimesMs(fps = 4, intervalSec = 1, seconds = 6)
+        assertAKeyframeEvery(1, 6, keys)
+        val started = probe.text()
+        assertTrue("the log says how many frames a second is: $started", "iFrameIntervalSec=1 (every 4 frames at the hint)" in started)
+    }
+
+    @Test
+    fun theEncoderKeepsAKeyframeEverySecondAtSixFramesASecond() {
+        assertAKeyframeEvery(1, 6, keyframeTimesMs(fps = 6, intervalSec = 1, seconds = 6))
+    }
+
+    // ── getMetrics(), read without holding anyone beyond its limit ─────────────────────────────────────────
+
+    @Test
+    fun releasingTheEncoderLogsTheCodecsMetricsAndTheReleaseIsNotHeldByThem() {
+        probe.begin()
+        val enc = start()
+        paint(5, firstPtsMs = STEP_MS)
+        awaitFrames(5)
+        painter?.release()
+        painter = null
+
+        val begun = System.nanoTime()
+        enc.release()
+        val tookMs = (System.nanoTime() - begun) / NANOS_PER_MS
+
+        assertTrue(
+            "release() took $tookMs ms: the read of the metrics may hold it for ${CodecMetrics.JOIN_MS} ms only, and the output thread's wait and the codec's stop come on top",
+            tookMs <= RELEASE_BUDGET_MS,
+        )
+        val text = probe.await("the metrics of the encoder") { "[stream] codec metrics (encoder " in it }
+        val line = onlyLine(text, "[stream] codec metrics (encoder ")
+        assertFalse("the metrics must have been read before the codec went: $line", "not available" in line || "no answer" in line || "(late:" in line)
+        assertTrue(line, "mime=video/avc" in line)
+        assertTrue(line, "encoder=1" in line)
+    }
+
+    @Test
+    fun theMetricsOfARunningCodecAreReadWithinTheLimitAndAReadThatHangsIsGivenUpAtIt() {
+        val format = DashEncoder.buildFormat(DashEncoder.Companion.Ask(4, 200_000, 1, false), lowLatency = false)
+        val bare = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
+        var surface: android.view.Surface? = null
+        try {
+            bare.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+            surface = bare.createInputSurface()
+            bare.start()
+
+            val told = CopyOnWriteArrayList<String>()
+            val begun = System.nanoTime()
+            CodecMetrics.logBounded("encoder", bare.name, bare) { told += it }
+            val tookMs = (System.nanoTime() - begun) / NANOS_PER_MS
+            assertTrue("the read of a running codec's metrics took $tookMs ms, the limit is ${CodecMetrics.JOIN_MS} ms", tookMs <= CodecMetrics.JOIN_MS + SLACK_MS)
+            assertEquals("one line for the read: $told", 1, told.size)
+            assertTrue(told.single(), told.single().startsWith("codec metrics (encoder ${bare.name}): "))
+            assertFalse("a started codec gives its metrics: ${told.single()}", "not available" in told.single())
+            val values = checkNotNull(CodecMetrics.read(bare)) { "a started codec gives its metrics" }
+            assertEquals(MediaFormat.MIMETYPE_VIDEO_AVC, values[MediaCodec.MetricsConstants.MIME_TYPE])
+
+            // A driver that does not answer: the caller is let go at the limit, not when the read ends, and the line says the read was given up.
+            val hung = CopyOnWriteArrayList<String>()
+            val hungBegun = System.nanoTime()
+            CodecMetrics.logBounded("encoder", bare.name, { Thread.sleep(HANG_MS); null }, CodecMetrics.JOIN_MS) { hung += it }
+            val hungMs = (System.nanoTime() - hungBegun) / NANOS_PER_MS
+            assertTrue("a read that hangs for $HANG_MS ms held the caller for $hungMs ms, the limit is ${CodecMetrics.JOIN_MS} ms", hungMs <= CodecMetrics.JOIN_MS + SLACK_MS)
+            assertTrue("the caller waited less than the limit ($hungMs ms) though the read had not ended", hungMs >= CodecMetrics.JOIN_MS - SLACK_MS)
+            assertEquals("the line of the read given up, and none other yet: $hung", 1, hung.size)
+            assertTrue(hung.single(), "no answer in ${CodecMetrics.JOIN_MS} ms, given up" in hung.single())
+        } finally {
+            runCatching { bare.stop() }
+            bare.release()
+            surface?.release()
+        }
+    }
+
     private companion object {
         const val STEP_MS = 62L
+        const val NANOS_PER_MS = 1_000_000L
+
+        /** What release() may take: the metrics' wait ([CodecMetrics.JOIN_MS]), the output thread's wait (200 ms) and the codec's own stop, with room for a busy emulator. */
+        const val RELEASE_BUDGET_MS = 2_000L
+
+        /** What a wait with a limit may overshoot it by on a busy emulator (starting the thread, the scheduler). */
+        const val SLACK_MS = 250L
+
+        /** A read of the metrics that does not come back for this long. */
+        const val HANG_MS = 2_000L
         const val NAL_SLICE = 1
         const val NAL_IDR = 5
         const val NAL_SPS = 7

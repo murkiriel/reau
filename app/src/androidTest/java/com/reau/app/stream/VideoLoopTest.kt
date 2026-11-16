@@ -3,7 +3,9 @@ package com.reau.app.stream
 import android.graphics.Color
 import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import com.reau.app.dash.video.EncoderOutputPump
+import com.reau.app.data.RideLogProbe
 import com.reau.app.video.DashCompositor
 import com.reau.app.video.TestPattern
 import org.junit.After
@@ -19,6 +21,16 @@ import kotlin.concurrent.thread
 /**
  * The video loop from a synthetic "Android Auto" picture to RTP packets, against a collector standing where the
  * dash session would be. Real compositor, real encoder; no network.
+ *
+ * Two cases read what the real encoder does and says: a keyframe every second at 4 frames a second (the gaps between the keyframes
+ * on the video clock, and the `idr=` of the 5 s window line), and the codec lines of the ride log (the stream's first encoder tells
+ * its codec once, the metrics come at the end of the stream), read back through [RideLogProbe].
+ *
+ * To run later (not run when written; the machine had no device): an emulator booted with the app and its test APK installed,
+ * `ANDROID_SERIAL=<emulator serial>` for adb and `REAU_EMU_SERIAL=<emulator serial>` for
+ * `scripts/emu/run_instrumented.py VideoLoopTest`, which runs this class in a process of its own and lists the skipped tests apart.
+ * No Wi-Fi, location or `dumpsys deviceidle` is needed. The tests that need 16 frames a second are skipped on an encoder that cannot keep up
+ * ([EncoderCapacity]), the new ones run at 4 and need no such room; a test that finds the ride log switched off is skipped.
  */
 @RunWith(AndroidJUnit4::class)
 class VideoLoopTest {
@@ -62,6 +74,7 @@ class VideoLoopTest {
 
     private val dash = Collector()
     private val log = CopyOnWriteArrayList<String>()
+    private val probe = RideLogProbe(InstrumentationRegistry.getInstrumentation().targetContext)
     private var compositor: DashCompositor? = null
     private var loop: VideoLoop? = null
     private val sourceRunning = AtomicBoolean(false)
@@ -425,6 +438,70 @@ class VideoLoopTest {
 
         assertTrue("the failure must reach the log, got $log", log.any { "encoder output failing" in it && "the dash socket is gone" in it })
         assertTrue("frames must keep going out after a failed send", dash.packets.size > sent)
+    }
+
+    // ── the keyframe interval of the real encoder, and what the ride log says of its codec ─────────────────
+
+    /**
+     * A moving source at 4 frames a second with an interval of one second asked for: a keyframe about every second on the video clock
+     * (never every frame, never every two seconds), and the 5 s window line counts about five of them in its `idr=`.
+     */
+    private fun assertAKeyframeEverySecond(settings: VideoLoop.Settings) {
+        val l = newLoop(settings)
+        startSource()
+        assertTrue("the loop did not start: $log", l.start())
+        val all = awaitUnits("7 keyframes", timeoutMs = 40_000) { sent -> sent.count { it.isKeyframeBundle } >= 7 }
+        stopSource()
+
+        val gaps = stepsMs(all.filter { it.isKeyframeBundle })
+        assertTrue("keyframes about a second apart, got gaps $gaps ms", gaps.all { it in 500L..1500L })
+        assertTrue("the usual gap between keyframes is a second, got $gaps ms", gaps.sorted()[gaps.size / 2] in 875L..1125L)
+        awaitThat("the line of the first window") { log.any { it.startsWith("video fps target=4") } }
+        val line = log.first { it.startsWith("video fps target=4") }
+        val idr = Regex("""idr=(\d+)\(""").find(line)?.groupValues?.get(1)?.toInt()
+        assertTrue("idr= must be 4 to 7 in a window of 5 s with a keyframe a second, got: $line", idr != null && idr in 4..7)
+        assertTrue(line, " kf=1s " in line)
+    }
+
+    @Test
+    fun theRealEncoderKeepsAKeyframeEverySecondWhenTheRiderAsksForOne() {
+        assertAKeyframeEverySecond(VideoLoop.Settings(ceilingFps = 4, bitrateBps = 200_000, keyframeSec = 1))
+    }
+
+    @Test
+    fun theRealEncoderKeepsAKeyframeEverySecondWithTheAutomaticInterval() {
+        assertAKeyframeEverySecond(
+            VideoLoop.Settings(ceilingFps = 4, bitrateBps = 200_000, keyframeSec = com.reau.app.dash.DashConfig.KEYFRAME_INTERVAL_AUTO),
+        )
+    }
+
+    /**
+     * The codec lines of the ride log belong to the stream: its first encoder tells the codec it chose and what it accepted, once, and
+     * the framework's own count of that encoder's life comes when the stream ends. A stream started again tells it again, once.
+     */
+    @Test
+    fun aStreamsFirstEncoderTellsItsCodecOnceAndItsMetricsComeWhenTheStreamEnds() {
+        probe.begin()
+        val needles = listOf("[stream] codecs: encoder ", "[stream] encoder output format: ", "[stream] encoder accepted: ")
+        val l = newLoop()
+        assertTrue("the loop did not start: $log", l.start())
+        awaitUnits("something out") { it.isNotEmpty() }
+        val first = probe.await("the accepted line of the stream", timeoutMs = 6_000) { "[stream] encoder accepted: " in it }
+        for (needle in needles) {
+            assertEquals("exactly one \"$needle\" for the stream, got: $first", 1, RideLogProbe.lines(first, needle).size)
+        }
+
+        l.stop()
+        val ended = probe.await("the metrics of the encoder at the end of the stream", timeoutMs = 6_000) { "[stream] codec metrics (encoder " in it }
+        assertEquals("one count of the encoder's life for the stream, got: $ended", 1, RideLogProbe.lines(ended, "[stream] codec metrics (encoder ").size)
+
+        val sent = dash.packets.size
+        assertTrue(l.start())
+        awaitUnits("a frame of the second stream") { all -> all.any { it.lastPacket >= sent } }
+        val again = probe.await("the second stream's accepted line", timeoutMs = 6_000) { RideLogProbe.lines(it, "[stream] encoder accepted: ").size >= 2 }
+        for (needle in needles) {
+            assertEquals("each codec line is told once more for the stream started again, got: $again", 2, RideLogProbe.lines(again, needle).size)
+        }
     }
 
     private companion object {
