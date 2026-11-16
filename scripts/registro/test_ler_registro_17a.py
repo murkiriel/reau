@@ -680,13 +680,13 @@ class Informes(unittest.TestCase):
         self.assertEqual(1, feito.returncode)  # o processo do REau que caiu é problema
         self.assertIn("com.reau.app caiu com SIGSEGV", feito.stdout)
 
-    def test_a_lacuna_das_sessoes_e_do_video_e_dita_quando_a_coleta_as_tem(self):
+    def test_as_gravacoes_das_sessoes_e_do_video_nao_sao_mais_lacuna(self):
+        # 16/11/2026 (plano 28, leva 9): o gravacoes.py lê sessions/ e video/; o aviso de lacuna, que este teste exigia, ficou falso e saiu.
         raiz = Path(tempfile.mkdtemp())
         escreve(raiz, "diag/ride-20261107-100000.log", projecao())
         (raiz / "sessions").mkdir()
-        a = [x for x in ler_registro.avisos_da_leitura([raiz], ler_registro.ler([raiz])) if "lacuna conhecida" in x]
-        self.assertEqual(1, len(a))
-        self.assertIn("não lê as gravações das sessões", a[0])
+        (raiz / "video").mkdir()
+        self.assertEqual([], [x for x in ler_registro.avisos_da_leitura([raiz], ler_registro.ler([raiz])) if "lacuna conhecida" in x])
         sem = Path(tempfile.mkdtemp())
         escreve(sem, "diag/ride-20261107-100000.log", projecao())
         self.assertEqual([], [x for x in ler_registro.avisos_da_leitura([sem], ler_registro.ler([sem])) if "lacuna conhecida" in x])

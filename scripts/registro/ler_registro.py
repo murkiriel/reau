@@ -615,10 +615,7 @@ def avisos_da_leitura(caminhos, linhas, janela=None):
     saida += olhadas.avisos(projecoes(linhas))  # the app's audit of the picture classifier hit its line limit: the count after it is incomplete
     saida += _bateria_do_android_auto(caminhos)
     saida += [achado for achado, do_app in _crash_da_coleta(caminhos, linhas) if not do_app]
-    # What this reader does not read: the recordings of the sessions and the video (done with scripts of the draft folder so far).
-    if any((Path(c) / pasta).is_dir() or (Path(c).parent / pasta).is_dir() for c in caminhos for pasta in ("sessions", "video")):
-        saida.append("lacuna conhecida: este leitor não lê as gravações das sessões do Android Auto (`sessions/`) nem o vídeo do painel (`video/`); a análise delas segue por "
-                     "scripts à parte")
+    # The recordings of the sessions and the video are read by gravacoes.py (GRAVAÇÕES DA COLETA, with its warnings), so no gap is told here any more.
     entradas = logcat_sistema.ler(caminhos)
     dias = [x.dia for x in linhas if x.dia]
     if entradas and dias:
@@ -2389,13 +2386,15 @@ def main(argv):
             print(f"  {t}")
     elif todas:
         print(f"\nCORRIDAS POR CHAVES EXPERIMENTAIS: nenhuma das {len(todas)} projeções traz o estado das chaves (build anterior às chaves experimentais): nada a comparar")
-    pacotes = detalhes.secao(_registros_de(caminhos)[0], projecoes(linhas))
+    pacotes, avisos_do_painel = detalhes.analise(_registros_de(caminhos)[0], projecoes(linhas))
     if pacotes:
         print("\nPACOTES DO PAINEL (registro `[detail]`: o batimento e o grupo 03 de cada conexão):")
         for t in pacotes:
             print(f"  {t}")
+    avisos_das_gravacoes = []
     for raiz in gravacoes.raizes_da_coleta(caminhos):
-        gravadas = gravacoes.secao(raiz, linhas, projecoes(linhas))
+        gravadas, avisos_de_uma = gravacoes.analise(raiz, linhas, projecoes(linhas))
+        avisos_das_gravacoes += avisos_de_uma
         if gravadas:
             print(f"\nGRAVAÇÕES DA COLETA ({raiz.name}: sessions/ e video/):")
             for t in gravadas:
@@ -2405,7 +2404,7 @@ def main(argv):
         print("\nLEITURAS DO CLASSIFICADOR DE IMAGEM (picture look com p < 0,98; só as de p < 0,90, a classe UNSURE, entram no alarme, que está em PROBLEMAS; a faixa de 0,90 a 0,98 é informação):")
         for t in leituras:
             print(f"  {t}")
-    avisos = avisos_da_leitura(caminhos, linhas, janela) + do_android_auto
+    avisos = avisos_da_leitura(caminhos, linhas, janela) + do_android_auto + avisos_do_painel + avisos_das_gravacoes
     if avisos:
         print("\nAVISOS DA LEITURA (não são defeitos do app):")
         for a in avisos:

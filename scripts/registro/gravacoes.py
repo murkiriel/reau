@@ -10,7 +10,10 @@ cobertura dela (segundos gravados de segundos de projeção), o `frames=` do res
 `video recording stopped early`) contra o que está na pasta (um arquivo que o app diz ter gravado e que não está foi apagado pelo teto, ou não veio na coleta) e as linhas
 `recordings space` (quantos arquivos o teto apagou). Nenhum conteúdo das mensagens é lido além do tipo do quadro de vídeo: nada de mapa, nome nem posição sai daqui.
 
-`ler_sessao`, `ler_video`, `ocupacao` e `secao` abrem arquivo; o resto é puro.
+Sob cada vídeo vem o ritmo do índice (`ritmo_video.py`: fps por janela, quadros-chave, buracos de mais de 2 s, a soma de `bytes_in_file` contra o `.h264` e o fps contra o das linhas
+`video fps` do registro); uma diferença grande entre os dois fps vai aos "AVISOS DA LEITURA" (`analise` devolve as linhas e os avisos; `secao` só as linhas).
+
+`ler_sessao`, `ler_video`, `ocupacao`, `analise` e `secao` abrem arquivo; o resto é puro.
 """
 import os
 import re
@@ -23,6 +26,7 @@ AQUI = Path(__file__).resolve().parent
 sys.path.insert(0, str(AQUI))
 sys.path.insert(0, str(AQUI.parent / "dev" / "teste_cego"))  # indice_video.py: o índice do vídeo em dois formatos
 import indice_video  # noqa: E402
+import ritmo_video  # noqa: E402
 import tempo  # noqa: E402
 
 ASSINATURAS = (b"REAA", b"PGAA")  # PGAA: a assinatura das gravações de 15/10/2026, o resto do formato é o mesmo
@@ -93,7 +97,8 @@ def ler_video(h264):
     arquivo, ou que não se lê, vira aviso."""
     h264 = Path(h264)
     csv = h264.with_suffix(".csv")
-    saida = {"nome": h264.name, "bytes": h264.stat().st_size, "quadros": 0, "segundos": 0.0, "chaves": 0, "kbps": 0.0, "avisos": [], "sem_indice": not csv.exists()}
+    saida = {"nome": h264.name, "bytes": h264.stat().st_size, "quadros": 0, "segundos": 0.0, "chaves": 0, "kbps": 0.0, "avisos": [], "sem_indice": not csv.exists(),
+             "formato": None, "soma": 0, "indice": []}
     if saida["sem_indice"]:
         return saida
     try:
@@ -106,6 +111,7 @@ def ler_video(h264):
     saida["segundos"] = (indice.quadros[-1][1] - indice.quadros[0][1]) / 1000.0 if indice.quadros else 0.0
     saida["kbps"] = saida["bytes"] * 8 / 1000.0 / saida["segundos"] if saida["segundos"] > 0 else 0.0
     saida["avisos"] = list(indice.avisos)
+    saida["formato"], saida["soma"], saida["indice"] = indice.formato, indice.soma, indice.quadros  # o ritmo (ritmo_video.py) lê daqui, sem abrir o csv de novo
     return saida
 
 
@@ -203,12 +209,43 @@ def _cobertura(sessoes, bloco):
 
 
 def secao(raiz, linhas, blocos):
-    """As linhas da seção "GRAVAÇÕES DA COLETA" de uma pasta de coleta [raiz] (a que tem `sessions/` e/ou `video/`). Vazio se não tem nenhuma das duas. Só as gravações que nasceram
-    durante as projeções lidas (com `FOLGA_INICIO_S` s de folga) são listadas uma a uma; as outras são contadas."""
+    """As linhas da seção "GRAVAÇÕES DA COLETA" (ver [analise])."""
+    return analise(raiz, linhas, blocos)[0]
+
+
+def _inicio_do_video(nome, bloco):
+    """O instante em que o vídeo [nome] abriu: a hora do nome na primeira parte, e na `_pNN` a hora em que a anterior fechou (o nome das partes é o da primeira); None se não se sabe."""
+    m = NOME.match(nome)
+    if m and m.group(9) and int(m.group(9)) > 1:
+        return ritmo_video.inicio_da_parte(int(m.group(9)), bloco)
+    return inicio_do_nome(nome)
+
+
+def _ritmo_do_video(v, bloco, janelas):
+    """(linhas, aviso ou None) do ritmo de um vídeo: o fps por janela, os quadros-chave, os buracos, a soma contra o arquivo e o fps do índice contra o do registro."""
+    if v["sem_indice"] or not v["indice"]:
+        return [], None
+    linhas = ritmo_video.resumo(v["indice"])
+    soma = ritmo_video.conferir_soma(v["formato"], v["soma"], v["bytes"])
+    if soma:
+        linhas.append(soma)
+    c = ritmo_video.fps_do_log_e_do_indice(v["indice"], _inicio_do_video(v["nome"], bloco), janelas)
+    comparado = ritmo_video.linha_da_comparacao(c)
+    if comparado:
+        linhas.append(comparado)
+    aviso = ritmo_video.diferenca_fps(c)
+    return linhas, (f"vídeo {v['nome']} (projeção de {bloco[0].hora[:8]}, {bloco[0].arquivo}): {aviso}" if aviso else None)
+
+
+def analise(raiz, linhas, blocos):
+    """(linhas da seção "GRAVAÇÕES DA COLETA", avisos) de uma pasta de coleta [raiz] (a que tem `sessions/` e/ou `video/`). Vazio se não tem nenhuma das duas. Só as gravações que
+    nasceram durante as projeções lidas (com `FOLGA_INICIO_S` s de folga) são listadas uma a uma; as outras são contadas. Os avisos (para "AVISOS DA LEITURA") são o fps do índice do
+    vídeo que não bate com o das linhas `video fps` do registro."""
+    avisos = []
     raiz = Path(raiz)
     pastas = {p: raiz / p for p in ("sessions", "video") if (raiz / p).is_dir()}
     if not pastas:
-        return []
+        return [], avisos
     contas = contas_do_app(linhas)
     s_bytes, v_bytes = ocupacao(raiz)
     total = s_bytes + v_bytes
@@ -237,7 +274,13 @@ def secao(raiz, linhas, blocos):
             resumo = next((int(m.group(1)) for x in bloco for m in [RESUMO_QUADROS.match(x.texto)] if m), None)
             comparado = f"; o resumo da projeção diz frames={resumo}" + ("" if resumo == quadros else f" e os índices somam {quadros} ({quadros - resumo:+d})") if resumo is not None else ""
             saida.append(f"{titulo} {len(vs)} {'arquivo' if len(vs) == 1 else 'arquivos'} de vídeo, {quadros} quadros{comparado}")
-            saida += ["    vídeo " + _linha_video(v, contas["videos"].get(v["nome"])) for v in vs]
+            janelas = ritmo_video.janelas_do_log(bloco)
+            for v in vs:
+                saida.append("    vídeo " + _linha_video(v, contas["videos"].get(v["nome"])))
+                ritmo, aviso = _ritmo_do_video(v, bloco, janelas)
+                saida += ["        " + r for r in ritmo]
+                if aviso:
+                    avisos.append(aviso)
     de_antes = sum(1 for g in sessoes + videos if g["nome"] not in ligadas)
     if de_antes:
         saida.append(f"{de_antes} arquivos de gravação de antes das projeções lidas (ou de outro dia): não listados")
@@ -252,7 +295,7 @@ def secao(raiz, linhas, blocos):
     if contas["subteto"]:
         saida.append(f"cota das sessões: {sum(e[0] for e in contas['subteto'])} arquivos apagados ({sum(e[1] for e in contas['subteto']) / 1024:.0f} MB) em {len(contas['subteto'])} vezes, "
                      f"antes do vídeo; a última deixou {contas['subteto'][-1][2] / 1024:.0f} MB de sessões de {contas['subteto'][-1][3] / 1024:.0f} MB")
-    return saida
+    return saida, avisos
 
 
 def raizes_da_coleta(caminhos):
