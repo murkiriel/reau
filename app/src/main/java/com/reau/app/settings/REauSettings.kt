@@ -230,7 +230,7 @@ data class REauSettings(
     val experimentWeatherAge: Boolean = false,
     /** Experimental: the battery's temperature also lowers the stream's frame ceiling, from 44 C ([com.reau.app.stream.HeatCeiling]), for a phone whose thermal status never moves. Off, only Android's thermal status does, as always. */
     val experimentHeatCeiling: Boolean = false,
-    /** Experimental: the speed profile reads the speed of the GPS fix when the GPS is already listened to for the info ring, and a route runs ([com.reau.app.stream.ProfileSpeed]); else the route's own estimate, as always. It never switches the GPS on. */
+    /** Experimental: during a route, with [useLocation] and [speedFpsProfile] on, the GPS is switched on ([com.reau.app.service.SpeedGps], a battery cost) and the speed profile reads the speed of its fix ([com.reau.app.stream.ProfileSpeed]); with no fix, or no route, the route's own estimate, as always. */
     val experimentGpsSpeed: Boolean = false,
     /** Experimental: a short "inactive" of Android Auto's navigation status during a route is shown as a recalculation for up to 8 seconds ([com.reau.app.service.RecalcHold]). Off, it clears the route's card at once, as always. */
     val experimentRecalcInactive: Boolean = false,

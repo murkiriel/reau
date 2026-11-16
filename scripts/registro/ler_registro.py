@@ -86,6 +86,10 @@ Desde 15/11/2026: as linhas `device …` trazem `current=<mA>mA charge=<mAh>mAh 
 e a linha do tempo diz, ao fim de cada projeção, a corrente média sem o carregador com o painel transmitindo e sem ele, a carga consumida e a CPU média e máxima (`corrente.py`; a corrente
 negativa na maioria das olhadas sem carregador é tomada por convenção do aparelho e o sinal é invertido, dizendo isso). Registro de antes dos campos não traz nada disso e não gera aviso.
 
+Desde 15/11/2026: a chave «velocidade do GPS» liga o GPS durante a rota (antes só lia o do anel de informações). O app escreve `gps: on for the speed profile (route)` e `gps: off for the
+speed profile (route ended | key off | …)`, e `speed profile: GPS key on, no GPS fix yet; route speed used` quando a chave pede o GPS e ele ainda não tem fix; a linha do tempo traduz as três
+e diz, ao fim de cada projeção, o tempo com o GPS ligado por causa da chave e quantos pedidos (`gps_chave.py`: um pedido sem a linha de fim é contado até o fim da projeção, e o texto diz isso).
+
 Em registros de versões até a 0.2.0 (o serviço que ligava o servidor sozinho não existe mais), por Ligar, o bloco `servidor do AA:` conta a caminhada que liga o servidor do Android Auto (toque, início
 da caminhada, clique em Iniciar, Voltar, fim, primeira conexão, em ms) e acusa a causa: porta fechada 5 s depois do clique, servidor
 que só atendeu quando a tela do Android Auto abriu, menu lido pela metade (Android Auto frio?). Sem linhas `aa-server` (o serviço desligado, o caso comum) não diz nada.
@@ -101,6 +105,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import chaves  # noqa: E402
 import corrente  # noqa: E402
 import detalhes  # noqa: E402
+import gps_chave  # noqa: E402
 import gravacoes  # noqa: E402
 import logcat_sistema  # noqa: E402
 import olhadas  # noqa: E402
@@ -1000,6 +1005,7 @@ def linha_do_tempo(linhas):
                 if bateria:
                     saida.append(f"{x.hora}  bateria {bateria[0]}% → {bateria[-1]}%")
                 saida += [f"{x.hora}  {linha}" for linha in corrente.texto(bloco)]  # the current, the charge and the CPU of the REau (the device line's new fields; nothing in an old log)
+                saida += [f"{x.hora}  {linha}" for linha in gps_chave.texto(bloco)]  # the time the GPS was on because of the speed key (nothing without it)
                 presa = _leitura_presa(bloco)
                 if presa:
                     saida.append(f"{x.hora}  {presa}")
@@ -2155,6 +2161,9 @@ def _eventos_da_leva5(etiqueta, t):
         if m:
             return [f"rota: o «inativo» não acabou em {m.group(1)} s: o cartão da rota foi apagado (chave experimental)"]
     if etiqueta == "stream":
+        chave = gps_chave.evento(t)
+        if chave:
+            return [chave]
         m = LEVA5_VELOCIDADE.match(t)
         if m:
             return [f"perfil de velocidade passou a ler o GPS: {m.group(1)} km/h (a rota diz {m.group(2)}); chave experimental"]

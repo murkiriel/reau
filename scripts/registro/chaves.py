@@ -44,6 +44,8 @@ CHAVES = [
     # As sete da leva 5 (11/11/2026); o trecho é o que `connection experiments ON:` diz de cada uma.
     ("experimentWeatherAge", "clima velho some", "weather hidden from the dash"),
     ("experimentHeatCeiling", "teto pelo calor da bateria", "frame ceiling lowered by the battery"),
+    # Desde 15/11/2026 a chave liga o GPS durante a rota («GPS speed for the speed profile: the GPS is switched on during a route (uses battery)»); antes só lia o do anel
+    # («… when the GPS is already listened to»). O trecho é o começo comum das duas frases, para os registros de antes e de depois.
     ("experimentGpsSpeed", "velocidade do GPS", "GPS speed for the speed profile"),
     ("experimentRecalcInactive", "recalculando pelo inativo", "short inactive of the route"),
     ("experimentColorMatrix", "cores do codificador", "BT.601 limited-range"),

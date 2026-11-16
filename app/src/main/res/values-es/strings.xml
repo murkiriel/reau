@@ -396,7 +396,7 @@
     <string name="exp_heat_ceiling_title">Tope de cuadros por el calor de la batería</string>
     <string name="exp_heat_ceiling_sub">Experimental: desde 44 °C en la batería el ritmo máximo del video baja (75, 62 y 50 por ciento de él, a 44, 46 y 48 °C) y solo sube 3 °C por debajo de cada escalón. Para el teléfono cuyo estado térmico de Android nunca cambia. Vale al instante</string>
     <string name="exp_gps_speed_title">Velocidad del GPS en los perfiles</string>
-    <string name="exp_gps_speed_sub">Experimental: el perfil por velocidad lee la velocidad del GPS cuando hay ruta y el GPS ya está encendido para el anillo de información (con “Usar la ubicación” activado); si no, la estimación de la ruta, como antes. No enciende el GPS. Vale al instante</string>
+    <string name="exp_gps_speed_sub">Experimental: durante la ruta (con “Usar la ubicación” y el perfil por velocidad activados) esto enciende el GPS, y el perfil por velocidad lee la velocidad del GPS; sin fix del GPS todavía, o sin ruta, usa la estimación de la ruta, como antes. El GPS gasta batería: queda encendido durante toda la ruta y se apaga 10 s después de que termina. Vale al instante</string>
     <string name="exp_recalc_title">Recalculando con un “inactivo” corto</string>
     <string name="exp_recalc_sub">Experimental: un “inactivo” corto de Android Auto durante la ruta (hasta 8 s) aparece en el tablero como recalculando, en vez de borrar la ruta. Vale al instante</string>
     <string name="exp_color_title">Colores del codificador explícitos</string>

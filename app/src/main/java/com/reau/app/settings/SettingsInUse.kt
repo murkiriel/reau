@@ -59,7 +59,7 @@ object SettingsInUse {
             "day and night remembered between looks (dawn at sunrise, not before it)".takeIf { settings.experimentNightMemory },
             "weather hidden from the dash after 30 min without a fetch (not 3 h)".takeIf { settings.experimentWeatherAge },
             "frame ceiling lowered by the battery temperature (from 44 C)".takeIf { settings.experimentHeatCeiling },
-            "GPS speed for the speed profile when the GPS is already listened to".takeIf { settings.experimentGpsSpeed },
+            "GPS speed for the speed profile: the GPS is switched on during a route (uses battery)".takeIf { settings.experimentGpsSpeed },
             "a short inactive of the route shown as a recalculation (8 s)".takeIf { settings.experimentRecalcInactive },
             "encoder asked for BT.601 limited-range colours".takeIf { settings.experimentColorMatrix },
             "protocol 6.0 asked of Android Auto first (1.7 if it does not take it)".takeIf { settings.experimentProtocolSix },

@@ -515,7 +515,7 @@ internal class LiveSides(
         // compositor draws it only when it changes.
         scope.launch {
             val rotation = com.reau.app.weather.InfoRingRotation()
-            val ring = InfoRingFeed.Loop(RING_TICKS_PER_LOOK, stopGps = { GpsWatch.stop() }, warn = { RideDiagnostics.warn("ring", it) })
+            val ring = InfoRingFeed.Loop(RING_TICKS_PER_LOOK, stopGps = { GpsWatch.stop(GpsOwner.RING) }, warn = { RideDiagnostics.warn("ring", it) })
             var inPlace = false
             val posts = InfoRingFeed.Posts()
             while (isActive) {
@@ -769,6 +769,8 @@ internal class LiveSides(
                 "button" to { com.reau.app.video.ButtonOverlay.latest = null },
                 // The info ring's GPS (a process-wide listener at 1 Hz): the ring's loop dies with the scope in its delay and never stops it
                 // (26/10/2026 review: the GPS stayed on after Desligar until the process died).
+                "speed gps" to { speedGps.stop() },
+                // Then every owner of the GPS lets go: the ring's and the speed profile's.
                 "gps" to { GpsWatch.stop() },
                 "preview" to { PhonePreview.detach(previewTarget) },
                 "touch" to { PhonePreview.detachTouch(touchTarget) },
@@ -801,15 +803,26 @@ internal class LiveSides(
         com.reau.app.stream.LinkSample(navSpeed.kmhAt(android.os.SystemClock.elapsedRealtime()), wifi?.dbm, wifi?.mbps)
     }
 
-    // The speed the speed profile reads: the route's, or with the experimental switch the GPS fix's when the GPS is already listened to (ProfileSpeed).
+    // The speed the speed profile reads: the route's, or with the experimental switch the GPS fix's, the GPS being asked during the route (ProfileSpeed, SpeedGps).
     private val profileSpeed = com.reau.app.stream.ProfileSpeed { RideDiagnostics.log("stream", it) }
+
+    // The experimental switch has the GPS asked during a route (SpeedGps), alongside the info ring's own ask; released with the projection.
+    private val speedGps = SpeedGps(ask = { GpsWatch.want(appContext, GpsOwner.SPEED, it) }, log = { RideDiagnostics.log("stream", it) })
 
     /** The maneuver distance and the route's own speed now, for [com.reau.app.stream.StreamGovernor]'s
      *  live override — both null together without an active route (same feed as [linkSample]'s speed). */
     private val navSample: () -> com.reau.app.stream.StreamGovernor.NavSample = {
         val s = tuned
         val g = guidanceNow
-        // The GPS is read only when the rider's location is on as well; GpsWatch gives nothing unless the info ring already listens to it.
+        val routeNow = g.active && g.distanceToManeuverMeters >= 0
+        // The switch has the GPS asked during a route, with the rider's location on and the speed profile on (SpeedGps); read below.
+        speedGps.step(
+            nowMs = android.os.SystemClock.elapsedRealtime(), key = s?.experimentGpsSpeed == true, useLocation = s?.useLocation == true,
+            speedProfile = s?.speedFpsProfile == true, routeActive = routeNow,
+            permitted = appContext.checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) ==
+                android.content.pm.PackageManager.PERMISSION_GRANTED,
+        )
+        // The GPS is read only when the rider's location is on as well.
         val gpsSpeed = s?.experimentGpsSpeed == true && s.useLocation
         com.reau.app.stream.StreamGovernor.NavSample(
             maneuverProfileEnabled = s?.maneuverFpsProfile == true,
@@ -817,7 +830,7 @@ internal class LiveSides(
             distanceToManeuverMeters = g.distanceToManeuverMeters.takeIf { g.active && it >= 0 },
             speedKmh = profileSpeed.kmh(
                 on = gpsSpeed, routeActive = g.active && g.distanceToManeuverMeters >= 0, gpsMps = if (gpsSpeed) GpsWatch.read()?.speedMps else null,
-                routeKmh = navSpeed.kmhAt(android.os.SystemClock.elapsedRealtime()),
+                routeKmh = navSpeed.kmhAt(android.os.SystemClock.elapsedRealtime()), gpsAsked = speedGps.isAsking,
             ),
             mode = s?.navProfileMode ?: com.reau.app.dash.NavProfileMode.PESSIMISTA,
         )

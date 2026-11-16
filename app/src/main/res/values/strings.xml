@@ -407,7 +407,7 @@
     <string name="exp_heat_ceiling_title">Frame ceiling by battery heat</string>
     <string name="exp_heat_ceiling_sub">Experimental: from 44 °C on the battery the video\'s top pace comes down (75, 62 and 50 percent of it, at 44, 46 and 48 °C) and goes back up only 3 °C under each step. For a phone whose Android thermal status never moves. Counts right away</string>
     <string name="exp_gps_speed_title">GPS speed for the profiles</string>
-    <string name="exp_gps_speed_sub">Experimental: the speed profile reads the GPS speed when a route runs and the GPS is already on for the info ring (with “Use location” on); otherwise the route\'s estimate, as before. It never switches the GPS on. Counts right away</string>
+    <string name="exp_gps_speed_sub">Experimental: during a route (with “Use location” on and the speed profile on) this switches the GPS on, and the speed profile reads the GPS speed; with no GPS fix yet, or no route, it uses the route\'s estimate, as before. The GPS uses battery: it stays on during the whole route and goes off 10 s after it ends. Counts right away</string>
     <string name="exp_recalc_title">Recalculating on a short “inactive”</string>
     <string name="exp_recalc_sub">Experimental: a short “inactive” of Android Auto during a route (up to 8 s) shows on the dash as recalculating instead of clearing the route. Counts right away</string>
     <string name="exp_color_title">Explicit encoder colours</string>
