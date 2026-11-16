@@ -44,7 +44,7 @@ EstrelaAustral (Apache License 2.0)
   util/Dbg.kt, util/DiagnosticsExport.kt), the
   encrypted preferences (data/KeystoreBackedPrefs.kt), the dash video rules and
   encoder (dash/video/), the stream pacing rules (stream/DashLogic.kt,
-  AutoFpsController.kt, AutoKeyframeController.kt, dash/DashConfig.kt), the
+  dash/DashConfig.kt), the
   foreground service pattern (service/ProjectionService.kt and its locks and
   notification), the maneuver glyphs (dash/nav/DashManeuverGlyphs.kt,
   dash/nav/ManeuverType.kt), the weather (weather/ and its screen,

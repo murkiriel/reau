@@ -78,7 +78,7 @@ internal class VideoLoop(
      * stream are also written to a file there ([H264Recorder]); with [recordRolling] the stream goes on in further parts, to its end.
      */
     data class Settings(
-        val ceilingFps: Int = DashConfig.AUTO_FPS_CEILING,
+        val ceilingFps: Int = DEFAULT_CEILING_FPS,
         val clockSlowPercent: Int = 0,
         val bitrateBps: Int = DashConfig.MAX_STREAM_BITRATE_BPS,
         val bitrateMode: BitrateMode? = null,
@@ -181,8 +181,7 @@ internal class VideoLoop(
         adapter = BitrateAdapter.whenOn(settings.adaptiveBitrate)
         muteWatch = EncoderMuteWatch.whenOn(settings.encoderMuteWatch)
         log(
-            "video loop start: ${g.fps} fps (ceiling $ceiling), keyframe ${g.keyframeSec}s" +
-                (if (settings.keyframeSec > 0) " fixed" else " auto") +
+            "video loop start: ${g.fps} fps (ceiling $ceiling), keyframe ${g.keyframeSec}s fixed" +
                 " (encoder asked ${DashEncoder.iFrameIntervalText(g.encoderKeyframeSec, g.encoderFps)}, pace up to ${g.gopFps} fps)" +
                 ", ${g.activeBitrateBps / 1000} kbps (${settings.bitrateBps / 1000} chosen) ${settings.bitrateMode ?: "default"}, " +
                 "clock ${settings.clockSlowPercent}% slow" +
@@ -191,7 +190,7 @@ internal class VideoLoop(
                 (if (settings.encoderMuteWatch) ", a mute encoder is rebuilt (experiment)" else ""),
         )
         stats?.panelStarted()
-        stats?.stream(settings.bitrateMode, g.keyframeSec, settings.keyframeSec > 0)
+        stats?.stream(settings.bitrateMode, g.keyframeSec, fixed = true)
         apply(g.start(SystemClock.elapsedRealtime()))
         com.reau.app.data.ProjectionSummary.current.streaming(on = true, SystemClock.elapsedRealtime())
         compositor.setOutput(checkNotNull(fresh.inputSurface), onFrameSubmitted = fresh::frameSubmitted)
@@ -369,7 +368,7 @@ internal class VideoLoop(
         adapter?.setTarget(wanted.bitrateBps)
         // The old encoder goes on the GL thread, after the new surface is attached and the old one let go (see clearOutput).
         compositor.swapOutputThen(checkNotNull(fresh.inputSurface), onFrameSubmitted = fresh::frameSubmitted, after = { old?.release() })
-        stats?.stream(settings.bitrateMode, wanted.keyframeSec, settings.keyframeSec > 0)
+        stats?.stream(settings.bitrateMode, wanted.keyframeSec, fixed = true)
         log(
             "encoder rebuilt: ${wanted.fps} fps, keyframe ${wanted.keyframeSec}s (encoder asked " +
                 "${DashEncoder.iFrameIntervalText(wanted.encoderKeyframeSec, wanted.fps)}), ${wanted.bitrateBps / 1000} kbps",
@@ -392,6 +391,9 @@ internal class VideoLoop(
     }
 
     companion object {
+        /** The full pace of a stream made without the rider's settings (the tests; the app's own comes from [Settings.withRider], [DashConfig.PROFILE_FULL_FPS]). */
+        internal const val DEFAULT_CEILING_FPS = 16
+
         /** The stream's rate is held under the ceiling the phone's heat allows: [ceiling] is under the rate the rider [wanted]. */
         internal fun thermalCapped(ceiling: Int, wanted: Int): Boolean = ceiling < DashConfig.snapStreamFps(wanted)
 

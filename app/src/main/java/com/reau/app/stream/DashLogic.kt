@@ -29,28 +29,6 @@ internal object DashLogic {
         if (elapsedMs <= 0) 0.0 else frames * 1000.0 / elapsedMs
 
     /**
-     * The active/idle frame-interval pair for a chosen `DashConfig.streamFps` (rates other than the
-     * proven one accept the risk of the picture freezing at extreme values), replacing the fixed
-     * `FRAME_MS_ACTIVE`/`FRAME_MS_IDLE` pair the frame loop used to hard-code. Idle is always 2×
-     * active — the same ratio the fixed 4fps-active/2fps-idle pair already had (see those
-     * constants' own doc for why the dash's decoder never overran at that envelope) — so any
-     * chosen base rate keeps the existing motion-adaptive shape (drop to half once the map's been
-     * still for `MOTION_HOLD_MS`), just scaled. fps=4 must reproduce the original exact (250L, 500L)
-     * pair byte for byte — `DashLogicTest`'s own golden test locks this in; every other fps is
-     * genuinely new, untested-on-real-hardware territory outside the proven-stable 4fps envelope
-     * the surrounding code's own comments describe at length.
-     */
-    /**
-     * Whether the running encoder has to be replaced: the rate and the keyframe interval are baked in at prepare(),
-     * and so is the way its output is read — by its own thread, or by the frame loop waiting for each frame
-     * ([com.reau.app.dash.DashConfig.streamWaitEncoder], the older loop kept as a test
-     * switch to compare the two on a real dash at the same rate).
-     */
-    @Suppress("LongParameterList") // three settings, each next to what the encoder was built with
-    internal fun encoderRebuildNeeded(fps: Int, encoderFps: Int, keyframeSec: Int, encoderKeyframeSec: Int, waits: Boolean, encoderWaits: Boolean): Boolean =
-        fps != encoderFps || keyframeSec != encoderKeyframeSec || waits != encoderWaits
-
-    /**
      * The video's own clock after one more frame: [ptsMs] plus the frame interval, shortened by [slowPercent]
      * (0..[MAX_CLOCK_SLOW_PERCENT]; a test knob, [com.reau.app.dash.DashConfig.streamClockSlowPercent]).
      * At 0 it is the frame interval exactly, as always. Above it the stamps fall behind real time little by little,
@@ -63,13 +41,18 @@ internal object DashLogic {
 
     internal const val MAX_CLOCK_SLOW_PERCENT = 10
 
-    /** How long `DashEncoder.drain` waits for the frame just submitted: half a frame interval,
-     *  never above 40 ms nor below the 10 ms it always waited. Measured on a real dash: with a fixed
-     *  10 ms, ~25% of frames at 12 fps came out a loop late, sharing the next frame's RTP time.
-     *  The frame loop doesn't call drain() (the encoder's output thread sends each
-     *  frame with its own time); this is for the pull mode, which the encoder tests still use. */
-    internal fun drainWaitUs(frameMs: Long): Long = (frameMs * 1000 / 2).coerceIn(10_000L, 40_000L)
-
+    /**
+     * The active/idle frame-interval pair for a chosen `DashConfig.streamFps` (rates other than the
+     * proven one accept the risk of the picture freezing at extreme values), replacing the fixed
+     * `FRAME_MS_ACTIVE`/`FRAME_MS_IDLE` pair the frame loop used to hard-code. Idle is always 2×
+     * active — the same ratio the fixed 4fps-active/2fps-idle pair already had (see those
+     * constants' own doc for why the dash's decoder never overran at that envelope) — so any
+     * chosen base rate keeps the existing motion-adaptive shape (drop to half once the map's been
+     * still for `MOTION_HOLD_MS`), just scaled. fps=4 must reproduce the original exact (250L, 500L)
+     * pair byte for byte — `DashLogicTest`'s own golden test locks this in; every other fps is
+     * genuinely new, untested-on-real-hardware territory outside the proven-stable 4fps envelope
+     * the surrounding code's own comments describe at length.
+     */
     internal fun frameIntervalsMsForFps(fps: Int): Pair<Long, Long> {
         val active = kotlin.math.round(1000.0 / fps.coerceAtLeast(1)).toLong().coerceAtLeast(1L)
         // A still map sends identical frames: never more than 4 of them a second, whatever the
@@ -121,16 +104,6 @@ internal object DashLogic {
      */
     internal const val MIN_BITS_PER_FRAME = DashConfig.MAX_STREAM_BITRATE_BPS / DashConfig.MAX_STREAM_FPS
 
-    /** The ceiling the encoder works under: the Settings slider for a fixed fps, always
-     *  [DashConfig.MAX_STREAM_BITRATE_BPS] under automatic fps (the
-     *  slider is disabled there, and its stored value comes back when automatic is turned off). */
-    internal fun bitrateCeiling(sliderBps: Int, autoFps: Boolean): Int =
-        if (autoFps) DashConfig.MAX_STREAM_BITRATE_BPS else sliderBps
-
-    /** Highest even fps a bitrate ceiling feeds at [MIN_BITS_PER_FRAME] — where a fixed fps is
-     *  pulled down to when the rider lowers the bitrate slider. */
-    internal fun maxAutoFpsForBitrate(bps: Int): Int = DashConfig.snapStreamFps(bps / MIN_BITS_PER_FRAME)
-
     /** Smallest bitrate slider stop that still gives [fps] its [MIN_BITS_PER_FRAME]. */
     internal fun minBitrateForFps(fps: Int): Int {
         val needed = fps.toLong() * MIN_BITS_PER_FRAME
@@ -141,10 +114,4 @@ internal object DashLogic {
      *  would otherwise starve its frames, never above [DashConfig.MAX_STREAM_BITRATE_BPS]. */
     internal fun effectiveActiveBitrate(ceilingBps: Int, fps: Int): Int =
         maxOf(ceilingBps, minBitrateForFps(fps)).coerceAtMost(DashConfig.MAX_STREAM_BITRATE_BPS)
-
-    /** Idle (still map) bitrate: half the active one. */
-    internal fun effectiveIdleBitrate(ceilingBps: Int, fps: Int): Int = effectiveActiveBitrate(ceilingBps, fps) / 2
-
-    /** Bits each frame gets, in kbit, for the Settings hint. */
-    internal fun kbitPerFrame(bps: Int, fps: Int): Int = if (fps <= 0) 0 else bps / fps / 1000
 }

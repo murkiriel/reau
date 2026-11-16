@@ -15,7 +15,8 @@ import java.util.Random
  * the governor answered ([GovernorTrace]), the table of cases taken from the ride logs ([GovernorCases]) and the seeded sequences
  * ([GovernorSequences]). Nothing here is a ride: every number is made up, and the clock starts at 0.
  *
- * Used by EscadaInalcancavelTest and GovernadorOuroTest (step G0), and by the side-by-side test of step G1.
+ * Used by EscadaInalcancavelTest and GovernadorOuroTest (step G0). The side-by-side test of step G1, which ran the governor of before the cut
+ * on this same bench, left the tree in step G3 (the archive says how to bring it back).
  */
 
 /** One stream configuration. The two real ones are what `REauSettings.sanitized()` leaves: [REAL_400] and, with the adaptive bitrate experiment, [REAL_200]. */
@@ -67,7 +68,7 @@ internal data class Scene(
     val acks: Acks = Acks.NONE,
     /** PowerManager's thermal status (0 none … 4 critical). */
     val thermalStatus: Int = 0,
-    /** `thermalOk` false whatever the status: the real ceiling of 4 never gets there, but both governors must answer it alike. */
+    /** `thermalOk` false whatever the status: the real ceiling of 4 never gets there, but the governor must answer it all the same. */
     val overCeiling: Boolean = false,
     /** Android Auto shows its app menu (a light screen). */
     val menu: Boolean = false,

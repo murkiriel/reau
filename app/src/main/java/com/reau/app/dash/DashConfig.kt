@@ -11,21 +11,6 @@ object DashConfig {
     const val STREAM_FPS_STEP = 2
     const val DEFAULT_STREAM_FPS = 4
 
-    /**
-     * Where the automatic rate started with no history: 8 fps ran cleanly on a real dash. Nothing in the app reads it since the
-     * automatic rate was cut (14/11/2026); it goes with the last clean-up of that cut.
-     */
-    const val AUTO_FPS_START = 8
-
-    /**
-     * The highest rate the dash has been SEEN to hold for minutes on a real bike, with no drop: above it the stretches
-     * were much shorter (about a minute at 18 fps), and 30 fps killed the stream. It was the ceiling the automatic rate
-     * climbed to (the dash does not acknowledge frames one by one, so nothing could find its limit by itself). The
-     * automatic rate was cut on 14/11/2026 and the app's own ceiling is fixed at [PROFILE_FULL_FPS]; this is left as the
-     * default of a stream made without the rider's settings (the tests), until the last clean-up of that cut.
-     */
-    const val AUTO_FPS_CEILING = 16
-
     /** Hard ceiling for every bitrate path: the value validated on this panel; 1.2 Mbps made the dash hitch. */
     const val MAX_STREAM_BITRATE_BPS = 1_024_000
     const val DEFAULT_STREAM_BITRATE_BPS = MAX_STREAM_BITRATE_BPS

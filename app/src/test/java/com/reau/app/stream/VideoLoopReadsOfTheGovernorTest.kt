@@ -1,6 +1,7 @@
 package com.reau.app.stream
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -46,5 +47,15 @@ class VideoLoopReadsOfTheGovernorTest {
         assertEquals(sortedSetOf("fps", "keyframeSec", "bitrateBps", "encoderKeyframeSec"), ofRebuild)
         val ofPace = Regex("""\baction\.pace\.(\w+)""").findAll(code).map { it.groupValues[1] }.toSortedSet()
         assertEquals("the pace goes whole to the compositor; the log line says its two intervals", sortedSetOf("activeMs", "idleMs"), ofPace)
+    }
+
+    /** Plan 27, step G3: the interval is fixed for the whole stream, so the line of the start and the stats text no longer ask the stored setting whether it is "automatic". */
+    @Test
+    fun `the keyframe interval the loop tells is the one the governor read, and it is always told as fixed`() {
+        val told = Regex("""\bstats\?\.stream\(settings\.bitrateMode, (g|wanted)\.keyframeSec, fixed = true\)""").findAll(code).map { it.groupValues[1] }.toList()
+        assertEquals("the stream's start and the rebuilt encoder tell it", listOf("g", "wanted"), told)
+        assertEquals("the stored setting only goes to the governor's constructor", 1, Regex("""\bsettings\.keyframeSec\b""").findAll(code).count())
+        assertTrue("the line of the start says `fixed` after the interval", code.contains("}s fixed\" +"))
+        assertFalse("and never `auto`", code.contains("\" auto\""))
     }
 }

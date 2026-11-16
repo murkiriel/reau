@@ -505,7 +505,7 @@ MUTATIONS = [
     # (The two of the fps ladder that were here, UP_AFTER_HEALTHY and DOWN_AFTER_UNHEALTHY, left with AutoFpsController.kt on 14/11/2026, plan 27 step G1;
     # the next one moved with the constant to the governor.)
     ("P11d StreamGovernor: 90% de entrega basta", MAIN + 'stream/StreamGovernor.kt',
-     'DELIVERY_RATIO = 0.95', 'DELIVERY_RATIO = 0.90', ['StreamGovernorTest', 'GovernadorLadoALadoTest']),
+     'DELIVERY_RATIO = 0.95', 'DELIVERY_RATIO = 0.90', ['StreamGovernorTest']),
     ("P11d StreamGovernor: fica 5 s no menu", MAIN + 'stream/StreamGovernor.kt',
      'NAV_DWELL_MS = 10_000L', 'NAV_DWELL_MS = 5_000L', ['StreamGovernorTest']),
     ("P11d StreamGovernor: ritmo mínimo da navegação 3", MAIN + 'stream/StreamGovernor.kt',
@@ -3231,17 +3231,17 @@ MUTATIONS = [
     # Governador G0 14/11 (14/11/2026, plan 27, step G0): the proof that comes before the fps ladder is cut (the golden traces of the governor and the
     # test that the ladder cannot be reached with the real settings) changes no production code; these show that the new tests see.
     ("Governador G0 14/11: o perfil reduzido roda no ritmo cheio", MAIN + "stream/StreamGovernor.kt",
-     "QualityTier.REDUCED -> snapNavFps(fullFps / 2)", "QualityTier.REDUCED -> fullFps", ["GovernadorOuroTest", "GovernadorLadoALadoTest"]),
+     "QualityTier.REDUCED -> snapNavFps(fullFps / 2)", "QualityTier.REDUCED -> fullFps", ["GovernadorOuroTest", "StreamGovernorTest"]),
     ("Governador G0 14/11: a troca de perfil não espera os 10 s", MAIN + "stream/StreamGovernor.kt",
      "nowMs - tierChangedAtMs < NAV_DWELL_MS -> before", "false -> before", ["GovernadorOuroTest"]),
     ("Governador G0 14/11: o teto do calor passa abaixo do piso de 4", MAIN + "stream/ThermalCeiling.kt",
      "return DashConfig.snapStreamFps(hot).coerceAtMost(base)", "return hot.coerceAtMost(base)", ["EscadaInalcancavelTest"]),
     # Governador G1 14/11 (14/11/2026, plan 27, step G1): the fps ladder is cut. The governor runs at one full pace for the whole stream; the golden traces of G0
-    # and the old governor kept beside it in the test tree (GovernadorLadoALadoTest, until step G3) hold that nothing but the text in brackets of the window's line moved.
+    # hold that nothing but the text in brackets of the window's line moved (the old governor that ran beside it in the tests left the tree in step G3).
     ("Governador G1 14/11: sem perfil o ritmo é o mínimo da navegação e não o cheio", MAIN + "stream/StreamGovernor.kt",
-     "?: fullFps", "?: NAV_MIN_FPS", ["GovernadorOuroTest", "GovernadorLadoALadoTest"]),
+     "?: fullFps", "?: NAV_MIN_FPS", ["GovernadorOuroTest", "StreamGovernorTest"]),
     ("Governador G1 14/11: o codificador é feito para o ritmo do perfil e não para o cheio", MAIN + "stream/StreamGovernor.kt",
-     "val encoderFps: Int get() = fullFps", "val encoderFps: Int get() = profileFps", ["GovernadorOuroTest", "GovernadorLadoALadoTest"]),
+     "val encoderFps: Int get() = fullFps", "val encoderFps: Int get() = profileFps", ["GovernadorOuroTest", "StreamGovernorTest"]),
     ("Governador G1 14/11: a janela que enviou exatamente 95% do ritmo sai como curta", MAIN + "stream/StreamGovernor.kt",
      "sentFps >= target * DELIVERY_RATIO", "sentFps > target * DELIVERY_RATIO", ["StreamGovernorTest"]),
     ("Governador G1 14/11: a janela que não rodou cheia é julgada assim mesmo", MAIN + "stream/StreamGovernor.kt",
@@ -3253,13 +3253,19 @@ MUTATIONS = [
     # Governador G2 14/11 (14/11/2026, step G2): the automatic keyframe interval is cut. The interval is the one the stream was started with (1 s in the app), a stored 0
     # is read as 1 s, and a window that closes only writes its line: no poll asks for a new encoder.
     ("Governador G2 14/11: o quadro-chave 0 guardado é lido como 2 s e não 1 s", MAIN + "stream/StreamGovernor.kt",
-     "const val DEFAULT_KEYFRAME_SEC = 1", "const val DEFAULT_KEYFRAME_SEC = 2", ["StreamGovernorTest", "GovernadorLadoALadoTest"]),
+     "const val DEFAULT_KEYFRAME_SEC = 1", "const val DEFAULT_KEYFRAME_SEC = 2", ["StreamGovernorTest"]),
     ("Governador G2 14/11: o quadro-chave 0 guardado passa como 0", MAIN + "stream/StreamGovernor.kt",
-     "keyframeSec.takeIf { it > 0 } ?: DEFAULT_KEYFRAME_SEC", "keyframeSec", ["StreamGovernorTest", "GovernadorLadoALadoTest"]),
+     "keyframeSec.takeIf { it > 0 } ?: DEFAULT_KEYFRAME_SEC", "keyframeSec", ["StreamGovernorTest"]),
     ("Governador G2 14/11: a janela que fecha volta a pedir um codificador novo", MAIN + "stream/StreamGovernor.kt",
-     "        return listOf(Action.Log(line))\n", "        return listOf(Action.Log(line), rebuildAction())\n", ["StreamGovernorTest", "GovernadorLadoALadoTest"]),
+     "        return listOf(Action.Log(line))\n", "        return listOf(Action.Log(line), rebuildAction())\n", ["StreamGovernorTest", "GovernadorOuroTest"]),
     ("Governador G2 14/11: o kf= da linha diz o intervalo do codificador e não o do fluxo", MAIN + "stream/StreamGovernor.kt",
      "w.link.text(), keyframeSec,", "w.link.text(), encoderKeyframeSec,", ["StreamGovernorTest", "GovernadorOuroTest"]),
+    # Governador G3 15/11 (15/11/2026, step G3): the interval the loop tells (the start line, the stats text) is the one the governor read, always as fixed.
+    ("Governador G3 15/11: o texto das estatísticas pergunta ao ajuste guardado se o quadro-chave é fixo", MAIN + "stream/VideoLoop.kt",
+     "stats?.stream(settings.bitrateMode, g.keyframeSec, fixed = true)", "stats?.stream(settings.bitrateMode, g.keyframeSec, settings.keyframeSec > 0)",
+     ["VideoLoopReadsOfTheGovernorTest"]),
+    ("Governador G3 15/11: a linha do começo diz auto para o quadro-chave", MAIN + "stream/VideoLoop.kt",
+     'keyframe ${g.keyframeSec}s fixed"', 'keyframe ${g.keyframeSec}s auto"', ["VideoLoopReadsOfTheGovernorTest"]),
     # 14/11/2026: the session on a network that is gone (the dash's Wi-Fi back as another Android network; the video failing at every send).
     ("StaleLink: a mesma rede de volta também derruba a sessão", MAIN + "dash/StaleLink.kt",
      "opened != null && now != null && opened != now", "opened != null && now != null", ["StaleLinkTest", "DashSessionStaleLinkTest"]),

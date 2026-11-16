@@ -71,6 +71,6 @@ class VideoLoopRulesTest {
     fun `the heat is told when it holds the rate under what the rider chose`() {
         assertTrue(VideoLoop.thermalCapped(ceiling = 2, wanted = 4))
         assertFalse(VideoLoop.thermalCapped(ceiling = 4, wanted = 4))
-        assertFalse("a ceiling over what was chosen is no cap", VideoLoop.thermalCapped(ceiling = DashConfig.AUTO_FPS_CEILING + 8, wanted = 4))
+        assertFalse("a ceiling over what was chosen is no cap", VideoLoop.thermalCapped(ceiling = DashConfig.PROFILE_FULL_FPS + 8, wanted = 4))
     }
 }
