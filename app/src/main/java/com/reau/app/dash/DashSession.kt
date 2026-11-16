@@ -1489,7 +1489,12 @@ class DashSession(
         sessionJob?.cancel()
         socket?.close(); socket = null
         readings?.flush()
-        _state.value = DashState.ERROR
+        // The switch-off wins over a failure that gets here after it began, even one that passed the look at [disconnecting] above.
+        if (!writeError()) {
+            Log.i(TAG, "fail() lost to disconnect() at the last step — ERROR not written: $msg")
+            com.reau.app.data.RideDiagnostics.log("session", "a failure after the switch-off, not told to the rider: $msg")
+            return
+        }
         onError?.invoke(msg)
     }
 
@@ -1500,6 +1505,24 @@ class DashSession(
      * A new session has a new number, so nothing has to be put back.
      */
     private fun claimFailure(generation: Int): Boolean = failedGeneration.getAndSet(generation) != generation
+
+    /** Test-only: runs in [writeError] between the look at [disconnecting] and the write, the gap the atomic step closes. */
+    @Volatile internal var testOnlyBeforeErrorWrite: (() -> Unit)? = null
+
+    /**
+     * ERROR, written only while [disconnecting] is still false, in one atomic step with the look at the state it replaces: if disconnect() writes IDLE
+     * between the look at the flag and the write, the write finds another state and looks again, and sees the flag. False when the switch-off has
+     * begun: the state is left to disconnect(). Before, a fail() already past its guards wrote ERROR after disconnect()'s IDLE, and a rider who had
+     * turned the projection off was left with an error.
+     */
+    private fun writeError(): Boolean {
+        while (true) {
+            val seen = _state.value
+            if (disconnecting) return false
+            testOnlyBeforeErrorWrite?.invoke()
+            if (_state.compareAndSet(seen, DashState.ERROR)) return true
+        }
+    }
 
     companion object {
         /** No session has failed yet ([failedGeneration]); session numbers start at 0. */
