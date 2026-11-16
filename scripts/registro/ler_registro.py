@@ -1404,7 +1404,7 @@ def problemas(linhas):
         saida += _sem_imagem(bloco) + _buracos(bloco) + _quedas(bloco) + _temperatura(bloco) + _sem_resposta(bloco)
         saida += _painel_travado(bloco) + _eperm_repetido(bloco) + _eperm_espera(bloco)
         saida += _envio_por_politica(bloco)
-        saida += _apps_sem_tecla(bloco) + _quadros_chave_altos(bloco) + _painel_visto_tarde(bloco)
+        saida += _apps_sem_tecla(bloco) + _quadros_chave_altos(bloco) + _painel_visto_tarde(bloco) + _apps_recorte_errado_problemas(bloco)
         saida += [f"projeção de {inicio}: servidor do AA — {causa}" for causa in _servidor_aa(bloco)[1]]
     # The test of item 1a (the Wi-Fi list with the app behind) fails here, with the reasons; its whole account is in `teste_1a`.
     return saida + varredura.problemas_do_teste(varredura.teste_1a(linhas)) + olhadas.problemas(projecoes(linhas))
@@ -1456,22 +1456,40 @@ def _apps_provisorio_desmentido(bloco):
 
 
 MAPA_PELA_IMAGEM_DE_APPS = re.compile(r"^aa-screen: nav \(by the picture: .*from apps\)")
+OLHADA_DE_MAPA = re.compile(r"^picture look: MAP p=")
+APPS_RECORTE_PROBLEMA_S = 1.0  # o recorte errado (da primeira olhada que já vê o mapa até a troca para nav) acima disto é problema
 
 
 def _apps_ate_o_mapa(bloco):
-    """A escolha no menu que a imagem leva ao mapa (`nav (by the picture: a map, from apps)` em até 5 s do `apps (a select in the menu)`: o dono escolheu o Waze ou o Google Maps): o
-    painel mostra o recorte dos apps por 0,3 a 1 s antes de o mapa confirmar (07/11 15:12:20 por 0,6 s e 06/11 17:27:34 por 0,9 s). Não é "desmentido" (o app escolhido é de navegação);
-    fica contado, abaixo de 1 s também. Devolve [(linha da seleção, segundos)] e o total de seleções."""
-    eventos = [x for x in bloco if x.etiqueta == "aa-screen" and x.texto.startswith("aa-screen:")]
-    selecoes = [(i, x) for i, x in enumerate(eventos) if x.texto.startswith(APPS_PROVISORIO)]
+    """A escolha no menu que a imagem leva ao mapa (`nav (by the picture: a map, from apps)` em até 5 s do `apps (a select in the menu)`: o dono escolheu o Waze ou o Google Maps).
+    O tempo do toque até o nav é quase todo o Android Auto abrindo o app escolhido (a tela dele ainda não é o mapa, então o recorte dos apps está certo); o recorte errado é só o que vai da
+    **primeira `picture look: MAP`** depois da escolha (a linha da build debug) até a troca para nav (08 a 14/11/2026: de 0,1 a 0,3 s; decisão do dono de 15/11/2026). Uma olhada MAP de
+    antes da escolha não conta. Sem essa olhada entre a escolha e o nav (build release, registro antigo) só há o tempo total, que é um teto do recorte errado.
+    Devolve [(linha da seleção, abertura do app em s ou None, recorte errado em s ou None, tempo total em s)] e o total de seleções."""
+    eventos = [(n, x) for n, x in enumerate(bloco) if x.etiqueta == "aa-screen" and x.texto.startswith("aa-screen:")]
+    selecoes = [(i, n, x) for i, (n, x) in enumerate(eventos) if x.texto.startswith(APPS_PROVISORIO)]
     ao_mapa = []
-    for i, x in selecoes:
+    for i, n, x in selecoes:
         proximo = eventos[i + 1] if i + 1 < len(eventos) else None
-        if proximo is not None and MAPA_PELA_IMAGEM_DE_APPS.match(proximo.texto):
-            dt = tempo.dif(proximo.segundos, x.segundos)
-            if dt <= APPS_DESMENTIDO_S:
-                ao_mapa.append((x, dt))
+        if proximo is None or not MAPA_PELA_IMAGEM_DE_APPS.match(proximo[1].texto):
+            continue
+        total = round(tempo.dif(proximo[1].segundos, x.segundos), 3)
+        if total > APPS_DESMENTIDO_S:
+            continue
+        olhada = next((y for y in bloco[n + 1:proximo[0]] if OLHADA_DE_MAPA.match(y.texto)), None)
+        if olhada is None:
+            ao_mapa.append((x, None, None, total))
+        else:
+            ao_mapa.append((x, round(tempo.dif(olhada.segundos, x.segundos), 3), round(tempo.dif(proximo[1].segundos, olhada.segundos), 3), total))
     return ao_mapa, len(selecoes)
+
+
+def _apps_recorte_errado_problemas(bloco):
+    """O recorte errado (medido pelas olhadas, nunca pelo teto) acima de `APPS_RECORTE_PROBLEMA_S`: o painel mostrou o recorte dos apps sobre o mapa por tempo demais."""
+    ao_mapa, _ = _apps_ate_o_mapa(bloco)
+    return [f"projeção de {bloco[0].hora} ({bloco[0].arquivo}): o painel mostrou o recorte dos apps sobre o mapa por {tempo.dec(recorte)} s (a escolha no menu de {x.hora[:10].replace('.', ',')}; "
+            "da primeira olhada que já via o mapa até a troca para o mapa)"
+            for x, _, recorte, _ in ao_mapa if recorte is not None and recorte > APPS_RECORTE_PROBLEMA_S]
 
 
 def _apps_provisorio(bloco):
@@ -1482,10 +1500,20 @@ def _apps_provisorio(bloco):
         saida.append(f"projeção de {bloco[0].hora} ({bloco[0].arquivo}): \"apps\" provisório desmentido pela imagem {len(desmentidos)} de {total} vezes ({quando}): "
                      "a seleção no menu trocou a tela para apps sem olhar a imagem, e o painel mostraria o recorte dos apps com o menu ainda na tela")
     ao_mapa, total = _apps_ate_o_mapa(bloco)
-    if ao_mapa:
-        quando = "; ".join(f"{x.hora[:10].replace('.', ',')} por {tempo.dec(dt)} s" for x, dt in ao_mapa)
-        saida.append(f"projeção de {bloco[0].hora} ({bloco[0].arquivo}): a escolha no menu levou ao mapa {len(ao_mapa)} de {total} vezes ({quando}): o painel mostraria o recorte dos apps "
-                     "por esse tempo antes de a imagem confirmar o mapa (o app escolhido era de navegação; só informativo)")
+    medidas = [(x, abertura, recorte) for x, abertura, recorte, _ in ao_mapa if recorte is not None]
+    tetos = [(x, t) for x, abertura, _, t in ao_mapa if abertura is None]
+    inicio = f"projeção de {bloco[0].hora} ({bloco[0].arquivo})"
+    if medidas:
+        quando = "; ".join(f"{x.hora[:10].replace('.', ',')} por {tempo.dec(recorte)} s" for x, _, recorte in medidas)
+        saida.append(f"{inicio}: a escolha no menu levou ao mapa {len(medidas)} de {total} vezes ({quando}): foi o tempo do recorte errado, da primeira olhada que já via o mapa "
+                     f"até a troca para o mapa, em que o painel mostraria o recorte dos apps sobre ele (só informativo; acima de {tempo.dec(APPS_RECORTE_PROBLEMA_S)} s é problema)")
+        quando = "; ".join(f"{x.hora[:10].replace('.', ',')} por {tempo.dec(abertura)} s" for x, abertura, _ in medidas)
+        saida.append(f"{inicio}: abertura do app escolhido no menu ({quando}), do toque até a primeira olhada que vê o mapa: é o Android Auto abrindo o app, e o recorte dos apps "
+                     "ainda é a tela certa (só informação)")
+    if tetos:
+        quando = "; ".join(f"{x.hora[:10].replace('.', ',')} por {tempo.dec(t)} s" for x, t in tetos)
+        saida.append(f"{inicio}: a escolha no menu levou ao mapa {len(tetos)} de {total} vezes ({quando}): sem as olhadas no registro (`picture look:`, só a build debug as escreve) o recorte errado "
+                     "não se mede; esse tempo é o teto, do toque até o mapa, e inclui a abertura do app escolhido (o app escolhido era de navegação; só informativo)")
     return saida
 
 

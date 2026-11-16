@@ -3,7 +3,7 @@
 
 The test files are Python (`registro/test_chaves.py` is found in scripts/registro, a bare name in scripts/, `dev/test_teste_cego.py` in scripts/dev): no Gradle runs for these.
 Every name of that work starts with `leva2/` (`leva3/` for the masking made fast, 15/11/2026), so `python3 scripts/dev/mutacoes.py leva2/` runs only these; the ones of the bench panel
-(scripts/painel_falso, 13/11/2026) start with `painel/`.
+(scripts/painel_falso, 13/11/2026) start with `painel/`; the ones of the round 6 (the reader's menu-to-map crop, 15/11/2026) start with `leva6/`.
 """
 
 REG = "scripts/registro/"
@@ -331,4 +331,16 @@ MUTATIONS_SCRIPTS = [
      "        chave = gps_chave.evento(t)\n        if chave:\n            return [chave]\n", "", ["registro/test_gps_chave.py"]),
     ("registro/leitor: o tempo com o GPS da chave não aparece no fim da projeção", REG + "ler_registro.py",
      "for linha in gps_chave.texto(bloco)]", "for linha in []]", ["registro/test_gps_chave.py"]),
+    # ── leva6 (15/11/2026): o menu que leva ao mapa mede o recorte errado a partir da primeira olhada MAP, não da escolha ──
+    ("leva6/leitor: o recorte errado é medido da escolha no menu e não da olhada", REG + "ler_registro.py",
+     "round(tempo.dif(proximo[1].segundos, olhada.segundos), 3), total))", "round(tempo.dif(proximo[1].segundos, x.segundos), 3), total))",
+     ["registro/test_ler_registro_leva6.py"]),
+    ("leva6/leitor: a olhada MAP de antes da escolha vale", REG + "ler_registro.py",
+     "for y in bloco[n + 1:proximo[0]] if OLHADA_DE_MAPA", "for y in bloco[:proximo[0]] if OLHADA_DE_MAPA", ["registro/test_ler_registro_leva6.py"]),
+    ("leva6/leitor: o recorte errado de exatamente 1 s já é problema", REG + "ler_registro.py",
+     "if recorte is not None and recorte > APPS_RECORTE_PROBLEMA_S]", "if recorte is not None and recorte >= APPS_RECORTE_PROBLEMA_S]", ["registro/test_ler_registro_leva6.py"]),
+    ("leva6/leitor: sem as olhadas no registro a escolha não cai no teto e some", REG + "ler_registro.py",
+     "        if olhada is None:\n            ao_mapa.append((x, None, None, total))\n", "        if olhada is None:\n            continue\n", ["registro/test_ler_registro_leva6.py"]),
+    ("leva6/leitor: o recorte errado acima de 1 s não chega aos problemas", REG + "ler_registro.py",
+     " + _painel_visto_tarde(bloco) + _apps_recorte_errado_problemas(bloco)\n", " + _painel_visto_tarde(bloco)\n", ["registro/test_ler_registro_leva6.py"]),
 ]
