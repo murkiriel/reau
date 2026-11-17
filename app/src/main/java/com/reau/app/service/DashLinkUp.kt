@@ -45,6 +45,12 @@ interface DashLinkUp {
      * with false once it is joined; it replaces the one before. With the dash out of range no dialog comes, so no hint.
      */
     fun onFirstJoin(listener: (Boolean) -> Unit) = Unit
+
+    /**
+     * [listener] is told, on any thread, at every [start], whether the phone's Wi-Fi radio is on; it replaces the one before. With the radio off no
+     * request for the dash's network is made (Android could not grant it): the start fails at once and the projection is told, to say it to the rider.
+     */
+    fun onWifiRadio(listener: (Boolean) -> Unit) = Unit
 }
 
 /**
@@ -63,7 +69,9 @@ interface DashLinkUp {
  * [Joining.waitMs]; past that it reports a failure, so the machine keeps its own pace, and the next start asks anew if the
  * manager has gone quiet meanwhile (see `DashWifiManager.reconnectUnderWay`).
  */
-@Suppress("TooManyFunctions") // one small function per case (start, the two watches, ask, report); splitting them would only scatter the same thing
+// One small function per case (start, the two watches, ask, report): splitting them would only scatter the same thing. The parameters are the
+// manager's parts and the radio.
+@Suppress("TooManyFunctions", "LongParameterList")
 internal class WifiDashLinkUp(
     private val scope: CoroutineScope,
     private val wifiState: StateFlow<WifiState>,
@@ -71,6 +79,8 @@ internal class WifiDashLinkUp(
     private val connect: (ssid: String, password: String, prefixMatch: Boolean) -> Unit,
     private val disconnect: () -> Unit,
     private val pairing: Pairing,
+    /** Whether the phone's Wi-Fi radio is on; the default (a test's) is on. */
+    private val radioOn: () -> Boolean = { true },
 ) : DashLinkUp {
     /** Where the session's bind results go: the Wi-Fi manager, which drops a network the sockets could not be bound to. */
     @Volatile override var onBindResult: ((network: Network?, refused: Boolean) -> Unit)? = null
@@ -135,6 +145,15 @@ internal class WifiDashLinkUp(
         bikeNetworkListener = listener
     }
 
+    @Volatile private var radioListener: ((Boolean) -> Unit)? = null
+
+    override fun onWifiRadio(listener: (Boolean) -> Unit) {
+        radioListener = listener
+    }
+
+    // The log line about the radio being off is said once per time it is off, not at every retry (the first ones are seconds apart).
+    @Volatile private var radioOffSaid = false
+
     @Volatile private var firstJoinListener: ((Boolean) -> Unit)? = null
 
     override fun onFirstJoin(listener: (Boolean) -> Unit) {
@@ -170,6 +189,9 @@ internal class WifiDashLinkUp(
         const val PAUSE_WATCH_MAX_MS = 120_000L
         private const val NANOS_PER_MILLI = 1_000_000L
 
+        /** Why a start fails when the phone's Wi-Fi radio is off: nothing is asked of Android, which could not grant it. */
+        const val RADIO_OFF = "Wi-Fi do celular desligado: nenhum pedido de rede até ele ligar"
+
         const val DASH_NOT_SEEN_YET = "painel ainda não visto na varredura do Wi-Fi: esperando ele aparecer"
 
         /** Why a start fails when the reconnection it joined has not come back in time. */
@@ -189,10 +211,26 @@ internal class WifiDashLinkUp(
                 (state.ssid == wanted || wanted.startsWith(state.ssid))
     }
 
+    @Suppress("ReturnCount") // the radio off, the network already up, and the ask: each ends the start its own way
     override fun start(onReady: (ssid: String, network: Network?) -> Unit, onFailed: (String) -> Unit) {
         watch?.cancel()
         pauseWatch?.cancel()
         val now = wifiState.value
+        // The radio off: a request for the dash's network cannot be granted, and each one would wait its 30 s for nothing. The projection is told
+        // (the rider is asked to switch it on) and its retries find the radio again; the radio coming on cuts the wait (ProjectionEvent.WifiRadio).
+        val radio = radioOn()
+        radioListener?.invoke(radio)
+        if (!radio) {
+            sightingWatch?.cancel()
+            sightingWatch = null
+            waitingForSighting = false
+            firstJoinListener?.invoke(false)
+            if (!radioOffSaid) joining.log("the phone's Wi-Fi is off: no request for the dash's network until it is on")
+            radioOffSaid = true
+            onFailed(RADIO_OFF)
+            return
+        }
+        radioOffSaid = false
         if (now.status == WifiConnStatus.CONNECTED) {
             report(now, onReady, onFailed)
             return
@@ -315,6 +353,7 @@ internal class WifiDashLinkUp(
         pauseWatch?.cancel()
         pauseWatch = null
         waitingForSighting = false
+        radioOffSaid = false
         disconnect()
     }
 

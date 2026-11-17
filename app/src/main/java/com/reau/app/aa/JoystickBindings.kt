@@ -39,6 +39,9 @@ data class JoystickBindings(private val chosen: Map<Slot, Action> = emptyMap()) 
         ZOOM_IN({ AaCommand.PanelZoom(1) }),
         ZOOM_OUT({ AaCommand.PanelZoom(-1) }),
 
+        /** Android Auto's own navigation button: it opens the last navigation app used (Waze or Maps), full screen, from any screen. On no control by default. */
+        OPEN_NAVIGATION({ AaCommand.Key(ServiceDiscoveryResponse.KEY_NAVIGATION) }),
+
         /**
          * The info ring's own switch: it sends Android Auto nothing, the dash's down button in its map mode (0x15) shows and hides REau's
          * ring on the video ([com.reau.app.dash.RingCycle]). Only that button sends that code, so only that slot can have it ([allowedAt]).

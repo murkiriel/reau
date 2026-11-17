@@ -16,7 +16,7 @@ object MainLook {
     /** The warnings, in display order; each is shown only while its trouble lasts. */
     enum class Warning {
         SERVER_OFF, UNRESPONSIVE, CLOSING_PREVIOUS, OTHER_EDITION, NOT_CALLING, NO_VIDEO,
-        BATTERY_EXEMPTION, BATTERY_SAVER, DASH_TAKEN, NAME_NEEDED, VPN, LOCATION_OFF, ALERTS_MUTED, ALERTS_BLOCKED,
+        BATTERY_EXEMPTION, BATTERY_SAVER, WIFI_OFF, DASH_TAKEN, NAME_NEEDED, VPN, LOCATION_OFF, ALERTS_MUTED, ALERTS_BLOCKED,
     }
 
     fun androidAutoKind(p: Projection): StatusKind = when {
@@ -63,6 +63,7 @@ object MainLook {
         Headline.DASH_JOIN_ASK -> R.string.sub_dash_join_ask
         Headline.DASH_TAKEN -> R.string.sub_dash_taken
         Headline.DASH_NAME_NEEDED -> R.string.sub_name_needed
+        Headline.WIFI_OFF -> R.string.sub_wifi_off
     }
 
     /**
@@ -91,6 +92,7 @@ object MainLook {
         Warning.NO_VIDEO.takeIf { p.headline == Headline.ANDROID_AUTO_NO_VIDEO },
         Warning.BATTERY_EXEMPTION.takeIf { BatteryNotice.NOT_EXEMPT in battery.notices },
         Warning.BATTERY_SAVER.takeIf { BatteryNotice.SAVER_ON in battery.notices },
+        Warning.WIFI_OFF.takeIf { p.wifiOffAlarm },
         Warning.DASH_TAKEN.takeIf { p.dash == DashLink.TAKEN },
         Warning.NAME_NEEDED.takeIf { p.dash == DashLink.NAME_NEEDED },
         Warning.VPN.takeIf { vpn },

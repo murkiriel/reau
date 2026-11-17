@@ -248,5 +248,6 @@ private val ACTIONS = mapOf(
     Action.ASSISTANT to R.string.joystick_action_assistant,
     Action.ZOOM_IN to R.string.joystick_action_zoom_in,
     Action.ZOOM_OUT to R.string.joystick_action_zoom_out,
+    Action.OPEN_NAVIGATION to R.string.joystick_action_open_navigation,
     Action.INFO_RING to R.string.joystick_action_info_ring,
 )

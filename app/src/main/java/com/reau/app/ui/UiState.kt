@@ -65,6 +65,8 @@ data class MainExtras(
     val onOpenBatterySaver: () -> Unit = {},
     /** Android's settings page of the alert channel (or of the app's notifications), when the alerts are muted or blocked. */
     val onOpenAlertSettings: () -> Unit = {},
+    /** Android's Wi-Fi panel, to switch the phone's Wi-Fi on (the app cannot do it since Android 10). */
+    val onOpenWifiPanel: () -> Unit = {},
     /** The permissions page and "O REau e os seus dados", from the main screen. */
     val onOpenPermissions: () -> Unit = {},
     val onOpenAboutData: () -> Unit = {},

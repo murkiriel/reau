@@ -23,6 +23,7 @@ object ProjectionNotification {
     private const val ID_DASH_STUCK = 5303
     private const val ID_PHONE_HOT = 5304
     private const val ID_BIND_REFUSED = 5305
+    private const val ID_WIFI_OFF = 5306
     private const val CHANNEL_ID = "reau_projection"
 
     /** The channel of the notices that must be heard with the phone's screen off in a pocket: high importance, sound and vibration. */
@@ -51,6 +52,7 @@ object ProjectionNotification {
         Headline.DASH_TAKEN -> R.string.notif_title_dash_taken to R.string.notif_text_dash_taken
         Headline.DASH_NAME_NEEDED -> R.string.notif_title_dash_name_needed to R.string.notif_text_dash_name_needed
         Headline.STOPPING -> R.string.notif_title_stopping to R.string.notif_text_stopping_now
+        Headline.WIFI_OFF -> R.string.notif_title_wifi_off to R.string.notif_text_wifi_off
         Headline.STOPPED, Headline.PROBLEM -> R.string.status_stopped to R.string.notif_text_stopping
     }
 
@@ -69,7 +71,7 @@ object ProjectionNotification {
     fun colorFor(headline: Headline): Int = when (headline) {
         Headline.DASH_LOST, Headline.ANDROID_AUTO_IMAGE_STALE, Headline.ANDROID_AUTO_CLOSING_PREVIOUS -> WARNING
         Headline.ANDROID_AUTO_SERVER_OFF, Headline.ANDROID_AUTO_UNRESPONSIVE, Headline.ANDROID_AUTO_NOT_CALLING, Headline.ANDROID_AUTO_NO_VIDEO,
-        Headline.DASH_TAKEN, Headline.DASH_NAME_NEEDED -> ERROR
+        Headline.DASH_TAKEN, Headline.DASH_NAME_NEEDED, Headline.WIFI_OFF -> ERROR
         else -> GOLD
     }
 
@@ -251,6 +253,38 @@ object ProjectionNotification {
             .setAutoCancel(true)
             .build()
         context.getSystemService(NotificationManager::class.java).notify(ID_PHONE_HOT, notification)
+    }
+
+    /**
+     * Told while the phone's Wi-Fi radio is off (the dash's network cannot be joined; Android does not let an app switch the radio on), in the alert channel so
+     * it is heard with the screen off in a pocket. Its button opens Android's Wi-Fi panel ([WifiPanel]) and, being a button of an Activity, goes by a
+     * `PendingIntent.getActivity`. [clearWifiOff] takes it away when the radio is on again or the projection is off.
+     */
+    fun showWifiOff(context: Context) {
+        createAlertChannel(context)
+        val open = PendingIntent.getActivity(
+            context, 0, Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE,
+        )
+        val panel = PendingIntent.getActivity(context, 3, WifiPanel.intent(), PendingIntent.FLAG_IMMUTABLE)
+        val text = context.getString(R.string.notif_text_wifi_off)
+        val notification = Notification.Builder(context, ALERT_CHANNEL_ID)
+            .setContentTitle(context.getString(R.string.notif_title_wifi_off))
+            .setContentText(text)
+            .setStyle(Notification.BigTextStyle().bigText(text))
+            .setSmallIcon(R.drawable.ic_stat_reau)
+            .setCategory(Notification.CATEGORY_STATUS)
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setColor(ERROR)
+            .setContentIntent(open)
+            .addAction(Notification.Action.Builder(null, context.getString(R.string.action_wifi_on), panel).build())
+            .setAutoCancel(true)
+            .build()
+        context.getSystemService(NotificationManager::class.java).notify(ID_WIFI_OFF, notification)
+    }
+
+    /** The radio is on again (or the projection is off): the notice of [showWifiOff] goes. */
+    fun clearWifiOff(context: Context) {
+        context.getSystemService(NotificationManager::class.java).cancel(ID_WIFI_OFF)
     }
 
     /** The phone cooled down (or the projection is off): the notice of [showPhoneHot] goes. */

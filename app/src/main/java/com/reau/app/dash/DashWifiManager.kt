@@ -249,7 +249,21 @@ class DashWifiManager(
     // ── Internal ──────────────────────────────────────────────────────────
 
     /** Asks for the bike's network, unless the rider has switched off since this was due (the check and the request are one step). */
-    private fun requestNetwork() = synchronized(requestLock) { if (wantConnected) askForTheNetwork() }
+    private fun requestNetwork() = synchronized(requestLock) {
+        if (wantConnected) {
+            if (wifi.isWifiEnabled) askForTheNetwork() else radioOffNoRequest()
+        }
+    }
+
+    /**
+     * The phone's Wi-Fi radio is off: Android cannot grant the request, which would only wait out its timeout, and the reconnection loop would repeat it. Nothing
+     * is asked, and the loop ends here; the projection asks anew (a fresh [connect]) when the radio is on, which is why [everConnected] goes back to false: the
+     * reconnection is not "under way" any more for [reconnectUnderWay].
+     */
+    private fun radioOffNoRequest() {
+        everConnected = false
+        com.reau.app.data.RideDiagnostics.log("wifi", "the phone's Wi-Fi is off: no request for the dash's network, it is asked for again when the radio is on")
+    }
 
     /**
      * Some OEM builds (seen on Android 11) suppress the WifiNetworkSpecifier system dialog

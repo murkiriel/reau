@@ -215,6 +215,8 @@ class SettingsStore(private val prefs: SharedPreferences) {
             },
             clearAaFocus = prefs.getBoolean(KEY_CLEAR_AA_FOCUS, defaults.clearAaFocus),
             dashMask = prefs.getBoolean(KEY_DASH_MASK, defaults.dashMask),
+            blurredFill = prefs.getBoolean(KEY_BLURRED_FILL, defaults.blurredFill),
+            spokenAlerts = prefs.getBoolean(KEY_SPOKEN_ALERTS, defaults.spokenAlerts),
             statsOverlay = prefs.getBoolean(KEY_STATS_OVERLAY, defaults.statsOverlay),
             statsX = prefs.getInt(KEY_STATS_X, defaults.statsX),
             statsY = prefs.getInt(KEY_STATS_Y, defaults.statsY),
@@ -253,6 +255,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             experimentProtocolSix = prefs.getBoolean(KEY_EXPERIMENT_PROTOCOL_SIX, defaults.experimentProtocolSix),
             experimentTolerantRx = prefs.getBoolean(KEY_EXPERIMENT_TOLERANT_RX, defaults.experimentTolerantRx),
             experimentWakeAa = prefs.getBoolean(KEY_EXPERIMENT_WAKE_AA, defaults.experimentWakeAa),
+            experimentEncoderLowLatency = prefs.getBoolean(KEY_EXPERIMENT_ENCODER_LOW_LATENCY, defaults.experimentEncoderLowLatency),
         ).sanitized()
     }
 
@@ -326,6 +329,8 @@ class SettingsStore(private val prefs: SharedPreferences) {
             remove(KEY_RING_ALWAYS_OFF)
             putBoolean(KEY_CLEAR_AA_FOCUS, s.clearAaFocus)
             putBoolean(KEY_DASH_MASK, s.dashMask)
+            putBoolean(KEY_BLURRED_FILL, s.blurredFill)
+            putBoolean(KEY_SPOKEN_ALERTS, s.spokenAlerts)
             putBoolean(KEY_STATS_OVERLAY, s.statsOverlay)
             putInt(KEY_STATS_X, s.statsX)
             putInt(KEY_STATS_Y, s.statsY)
@@ -363,6 +368,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             putBoolean(KEY_EXPERIMENT_PROTOCOL_SIX, s.experimentProtocolSix)
             putBoolean(KEY_EXPERIMENT_TOLERANT_RX, s.experimentTolerantRx)
             putBoolean(KEY_EXPERIMENT_WAKE_AA, s.experimentWakeAa)
+            putBoolean(KEY_EXPERIMENT_ENCODER_LOW_LATENCY, s.experimentEncoderLowLatency)
         }
     }
 
@@ -447,6 +453,8 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val KEY_DASH_MUSIC = "dash_music"
         private const val KEY_DASH_CALLER = "dash_caller"
         private const val KEY_DASH_MASK = "dash_mask"
+        private const val KEY_BLURRED_FILL = "blurred_fill"
+        private const val KEY_SPOKEN_ALERTS = "spoken_alerts"
         private const val KEY_STATS_OVERLAY = "stats_overlay"
         private const val KEY_STATS_X = "stats_x"
         private const val KEY_STATS_Y = "stats_y"
@@ -485,6 +493,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val KEY_EXPERIMENT_PROTOCOL_SIX = "experiment_protocol_six"
         private const val KEY_EXPERIMENT_TOLERANT_RX = "experiment_tolerant_rx"
         private const val KEY_EXPERIMENT_WAKE_AA = "experiment_wake_aa"
+        private const val KEY_EXPERIMENT_ENCODER_LOW_LATENCY = "experiment_encoder_low_latency"
         private const val OLD_KEY_AA_SLOW_PACE = "aa_slow_pace"
         private const val OLD_KEY_AA_SLOW_PACE_FPS = "aa_slow_pace_fps"
         private const val KEY_AA_NEW_PROTOCOL = "aa_new_protocol"

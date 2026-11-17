@@ -99,7 +99,7 @@ class ColorMatrixTest {
     fun `the encoder sets the keys only for the format it asks with colour, and the loop passes the switch down`() {
         val encoder = File("src/main/java/com/reau/app/dash/video/DashEncoder.kt").readText()
         assertTrue(encoder.contains("ColorMatrix.keysFor(color).forEach { (k, v) -> setInteger(k, v) }"))
-        assertTrue(encoder.contains("buildFormat(ask, lowLatency = true, rate.constant, color = true)"))
+        assertTrue(encoder.contains("FormatSpec(lowLatency = true, rate.constant, color = true, vendorLowLatency = vendor)"))
         val oldWay = encoder.substringAfter("fun asBefore()").substringBefore("return ColorMatrix.attempt(")
         assertFalse("the formats of the old way carry no colour", oldWay.contains("color") || oldWay.contains("colour"))
         val loop = File("src/main/java/com/reau/app/stream/VideoLoop.kt").readText()

@@ -28,6 +28,7 @@ object ScreenText {
         Headline.CARD -> R.string.headline_card
         Headline.DASH_TAKEN -> R.string.headline_dash_taken
         Headline.DASH_NAME_NEEDED -> R.string.headline_dash_name_needed
+        Headline.WIFI_OFF -> R.string.headline_wifi_off
     }
 
     fun androidAuto(state: AaLinkState): Int = when (state) {

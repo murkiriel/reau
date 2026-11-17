@@ -99,6 +99,12 @@ class DashCompositor(private val log: (String) -> Unit) {
     private var window = CompositorMath.TexWindow(0f, 0f, 1f, 1f)
     private var viewport = RectPx(0, 0, DashGlass.FRAME_W, DashGlass.FRAME_H)
     private var cover = emptyList<RectPx>()
+
+    // The blurred background (the setting "Fundo desfocado nas bordas"): the mapping in use, to plan it again when the setting changes,
+    // and the plan itself, null when it is off or the picture covers the frame (then nothing extra is drawn, nothing created).
+    private var blurredFill = false
+    private var fitInUse: FrameFit.Mapping? = null
+    private var backdrop: CompositorMath.Backdrop? = null
     private var previewW = 0
     private var previewH = 0
     private var webW = 0
@@ -203,6 +209,8 @@ class DashCompositor(private val log: (String) -> Unit) {
                 window = CompositorMath.texWindow(mapping.source, sourceW, sourceH)
                 viewport = CompositorMath.viewport(mapping.dest)
                 cover = CompositorMath.coverRects(mapping.cover)
+                fitInUse = mapping
+                backdrop = planBackdrop()
                 ok = true
             } else {
                 log("${RideDiagnostics.WARN}compositor mapping refused $problems: $mapping")
@@ -210,6 +218,21 @@ class DashCompositor(private val log: (String) -> Unit) {
         }
         return ok
     }
+
+    /**
+     * The blurred background in the border the fit leaves (a copy of the picture, small, blurred and a little darker) instead of black,
+     * [on] or off; takes the next frame, and off lets go of what it made.
+     */
+    fun setBlurredFill(on: Boolean) = onGlThread(wait = false) {
+        if (blurredFill == on) return@onGlThread
+        blurredFill = on
+        if (!on) gl.freeBackdrop()
+        backdrop = planBackdrop()
+        redrawSoon()
+    }
+
+    private fun planBackdrop(): CompositorMath.Backdrop? =
+        fitInUse?.let { CompositorMath.backdrop(blurredFill && !gl.backdropFailed, it.source, it.dest, sourceW, sourceH) }
 
     /**
      * Android Auto's picture is now [width]×[height] (a new session at another resolution). The mapping in use is
@@ -601,7 +624,11 @@ class DashCompositor(private val log: (String) -> Unit) {
 
     private fun drawAndPost(repeat: Boolean) {
         val startNs = System.nanoTime()
-        gl.draw(window.takeIf { hasImage }, viewport)
+        gl.draw(window.takeIf { hasImage }, viewport, backdrop)
+        if (backdrop != null && gl.backdropFailed) {
+            backdrop = null
+            log("${RideDiagnostics.WARN}compositor: the blurred background could not be made and is off (the border stays black)")
+        }
         gl.fillBlack(cover)
         if (overlay.on) gl.drawOverlay(overlay.x, overlay.y)
         if (buttonOverlay.on) gl.drawButton(buttonOverlay.x, buttonOverlay.y)

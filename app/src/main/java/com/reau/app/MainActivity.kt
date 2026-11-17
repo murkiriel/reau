@@ -350,6 +350,7 @@ class MainActivity : ComponentActivity() {
         onAskBatteryExemption = { com.reau.app.ui.BatteryWatch.askExemption(this) },
         onOpenBatterySaver = { com.reau.app.ui.BatteryWatch.openSaver(this) },
         onOpenAlertSettings = { com.reau.app.ui.AlertSettings.open(this) },
+        onOpenWifiPanel = { com.reau.app.service.WifiPanel.open(this) },
     )
 
     /** What follows a change in the settings: the log, the Wi-Fi suggestion, a running refit. */

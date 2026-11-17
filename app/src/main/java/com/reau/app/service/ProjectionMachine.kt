@@ -52,6 +52,9 @@ enum class Headline {
 
     /** The network server is on: Android Auto goes to a browser on the network and the dash is not looked for. */
     NETWORK_SERVER,
+
+    /** The phone's Wi-Fi radio is off, so the dash's network cannot be joined: the rider has to switch it on (Android does not let an app do it). */
+    WIFI_OFF,
 }
 
 /**
@@ -86,6 +89,8 @@ data class Projection(
      * [phase] is already [Phase.STOPPED]; a start is not taken until [ProjectionEvent.StopDone] clears this.
      */
     val stopping: Boolean = false,
+    /** The phone's Wi-Fi radio is off (as the Wi-Fi link or Android's broadcast said last); only a running projection keeps it. */
+    val wifiOff: Boolean = false,
 ) {
     /** Both sides up: Android Auto's picture goes to the dash. */
     val streaming: Boolean get() = phase == Phase.RUNNING && androidAuto == AaLinkState.ACTIVE && dash == DashLink.READY
@@ -96,6 +101,12 @@ data class Projection(
      * by itself, so force-stopping it would be advice for nothing: the dash side's own headline (searching) is what stands.
      */
     val noVideoAlarm: Boolean get() = !card && androidAuto == AaLinkState.ACTIVE && aaNoVideo && (dash == DashLink.READY || networkServer)
+
+    /**
+     * The radio is off and the dash side has nothing to join with: the rider's to switch it on. Not while the dash is ready (the radio going off
+     * then shows at the drop that follows), and not with the network server on (the dash is not looked for at all).
+     */
+    val wifiOffAlarm: Boolean get() = phase == Phase.RUNNING && wifiOff && dash != DashLink.READY && !networkServer
 
     val headline: Headline get() = when {
         phase == Phase.STOPPED && stopping -> Headline.STOPPING
@@ -114,6 +125,8 @@ data class Projection(
         // The rider's to act on too: opening Android Auto and finishing what it asks.
         androidAuto == AaLinkState.NOT_CALLING -> Headline.ANDROID_AUTO_NOT_CALLING
         networkServer -> Headline.NETWORK_SERVER
+        // The rider's to act on: the dash's network cannot be joined with the phone's Wi-Fi off.
+        wifiOffAlarm -> Headline.WIFI_OFF
         // Also the rider's to act on: switching the other app's stream off.
         dash == DashLink.TAKEN -> Headline.DASH_TAKEN
         // The rider's to fix too: typing the dash's whole Wi-Fi name.
@@ -168,6 +181,12 @@ sealed interface ProjectionEvent {
      * expected), or that it is joined or no longer in question (false).
      */
     data class DashFirstJoin(val on: Boolean) : ProjectionEvent
+
+    /**
+     * The phone's Wi-Fi radio is [on] or off, as the dash link found it at a try or Android's broadcast said. Switched on after being off, a dropped dash
+     * waiting out its retry is tried at once, like [BikeNetworkAvailable]. Not heard outside a running projection (the next try looks at the radio anyway).
+     */
+    data class WifiRadio(val on: Boolean) : ProjectionEvent
 
     /** The network server was switched on or off while the projection runs. */
     data class NetworkServer(val on: Boolean) : ProjectionEvent
@@ -255,6 +274,7 @@ object ProjectionMachine {
         ProjectionEvent.BikeNetworkAvailable -> bikeNetworkAvailable(state, nowMs)
         ProjectionEvent.DashSighted -> dashSighted(state, nowMs)
         is ProjectionEvent.DashFirstJoin -> Step(state.copy(dashFirstJoin = event.on && state.phase == Phase.RUNNING), emptyList())
+        is ProjectionEvent.WifiRadio -> wifiRadio(state, event.on, nowMs)
         is ProjectionEvent.NetworkServer -> ProjectionNetworkRule.switched(state, event.on)
         is ProjectionEvent.AndroidAutoVideo -> Step(state.copy(aaNoVideo = event.silent && state.phase == Phase.RUNNING), emptyList())
         is ProjectionEvent.AndroidAutoImageStale -> Step(state.copy(aaImageStale = event.stale && state.phase == Phase.RUNNING), emptyList())
@@ -337,7 +357,8 @@ object ProjectionMachine {
         val stopVideo = listOfNotNull(ProjectionEffect.StopVideo.takeIf { state.dash == DashLink.READY })
         return when (link) {
             DashLink.READY -> Step(
-                state.copy(dash = link, dashRetries = 0, dashGoneAtMs = null, dashWasReady = true, dashFirstJoin = false),
+                // A ready dash is proof the radio is on, whatever the broadcast said or missed.
+                state.copy(dash = link, dashRetries = 0, dashGoneAtMs = null, dashWasReady = true, dashFirstJoin = false, wifiOff = false),
                 listOf(ProjectionEffect.StartVideo),
             )
             // Taken by another app: tried again on the same timer, so it comes up by itself once the other lets go.
@@ -403,6 +424,17 @@ object ProjectionMachine {
             due.state.copy(dashRetries = 0, dashGoneAtMs = null),
             listOf(ProjectionEffect.CancelDashRetry) + due.effects,
         )
+    }
+
+    /**
+     * The radio went off, or came on. On after being off: the wait for the retry is cut and the dash is tried now, with the pace of the waits starting
+     * over ([bikeNetworkAvailable]); the radio was the reason the tries failed, not the dash. On when it was not known to be off, or off again: only the flag.
+     */
+    private fun wifiRadio(state: Projection, on: Boolean, nowMs: Long): Step = when {
+        state.phase != Phase.RUNNING -> Step(state, emptyList())
+        !on -> Step(state.copy(wifiOff = true), emptyList())
+        state.wifiOff -> bikeNetworkAvailable(state.copy(wifiOff = false), nowMs)
+        else -> Step(state, emptyList())
     }
 
     /** The dash was seen in the scan while it waits for its retry: the wait is cut and it is tried now (the retries and the gone-since stay). */

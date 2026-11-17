@@ -82,7 +82,7 @@ class InfoButtonsTest {
     // ── Ajustes ────────────────────────────────────────────────────────────────────────────────────────────
 
     private val settingsWith = listOf(
-        o("applies_next_time"), o("map_theme"), o("use_location"), o("dash_phone_status"), o("dash_music"), o("dash_album_art"), o("dash_maneuver_ring"),
+        o("applies_next_time"), o("map_theme"), o("use_location"), o("dash_phone_status"), o("dash_music"), o("dash_album_art"), o("dash_maneuver_ring"), o("spoken_alerts"),
         o("answer_calls"), o("gemini"),
         o("fps", "fps_locked"), o("maneuver_fps_profile", "maneuver_fps_profile_locked"), o("speed_fps_profile", "speed_fps_profile_locked"),
         o("card_now"),

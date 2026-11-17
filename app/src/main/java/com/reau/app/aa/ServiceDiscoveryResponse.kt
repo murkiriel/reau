@@ -48,12 +48,15 @@ class ServiceDiscoveryResponse(config: AaConfig) :
         const val KEY_CALL = 5
         const val KEY_ENDCALL = 6
 
+        /** The head unit's own NAVIGATION button of Android Auto (0x10002, not an Android keycode): it opens the last navigation app used, full screen, from any screen. */
+        const val KEY_NAVIGATION = 65538
+
         /** The keys declared to Android Auto: the wheel, the four arrows, confirm, back, and (for the dash's
          *  joystick) home and assistant, as OpenCfMoto declares them: without home the joystick cannot reach the app list.
          *  Next and previous song and play/pause, for the actions of the joystick's page. The car's phone keys, call
-         *  and end call, for the joystick's answer and end (AaCallKeys). */
+         *  and end call, for the joystick's answer and end (AaCallKeys). The navigation button, for the joystick's "open the navigation". */
         val SUPPORTED_KEYCODES = listOf(KEY_SCROLL_WHEEL, KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_ENTER, KEY_BACK, KEY_HOME, KEY_ASSISTANT,
-            KEY_MEDIA_NEXT, KEY_MEDIA_PREVIOUS, KEY_MEDIA_PLAY_PAUSE, KEY_CALL, KEY_ENDCALL)
+            KEY_MEDIA_NEXT, KEY_MEDIA_PREVIOUS, KEY_MEDIA_PLAY_PAUSE, KEY_CALL, KEY_ENDCALL, KEY_NAVIGATION)
 
         private const val MAKE = "REau"
         private const val MODEL = "REau"

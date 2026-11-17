@@ -228,6 +228,12 @@ private fun OnDashGroup(s: REauSettings, change: (REauSettings) -> Unit) {
             }
         },
         { NoDashStop(s, change) },
+        // The notices said in the headset: off by default; read at each phrase, so it counts at once.
+        {
+            SettingSwitch(R.string.spoken_alerts_title, R.string.spoken_alerts_sub, R.string.spoken_alerts, s.spokenAlerts, "spoken_alerts", now = true) {
+                change(s.copy(spokenAlerts = it))
+            }
+        },
     ), tag = "group_on_dash")
 }
 

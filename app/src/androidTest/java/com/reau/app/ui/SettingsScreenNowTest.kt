@@ -53,6 +53,7 @@ class SettingsScreenNowTest {
         Row("dash_phone_status", "Estado do celular", "Phone status"),
         Row("dash_album_art", "Capa do álbum", "Album art"),
         Row("dash_maneuver_ring", "Anel de manobras", "Maneuver ring"),
+        Row("spoken_alerts", "Avisos falados no fone", "Spoken alerts in the headset"),
         Row("ride_log", "Registro de diagnóstico", "Diagnostic log"),
         Row("detailed_log", "Registro detalhado", "Detailed log"),
         Row("log_keep", "Apagar sozinho os mais velhos que", "Automatically delete those older than"),
@@ -74,7 +75,7 @@ class SettingsScreenNowTest {
         "fps", "bitrate", "bitrate_mode", "keyframe", "maneuver_fps_profile", "speed_fps_profile",
         "open_joystick", "card_now", "view_logs", "share", "delete",
         "exp_debug_dscp", "exp_wifi_bind", "exp_start_guard", "exp_focus_gap", "exp_night_memory",
-        "exp_color_matrix", "exp_protocol_six", "exp_tolerant_rx", "exp_wake_aa",
+        "exp_color_matrix", "exp_protocol_six", "exp_tolerant_rx", "exp_wake_aa", "exp_encoder_low_latency",
     )
 
     private data class Row(val tag: String, val titlePt: String, val titleEn: String)

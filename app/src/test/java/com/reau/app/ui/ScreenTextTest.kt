@@ -35,6 +35,7 @@ class ScreenTextTest {
             Headline.DASH_TAKEN to R.string.headline_dash_taken,
             Headline.DASH_NAME_NEEDED to R.string.headline_dash_name_needed,
             Headline.NETWORK_SERVER to R.string.headline_network_server,
+            Headline.WIFI_OFF to R.string.headline_wifi_off,
         )
         assertEquals(Headline.entries.toSet(), expected.keys)
         for ((headline, text) in expected) assertEquals(headline.name, text, ScreenText.headline(headline))

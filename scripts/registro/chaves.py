@@ -53,6 +53,8 @@ CHAVES = [
     ("experimentTolerantRx", "vigia tolerante", "tolerant dash silence watch"),
     # A de 15/11/2026: o Android Auto acordado (as configurações dele abertas) antes de uma discagem que pode achá-lo congelado pelo Android.
     ("experimentWakeAa", "acordar o Android Auto", "Android Auto woken"),
+    # A de 17/11/2026: a chave de baixa latência do fabricante pedida ao codificador Qualcomm.
+    ("experimentEncoderLowLatency", "baixa latência do codificador", "Qualcomm encoder asked not to hold frames"),
 ]
 GUARDA = "experimentStartGuard"
 SETTINGS = "settings in use:"

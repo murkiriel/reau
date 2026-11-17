@@ -254,6 +254,12 @@ class ProjectionService : Service() {
     private lateinit var worker: ScheduledExecutorService
     private lateinit var controller: ProjectionController
 
+    // The voice in the rider's headset (RiderVoice: off unless the rider asked for it); made with the service, its engine only at the first phrase.
+    private lateinit var voice: RiderVoice
+
+    // The state the machine was in before the one it reports now, to tell what changed (StateAlerts); only the thread that reports reads and writes it.
+    private var lastReported = Projection()
+
     // The sides of the kind last switched on, built at that start; only the worker reads and writes these three.
     private var sides: ProjectionSides? = null
     private var sidesForCard = false
@@ -305,6 +311,16 @@ class ProjectionService : Service() {
             },
             { headline -> ProjectionNotification.show(this, headline, markNote(), started.value, card = controller.state.card) },
         )
+        voice = RiderVoice(
+            enabled = { SettingsStore.open(this).load().spokenAlerts },
+            words = { cue -> getString(VoiceWords.of(cue)) },
+            // The language of the app: the service's resources follow the rider's choice (attachBaseContext, and the system itself from Android 13).
+            locale = { resources.configuration.locales[0] },
+            engineFactory = { AndroidSpeech(this) },
+            focus = AndroidFocus(this),
+            log = { RideDiagnostics.log("audio", it) },
+        )
+        RiderVoice.install(voice)
         // The settings are decoded once (the Keystore, the file) and kept; read here, on the worker, the tap on Ligar finds
         // them warm when goForeground() reads them on the main thread.
         worker.execute { runCatching { SettingsStore.open(this).load() } }
@@ -317,6 +333,8 @@ class ProjectionService : Service() {
                     countDash(current.value.dash, state.dash)
                     current.value = state
                 }
+                tellTheRider(lastReported, state)
+                lastReported = state
                 // "Desligando" goes up at once: the stop blocks this worker, which the pacer's wait runs on. Not when a newer start
                 // already holds the foreground (its notification is the one to keep).
                 if (state.headline == Headline.STOPPING && ForegroundHandover.dropsForeground(command, lastStart)) {
@@ -380,6 +398,10 @@ class ProjectionService : Service() {
                     "stop" to { stopping.getOrThrow().get(STOP_WAIT_MS, TimeUnit.MILLISECONDS) },
                     // The sides (compositor, codecs, Wi-Fi) are let go here too, off the main thread (BackgroundRelease): once the worker is
                     // gone nothing else touches them; a next start builds its own.
+                    "voice" to {
+                        RiderVoice.uninstall(voice)
+                        voice.release()
+                    },
                     "worker" to { worker.shutdownNow() },
                     "sides" to {
                         val leaving = sides
@@ -583,6 +605,9 @@ class ProjectionService : Service() {
             }
             deviceLook?.cancel(false)
             ProjectionNotification.clearPhoneHot(this@ProjectionService)
+            // The Wi-Fi notice goes with the projection, and the voice lets its engine and the audio focus go (a next projection starts clean).
+            ProjectionNotification.clearWifiOff(this@ProjectionService)
+            voice.release()
             RideDiagnostics.log(
                 "projection",
                 ProjectionSummary.current.line(
@@ -656,12 +681,31 @@ class ProjectionService : Service() {
                         "at or over ${BatteryHeatWatch.HOT_C} C, rider told the phone is hot",
                 )
                 ProjectionNotification.showPhoneHot(this, Math.round(temp ?: BatteryHeatWatch.HOT_C))
+                RiderVoice.speak(VoiceCue.PHONE_HOT)
             }
             BatteryHeatWatch.Verdict.COOLED -> {
                 RideDiagnostics.log("heat", "battery back under ${BatteryHeatWatch.COOL_C} C ($text C): a new warning is possible")
                 ProjectionNotification.clearPhoneHot(this)
             }
             BatteryHeatWatch.Verdict.NONE -> Unit
+        }
+    }
+
+    /**
+     * The notices a change of state asks for ([StateAlerts]): the phone's Wi-Fi being off is shown in the alert channel with a button to Android's Wi-Fi
+     * panel, and said by the voice when the rider asked for it; the dash being back is said too (only after its going was, [VoiceRules]).
+     */
+    private fun tellTheRider(before: Projection, after: Projection) {
+        for (alert in StateAlerts.between(before, after)) {
+            when (alert) {
+                StateAlerts.Alert.WIFI_OFF_SHOW -> {
+                    log("projection: the phone's Wi-Fi is off: the rider is told, with the way to Android's Wi-Fi panel")
+                    ProjectionNotification.showWifiOff(this)
+                    RiderVoice.speak(VoiceCue.WIFI_OFF)
+                }
+                StateAlerts.Alert.WIFI_OFF_CLEAR -> ProjectionNotification.clearWifiOff(this)
+                StateAlerts.Alert.DASH_BACK -> RiderVoice.speak(VoiceCue.DASH_BACK)
+            }
         }
     }
 

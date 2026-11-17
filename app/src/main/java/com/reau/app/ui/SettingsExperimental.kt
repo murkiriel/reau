@@ -112,6 +112,13 @@ internal fun VideoExperimentsGroup(s: REauSettings, change: (REauSettings) -> Un
                 sub = stringResource(R.string.exp_color_sub),
             )
         },
+        {
+            SwitchRow(
+                stringResource(R.string.exp_encoder_low_latency_title), s.experimentEncoderLowLatency,
+                { change(s.copy(experimentEncoderLowLatency = it)) }, "exp_encoder_low_latency",
+                sub = stringResource(R.string.exp_encoder_low_latency_sub),
+            )
+        },
     ), tag = "group_video_experiments")
 }
 

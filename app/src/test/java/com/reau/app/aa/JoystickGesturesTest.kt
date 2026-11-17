@@ -145,7 +145,7 @@ class JoystickGesturesTest {
     fun `the log says what each tap became`() {
         val m = JoystickMap()
         assertEquals(listOf("media right once -> Scroll(delta=1)"), m.press(right, 0).lines)
-        assertEquals(listOf("map center once -> nothing"), m.press(joystickIn, 100).lines)
+        assertEquals(listOf("map center once -> nothing"), m.press(joystickIn, 400).lines)
     }
 
     @Test
@@ -389,11 +389,11 @@ class JoystickGesturesTest {
     }
 
     @Test
-    fun `a centre 100 ms after a side, and a side right after a centre, count`() {
+    fun `a centre 400 ms after a side, and a side right after a centre, count`() {
         val m = JoystickMap()
         m.press(right, 0)
-        assertEquals(listOf(AaCommand.Key(23)), m.press(center, 100).sent)
-        assertEquals(listOf(AaCommand.Scroll(1)), m.press(right, 110).sent)
+        assertEquals(listOf(AaCommand.Key(23)), m.press(center, 400).sent)
+        assertEquals(listOf(AaCommand.Scroll(1)), m.press(right, 410).sent)
     }
 
     /** The log line of each button says the call state at that moment, to read a press made in a call. */

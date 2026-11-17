@@ -265,6 +265,8 @@ internal class LiveSides(
                         override fun seenInScan(wanted: String, isPrefix: Boolean): Boolean =
                             PhonePlace.mayScan(context) && wifi.seenInLastScan(wanted, isPrefix)
                     },
+                    // With the phone's Wi-Fi radio off no request for the dash's network is made (WifiDashLinkUp.start).
+                    radioOn = { wifi.isWifiEnabled() },
                 ).apply {
                     onBindResult = wifi::bindResult
                     wifi.onNetworkAvailable = { bikeNetworkAvailable() }
@@ -274,6 +276,8 @@ internal class LiveSides(
                         if (stuck) {
                             ProjectionNotification.showDashStuck(context)
                             com.reau.app.aa.StuckDashTone.play(scope, log = { RideDiagnostics.log("audio", it) })
+                            // And, if the rider asked for it, said in words in the headset (RiderVoice: off by default).
+                            RiderVoice.speak(VoiceCue.DASH_GONE)
                         } else {
                             ProjectionNotification.clearDashStuck(context)
                         }
@@ -323,6 +327,9 @@ internal class LiveSides(
     )
     // The listener of the dash's sighting is this one's own, so the release gives back only what this instance took (a next one may hold it by then).
     private val sightingListener: () -> Unit = { report(ProjectionEvent.DashSighted) }
+
+    // The same for the phone's Wi-Fi radio, as Android's broadcast tells it (SystemEvents): the radio on again tries the dash at once.
+    private val radioListener: (Boolean) -> Unit = { on -> report(ProjectionEvent.WifiRadio(on)) }
     private val linkUp = setup.linkUp(context, scope).also { up ->
         up.onBikeNetwork {
             // The dash's Wi-Fi back as another Android network: the session's sockets are bound to the one that went, so the session is lost
@@ -331,6 +338,8 @@ internal class LiveSides(
             report(ProjectionEvent.BikeNetworkAvailable)
         }
         com.reau.app.dash.DashSighting.listener = sightingListener
+        WifiRadio.listener = radioListener
+        up.onWifiRadio(radioListener)
         up.onFirstJoin { report(ProjectionEvent.DashFirstJoin(it)) }
         session.onBindResult = { network, refused -> up.onBindResult?.invoke(network, refused) }
         // The dash spoke again after a silence the tolerant watch noted: the keyframes sent meanwhile may have been missed, so one is asked.
@@ -501,6 +510,7 @@ internal class LiveSides(
             if (started) {
                 compositor.setOverlay(it.overlay)
                 compositor.setButtonOverlay(it.buttonLook)
+                compositor.setBlurredFill(it.blurredFill)
             }
         }
         if (started && receiver != null) scope.launch { watchAppVideo() }
@@ -784,6 +794,7 @@ internal class LiveSides(
                 "dash session" to { session.disconnect() },
                 "link up" to { linkUp.stop() },
                 "sighting" to { com.reau.app.dash.DashSighting.release(sightingListener) },
+                "wifi radio" to { WifiRadio.release(radioListener) },
                 "image gap" to { com.reau.app.dash.ImageGap.clock.forget() },
                 "scope" to { scope.cancel() },
                 "compositor" to { compositor.release() },
@@ -883,6 +894,7 @@ internal class LiveSides(
             }
             if (LiveTuning.Step.STATS_OVERLAY in steps) compositor.setOverlay(settings.overlay)
             if (LiveTuning.Step.BUTTON_OVERLAY in steps) compositor.setButtonOverlay(settings.buttonLook)
+            if (LiveTuning.Step.BLURRED_FILL in steps) compositor.setBlurredFill(settings.blurredFill)
             // `tuned` (set above) is what the beat, the music card and the route read; the weather, just switched on, is fetched now.
             if (LiveTuning.Step.DASH_EXTRAS in steps) {
                 session.maneuverCircleEnabled = settings.maneuverRing

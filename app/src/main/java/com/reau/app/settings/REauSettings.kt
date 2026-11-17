@@ -123,6 +123,18 @@ data class REauSettings(
     val clearAaFocus: Boolean = true,
     /** The dash's mask over the "Tela do Android Auto" (video/DashMask). On by default. */
     val dashMask: Boolean = true,
+    /**
+     * Where the fit leaves a border (the whole image, a small fit, an app that does not fill the frame) the dash shows a blurred, slightly darker
+     * copy of the picture instead of black ([com.reau.app.video.CompositorMath.backdrop]). Off by default: it costs a little more battery.
+     */
+    val blurredFill: Boolean = false,
+
+    /**
+     * The important notices are also spoken, by Android's own voice, in the rider's headset ([com.reau.app.service.RiderVoice]): the dash gone or stuck and
+     * back, the phone hot, the phone's Wi-Fi off. Off by default; with it off nothing is spoken. Read at each phrase, so a change counts at once.
+     */
+    val spokenAlerts: Boolean = false,
+
     /** The app menu's own fit; null, the apps'. */
     val menuFit: FitParams? = DEFAULT_MENU_FIT,
     /**
@@ -242,6 +254,8 @@ data class REauSettings(
     val experimentTolerantRx: Boolean = false,
     /** Experimental: before the first dial of a projection, and once after a negotiation that got no answer, Android Auto is woken by opening its settings, and the dial waits 700 ms ([com.reau.app.aa.AaWake]). Off, it is dialled as always. */
     val experimentWakeAa: Boolean = false,
+    /** Experimental: a Qualcomm encoder of the dash (`c2.qti.` or `OMX.qcom.`) is also asked for the maker's low-latency key, so it does not hold frames ([com.reau.app.dash.video.VendorLowLatency]); a codec that refuses is asked again without it. Off, or with any other encoder, the format is as always. */
+    val experimentEncoderLowLatency: Boolean = false,
 ) {
     /**
      * The bitrate the stream is built for and asked for while pictures keep coming: the profile's ([streamBitrateBps], 400 kbps) or, with

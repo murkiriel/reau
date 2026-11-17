@@ -73,8 +73,12 @@ object SystemEvents {
                     PowerManager.ACTION_POWER_SAVE_MODE_CHANGED -> log(toggles.saver(saver))
                     Intent.ACTION_BATTERY_LOW -> battery.low(batteryLevel(app), saverLevel(app))?.let(::log)
                     Intent.ACTION_BATTERY_OKAY -> log(battery.okay())
-                    WifiManager.WIFI_STATE_CHANGED_ACTION ->
-                        log(WifiEvents.radioLine(com.reau.app.dash.PhoneSide.radioName(intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE, -1))))
+                    WifiManager.WIFI_STATE_CHANGED_ACTION -> {
+                        val radio = intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE, -1)
+                        log(WifiEvents.radioLine(com.reau.app.dash.PhoneSide.radioName(radio)))
+                        // The projection that runs (if any) is told: with the radio on again, the dash is tried at once.
+                        WifiRadio.heard(WifiRadio.of(radio))
+                    }
                     WifiManager.SUPPLICANT_STATE_CHANGED_ACTION -> supplicantLine(intent, supplicant)?.let(::log)
                     WifiManager.NETWORK_STATE_CHANGED_ACTION -> networkStateLine(intent, networkState)?.let(::log)
                     USB_STATE -> log(usbLine(intent.extras?.keySet().orEmpty().associateWith { intent.extras?.getBoolean(it) == true }))

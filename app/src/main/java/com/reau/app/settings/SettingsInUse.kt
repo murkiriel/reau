@@ -20,12 +20,12 @@ object SettingsInUse {
         "maneuverData", "maneuverFpsProfile", "speedFpsProfile", "navProfileMode",
         "autoJoinWifi", "detailedLog", "rideLog", "useLocation", "logKeepDays", "noDashStopMinutes",
         "answerCalls", "phoneTouch", "dashMusic", "dashCaller", "gemini",
-        "aaNewProtocol", "clearAaFocus", "dashMask",
+        "aaNewProtocol", "clearAaFocus", "dashMask", "blurredFill", "spokenAlerts",
         "statsOverlay", "buttonOverlay", "dashPhoneStatus", "dashAlbumArt", "dashWeather", "infoRing", "infoRingData", "infoRingCarousel", "infoRingSeconds",
         "infoRingInPlace",
         "maneuverRing", "webView", "webTouch", "webAudio",
         "experimentRtpPacing", "experimentDebugDscp", "experimentAdaptiveBitrate", "experimentWifiBind", "experimentStartGuard",
-        "experimentEncoderWatch", "experimentFocusGap", "experimentNightMemory",
+        "experimentEncoderWatch", "experimentFocusGap", "experimentNightMemory", "experimentEncoderLowLatency",
         "experimentWeatherAge", "experimentHeatCeiling", "experimentGpsSpeed", "experimentRecalcInactive", "experimentColorMatrix",
         "experimentProtocolSix", "experimentTolerantRx", "experimentWakeAa",
     )
@@ -65,6 +65,7 @@ object SettingsInUse {
             "protocol 6.0 asked of Android Auto first (1.7 if it does not take it)".takeIf { settings.experimentProtocolSix },
             "tolerant dash silence watch (12 s noted, 60 s ends the session) and control packets 12 ms apart".takeIf { settings.experimentTolerantRx },
             "Android Auto woken (its settings opened) before a dial that may find it frozen by Android".takeIf { settings.experimentWakeAa },
+            "Qualcomm encoder asked not to hold frames (the maker's low-latency key)".takeIf { settings.experimentEncoderLowLatency },
         )
         return if (on.isEmpty()) null else "connection experiments ON: ${on.joinToString("; ")}"
     }

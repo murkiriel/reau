@@ -57,6 +57,11 @@ internal fun Warning(warning: Warning, state: MainUiState, onOpenAndroidAutoSett
             null, CardAction(stringResource(R.string.action_battery_saver), "open_battery_saver", extras.onOpenBatterySaver),
             tag = "battery_saver",
         )
+        Warning.WIFI_OFF -> WarningCard(
+            StatusKind.ERROR, R.drawable.ic_ms_wifi_off, stringResource(R.string.warn_wifi_off_title), stringResource(R.string.wifi_off_warning),
+            null, CardAction(stringResource(R.string.action_wifi_on), "turn_on_wifi", extras.onOpenWifiPanel),
+            tag = "wifi_off_warning",
+        )
         Warning.DASH_TAKEN -> WarningCard(
             StatusKind.ERROR, R.drawable.ic_ms_error, stringResource(R.string.warn_taken_title), stringResource(R.string.dash_taken_warning),
             null, null, tag = "dash_taken_warning",

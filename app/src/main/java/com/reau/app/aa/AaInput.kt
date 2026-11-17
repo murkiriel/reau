@@ -17,6 +17,12 @@ class AaInput(
     private val send: (AapMessage) -> Unit,
     private val clockUs: () -> Long = { android.os.SystemClock.elapsedRealtimeNanos() / 1000 },
     private val log: (String) -> Unit,
+    /**
+     * The clock of the touches, in microseconds of wall-clock time (what the open-source head units send): the keys and the
+     * wheel keep [clockUs] (time since boot), which they have always worked with. A navigation app inside Android Auto
+     * may ignore a touch stamped with the time since boot; nothing in REau compares these stamps with any other time.
+     */
+    private val touchClockUs: () -> Long = { System.currentTimeMillis() * 1000 },
 ) {
     /** One key press (down, then up). */
     fun sendKey(keycode: Int) {
@@ -52,7 +58,7 @@ class AaInput(
                 PhoneTouch.Action.CANCEL -> Input.TouchEvent.PointerAction.TOUCH_ACTION_CANCEL
             }
             val touch = Input.TouchEvent.newBuilder().addPointerData(pointer).setActionIndex(0).setAction(code).build()
-            val report = Input.InputReport.newBuilder().setTimestamp(clockUs()).setTouchEvent(touch).build()
+            val report = Input.InputReport.newBuilder().setTimestamp(touchClockUs()).setTouchEvent(touch).build()
             send(AapMessage(Channel.ID_INP, Input.MsgType.EVENT_VALUE, report))
         }.onSuccess { if (action != PhoneTouch.Action.MOVE) log("touch ${action.name.lowercase()} sent to Android Auto") }
             .onFailure { log("touch failed: $it") }

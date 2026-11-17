@@ -41,6 +41,23 @@ object AaScreens {
         watch.homeSent(android.os.SystemClock.elapsedRealtime())
     }
 
+    /** The NAVIGATION key (KEY_NAVIGATION) was sent to Android Auto (AaReceiver.sendInput); see [AaScreenWatch.navSent]. */
+    fun navSent(nowMs: Long = android.os.SystemClock.elapsedRealtime()) {
+        watch.navSent(nowMs)
+    }
+
+    /**
+     * A key was sent to Android Auto (AaReceiver.sendInput): the ones that change its screen with no window event after them tell the watch
+     * (select, Home, Navigation).
+     */
+    fun keySent(keycode: Int, nowMs: Long = android.os.SystemClock.elapsedRealtime()) {
+        when (keycode) {
+            ServiceDiscoveryResponse.KEY_ENTER -> selectSent()
+            ServiceDiscoveryResponse.KEY_HOME -> homeSent()
+            ServiceDiscoveryResponse.KEY_NAVIGATION -> navSent(nowMs)
+        }
+    }
+
     /** Android Auto's side of the projection stopped (LiveSides); [projectionStarting] is the start. */
     fun projection(on: Boolean) {
         // The next session starts from nothing: a screen left over from this one (the menu, say) must not shape its first moments.
@@ -113,6 +130,19 @@ class AaScreenWatch(private val say: (String) -> Unit) {
         if (current.value == AaScreen.MENU) return
         current.value = AaScreen.MENU
         say("aa-screen: menu (the Home key)")
+    }
+
+    /**
+     * The NAVIGATION key was sent: Android Auto opens the last navigation app used, so a map is about to come. Unlike the Home key it takes no screen
+     * at once (the key may open nothing, or the app may be slow to draw): the screen stays what it was and the picture says when it is the navigation's.
+     * What is still leaving the screen is the old picture, as after a select ([PictureGate.arm]): looks that are not of a map wait for the settle, so the
+     * menu or the app that was in front does not count as news. Nothing when the navigation is already shown.
+     */
+    @Synchronized
+    fun navSent(nowMs: Long = 0L) {
+        if (current.value == AaScreen.NAV) return
+        picture.arm(nowMs + PictureGate.SETTLE_MS)
+        say("aa-screen: waiting for a map (the Navigation key)")
     }
 
     /**

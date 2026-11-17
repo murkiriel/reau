@@ -54,7 +54,11 @@ object CodecReport {
     fun overlay(first: (String) -> Number?, then: (String) -> Number?): (String) -> Number? = { key -> first(key) ?: then(key) }
 
     /** The keys read from a format (the names of `MediaFormat.KEY_*`; written out so the JVM tests need no Android). */
-    val KEYS = listOf("latency", "bitrate-mode", "profile", "level", "i-frame-interval", "bitrate", "frame-rate", "priority", "operating-rate")
+    val KEYS = listOf(
+        "latency", "bitrate-mode", "profile", "level", "i-frame-interval", "bitrate", "frame-rate", "priority", "operating-rate",
+        // The Qualcomm encoder's own low-latency key (com.reau.app.dash.video.VendorLowLatency.KEY): told only when it was asked, so an experiment with it on and off compares in the log.
+        "vendor.qti-ext-enc-low-latency.enable",
+    )
 
     private fun named(key: String, value: Number): String = when (key) {
         "bitrate-mode" -> BITRATE_MODES[value.toInt()] ?: number(value)

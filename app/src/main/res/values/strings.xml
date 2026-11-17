@@ -27,6 +27,8 @@
     <string name="notif_text_dash_stuck">The dash is on but not accepting the connection. Turn the motorcycle’s ignition off and on again; REau reconnects by itself</string>
     <string name="notif_title_phone_hot">Phone is hot</string>
     <string name="notif_text_phone_hot">The phone is hot (%1$d °C). Take it out of the sun or a closed pocket, or unplug the charger, so it does not slow down</string>
+    <string name="notif_title_wifi_off">Phone Wi-Fi is off</string>
+    <string name="notif_text_wifi_off">Phone Wi-Fi is off: turn on Wi-Fi to connect to the dash</string>
     <string name="notif_title_bind_refused">Android is refusing the dash’s network</string>
     <string name="notif_text_bind_refused">Android refused the dash’s Wi-Fi several times in a row. Turn off any VPN and the automatic switch between Wi-Fi and mobile data; if it goes on, turn the phone’s Wi-Fi off and on. REau keeps trying</string>
     <string name="notif_title_no_dash_stopped">Projection turned off</string>
@@ -63,6 +65,7 @@
     <string name="headline_server_off">Android Auto server off</string>
     <string name="headline_dash_lost">Dash lost, trying again</string>
     <string name="headline_dash_searching">Looking for the dash</string>
+    <string name="headline_wifi_off">Phone Wi-Fi is off</string>
     <string name="headline_streaming">Streaming</string>
     <string name="headline_network_server">Network server</string>
     <string name="link_off">Off</string>
@@ -173,6 +176,7 @@
     <string name="joystick_action_assistant">Gemini (switch on)</string>
     <string name="joystick_action_zoom_in">Zoom in</string>
     <string name="joystick_action_zoom_out">Zoom out</string>
+    <string name="joystick_action_open_navigation">Open navigation (Waze or Maps)</string>
     <!-- The instrument cluster display experiment -->
     <!-- The dash's bubble with no route, and the joystick in its map mode -->
     <string name="permissions_title">Permissions</string>
@@ -327,6 +331,7 @@
     <string name="forget_dash_running_title">Forget the dash now?</string>
     <string name="forget_dash_running_text">This disconnects the dash now and REau will ask for Android’s approval again. The projection is switched off first.</string>
     <string name="sub_dash_searching">REau keeps trying to join the dash’s Wi-Fi</string>
+    <string name="sub_wifi_off">Turn on Wi-Fi to connect to the dash</string>
     <string name="sub_dash_join_ask">Android may ask whether REau can connect to the dash: tap Connect</string>
     <string name="sub_dash_taken">Turn off the other app’s streaming</string>
     <string name="sub_name_needed">See the warning above</string>
@@ -412,6 +417,8 @@
     <string name="exp_recalc_sub">Experimental: a short “inactive” of Android Auto during a route (up to 8 s) shows on the dash as recalculating instead of clearing the route. Counts right away</string>
     <string name="exp_color_title">Explicit encoder colours</string>
     <string name="exp_color_sub">Experimental: the dash\'s encoder is asked for BT.601, limited range, SDR. If the codec refuses, it is asked as before, and the log says what it accepted. Counts from the next video</string>
+    <string name="exp_encoder_low_latency_title">Encoder low latency (Qualcomm)</string>
+    <string name="exp_encoder_low_latency_sub">Experimental: asks a Qualcomm encoder (the dash\'s) not to hold frames back. Only for Qualcomm phones; any other encoder is asked as always. If the codec refuses, it is asked again without it. The effect shows in the encoding time of the log. Counts from the next video</string>
     <string name="exp_protocol_six_title">Android Auto protocol 6.0</string>
     <string name="exp_protocol_six_sub">Experimental: the handshake asks for protocol version 6.0 (today, 1.7). If Android Auto refuses it or the handshake fails, 1.7 is asked again until the app closes, and the log says what was asked and answered. Counts from the next time you turn on</string>
     <string name="exp_tolerant_rx_title">More tolerant dash watch</string>
@@ -487,6 +494,9 @@
     <string name="info_ring_place_title">In the maneuver ring’s place</string>
     <string name="info_ring_place_sub">On the left, where the dash draws the maneuvers. The two take turns</string>
     <string name="info_ring_place_info">With the info ring on, the dash’s down button in map mode (on the joystick screen it can be given another action) shows the ring and hides it again, without touching the maneuver ring, which keeps its own rules. On (ring on the left, in the maneuver ring’s place), the info ring shows instead of the maneuver ring, so use it with that one off. The info ring goes away on the app menu and in other apps, and the choice is kept for next time.</string>
+    <string name="blurred_fill_title">Blurred background at the edges</string>
+    <string name="blurred_fill_sub">Instead of black bars, the edges show a blurred copy of the picture. Uses a little more battery.</string>
+    <string name="blurred_fill_info">Where the fit leaves a border (the whole image, a small fit, an app that does not fill the frame), the dash shows a small, blurred and slightly darker copy of the picture there instead of black, so the round panel loses its black bars. Off by default: each frame takes one more small drawing step, which uses a little more battery and, when the picture moves, a few more bits of video. It changes nothing when the picture already fills the frame, the black bands you choose stay black, and the change applies at once.</string>
     <string name="info_ring_data_title">What the ring says</string>
     <string name="info_ring_data_rain">Rain</string>
     <string name="info_ring_data_wind">Wind</string>
@@ -899,4 +909,14 @@
     <!-- A small line on the main screen while the old app with the seal on its icon (id ending in .lite) is still installed -->
     <string name="old_app_note">The old REau app (the one with the seal on its icon) is still installed. It isn’t needed any more: you can uninstall it.</string>
 
+    <string name="warn_wifi_off_title">Phone Wi-Fi is off</string>
+    <string name="wifi_off_warning">Phone Wi-Fi is off: turn on Wi-Fi to connect to the dash</string>
+    <string name="action_wifi_on">Turn on Wi-Fi</string>
+    <string name="spoken_alerts_title">Spoken alerts in the headset</string>
+    <string name="spoken_alerts_sub">Speaks the important alerts in the helmet headset</string>
+    <string name="spoken_alerts">Speaks the important alerts with Android’s voice, in the helmet headset, like the navigation voice: the dash gone or stuck and back again, the phone hot and the phone’s Wi-Fi off. It lowers the music for a moment while it speaks and never repeats the same phrase within a minute. Off by default; the notifications appear whatever you choose here, and the voice is up to the phone’s text-to-speech engine and its voices.</string>
+    <string name="voice_dash_gone">Dash disconnected. Turn the motorcycle off and on.</string>
+    <string name="voice_dash_back">Dash is back.</string>
+    <string name="voice_phone_hot">Phone is hot. Take it out of the sun or a closed pocket.</string>
+    <string name="voice_wifi_off">Phone Wi-Fi is off.</string>
 </resources>

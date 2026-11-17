@@ -484,13 +484,97 @@ internal class CompositorGl {
         GLES20.glDisable(GLES20.GL_SCISSOR_TEST)
     }
 
-    fun draw(window: CompositorMath.TexWindow?, viewport: RectPx) {
+    /** With a [backdrop] (the blurred background, CompositorMath.backdrop), its two passes come first, under the picture. */
+    fun draw(window: CompositorMath.TexWindow?, viewport: RectPx, backdrop: CompositorMath.Backdrop? = null) {
         EGL14.eglMakeCurrent(eglDisplay, windowSurface, windowSurface, eglContext)
         GLES20.glViewport(0, 0, DashGlass.FRAME_W, DashGlass.FRAME_H)
         GLES20.glClearColor(0f, 0f, 0f, 1f)
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
         if (window == null) return
+        if (backdrop != null) drawBackdrop(backdrop)
         drawQuad(window, viewport)
+    }
+
+    // The blurred background (CompositorMath.backdrop): a small framebuffer with a texture and a program of their own, all made on
+    // the first frame that asks for it. With the setting off, or a picture that covers the frame, none of this exists.
+    private var backdropFbo = 0
+    private var backdropTexture = 0
+    private var backdropProgram = 0
+    private var backdropSize = RectPx(0, 0, 0, 0)
+
+    /** The blurred background could not be made (the framebuffer or the shader was refused): it is not tried again until [freeBackdrop]. */
+    var backdropFailed = false
+        private set
+
+    private fun drawBackdrop(plan: CompositorMath.Backdrop) {
+        if (backdropFailed) return
+        if (backdropFbo == 0 && !runCatching { createBackdrop(plan.small) }.getOrDefault(false)) {
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+            freeBackdropObjects()
+            backdropFailed = true
+            return
+        }
+        // First pass: the part of the picture, shrunk by the box filter into the small framebuffer.
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, backdropFbo)
+        drawQuad(plan.window, plan.small, LOOK_FILTER)
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+        // Second pass: that copy blurred (3x3), a little darker, over the whole frame.
+        GLES20.glViewport(plan.frame.x, plan.frame.y, plan.frame.w, plan.frame.h)
+        GLES20.glUseProgram(backdropProgram)
+        val position = GLES20.glGetAttribLocation(backdropProgram, "aPosition")
+        val texCoord = GLES20.glGetAttribLocation(backdropProgram, "aTexCoord")
+        quad.position(0)
+        GLES20.glVertexAttribPointer(position, 2, GLES20.GL_FLOAT, false, QUAD_STRIDE, quad)
+        GLES20.glEnableVertexAttribArray(position)
+        quad.position(2)
+        GLES20.glVertexAttribPointer(texCoord, 2, GLES20.GL_FLOAT, false, QUAD_STRIDE, quad)
+        GLES20.glEnableVertexAttribArray(texCoord)
+        GLES20.glUniform2f(GLES20.glGetUniformLocation(backdropProgram, "uTexel"), 1f / backdropSize.w, 1f / backdropSize.h)
+        GLES20.glUniform1f(GLES20.glGetUniformLocation(backdropProgram, "uKeep"), plan.keep)
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, backdropTexture)
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
+        GLES20.glDisableVertexAttribArray(position)
+        GLES20.glDisableVertexAttribArray(texCoord)
+    }
+
+    /** Makes the small framebuffer, its texture and the blur program for a copy of [small]'s size; false if the framebuffer is not complete. */
+    private fun createBackdrop(small: RectPx): Boolean {
+        backdropProgram = buildProgram(BACKDROP_VERTEX_SOURCE, BACKDROP_FRAGMENT_SOURCE)
+        val ids = IntArray(1)
+        GLES20.glGenTextures(1, ids, 0)
+        backdropTexture = ids[0]
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, backdropTexture)
+        GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, small.w, small.h, 0, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, null)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
+        GLES20.glGenFramebuffers(1, ids, 0)
+        backdropFbo = ids[0]
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, backdropFbo)
+        GLES20.glFramebufferTexture2D(GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0, GLES20.GL_TEXTURE_2D, backdropTexture, 0)
+        val complete = GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER) == GLES20.GL_FRAMEBUFFER_COMPLETE
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+        backdropSize = small
+        return complete
+    }
+
+    /** Lets go of the blurred background's framebuffer, texture and program (and forgets a failure, so the setting can be tried again). Nothing if none was made. */
+    fun freeBackdrop() {
+        backdropFailed = false
+        if (backdropFbo == 0 && backdropTexture == 0 && backdropProgram == 0) return
+        if (eglDisplay != EGL14.EGL_NO_DISPLAY) EGL14.eglMakeCurrent(eglDisplay, pbuffer, pbuffer, eglContext)
+        freeBackdropObjects()
+    }
+
+    private fun freeBackdropObjects() {
+        if (backdropFbo != 0) GLES20.glDeleteFramebuffers(1, intArrayOf(backdropFbo), 0)
+        if (backdropTexture != 0) GLES20.glDeleteTextures(1, intArrayOf(backdropTexture), 0)
+        if (backdropProgram != 0) GLES20.glDeleteProgram(backdropProgram)
+        backdropFbo = 0
+        backdropTexture = 0
+        backdropProgram = 0
     }
 
     /** Draws the picture's [window] into [viewport]; with [filter] (the small copy of [look]) instead of the stream's [reductionFilter]. */
@@ -547,6 +631,7 @@ internal class CompositorGl {
         runCatching { detachWeb() }
         runCatching { detachPreview() }
         runCatching { detachOutput() }
+        runCatching { freeBackdrop() }
         runCatching { inputSurface?.release() }
         inputSurface = null
         runCatching { surfaceTexture?.release() }
@@ -660,6 +745,35 @@ internal class CompositorGl {
                     c = c + uSharpen * (c - blur);
                 }
                 gl_FragColor = vec4(clamp(c.rgb, 0.0, 1.0), 1.0);
+            }
+        """.trimIndent()
+
+        // The blurred background's second pass: the small copy read 3x3 with weights 1-2-1 (one texel apart) and scaled by uKeep.
+        val BACKDROP_VERTEX_SOURCE = """
+            attribute vec4 aPosition;
+            attribute vec2 aTexCoord;
+            varying vec2 vTexCoord;
+            void main() {
+                gl_Position = aPosition;
+                vTexCoord = aTexCoord;
+            }
+        """.trimIndent()
+
+        val BACKDROP_FRAGMENT_SOURCE = """
+            precision mediump float;
+            varying vec2 vTexCoord;
+            uniform sampler2D sTexture;
+            uniform vec2 uTexel;
+            uniform float uKeep;
+            void main() {
+                vec3 sum = vec3(0.0);
+                for (int j = -1; j <= 1; j++) {
+                    for (int i = -1; i <= 1; i++) {
+                        float w = (i == 0 ? 2.0 : 1.0) * (j == 0 ? 2.0 : 1.0);
+                        sum += w * texture2D(sTexture, vTexCoord + vec2(float(i), float(j)) * uTexel).rgb;
+                    }
+                }
+                gl_FragColor = vec4(sum / 16.0 * uKeep, 1.0);
             }
         """.trimIndent()
 

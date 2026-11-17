@@ -26,6 +26,8 @@
     <string name="notif_text_dash_stuck">El tablero está encendido pero no acepta la conexión. Apaga y vuelve a encender el contacto de la moto; REau se reconecta sola</string>
     <string name="notif_title_phone_hot">El celular está caliente</string>
     <string name="notif_text_phone_hot">El celular está caliente (%1$d °C). Sácalo del sol o del bolsillo cerrado, o desconecta el cargador, para que no reduzca el rendimiento</string>
+    <string name="notif_title_wifi_off">Wi-Fi del teléfono apagado</string>
+    <string name="notif_text_wifi_off">Wi-Fi del teléfono apagado: enciende el Wi-Fi para conectar al tablero</string>
     <string name="notif_title_bind_refused">Android rechaza la red del tablero</string>
     <string name="notif_text_bind_refused">Android rechazó el Wi-Fi del tablero varias veces seguidas. Apaga cualquier VPN y el cambio automático entre Wi-Fi y datos móviles; si sigue, apaga y enciende el Wi-Fi del celular. REau sigue intentando</string>
     <string name="notif_title_no_dash_stopped">Proyección apagada</string>
@@ -63,6 +65,7 @@
     <string name="headline_server_off">Servidor de Android Auto apagado</string>
     <string name="headline_dash_lost">Tablero perdido, intentando de nuevo</string>
     <string name="headline_dash_searching">Buscando el tablero</string>
+    <string name="headline_wifi_off">Wi-Fi del teléfono apagado</string>
     <string name="headline_streaming">Transmitiendo</string>
     <string name="headline_network_server">Servidor de red</string>
     <string name="link_off">Apagado</string>
@@ -173,6 +176,7 @@
     <string name="joystick_action_assistant">Gemini (activar el interruptor)</string>
     <string name="joystick_action_zoom_in">Acercar</string>
     <string name="joystick_action_zoom_out">Alejar</string>
+    <string name="joystick_action_open_navigation">Abrir la navegación (Waze o Maps)</string>
     <!-- The instrument cluster display experiment -->
     <!-- The dash's bubble with no route, and the joystick in its map mode -->
     <string name="permissions_title">Permisos</string>
@@ -316,6 +320,7 @@
     <string name="forget_dash_running_title">¿Olvidar el tablero ahora?</string>
     <string name="forget_dash_running_text">Esto desconecta el tablero ahora y REau volverá a pedir la aprobación de Android. Antes se apaga la proyección.</string>
     <string name="sub_dash_searching">REau sigue intentando unirse al Wi-Fi del tablero</string>
+    <string name="sub_wifi_off">Enciende el Wi-Fi para conectar al tablero</string>
     <string name="sub_dash_join_ask">Android puede preguntar si REau puede conectarse al tablero: toca Conectar</string>
     <string name="sub_dash_taken">Apaga la transmisión de la otra app</string>
     <string name="sub_name_needed">Mira el aviso de arriba</string>
@@ -401,6 +406,8 @@
     <string name="exp_recalc_sub">Experimental: un “inactivo” corto de Android Auto durante la ruta (hasta 8 s) aparece en el tablero como recalculando, en vez de borrar la ruta. Vale al instante</string>
     <string name="exp_color_title">Colores del codificador explícitos</string>
     <string name="exp_color_sub">Experimental: al codificador del tablero se le pide BT.601, rango limitado, SDR. Si el códec lo rechaza, se pide como antes, y el registro dice lo que aceptó. Vale desde el próximo video</string>
+    <string name="exp_encoder_low_latency_title">Baja latencia del codificador (Qualcomm)</string>
+    <string name="exp_encoder_low_latency_sub">Experimental: le pide al codificador Qualcomm (el del tablero) que no retenga cuadros. Vale solo para celulares Qualcomm; cualquier otro codificador se pide como siempre. Si el códec lo rechaza, se pide de nuevo sin la clave. El efecto se ve en el tiempo de codificación del registro. Vale desde el próximo video</string>
     <string name="exp_protocol_six_title">Protocolo 6.0 de Android Auto</string>
     <string name="exp_protocol_six_sub">Experimental: el apretón de manos pide la versión 6.0 del protocolo (hoy, 1.7). Si Android Auto la rechaza o el apretón de manos falla, se vuelve a pedir 1.7 hasta que la app se cierre, y el registro dice lo que se pidió y se respondió. Vale desde el próximo encendido</string>
     <string name="exp_tolerant_rx_title">Vigilancia del tablero más tolerante</string>
@@ -476,6 +483,9 @@
     <string name="info_ring_place_title">En el lugar del anillo de maniobras</string>
     <string name="info_ring_place_sub">A la izquierda, donde el tablero dibuja las maniobras. Los dos se turnan</string>
     <string name="info_ring_place_info">Con el anillo de información activado, el botón abajo del tablero en el modo mapa (en la pantalla del joystick se le puede dar otra acción) muestra el anillo y lo oculta de nuevo, sin tocar el anillo de maniobras, que conserva sus propias reglas. Activado (anillo a la izquierda, en el lugar del anillo de maniobras), el anillo de información se muestra en lugar del de maniobras, así que úsalo con ese apagado. El anillo de información desaparece en el menú de apps y en otras apps, y la elección se conserva para la próxima vez.</string>
+    <string name="blurred_fill_title">Fondo desenfocado en los bordes</string>
+    <string name="blurred_fill_sub">En lugar de las franjas negras, los bordes muestran una copia desenfocada de la imagen. Gasta un poco más de batería.</string>
+    <string name="blurred_fill_info">Donde el encaje deja borde (la imagen entera, un encaje pequeño, una app que no llena el cuadro), el tablero muestra una copia pequeña, desenfocada y un poco más oscura de la imagen, en lugar de negro, y el tablero redondo se queda sin las franjas negras. Desactivado por defecto: cada cuadro lleva un pequeño paso de dibujo más, que gasta un poco más de batería y, cuando la imagen se mueve, algunos bits más de video. No cambia nada cuando la imagen llena el cuadro, las franjas negras que eliges siguen negras, y el cambio vale al instante.</string>
     <string name="info_ring_data_title">Lo que dice el anillo</string>
     <string name="info_ring_data_rain">Lluvia</string>
     <string name="info_ring_data_wind">Viento</string>
@@ -889,4 +899,14 @@
     <!-- A small line on the main screen while the old app with the seal on its icon (id ending in .lite) is still installed -->
     <string name="old_app_note">La app REau antigua (la del ícono con sello) sigue instalada. Ya no hace falta: puedes desinstalarla.</string>
 
+    <string name="warn_wifi_off_title">Wi-Fi del teléfono apagado</string>
+    <string name="wifi_off_warning">Wi-Fi del teléfono apagado: enciende el Wi-Fi para conectar al tablero</string>
+    <string name="action_wifi_on">Encender el Wi-Fi</string>
+    <string name="spoken_alerts_title">Avisos hablados en el auricular</string>
+    <string name="spoken_alerts_sub">Dice los avisos importantes en el auricular del casco</string>
+    <string name="spoken_alerts">Dice los avisos importantes con la voz de Android, en el auricular del casco, como la voz de la navegación: el tablero que se fue o se trabó y volvió, el celular caliente y el Wi-Fi del teléfono apagado. Baja la música un instante mientras habla y nunca repite la misma frase en menos de un minuto. Viene apagado; las notificaciones aparecen de todos modos, y la voz depende del motor de voz del teléfono y de las voces instaladas.</string>
+    <string name="voice_dash_gone">Tablero desconectado. Apaga y enciende la moto.</string>
+    <string name="voice_dash_back">Tablero de vuelta.</string>
+    <string name="voice_phone_hot">Celular caliente. Sácalo del sol o del bolsillo cerrado.</string>
+    <string name="voice_wifi_off">Wi-Fi del teléfono apagado.</string>
 </resources>

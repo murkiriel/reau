@@ -97,6 +97,8 @@ internal class VideoLoop(
         val encoderMuteWatch: Boolean = false,
         /** Experimental ([com.reau.app.settings.REauSettings.experimentColorMatrix]): the encoder is asked for BT.601, limited range, SDR ([com.reau.app.dash.video.ColorMatrix]). */
         val colorMatrix: Boolean = false,
+        /** Experimental ([com.reau.app.settings.REauSettings.experimentEncoderLowLatency]): a Qualcomm encoder is also asked for the maker's low-latency key ([com.reau.app.dash.video.VendorLowLatency]). */
+        val encoderLowLatency: Boolean = false,
     ) {
         /**
          * These settings with what the rider's own settings decide of the stream: the rate ceiling and clock, the bitrate (the experimental
@@ -114,6 +116,7 @@ internal class VideoLoop(
             adaptiveBitrate = rider.experimentAdaptiveBitrate,
             encoderMuteWatch = rider.experimentEncoderWatch,
             colorMatrix = rider.experimentColorMatrix,
+            encoderLowLatency = rider.experimentEncoderLowLatency,
         )
     }
 
@@ -385,6 +388,7 @@ internal class VideoLoop(
         // What the phone offers and what the codec accepted go to the ride log once for a stream: the first encoder tells it, a rebuilt one does not.
         created.reportCodecs = reportCodecsOfNextEncoder
         reportCodecsOfNextEncoder = false
+        created.vendorLowLatency = settings.encoderLowLatency
         if (created.prepare(fps, bitrateBps, encoderKeyframeSec, settings.bitrateMode, colorMatrix = settings.colorMatrix)) return created
         log("${RideDiagnostics.ERROR}encoder prepare failed: ${created.lastPrepareError}")
         return null

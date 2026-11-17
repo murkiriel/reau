@@ -76,7 +76,7 @@ class BatteryHeatWatchTest {
         assertTrue(service.substringAfter("private fun warnIfHot").contains("ProjectionNotification.showPhoneHot("))
         assertTrue(service.substringAfter("override fun release()").substringBefore("locks.release()").contains("ProjectionNotification.clearPhoneHot("))
         val notification = File("src/main/java/com/reau/app/service/ProjectionNotification.kt").readText()
-        assertTrue(notification.substringAfter("fun showPhoneHot").substringBefore("fun clearPhoneHot").contains("Notification.Builder(context, ALERT_CHANNEL_ID)"))
+        assertTrue(notification.substringAfter("fun showPhoneHot").substringBefore("\n    fun ").contains("Notification.Builder(context, ALERT_CHANNEL_ID)"))
     }
 
     private fun strings(dir: String) = File("src/main/res/$dir/strings.xml").readText()

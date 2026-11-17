@@ -261,9 +261,9 @@ internal class AaReceiver(
                 return AaLog.i("$command is not an Android Auto input")
         }
         // An input may change Android Auto's screen with no window event after it: read the screen again.
-        if (command is AaCommand.Key && command.keycode == ServiceDiscoveryResponse.KEY_ENTER) AaScreens.selectSent()
-        // The Home key opens the app menu, which the displays do not always say ([AaScreenWatch.homeSent]).
-        if (command is AaCommand.Key && command.keycode == ServiceDiscoveryResponse.KEY_HOME) AaScreens.homeSent()
+        // The select leaves the menu; the Home key opens the app menu, which the displays do not always say ([AaScreenWatch.homeSent]); the
+        // Navigation key opens the map ([AaScreenWatch.navSent]).
+        if (command is AaCommand.Key) AaScreens.keySent(command.keycode)
         // A tap on the phone's screen picks something in the menu, as the select does: it leaves the menu ([TapWatch]).
         if (command is AaCommand.Touch && taps.feed(command.action, command.x, command.y, SystemClock.elapsedRealtime())) {
             AaScreens.tapSent(command.x, command.y)

@@ -53,6 +53,8 @@ Instale o APK publicado, `REau-0.3.0.apk` (applicationId `com.reau.app`, nome "R
 
 Vem da antiga REau Lite (pacote `com.reau.app.lite`)? O REau 0.3.0 é um app novo para você: refaça os ajustes e o pareamento com o painel e depois desinstale a Lite antiga (o app novo mostra uma linha discreta e, se o Android Auto não responder, um aviso, enquanto a Lite antiga ainda estiver instalada). Vem do REau anterior (pacote `com.reau.app`)? É só atualizar por cima: ajustes e pareamento ficam. Duas instalações juntas disputam o único servidor do Android Auto, que aceita uma sessão por vez.
 
+Dica: o Obtainium (app livre de terceiros) instala e atualiza o REau direto das Releases do repositório: em "Adicionar app", cole `https://github.com/Murkiriel/reau`; só valem as versões publicadas, sem as builds de teste, e o REau não muda nada por isso.
+
 ## Compilar
 
 Com o JDK 21 e o Android SDK instalados:

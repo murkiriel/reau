@@ -27,6 +27,9 @@ object LiveTuning {
         /** The map theme and "Usar a localização" (the place for the sun): day or night asked again now instead of at the next minute. */
         NIGHT_NOW,
 
+        /** The blurred background in the fit's border ("Fundo desfocado nas bordas"): on or off, taken at the next frame. */
+        BLURRED_FILL,
+
         /** The joystick page, taken at the next tap. */
         JOYSTICK,
 
@@ -56,6 +59,7 @@ object LiveTuning {
         audio = settings.audioSinks,
     )
 
+    @Suppress("CyclomaticComplexMethod") // one line per step, each a plain comparison
     fun steps(before: REauSettings, after: REauSettings): Set<Step> = buildSet {
         // What Android Auto was told when its session began: the density, the margins and whether REau takes its sound.
         val session = before.density != after.density ||
@@ -64,6 +68,7 @@ object LiveTuning {
         if (session) add(Step.NEW_ANDROID_AUTO_SESSION) else if (before.refitNeeded(after)) add(Step.REFIT)
         if (before.stream != after.stream) add(Step.NEW_STREAM)
         if (before.mapTheme != after.mapTheme || before.useLocation != after.useLocation) add(Step.NIGHT_NOW)
+        if (before.blurredFill != after.blurredFill) add(Step.BLURRED_FILL)
         if (before.joystick != after.joystick) add(Step.JOYSTICK)
         if (before.overlay != after.overlay) add(Step.STATS_OVERLAY)
         if (before.buttonLook != after.buttonLook) add(Step.BUTTON_OVERLAY)

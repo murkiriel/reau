@@ -57,6 +57,10 @@
         <intent>
             <action android:name="androidx.car.app.CarAppService" />
         </intent>
+        <!-- The phone's text-to-speech engine, for the spoken alerts in the headset (RiderVoice): Android 11+ lets an app bind to it only if it can see it. -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
         <!-- The old "lite" app (its id ends in .lite), to tell the rider it can be uninstalled now (see OtherEdition). -->
         <package android:name="com.reau.app.lite" />
     </queries>

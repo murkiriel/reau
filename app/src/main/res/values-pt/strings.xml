@@ -26,6 +26,8 @@
     <string name="notif_text_dash_stuck">O painel está ligado mas não aceita a conexão. Desligue e ligue a ignição da moto; o REau reconecta sozinho</string>
     <string name="notif_title_phone_hot">O celular está quente</string>
     <string name="notif_text_phone_hot">O celular está quente (%1$d °C). Tire-o do sol ou do bolso fechado, ou desligue o carregador, para ele não reduzir o desempenho</string>
+    <string name="notif_title_wifi_off">Wi-Fi do celular desligado</string>
+    <string name="notif_text_wifi_off">Wi-Fi do celular desligado: ligue o Wi-Fi para conectar ao painel</string>
     <string name="notif_title_bind_refused">O Android está recusando a rede do painel</string>
     <string name="notif_text_bind_refused">O Android recusou o Wi-Fi do painel várias vezes seguidas. Desligue qualquer VPN e a troca automática entre Wi-Fi e dados móveis; se continuar, desligue e ligue o Wi-Fi do celular. O REau segue tentando</string>
     <string name="notif_title_no_dash_stopped">Projeção desligada</string>
@@ -63,6 +65,7 @@
     <string name="headline_server_off">Android Auto sem servidor</string>
     <string name="headline_dash_lost">Painel perdido, tentando de novo</string>
     <string name="headline_dash_searching">Procurando o painel</string>
+    <string name="headline_wifi_off">Wi-Fi do celular desligado</string>
     <string name="headline_streaming">Transmitindo</string>
     <string name="headline_network_server">Servidor de rede</string>
     <string name="link_off">Desligado</string>
@@ -173,6 +176,7 @@
     <string name="joystick_action_assistant">Gemini (chave ligada)</string>
     <string name="joystick_action_zoom_in">Aproximar</string>
     <string name="joystick_action_zoom_out">Afastar</string>
+    <string name="joystick_action_open_navigation">Abrir a navegação (Waze ou Maps)</string>
     <!-- The instrument cluster display experiment -->
     <!-- The dash's bubble with no route, and the joystick in its map mode -->
     <string name="permissions_title">Permissões</string>
@@ -315,6 +319,7 @@
     <string name="forget_dash_running_title">Esquecer o painel agora?</string>
     <string name="forget_dash_running_text">Isso desconecta o painel agora e o REau vai pedir a aprovação do Android de novo. A projeção é desligada antes.</string>
     <string name="sub_dash_searching">O REau segue tentando entrar no Wi-Fi do painel</string>
+    <string name="sub_wifi_off">Ligue o Wi-Fi para conectar ao painel</string>
     <string name="sub_dash_join_ask">O Android pode perguntar se o REau pode conectar ao painel: toque em Conectar</string>
     <string name="sub_dash_taken">Desligue a transmissão do outro app</string>
     <string name="sub_name_needed">Veja o aviso acima</string>
@@ -400,6 +405,8 @@
     <string name="exp_recalc_sub">Experimental: um “inativo” curto do Android Auto durante a rota (até 8 s) aparece no painel como recalculando, em vez de apagar a rota. Vale na hora</string>
     <string name="exp_color_title">Cores do codificador explícitas</string>
     <string name="exp_color_sub">Experimental: o codificador do painel é pedido em BT.601, faixa limitada, SDR. Se o codec recusar, é pedido como antes, e o registro diz o que ele aceitou. Vale a partir do próximo vídeo</string>
+    <string name="exp_encoder_low_latency_title">Baixa latência do codificador (Qualcomm)</string>
+    <string name="exp_encoder_low_latency_sub">Experimental: pede ao codificador Qualcomm (o do painel) que não segure quadros. Vale só para celulares Qualcomm; qualquer outro codificador é pedido como sempre. Se o codec recusar, é pedido de novo sem a chave. O efeito se vê no tempo de codificação do registro. Vale a partir do próximo vídeo</string>
     <string name="exp_protocol_six_title">Protocolo 6.0 do Android Auto</string>
     <string name="exp_protocol_six_sub">Experimental: o aperto de mão pede a versão 6.0 do protocolo (hoje, 1.7). Se o Android Auto recusar ou o aperto de mão falhar, volta ao 1.7 até o app fechar, e o registro diz o que foi pedido e respondido. Vale a partir da próxima vez que ligar</string>
     <string name="exp_tolerant_rx_title">Vigia do painel mais tolerante</string>
@@ -475,6 +482,9 @@
     <string name="info_ring_place_title">No lugar do anel de manobras</string>
     <string name="info_ring_place_sub">À esquerda, onde o painel desenha as manobras. Os dois se revezam</string>
     <string name="info_ring_place_info">Com o anel de informações ligado, o botão para baixo do painel no modo mapa (na tela do joystick ele pode ganhar outra ação) mostra o anel e o esconde de novo, sem mexer no anel de manobras, que segue as regras dele. Ligado (anel à esquerda, no lugar do de manobras), o anel de informações aparece no lugar do anel de manobras, então use com ele desligado. O anel de informações some no menu de apps e nos outros apps, e a escolha fica guardada para a próxima vez.</string>
+    <string name="blurred_fill_title">Fundo desfocado nas bordas</string>
+    <string name="blurred_fill_sub">Em vez das faixas pretas, as bordas mostram uma cópia desfocada da imagem. Gasta um pouco mais de bateria.</string>
+    <string name="blurred_fill_info">Onde o encaixe deixa borda (a imagem inteira, um encaixe pequeno, um app que não preenche o quadro), o painel mostra uma cópia pequena, desfocada e um pouco mais escura da imagem, em vez de preto, e o painel redondo fica sem as faixas pretas. Desligado por padrão: cada quadro ganha mais uma pequena etapa de desenho, que gasta um pouco mais de bateria e, quando a imagem se mexe, alguns bits a mais de vídeo. Não muda nada quando a imagem preenche o quadro, as faixas pretas que você escolhe continuam pretas, e a troca vale na hora.</string>
     <string name="info_ring_data_title">O que o anel diz</string>
     <string name="info_ring_data_rain">Chuva</string>
     <string name="info_ring_data_wind">Vento</string>
@@ -888,4 +898,14 @@
     <!-- A small line on the main screen while the old app with the seal on its icon (id ending in .lite) is still installed -->
     <string name="old_app_note">O app REau antigo (o do ícone com selo) ainda está instalado. Não é mais necessário: pode desinstalá-lo.</string>
 
+    <string name="warn_wifi_off_title">Wi-Fi do celular desligado</string>
+    <string name="wifi_off_warning">Wi-Fi do celular desligado: ligue o Wi-Fi para conectar ao painel</string>
+    <string name="action_wifi_on">Ligar o Wi-Fi</string>
+    <string name="spoken_alerts_title">Avisos falados no fone</string>
+    <string name="spoken_alerts_sub">Fala os avisos importantes no fone do capacete</string>
+    <string name="spoken_alerts">Fala os avisos importantes pela voz do Android, no fone do capacete, como a voz da navegação: o painel que sumiu ou travou e voltou, o celular quente e o Wi-Fi do celular desligado. Abaixa a música por um instante enquanto fala e nunca repete a mesma frase em menos de um minuto. Vem desligado; as notificações aparecem de qualquer jeito, e a voz depende do motor de voz do celular e das vozes instaladas nele.</string>
+    <string name="voice_dash_gone">Painel desconectado. Desligue e ligue a moto.</string>
+    <string name="voice_dash_back">Painel de volta.</string>
+    <string name="voice_phone_hot">Celular quente. Tire-o do sol ou do bolso fechado.</string>
+    <string name="voice_wifi_off">Wi-Fi do celular desligado.</string>
 </resources>

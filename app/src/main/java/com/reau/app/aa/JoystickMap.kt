@@ -69,7 +69,7 @@ class JoystickMap(
     private var lastCode = -1
     private var lastCodeMs = Long.MIN_VALUE / 2
     private var lastSideMs = Long.MIN_VALUE / 2
-    // The map mode's last side and what it sent, for the dash's press of the centre ([CenterUndo]).
+    // The last side, its mode and what it sent, for the dash's press of the centre ([CenterUndo]).
     private val centerUndo = CenterUndo()
 
     // The call state read in this press: the state is a settings load, a permission check and a call to the phone service, and a press
@@ -88,7 +88,7 @@ class JoystickMap(
         val place = whereOf(event)
         // The dash's bounce (the same code again within BOUNCE_MS; a 0x05 has come
         // twice about 20 ms apart) and two codes in one gesture (a centre or up within
-        // COMBO_MS after a side) are not taps.
+        // COMBO_MS after a side, and in the map mode a down too) are not taps.
         val bounce = event.code == lastCode && nowMs - lastCodeMs < BOUNCE_MS
         lastCode = event.code
         lastCodeMs = nowMs
@@ -100,7 +100,7 @@ class JoystickMap(
                 callScreenPress(callScreen, nowMs) ?: Press(emptyList(), listOf("not mapped -> nothing"))
             }
             place == null -> Press(emptyList(), listOf("not mapped -> nothing"))
-            place.second in AFTER_SIDE && nowMs - lastSideMs < COMBO_MS -> Press(emptyList(), listOf("right after a side, ignored"))
+            comesWithSide(place, nowMs - lastSideMs) -> Press(emptyList(), listOf("right after a side, ignored"))
             // While the phone rings the dash's middle comes as its media or map middle, not from its call screen (a
             // ride's play/pause there started or stopped the music under the call): it rejects, as the right does.
             place.second == Control.CENTER && callNow() == CallState.RINGING -> callScreenPress(Control.CENTER, nowMs)
@@ -135,13 +135,28 @@ class JoystickMap(
         }
     }
 
-    /** A press that is not the call's, through the page; a map mode side is remembered ([CenterUndo]). */
+    /**
+     * Whether [place], [gapMs] after the last side, is that side's own gesture and not a tap: a centre or up within [COMBO_MS], and in the map
+     * mode a down too. The media centre keeps [MEDIA_CENTER_COMBO_MS]: from there to [CenterUndo.UNDO_MS] the side was the ghost (it moved the
+     * focus) and the centre is the rider's, so it goes on and takes the step back first ([CenterUndo.stepsBackFor]).
+     */
+    private fun comesWithSide(place: Pair<Mode, Control>, gapMs: Long): Boolean = when {
+        place == Mode.MEDIA to Control.CENTER -> gapMs < MEDIA_CENTER_COMBO_MS
+        else -> (place.second in AFTER_SIDE || (place.first == Mode.MAP && place.second == Control.DOWN)) && gapMs < COMBO_MS
+    }
+
+    /**
+     * A press that is not the call's, through the page; a side is remembered ([CenterUndo]), and the media mode's centre that comes up to
+     * [CenterUndo.UNDO_MS] after a side first takes back that side's step of the focus.
+     */
     private fun pressOfPage(place: Pair<Mode, Control>, nowMs: Long): Press {
         val side = place.second == Control.LEFT || place.second == Control.RIGHT
         if (side) lastSideMs = nowMs
+        val back = centerUndo.stepsBackFor(place, nowMs)
         val press = callFirst(place.second, nowMs) ?: onPage(place.first, place.second)
-        if (side && place.first == Mode.MAP) centerUndo.remember(press.sent, nowMs)
-        return press
+        if (side) centerUndo.remember(place.first, press.sent, nowMs)
+        if (back.isEmpty()) return press
+        return Press(back + press.sent, listOf("media center right after a side: its step of the focus is taken back") + press.lines)
     }
 
     /** A tap through the rider's page. */
@@ -219,10 +234,22 @@ class JoystickMap(
         /** A ride: a second tap on the right came 1.7 s after the reject and moved the focus. */
         const val CALL_QUIET_MS = 3_000L
         const val BOUNCE_MS = 60L
-        const val COMBO_MS = 100L
+        /**
+         * Within this a centre, up or (map mode) down after a side is the same gesture of the dash, not a second tap. It was 100 ms; a ride
+         * had a 0x13 followed by a 0x15 104 ms later, and the dash's ghosts come up to about 150 ms after the side.
+         */
+        const val COMBO_MS = 150L
 
+        /**
+         * The media centre's own [COMBO_MS], as it was: a centre this soon after a side is the side's gesture (the side is the rider's); later, up to
+         * [CenterUndo.UNDO_MS], the side is the ghost (rides: 111 to 188 ms) and the centre takes its step back.
+         */
+        const val MEDIA_CENTER_COMBO_MS = 100L
 
-        /** The controls a side can bring along in the same gesture. */
+        /**
+         * The controls a side can bring along in the same gesture ([comesWithSide] adds down in the map mode: in the media mode 0x07 is the
+         * volume down, which a rider may mean right after a side).
+         */
         private val AFTER_SIDE = setOf(Control.CENTER, Control.UP)
 
         private const val CALL_VOLUME_UP = 0x03
@@ -282,29 +309,52 @@ private fun name(mode: Mode, control: Control) = "${mode.name.lowercase()} ${con
  * The map mode's centre, which opens the dash's media mode by itself. The dash's own press of the centre brings a right 100 to 180 ms before
  * its own code (6 of the 38 presses of the log of 22/10/2026), and that right zoomed the picture. So a centre right after a map side ([UNDO_MS])
  * takes back that side's zoom step (a song skipped or a call answered cannot be taken back, and stays).
+ *
+ * The media mode's centre has the same ghost: a side 111 to 188 ms before it (8 of 267 centres of the rides) moved the focus one item and the
+ * centre then confirmed the wrong one. So a media centre up to [UNDO_MS] after a media side takes back that side's step of the focus
+ * ([stepsBackFor]) before its own action, which still goes.
  */
 internal class CenterUndo {
     private var sideAtMs = Long.MIN_VALUE / 2
+    private var sideMode: Mode? = null
     private var sideSent: List<AaCommand> = emptyList()
 
-    /** The map mode's side that was just pressed ([sent] is what it sent). */
-    fun remember(sent: List<AaCommand>, nowMs: Long) {
+    /** The side of [mode] that was just pressed ([sent] is what it sent). */
+    fun remember(mode: Mode, sent: List<AaCommand>, nowMs: Long) {
         sideAtMs = nowMs
+        sideMode = mode
         sideSent = sent
     }
 
-    /** What the press of the map's centre at [nowMs] gives back, or null when it is no centre right after a side. */
+    private fun forget() {
+        sideAtMs = Long.MIN_VALUE / 2
+        sideMode = null
+        sideSent = emptyList()
+    }
+
+    /**
+     * The wheel steps that put the focus back where a media side left it, to go before the press of the media's centre at [nowMs]; empty
+     * when it is no media centre right after a media side, or that side moved nothing (a call, a song, a key). Once per side.
+     */
+    fun stepsBackFor(place: Pair<Mode, Control>, nowMs: Long): List<AaCommand> {
+        if (place != Mode.MEDIA to Control.CENTER || sideMode != Mode.MEDIA || nowMs - sideAtMs > UNDO_MS) return emptyList()
+        val back = sideSent.filterIsInstance<AaCommand.Scroll>().map { AaCommand.Scroll(-it.delta) }
+        forget()
+        return back
+    }
+
+    /** What the press of the map's centre at [nowMs] gives back, or null when it is no centre right after a map side. */
     fun pressFor(place: Pair<Mode, Control>?, nowMs: Long): JoystickMap.Press? {
         if (place != Mode.MAP to Control.CENTER || nowMs - sideAtMs > UNDO_MS) return null
+        if (sideMode != Mode.MAP) return null
         val undo = sideSent.filterIsInstance<AaCommand.PanelZoom>().map { AaCommand.PanelZoomUndo }
-        sideAtMs = Long.MIN_VALUE / 2
-        sideSent = emptyList()
+        forget()
         val line = if (undo.isEmpty()) "map center right after a side: the side stays" else "map center right after a side: its zoom step is taken back"
         return JoystickMap.Press(undo, listOf(line))
     }
 
     companion object {
-        /** How long after a map mode side a press of the centre still brings it back. */
+        /** How long after a side a press of the centre still brings it back, in the map mode and in the media mode. */
         const val UNDO_MS = 250L
     }
 }
