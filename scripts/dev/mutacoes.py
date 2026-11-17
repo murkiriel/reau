@@ -3452,6 +3452,26 @@ MUTATIONS = [
      "sayNoFix(waiting = gpsAsked && gps == null)", "sayNoFix(waiting = gps == null)", ["ProfileSpeedNoFixTest"]),
     ("GPS da velocidade: a chave desligada não esquece a linha de sem fix", MAIN + "stream/ProfileSpeed.kt",
      "            onGps = null\n            noFixSaid = false\n", "            onGps = null\n", ["ProfileSpeedNoFixTest"]),
+    # ── Leva 11 (15/11/2026): a E/S de disco fora da trava do registro, medida em milissegundos ──
+    ("Leva 11 15/11 Trava do registro: o corte do arquivo novo da limpeza do dono roda com a trava", MAIN + "data/RideDiagnostics.kt",
+     "                if (fresh != null) space = tidyNow(d, fresh)\n", "                if (fresh != null) space = synchronized(lock) { tidyNow(d, fresh) }\n",
+     ["RideDiagnosticsLatencyTest"]),
+    ("Leva 11 15/11 Trava do registro: a arrumação da abertura apaga por idade com a trava", MAIN + "data/RideDiagnostics.kt",
+     "            val age = trimByAge(d, keep)\n", "            val age = synchronized(lock) { trimByAge(d, keep) }\n",
+     ["RideDiagnosticsLatencyTest"]),
+    ("Leva 11 15/11 Trava do registro: o arquivo que a limpeza do dono abriu pode ser apagado para dar lugar", MAIN + "data/RideDiagnostics.kt",
+     "        val keep = setOfNotNull(f.name, OwnLogcat.currentFile()?.name)\n", "        val keep = setOfNotNull(OwnLogcat.currentFile()?.name)\n",
+     ["RideDiagnosticsLatencyTest"]),
+    ("Leva 11 15/11 Trava do registro: a limpeza do dono não toma a trava das operações que trocam o arquivo", MAIN + "data/RideDiagnostics.kt",
+     "    fun clearAndReopen(cleanup: (File) -> String): String? {\n        synchronized(maintenance) {\n",
+     "    fun clearAndReopen(cleanup: (File) -> String): String? {\n        synchronized(Any()) {\n",
+     ["RideDiagnosticsLatencyTest"]),
+    ("Leva 11 15/11 Trava do registro: o arquivo novo da limpeza do dono não diz o que o espaço tirou", MAIN + "data/RideDiagnostics.kt",
+     "                    spaceNote = space?.first\n", "",
+     ["RideDiagnosticsLatencyTest"]),
+    ("Leva 11 15/11 Trava do registro: o arquivo novo da limpeza do dono não diz o que a idade tirou", MAIN + "data/RideDiagnostics.kt",
+     "                    ageNote = space?.second\n", "",
+     ["RideDiagnosticsLatencyTest"]),
 ]
 
 
