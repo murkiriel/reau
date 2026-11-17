@@ -3472,6 +3472,13 @@ MUTATIONS = [
     ("Leva 11 15/11 Trava do registro: o arquivo novo da limpeza do dono não diz o que a idade tirou", MAIN + "data/RideDiagnostics.kt",
      "                    ageNote = space?.second\n", "",
      ["RideDiagnosticsLatencyTest"]),
+    # Leva 12 (15/11/2026): A-20, a escuta do avistamento do painel é de quem a pegou.
+    ("A-20 Avistamento: a soltura tardia da instância velha apaga a escuta da nova", MAIN + "dash/DashSighting.kt",
+     "        synchronized(lock) { if (current === mine) current = null }", "        synchronized(lock) { current = null }", ["DashSightingOwnerTest"]),
+    ("A-20 Avistamento: o serviço solta a escuta com um apagar simples", MAIN + "service/LiveSides.kt",
+     '"sighting" to { com.reau.app.dash.DashSighting.release(sightingListener) },', '"sighting" to { com.reau.app.dash.DashSighting.listener = null },', ["DashSightingOwnerTest"]),
+    ("A-20 Avistamento: o serviço pega a escuta com uma função que não é a que solta", MAIN + "service/LiveSides.kt",
+     "DashSighting.listener = sightingListener\n", "DashSighting.listener = { report(ProjectionEvent.DashSighted) }\n", ["DashSightingOwnerTest"]),
 ]
 
 

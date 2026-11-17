@@ -321,6 +321,8 @@ internal class LiveSides(
         // The tolerant silence watch (an experiment) is read at each turn of the watch, from the live settings.
         tolerantRx = { tuned?.experimentTolerantRx == true },
     )
+    // The listener of the dash's sighting is this one's own, so the release gives back only what this instance took (a next one may hold it by then).
+    private val sightingListener: () -> Unit = { report(ProjectionEvent.DashSighted) }
     private val linkUp = setup.linkUp(context, scope).also { up ->
         up.onBikeNetwork {
             // The dash's Wi-Fi back as another Android network: the session's sockets are bound to the one that went, so the session is lost
@@ -328,7 +330,7 @@ internal class LiveSides(
             session.networkNow(up.bikeNetwork)
             report(ProjectionEvent.BikeNetworkAvailable)
         }
-        com.reau.app.dash.DashSighting.listener = { report(ProjectionEvent.DashSighted) }
+        com.reau.app.dash.DashSighting.listener = sightingListener
         up.onFirstJoin { report(ProjectionEvent.DashFirstJoin(it)) }
         session.onBindResult = { network, refused -> up.onBindResult?.invoke(network, refused) }
         // The dash spoke again after a silence the tolerant watch noted: the keyframes sent meanwhile may have been missed, so one is asked.
@@ -781,7 +783,7 @@ internal class LiveSides(
                 "receiver" to { receiver?.stop() },
                 "dash session" to { session.disconnect() },
                 "link up" to { linkUp.stop() },
-                "sighting" to { com.reau.app.dash.DashSighting.listener = null },
+                "sighting" to { com.reau.app.dash.DashSighting.release(sightingListener) },
                 "image gap" to { com.reau.app.dash.ImageGap.clock.forget() },
                 "scope" to { scope.cancel() },
                 "compositor" to { compositor.release() },
