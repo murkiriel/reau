@@ -11,6 +11,25 @@ REau está bajo la **GNU Affero General Public License v3.0** ([LICENSE](LICENSE
 misma licencia. Si un cambio trae código, datos o hechos de otro proyecto, di de dónde vienen, para que el
 [NOTICE](NOTICE) y la pantalla Créditos (`app/src/main/java/com/reau/app/settings/Credits.kt`) puedan nombrarlo con su licencia.
 
+## Qué se puede y qué no se puede traer
+
+Una contribución es una idea, o código bajo la AGPL-3.0 o una licencia compatible con ella (Apache-2.0, MIT, BSD y
+similares), con su origen citado: el proyecto, el archivo, el commit y la licencia, en el pull request y en la
+cabecera del archivo copiado. Nunca pegues en un issue, un pull request, una prueba, un comentario o un archivo:
+
+- nada de la app oficial de Royal Enfield: código descompilado o desensamblado, sus imágenes, iconos, diseños, fuentes,
+  textos y traducciones, sus claves, certificados y tokens, su firmware o archivos de actualización, ni capturas de pantalla suyas;
+- código, texto o imágenes de un proyecto sin licencia (sin licencia significa todos los derechos reservados) o cuya
+  licencia no es compatible con la AGPL-3.0 (por ejemplo una licencia no comercial, o GPL-2.0-only);
+- nada que venga de una filtración, de un repositorio privado o de una fuente que pide que no se copie.
+
+Lo que se acepta de esas fuentes es la idea, dicha con tus palabras y escrita como código tuyo, y hechos que tú mismo
+observaste en tu propio panel (qué byte hace qué, y en qué firmware). Un pull request que traiga material de los dos
+primeros tipos se cierra, y el material sale de la historia. Si dudas, pregunta en un issue antes de enviar código. Lo que
+hace el mantenedor cuando un titular de derechos pide retirar algo está en
+[TAKEDOWN_RESPONSE.es.md](TAKEDOWN_RESPONSE.es.md) (en inglés: [TAKEDOWN_RESPONSE.md](TAKEDOWN_RESPONSE.md); en portugués:
+[TAKEDOWN_RESPONSE.pt-br.md](TAKEDOWN_RESPONSE.pt-br.md)).
+
 ## Ejecutar las pruebas
 
 Con JDK 21 y el Android SDK instalados, desde esta carpeta:

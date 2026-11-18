@@ -178,6 +178,12 @@
     <string name="joystick_action_zoom_out">Afastar</string>
     <string name="joystick_action_open_navigation">Abrir a navegação (Waze ou Maps)</string>
     <string name="joystick_action_cycle_apps">Trocar de app (os 3 primeiros do menu de apps)</string>
+    <string name="joystick_action_open_music">Abrir o app de música (o último usado)</string>
+    <string name="joystick_action_open_phone">Abrir o telefone</string>
+    <string name="joystick_action_focus_up">Foco para cima</string>
+    <string name="joystick_action_focus_down">Foco para baixo</string>
+    <string name="joystick_action_focus_left">Foco para a esquerda</string>
+    <string name="joystick_action_focus_right">Foco para a direita</string>
     <string name="joystick_ghost_side">Este lado às vezes dispara junto do centro.</string>
     <!-- The instrument cluster display experiment -->
     <!-- The dash's bubble with no route, and the joystick in its map mode -->
@@ -521,6 +527,24 @@
     <string name="info_ring_seconds_title">Tempo de cada dado</string>
     <string name="info_ring_seconds_sub">De 5 a 30 segundos</string>
     <string name="info_ring_seconds_value">%1$d s</string>
+    <string name="info_title_title">Informações no título (no lugar do anel)</string>
+    <string name="info_title_sub">O anel some do vídeo; as informações vão no título do painel, alternando com a rua</string>
+    <string name="info_title_info">Escreve os dados do anel de informações (chuva, vento, trovoada e o que você marcar abaixo) no título da faixa dourada do painel, no lugar do anel, que deixa de ser desenhado no vídeo. O título alterna entre a rua (ou REau, sem rota) e os dados, no tempo do anel para cada um; a menos de 300 m da manobra, mostra só a rua. Bateria, sinal, GPS e céu ficam de fora, porque o painel já mostra.</string>
+    <string name="info_title_replaces_ring">Informações no título ligado: o anel não aparece no vídeo. Bateria, sinal, GPS e céu não entram no título.</string>
+    <string name="title_rain_now">Chovendo agora</string>
+    <string name="title_rain_until">Chuva até %1$s min</string>
+    <string name="title_rain_soon">Chuva em %1$s min</string>
+    <string name="title_thunder_now">Trovoada</string>
+    <string name="title_thunder_soon">Trovoada em %1$s min</string>
+    <string name="title_wind">Vento %1$s %2$s</string>
+    <string name="title_temps">Min %1$s° Max %2$s°</string>
+    <string name="title_temps_now">Agora %1$s°</string>
+    <string name="title_uv_high">UV %1$s alto</string>
+    <string name="title_uv_very_high">UV %1$s muito alto</string>
+    <string name="title_uv_extreme">UV %1$s extremo</string>
+    <string name="title_sunset">Pôr do sol %1$s</string>
+    <string name="title_sunrise">Nascer do sol %1$s</string>
+    <string name="title_air">Ar AQI %1$s</string>
     <string name="ring_in">em</string>
     <string name="ring_minutes">min</string>
     <string name="ring_until">até</string>
@@ -928,6 +952,12 @@
     <string name="echo_zoom_in">Aproximar</string>
     <string name="echo_zoom_out">Afastar</string>
     <string name="echo_cycle_apps">Trocar de app</string>
+    <string name="echo_open_music">Abrir música</string>
+    <string name="echo_open_phone">Abrir telefone</string>
+    <string name="echo_focus_up">Foco acima</string>
+    <string name="echo_focus_down">Foco abaixo</string>
+    <string name="echo_focus_left">Foco à esquerda</string>
+    <string name="echo_focus_right">Foco à direita</string>
     <string name="echo_open_navigation">Abrir navegação</string>
     <string name="echo_info_ring">Anel de info</string>
     <string name="echo_answer_call">Atender</string>

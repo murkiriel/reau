@@ -100,6 +100,8 @@ internal class LiveSides(
         val focusIdleMs: Long = com.reau.app.aa.FocusClearer.IDLE_MS,
         /** What the dash's info ring says now (null: no ring); asked every second, behind the rider's switch. */
         val infoRing: (com.reau.app.weather.InfoRingRotation) -> com.reau.app.weather.RingFrame? = { null },
+        /** What the title of the dash's gold band can say in place of the ring ("Informações no título"), from the settings now; null: nothing. */
+        val infoTitle: (REauSettings) -> com.reau.app.dash.TitleSource? = { null },
         /** The phone's own state for the dash's heartbeat (behind the switch "Mandar o estado do celular ao painel"). */
         val phoneStatus: () -> com.reau.app.dash.protocol.DashCommands.PhoneStatus? = { null },
         /** The weather for the dash's heartbeat (behind "Clima no painel"), and the refresh of it; none in a test. */
@@ -203,6 +205,7 @@ internal class LiveSides(
                         val now = SettingsStore.open(context).load()
                         InfoRingFeed.frame(context, rotation, now.useLocation, night = isNightNow(context, now), options = now.infoRingOptions)
                     },
+                    infoTitle = { now -> InfoRingFeed.titleSource(context, now.useLocation, now.infoRingOptions) },
                     refreshWeather = { com.reau.app.weather.WeatherKeeper.refreshIfStale(context, respectBackoff = true) },
                     readings = com.reau.app.dash.DashReadings,
                     ringStep = PrefsRingStep(context),
@@ -591,9 +594,11 @@ internal class LiveSides(
                     inPlace = place
                     compositor.setInfoRingPlace(place)
                 }
-                val frame = ring.step(started && InfoRingFeed.shown(tuned?.infoRing == true, session.infoVisible)) { setup.infoRing(rotation) }
+                // With "Informações no título" the pages are in the dash's title and the ring is not drawn (one or the other).
+                val ringWanted = InfoRingFeed.ringDrawn(tuned?.infoRing == true, tuned?.infoTitle == true)
+                val frame = ring.step(started && InfoRingFeed.shown(ringWanted, session.infoVisible)) { setup.infoRing(rotation) }
                 if (posts.changed(frame)) compositor.setInfoRing(frame)
-                delay(InfoRingFeed.pollMs(tuned?.infoRing == true))
+                delay(InfoRingFeed.pollMs(ringWanted))
             }
         }
         // The app menu's own fit, as Android Auto changes screen (the first value is the screen now)
@@ -616,6 +621,8 @@ internal class LiveSides(
             session.maneuverCircleEnabled = setup.settings.maneuverRing
             session.ringCycleOn = setup.settings.infoRing
             session.infoInPlace = setup.settings.infoRingInPlace
+            session.infoTitle.source = { tuned?.let(setup.infoTitle) }
+            session.infoTitle.enabled = setup.settings.infoRing && setup.settings.infoTitle
             session.ringStepMemory = setup.ringStep
             session.ringStep = setup.ringStep?.step ?: 0
             session.ringFollowsScreen(com.reau.app.aa.AaScreens.watch.screen.value)
@@ -1054,6 +1061,7 @@ internal class LiveSides(
                 session.maneuverCircleEnabled = settings.maneuverRing
                 session.ringCycleOn = settings.infoRing
                 session.infoInPlace = settings.infoRingInPlace
+                session.infoTitle.enabled = settings.infoRing && settings.infoTitle
                 session.ringFollowsScreen(com.reau.app.aa.AaScreens.watch.screen.value)
             }
             if (LiveTuning.Step.DASH_EXTRAS in steps && settings.weatherWanted && !before.weatherWanted) {

@@ -178,6 +178,12 @@
     <string name="joystick_action_zoom_out">Zoom out</string>
     <string name="joystick_action_open_navigation">Open navigation (Waze or Maps)</string>
     <string name="joystick_action_cycle_apps">Switch app (the first 3 of the apps menu)</string>
+    <string name="joystick_action_open_music">Open the music app (the last one used)</string>
+    <string name="joystick_action_open_phone">Open the phone</string>
+    <string name="joystick_action_focus_up">Focus up</string>
+    <string name="joystick_action_focus_down">Focus down</string>
+    <string name="joystick_action_focus_left">Focus left</string>
+    <string name="joystick_action_focus_right">Focus right</string>
     <string name="joystick_ghost_side">This side sometimes fires together with the center.</string>
     <!-- The instrument cluster display experiment -->
     <!-- The dash's bubble with no route, and the joystick in its map mode -->
@@ -533,6 +539,24 @@
     <string name="info_ring_seconds_title">Time on each data</string>
     <string name="info_ring_seconds_sub">From 5 to 30 seconds</string>
     <string name="info_ring_seconds_value">%1$d s</string>
+    <string name="info_title_title">Info in the title (instead of the ring)</string>
+    <string name="info_title_sub">The ring leaves the video; its data goes in the dash’s title, turning with the street</string>
+    <string name="info_title_info">Writes the info ring’s data (rain, wind, storms and whatever you tick below) in the title of the dash’s gold band instead of the ring, which is no longer drawn on the video. The title turns between the street (or REau with no route) and the data, for the ring’s time on each; within 300 m of the maneuver it shows the street only. Battery, signal, GPS and the sky stay out, as the dash already shows them.</string>
+    <string name="info_title_replaces_ring">Info in the title is on: the ring is not drawn on the video. Battery, signal, GPS and the sky do not go in the title.</string>
+    <string name="title_rain_now">Raining now</string>
+    <string name="title_rain_until">Rain for %1$s min</string>
+    <string name="title_rain_soon">Rain in %1$s min</string>
+    <string name="title_thunder_now">Thunder</string>
+    <string name="title_thunder_soon">Thunder in %1$s min</string>
+    <string name="title_wind">Wind %1$s %2$s</string>
+    <string name="title_temps">Min %1$s° Max %2$s°</string>
+    <string name="title_temps_now">Now %1$s°</string>
+    <string name="title_uv_high">UV %1$s high</string>
+    <string name="title_uv_very_high">UV %1$s very high</string>
+    <string name="title_uv_extreme">UV %1$s extreme</string>
+    <string name="title_sunset">Sunset %1$s</string>
+    <string name="title_sunrise">Sunrise %1$s</string>
+    <string name="title_air">Air AQI %1$s</string>
     <string name="ring_in">in</string>
     <string name="ring_minutes">min</string>
     <string name="ring_until">until</string>
@@ -939,6 +963,12 @@
     <string name="echo_zoom_in">Zoom in</string>
     <string name="echo_zoom_out">Zoom out</string>
     <string name="echo_cycle_apps">Switch app</string>
+    <string name="echo_open_music">Open music</string>
+    <string name="echo_open_phone">Open phone</string>
+    <string name="echo_focus_up">Focus up</string>
+    <string name="echo_focus_down">Focus down</string>
+    <string name="echo_focus_left">Focus left</string>
+    <string name="echo_focus_right">Focus right</string>
     <string name="echo_open_navigation">Open navigation</string>
     <string name="echo_info_ring">Info ring</string>
     <string name="echo_answer_call">Answer</string>

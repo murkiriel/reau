@@ -136,8 +136,9 @@ class ProjectionService : Service() {
         internal fun foregroundNeeds(settings: REauSettings, recordAudioGranted: Boolean, fineLocationGranted: Boolean) = ForegroundNeeds(
             microphone = settings.gemini && recordAudioGranted,
             location = fineLocationGranted,
+            // The title says no GPS card (the dash shows its own), so the ring in words listens to no GPS.
             gps = settings.infoRing && settings.useLocation &&
-                com.reau.app.weather.RingData.shown(settings.infoRingData, com.reau.app.weather.RingData.GPS) && fineLocationGranted,
+                com.reau.app.weather.RingData.shown(settings.infoRingData, com.reau.app.weather.RingData.GPS) && fineLocationGranted && !settings.infoTitle,
         )
 
         /**

@@ -238,6 +238,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             infoRingCarousel = prefs.getBoolean(KEY_INFO_RING_CAROUSEL, defaults.infoRingCarousel),
             infoRingSeconds = prefs.getInt(KEY_INFO_RING_SECONDS, defaults.infoRingSeconds),
             infoRingInPlace = prefs.getBoolean(KEY_INFO_RING_IN_PLACE, defaults.infoRingInPlace),
+            infoTitle = prefs.getBoolean(KEY_INFO_TITLE, defaults.infoTitle),
             webView = prefs.getBoolean(KEY_WEB_VIEW, defaults.webView),
             webTouch = prefs.getBoolean(KEY_WEB_TOUCH, defaults.webTouch),
             webAudio = WebAudioMode.entries.firstOrNull { it.name == prefs.getString(KEY_WEB_AUDIO, null) } ?: defaults.webAudio,
@@ -355,6 +356,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             putBoolean(KEY_INFO_RING_CAROUSEL, s.infoRingCarousel)
             putInt(KEY_INFO_RING_SECONDS, s.infoRingSeconds)
             putBoolean(KEY_INFO_RING_IN_PLACE, s.infoRingInPlace)
+            putBoolean(KEY_INFO_TITLE, s.infoTitle)
             putBoolean(KEY_WEB_VIEW, s.webView)
             putBoolean(KEY_WEB_TOUCH, s.webTouch)
             putString(KEY_WEB_AUDIO, s.webAudio.name)
@@ -481,6 +483,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val KEY_INFO_RING_CAROUSEL = "info_ring_carousel"
         private const val KEY_INFO_RING_SECONDS = "info_ring_seconds"
         private const val KEY_INFO_RING_IN_PLACE = "info_ring_in_place"
+        private const val KEY_INFO_TITLE = "infoTitle"
         private const val KEY_WEB_VIEW = "web_view"
         private const val KEY_WEB_TOUCH = "web_touch"
         private const val KEY_WEB_AUDIO = "web_audio"

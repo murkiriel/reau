@@ -583,10 +583,11 @@ class DashSession(
      */
     private fun liveRouteCard(projectionOn: Boolean): ByteArray {
         val n = shownNav()
-        // For a moment after a joystick tap the title is the short name of its action ([echo]), guiding or not.
-        val echoed = echo.current()
+        // For a moment after a joystick tap the title is the short name of its action ([echo]), guiding or not. After it, with "Informações no
+        // título", the info ring's page in its turn ([infoTitle], never near the maneuver); at the street's turn, or with the option off, the rest.
+        val echoed = echo.current() ?: infoTitle.page(n?.let { DashCommands.navMeters(it.primaryDist, it.primaryUnit) }, titlePagesShown)
         return if (n != null) DashCommands.routeCard(
-            // The action's name for a moment, else the street while guiding, else REau.
+            // The action's name or the page for a moment, else the street while guiding, else REau.
             echoed ?: n.road.ifBlank { destinationName }, projectionOn,
             maneuver = ringGlyph(n),
             primaryUnit = n.primaryUnit,
@@ -600,6 +601,15 @@ class DashSession(
         )
         else DashCommands.idleRouteCard(if (ringOn) idleCard else DashIdleCard.HIDDEN, echoed ?: destinationName, projectionOn, clockHHMM())
     }
+
+    /**
+     * The info ring's pages in the title of the card ("Informações no título", [InfoTitle]) in the place of the ring on the video. Internal so a test
+     * puts in a clock and a log of its own; whoever has the weather sets its source and its switch.
+     */
+    @Volatile internal var infoTitle = InfoTitle(log = { com.reau.app.data.RideDiagnostics.log("dash", it) })
+
+    /** The pages are in the title unless the rider hid the info with the joystick's button (the same switch as the ring's: [RingCycle]). */
+    private val titlePagesShown: Boolean get() = RingCycle.info(ringStep)
 
     /**
      * The echo of the joystick tap in the title of the card ([ActionEcho]): its name for [ActionEcho.SHOW_MS], and when that runs out the title

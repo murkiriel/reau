@@ -210,6 +210,11 @@ data class REauSettings(
     /** With the info ring: it sits in the place of the dash's maneuver ring (on the left) instead of on the right; the two take turns ([com.reau.app.dash.RingCycle]). */
     val infoRingInPlace: Boolean = false,
     /**
+     * With the info ring on (P31 Título, 18/11/2026): its pages are written in the title of the dash's gold band, turning with the street (or
+     * "REau"), and the ring is not drawn on the video: one or the other. Off by default, so the ring is what it was.
+     */
+    val infoTitle: Boolean = false,
+    /**
      * A server on the local network that shows Android Auto in a
      * browser ([com.reau.app.web.WebBridge]). Off by default, and only up while the projection runs.
      */

@@ -94,6 +94,11 @@ data class RingPage(
     val line: List<RingText>,
     /** The numbers a card of the phone is drawn from (the battery, the link, the GPS); null for the weather's pages. */
     val detail: RingDetail? = null,
+    /**
+     * What the words of the dash's title ([InfoRingTitle]) need beyond [line]: the clock time of the sun's rise or set; the day's high and
+     * low. Empty for the other pages, which the title says from their line.
+     */
+    val extra: List<String> = emptyList(),
 )
 
 /** The numbers a card of the phone says, besides its words. */
@@ -334,8 +339,8 @@ object InfoRing {
         return forecast.hourly.firstOrNull { it.timeIso == hour }?.uvIndex
     }
 
-    /** The next sunrise or sunset within [SUN_WINDOW_MIN]: its icon and the minutes; null when none is that near. */
-    private fun sun(forecast: PointForecast, now: LocalDateTime): Pair<RingIcon, Int>? {
+    /** The next sunrise or sunset within [SUN_WINDOW_MIN]: its icon, the minutes and the place's clock time ("18:12"); null when none is that near. */
+    private fun sun(forecast: PointForecast, now: LocalDateTime): Triple<RingIcon, Int, String>? {
         val events = forecast.daily.flatMap { d ->
             listOfNotNull(
                 d.sunriseIso?.let(::parse)?.let { it to RingIcon.SUNRISE },
@@ -344,8 +349,11 @@ object InfoRing {
         }
         val next = events.filter { it.first.isAfter(now) }.minByOrNull { it.first } ?: return null
         val minutes = wholeMinutes(minutesUntil(now, next.first))
-        return (next.second to minutes).takeIf { minutes <= SUN_WINDOW_MIN }
+        return Triple(next.second, minutes, clockOf(next.first)).takeIf { minutes <= SUN_WINDOW_MIN }
     }
+
+    /** A time of the place's day as two digits, a colon and two digits (24 hours: the dash's own clock is). */
+    private fun clockOf(at: LocalDateTime): String = "%02d:%02d".format(java.util.Locale.ROOT, at.hour, at.minute)
 
     private fun skyIcon(current: CurrentWeather): RingIcon? {
         val night = current.isDay == false
@@ -513,8 +521,8 @@ object InfoRing {
             pages += RingPage(RingKind.RAIN_NOW, 2, rainIcon(rain.quarter, current, raining = true), RingTone.RAIN, line)
         }
         if (windLevel == RingTone.ATTENTION) pages += windPage(RingKind.WIND_ATTENTION, 2)
-        sun(forecast, now)?.let { (icon, minutes) ->
-            pages += RingPage(RingKind.SUN, 2, icon, RingTone.NONE, minutesText(minutes, true, words, words.inWord))
+        sun(forecast, now)?.let { (icon, minutes, clock) ->
+            pages += RingPage(RingKind.SUN, 2, icon, RingTone.NONE, minutesText(minutes, true, words, words.inWord), extra = listOf(clock))
         }
         uvNow(forecast, now)?.takeIf { it >= UV_FROM }?.let { uv ->
             pages += RingPage(RingKind.UV, 3, RingIcon.UV, uvTone(uv), listOf(RingText(words.uv, false), RingText(uv.roundToInt().toString(), true)))
@@ -532,9 +540,35 @@ object InfoRing {
         }
         val today = forecast.daily.firstOrNull { it.dateIso == now.toLocalDate().toString() } ?: forecast.daily.firstOrNull()
         val temps = if (today != null) "${units.number(today.tempMaxC)}/${units.number(today.tempMinC)}°" else "${units.number(current.temperatureC)}°"
-        pages += RingPage(RingKind.TEMPS, 4, RingIcon.THERMOMETER, RingTone.NONE, listOf(RingText(temps, true)))
+        val highLow = today?.let { listOf(units.number(it.tempMaxC), units.number(it.tempMinC)) }.orEmpty()
+        pages += RingPage(RingKind.TEMPS, 4, RingIcon.THERMOMETER, RingTone.NONE, listOf(RingText(temps, true)), extra = highLow)
         pages += phonePages(phone, words)
         return pages.sortedBy { it.level }
+    }
+
+    /** What the forecast and the phone give rise to now: the time at the place and the age of the forecast (null where it is not usable), and every page. */
+    private class Look(val now: LocalDateTime?, val ageMs: Long?, val pages: List<RingPage>)
+
+    @Suppress("LongParameterList") // the clocks, the place, the phone and the words, all given
+    private fun look(
+        snapshot: WeatherKeeper.Snapshot?,
+        wallNowMs: Long,
+        monoNowMs: Long,
+        place: DayNight.Place?,
+        units: WeatherUnits,
+        words: RingWords,
+        phone: PhoneReadings,
+    ): Look {
+        val age = snapshot?.ageMs(wallNowMs, monoNowMs)
+        val weatherUsable = snapshot != null && age != null && age <= WeatherKeeper.USABLE_MS
+        val now = if (weatherUsable) localNow(snapshot!!, wallNowMs, monoNowMs) else null
+        // The phone's own cards need no forecast: with none usable (no location, no network, one too old) they still say what they know.
+        val all = if (now != null && snapshot != null) {
+            pages(snapshot.forecast, snapshot.air, now, hasRealQuarters(place), units, words, phone)
+        } else {
+            phonePages(phone, words)
+        }
+        return Look(now, age, all)
     }
 
     /**
@@ -555,19 +589,29 @@ object InfoRing {
         options: RingOptions = RingOptions(),
         phone: PhoneReadings = PhoneReadings(),
     ): RingFrame? {
-        val age = snapshot?.ageMs(wallNowMs, monoNowMs)
-        val weatherUsable = snapshot != null && age != null && age <= WeatherKeeper.USABLE_MS
-        val now = if (weatherUsable) localNow(snapshot!!, wallNowMs, monoNowMs) else null
-        // The phone's own cards need no forecast: with none usable (no location, no network, one too old) they still say what they know.
-        val all = if (now != null && snapshot != null) {
-            pages(snapshot.forecast, snapshot.air, now, hasRealQuarters(place), units, words, phone)
-        } else {
-            phonePages(phone, words)
-        }
-        val pages = all.filter { RingData.shown(options.data, RingData.of(it.kind)) }
+        val look = look(snapshot, wallNowMs, monoNowMs, place, units, words, phone)
+        val pages = look.pages.filter { RingData.shown(options.data, RingData.of(it.kind)) }
         val page = rotation.pick(pages, atMs, options.carousel, options.periodMs) ?: return null
-        return RingFrame(page, stale = now != null && age != null && age > STALE_MS, night = night)
+        return RingFrame(page, stale = look.now != null && look.ageMs != null && look.ageMs > STALE_MS, night = night)
     }
+
+    /**
+     * The pages the dash's title can say now ([InfoRingTitle]): the very pages the ring would have, chosen by the same data ticks
+     * ([RingOptions.data]) and in the same order of urgency, less the ones that are not words: the phone's (the dash shows its battery, its
+     * signal and its GPS) and the sky now. The phone is not even asked, so its GPS is not listened to for a title.
+     */
+    @Suppress("LongParameterList") // the clocks, the place and the rider's choices, all given
+    fun titlePages(
+        snapshot: WeatherKeeper.Snapshot?,
+        wallNowMs: Long,
+        monoNowMs: Long,
+        place: DayNight.Place?,
+        units: WeatherUnits,
+        words: RingWords,
+        options: RingOptions = RingOptions(),
+    ): List<RingPage> =
+        look(snapshot, wallNowMs, monoNowMs, place, units, words, PhoneReadings()).pages
+            .filter { it.kind in InfoRingTitle.KINDS && RingData.shown(options.data, RingData.of(it.kind)) }
 }
 
 /**
@@ -579,20 +623,28 @@ class InfoRingRotation {
     private var kinds: List<RingKind> = emptyList()
     private var sinceMs = 0L
 
-    fun pick(pages: List<RingPage>, nowMs: Long, carousel: Boolean = true, periodMs: Long = RingOptions().periodMs): RingPage? {
+    /** The pages that take their turns now and how long ago (ms) the set of them last changed: the turns count from there. */
+    class Turn(val pages: List<RingPage>, val elapsedMs: Long)
+
+    /** Which pages take their turns now (the level 1 ones alone, if any; with the carousel off the most urgent one only), or null for none. */
+    fun turn(pages: List<RingPage>, nowMs: Long, carousel: Boolean = true): Turn? {
         if (pages.isEmpty()) {
             kinds = emptyList()
             return null
         }
         val danger = pages.filter { it.level == 1 }
         val shown = (danger.ifEmpty { pages }).let { if (carousel) it else it.take(1) }
-        val period = periodMs.coerceAtLeast(1L)
         val now = shown.map { it.kind }
         if (now != kinds) {
             kinds = now
             sinceMs = nowMs
         }
-        val index = (((nowMs - sinceMs).coerceAtLeast(0L) / period) % shown.size).toInt()
-        return shown[index]
+        return Turn(shown, (nowMs - sinceMs).coerceAtLeast(0L))
+    }
+
+    fun pick(pages: List<RingPage>, nowMs: Long, carousel: Boolean = true, periodMs: Long = RingOptions().periodMs): RingPage? {
+        val turn = turn(pages, nowMs, carousel) ?: return null
+        val period = periodMs.coerceAtLeast(1L)
+        return turn.pages[((turn.elapsedMs / period) % turn.pages.size).toInt()]
     }
 }

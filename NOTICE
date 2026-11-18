@@ -229,9 +229,15 @@ NorthStar (Apache License 2.0)
   Copyright 2026 Aditya Dasika. https://github.com/adityadasika21/NorthStar
   An implementation of the dash protocol that builds on better-dash (below, which
   is the older of the two) and on which EstrelaAustral was built. Its repository
-  is archived and its source was removed on 2026-07-08, so the license text no
-  longer shows there. It reaches REau through the EstrelaAustral files listed
-  above, which carry the same Apache-2.0 notice.
+  is archived and its source was removed on 2026-07-08 (commit f33f183, by its
+  author), so the license text no longer shows there. It still shows, with the
+  project's own NOTICE, in commit a3dd019 (2026-06-23, Aditya Dasika, "adopt
+  Apache-2.0, add NOTICE"; before it the project was under the MIT license) and in
+  the last state before the removal, commit 478d3d3 (2026-07-06, "save"). Both
+  are in forks made before the removal, for example NaRaK-AK47/NorthStar (branch
+  pre-removal), where they were checked on 2026-11-18. Both licenses are
+  permissive and combine with the AGPL-3.0. It reaches REau through the
+  EstrelaAustral files listed above, which carry the same Apache-2.0 notice.
 
 better-dash (Apache License 2.0)
   Copyright norbertFeron. https://github.com/OpenMotoDash/better-dash (the
@@ -270,6 +276,9 @@ TripperDashPlusPlus (PolyForm Noncommercial License 1.0.0): dash maneuver glyph 
 recon-dash (GNU Affero General Public License v3.0)
   https://github.com/MinotaurG/recon-dash (MinotaurG is the owner's name on
   GitHub; the repository carries no copyright line besides the license text).
+  That address no longer opens (checked 2026-11-18). The same project, with its
+  commits signed MinotaurG (84, the last one 625bd14 of 2026-09-26), is now at
+  https://github.com/dubey44/recon-dash, still under the AGPL-3.0.
   No file of REau was found to be copied from it: compared with it, every line
   of REau's dash/ that it shares is also in NorthStar's code, which is where it
   comes from (checked 2026-11-03). Two things were taken from it, through the
@@ -292,22 +301,39 @@ open-dash (Apache License 2.0)
   Copyright 2026 Subtle Sayak and contributors. https://github.com/subtlesayak/open-dash
   The project says it descends from NorthStar and better-dash (both above). It
   comes to REau through the EstrelaAustral files above, from versions published
-  before the project's source baseline of 2026-09-21, which no longer carries the
-  dash pairing, authentication, projection and streaming code (what could be
-  checked in 2026-11-03 is in forks that kept that code, with the same NOTICE).
-  The fork this notice used to cite (kapiljhajhria/open-dash) is no longer online.
-  Two parts of REau are adapted from OpenDash, and are not in NorthStar:
-  - dash/DashWifiManager.kt: the search for the dash network the system has
-    already joined and the reading of its SSID (findAlreadyConnectedDashNetwork,
-    readActiveWifiSsid, the exact-name-or-prefix match and the masking of the SSID
-    in logs), and the fallback that looks for it again, for Android 11 and
-    earlier (startAndroid11SsidPolling). Changed: the rules are functions that
-    take their values, and the requests are checked before the fallback acts.
+  before the project's source baseline of 2026-09-21 (commit a55fa90), which no
+  longer carries the dash pairing, authentication, projection and streaming code,
+  nor the files named below. Where each part can be read today (checked
+  2026-11-18, every copy under the Apache License 2.0, with the project's own
+  LICENSE and NOTICE in the same tree):
+  - dash/DashWifiManager.kt: OpenMotoDash/open-dash, commit 4208ff5 (2026-06-28,
+    author subtlesayak, https://github.com/OpenMotoDash/open-dash), file
+    app/src/main/java/com/example/opendash/dash/DashWifiManager.kt, lines 258 to
+    312. The functions first appear in commit e39712f (2026-06-26, subtlesayak,
+    "Release v1.3.1 currency and ColorOS fixes"). What REau adapted from there:
+    the search for the dash network the system has already joined and the reading
+    of its SSID (findAlreadyConnectedDashNetwork, readActiveWifiSsid, the
+    exact-name-or-prefix match and the masking of the SSID in logs), and the
+    fallback that looks for it again, for Android 11 and earlier
+    (startAndroid11SsidPolling). Changed: the rules are functions that take their
+    values, and the requests are checked before the fallback acts.
   - The exit sequence of the dash: dash/protocol/DashCommands.kt (exitBack,
     exitProjectionIdle, exitSessionBoundary) and its use in dash/DashSession.kt.
-    OpenDash's documentation describes the same three packets and says it took
-    them from NorthStar's capture notes. The packets are bytes of the dash
-    protocol; the functions are REau's own.
+    It is not in subtlesayak/open-dash, neither today nor in its last commits
+    before the cleanup (63c4e3f, 2026-07-09). It first appears in
+    commit a0bc1a0 (2026-07-19, author Kapil Jhajhria, who kept a version of the
+    project under his own name; "add full exit sequence for cleaner
+    disconnection"), which is in
+    Rishabh2134/open-dash (https://github.com/Rishabh2134/open-dash, branch main,
+    a copy of that author's history): DashCommands.kt lines 112 to 114
+    (navExit, sessionBoundary) and DashSession.kt lines 173 to 176. The commit
+    also adds docs/NORTHSTAR-COMPARISON.md, which describes the same three
+    packets and says it took them from NorthStar's capture notes (capture.md of
+    commit 478d3d3 above, the section on the exit of the navigation). The
+    packets are bytes of the dash protocol; the functions are REau's own.
+  The fork this notice used to cite (kapiljhajhria/open-dash, Kapil Jhajhria's own
+  repository) is no longer online (checked 2026-11-18); Rishabh2134/open-dash
+  holds its commits.
   What OpenDash and REau both have of the packet layer, the authentication, the
   sockets, the video and the session comes from NorthStar, not from OpenDash.
   The license and the holder are recorded as the project's own NOTICE states

@@ -33,7 +33,7 @@ class AaScreenDefaultsTest {
         "buttonOverlay" to s.buttonOverlay, "buttonX" to s.buttonX, "buttonY" to s.buttonY, "buttonSize" to s.buttonSize,
         "maneuverRing" to s.maneuverRing,
         "infoRing" to s.infoRing, "infoRingData" to s.infoRingData, "infoRingCarousel" to s.infoRingCarousel,
-        "infoRingSeconds" to s.infoRingSeconds, "infoRingInPlace" to s.infoRingInPlace,
+        "infoRingSeconds" to s.infoRingSeconds, "infoRingInPlace" to s.infoRingInPlace, "infoTitle" to s.infoTitle,
         "dashWeather" to s.dashWeather, "useLocation" to s.useLocation,
     )
 
@@ -49,7 +49,7 @@ class AaScreenDefaultsTest {
         "buttonOverlay" to false, "buttonX" to 170, "buttonY" to 96, "buttonSize" to 32,
         "maneuverRing" to false,
         // infoRingData 7: the rain, the wind and the thunder (12/11/2026; it was every card, 2047)
-        "infoRing" to false, "infoRingData" to 7, "infoRingCarousel" to true, "infoRingSeconds" to 7, "infoRingInPlace" to false,
+        "infoRing" to false, "infoRingData" to 7, "infoRingCarousel" to true, "infoRingSeconds" to 7, "infoRingInPlace" to false, "infoTitle" to false,
         "dashWeather" to true, "useLocation" to true,
     )
 

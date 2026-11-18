@@ -77,7 +77,7 @@ object Credits {
                 Entry("better-dash", "© norbertFeron", APACHE,
                     R.string.credit_role_better_dash, "https://github.com/OpenMotoDash/better-dash"),
                 Entry("recon-dash", "© MinotaurG", AGPL,
-                    R.string.credit_role_recon_dash, "https://github.com/MinotaurG/recon-dash"),
+                    R.string.credit_role_recon_dash, "https://github.com/dubey44/recon-dash"),
                 Entry("open-dash", "© 2026 Subtle Sayak", APACHE,
                     R.string.credit_role_open_dash, "https://github.com/subtlesayak/open-dash", holderText = R.string.credit_holder_open_dash),
             ),

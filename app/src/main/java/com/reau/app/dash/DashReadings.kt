@@ -29,7 +29,8 @@ interface DashReadingSink {
  * The dash says some things several times a second; the screen is told at most once a second ([PUBLISH_EVERY_MS]) and the
  * phone's storage at most every [SAVE_EVERY_MS], or when the session ends ([flush]).
  * Only the codes [DashReport.isShown] accepts are kept (no VIN, no serial), and the storage is
- * [com.reau.app.data.KeystoreBackedPrefs] (encrypted); nothing here ever reaches the ride log or the diagnostics zip.
+ * [com.reau.app.data.KeystoreBackedPrefs] (encrypted); nothing here ever reaches the ride log or the diagnostics zip, but one line: the
+ * firmware's version when it is not the one kept from the last session ([FirmwareChange]).
  */
 object DashReadings : DashReadingSink {
     private val lock = Any()
@@ -39,6 +40,9 @@ object DashReadings : DashReadingSink {
     @Volatile private var store: DashReadingsStore? = null
     private var publishedAtMs = 0L
     private var savedAtMs = 0L
+
+    /** Where the firmware line goes: the ride log's "dash" lines; a test collects them. */
+    @Volatile internal var say: (String) -> Unit = { com.reau.app.data.RideDiagnostics.log("dash", it) }
 
     // The codes whose value changed since the last save: only those are written (each write is an encryption by the Keystore).
     private val dirty = HashSet<String>()
@@ -102,14 +106,18 @@ object DashReadings : DashReadingSink {
         // Only what the screen shows is kept; the dash says the `0C` group alone several times a second.
         if (!DashReport.isShown(key)) return
         val hex = value.joinToString("") { "%02X".format(it) }
+        var firmware: String? = null
         synchronized(lock) {
             val before = map[key]
+            // The answer kept from the last session (or the last answer of this one) is the version seen before.
+            if (key == FIRMWARE_KEY) firmware = FirmwareChange.line(before?.hex, hex)
             map[key] = DashReading(hex, nowMs, (before?.count ?: 0) + 1)
             unpublished = true
             if (before == null || before.hex != hex) dirty += key
             if (nowMs - publishedAtMs >= PUBLISH_EVERY_MS) publish(nowMs)
             if (dirty.isNotEmpty() && nowMs - savedAtMs >= SAVE_EVERY_MS) save(nowMs)
         }
+        firmware?.let(say)
     }
 
     /** The session ended: the screen and the storage get the latest. */
@@ -139,6 +147,8 @@ object DashReadings : DashReadingSink {
         dirty.clear()
     }
 
+    /** The firmware partitions, as the dash answers `0A02` ([DashReport.partitions]). */
+    private const val FIRMWARE_KEY = "0B02"
     private const val PUBLISH_EVERY_MS = 1_000L
     private const val SAVE_EVERY_MS = 5_000L
 }

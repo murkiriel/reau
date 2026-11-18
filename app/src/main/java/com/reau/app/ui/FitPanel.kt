@@ -237,6 +237,13 @@ private fun InfoRingSection(s: REauSettings, change: (REauSettings) -> Unit) {
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            if (s.infoRing && s.infoTitle) {
+                Text(
+                    stringResource(R.string.info_title_replaces_ring),
+                    Modifier.padding(CARD_PADDING).testTag("info_title_replaces_ring"),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             if (s.infoRing) {
                 HorizontalDivider(thickness = 1.dp, color = hairline(0.14f, 0.6f))
                 InfoRingChoices(s, change)
@@ -249,6 +256,13 @@ private fun InfoRingSection(s: REauSettings, change: (REauSettings) -> Unit) {
 @Composable
 private fun InfoRingChoices(s: REauSettings, change: (REauSettings) -> Unit) {
     Column(Modifier.fillMaxWidth().testTag("info_ring_choices")) {
+        // Applied at once (LiveTuning.Step.DASH_EXTRAS): with it on the ring is not drawn and its pages are in the dash's title.
+        SwitchRow(
+            stringResource(R.string.info_title_title), s.infoTitle, { change(s.copy(infoTitle = it)) },
+            "info_title", sub = stringResource(R.string.info_title_sub),
+            info = Info(stringResource(R.string.info_title_title), stringResource(R.string.info_title_info)),
+        )
+        HorizontalDivider(thickness = 1.dp, color = hairline(0.14f, 0.6f))
         SwitchRow(
             stringResource(R.string.info_ring_place_title), s.infoRingInPlace, { change(s.copy(infoRingInPlace = it)) },
             "info_ring_in_place", sub = stringResource(R.string.info_ring_place_sub),

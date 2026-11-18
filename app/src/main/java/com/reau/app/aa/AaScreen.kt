@@ -47,14 +47,23 @@ object AaScreens {
     }
 
     /**
+     * The MEDIA or PHONE key ([what]: "Media" or "Phone") was sent to Android Auto (AaReceiver.sendInput); see [AaScreenWatch.appSent].
+     */
+    fun appSent(what: String, nowMs: Long = android.os.SystemClock.elapsedRealtime()) {
+        watch.appSent(nowMs, what)
+    }
+
+    /**
      * A key was sent to Android Auto (AaReceiver.sendInput): the ones that change its screen with no window event after them tell the watch
-     * (select, Home, Navigation).
+     * (select, Home, Navigation, Media, Phone).
      */
     fun keySent(keycode: Int, nowMs: Long = android.os.SystemClock.elapsedRealtime()) {
         when (keycode) {
             ServiceDiscoveryResponse.KEY_ENTER -> selectSent()
             ServiceDiscoveryResponse.KEY_HOME -> homeSent()
             ServiceDiscoveryResponse.KEY_NAVIGATION -> navSent(nowMs)
+            ServiceDiscoveryResponse.KEY_MEDIA -> appSent("Media", nowMs)
+            ServiceDiscoveryResponse.KEY_TEL -> appSent("Phone", nowMs)
         }
     }
 
@@ -157,6 +166,24 @@ class AaScreenWatch(private val say: (String) -> Unit) {
         if (current.value == AaScreen.NAV) return
         picture.arm(nowMs + PictureGate.SETTLE_MS)
         say("aa-screen: waiting for a map (the Navigation key)")
+    }
+
+    /**
+     * The MEDIA or PHONE key ([what]) was sent: Android Auto opens an app (the last media app used, the phone), so an app's picture is about to come.
+     * Like the NAVIGATION key it takes no screen at once (the key may open nothing): the picture says it. What is still leaving the screen is the old
+     * picture, a map or the menu, as after a select or the Home key: no look counts until the settle ([PictureGate.arm], [PictureGate.holdMaps]). With an
+     * app already in front, the app that opens may be another one: it is not known until the picture says it.
+     */
+    @Synchronized
+    fun appSent(nowMs: Long = 0L, what: String = "Media") {
+        val settled = nowMs + PictureGate.SETTLE_MS
+        picture.holdMaps(settled)
+        picture.arm(settled)
+        if (current.value == AaScreen.APPS) {
+            appLooks.restart()
+            setApp(AaApp.UNKNOWN, "the $what key")
+        }
+        say("aa-screen: waiting for an app (the $what key)")
     }
 
     /**

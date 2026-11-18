@@ -3,14 +3,18 @@ package com.reau.app.service
 import android.content.Context
 import com.reau.app.R
 import com.reau.app.dash.DashReadings
+import com.reau.app.dash.TitleEntry
+import com.reau.app.dash.TitleSource
 import com.reau.app.util.MonotonicClock
 import com.reau.app.weather.InfoRing
 import com.reau.app.weather.InfoRingRotation
+import com.reau.app.weather.InfoRingTitle
 import com.reau.app.weather.PhoneReadings
 import com.reau.app.weather.RingData
 import com.reau.app.weather.RingFrame
 import com.reau.app.weather.RingOptions
 import com.reau.app.weather.RingWords
+import com.reau.app.weather.TitleWords
 import com.reau.app.weather.WeatherKeeper
 import com.reau.app.weather.WeatherUnits
 
@@ -21,6 +25,12 @@ object InfoRingFeed {
      * ([com.reau.app.dash.DashSession.ringVisible]: its switch, the joystick, the screen or a call). The two rings show and hide together.
      */
     fun shown(switchOn: Boolean, dashRingVisible: Boolean): Boolean = switchOn && dashRingVisible
+
+    /**
+     * Whether the ring is wanted on the video at all: the info ring is on and "Informações no título" is not, which writes the same pages in
+     * the dash's title in the ring's place (P31 Título): one or the other, never both.
+     */
+    fun ringDrawn(infoRing: Boolean, infoTitle: Boolean): Boolean = infoRing && !infoTitle
 
     /**
      * The ride log's line when making the ring's picture failed with [error], [failuresBefore] failures into this projection: the first one
@@ -105,6 +115,43 @@ object InfoRingFeed {
         skySnow = context.getString(R.string.ring_sky_snow),
         compass = context.resources.getStringArray(R.array.wind_points).toList(),
     )
+
+    /** The words of the title in the language the app shows, from its resources. */
+    fun titleWords(context: Context): TitleWords = TitleWords(
+        rainNow = context.getString(R.string.title_rain_now),
+        rainUntil = context.getString(R.string.title_rain_until),
+        rainSoon = context.getString(R.string.title_rain_soon),
+        thunderNow = context.getString(R.string.title_thunder_now),
+        thunderSoon = context.getString(R.string.title_thunder_soon),
+        wind = context.getString(R.string.title_wind),
+        temps = context.getString(R.string.title_temps),
+        tempsNow = context.getString(R.string.title_temps_now),
+        uvHigh = context.getString(R.string.title_uv_high),
+        uvVeryHigh = context.getString(R.string.title_uv_very_high),
+        uvExtreme = context.getString(R.string.title_uv_extreme),
+        sunset = context.getString(R.string.title_sunset),
+        sunrise = context.getString(R.string.title_sunrise),
+        air = context.getString(R.string.title_air),
+    )
+
+    /**
+     * What the dash's title can say now: the ring's pages in words ([InfoRing.titlePages]), by the same ticks, urgency and turns as the ring
+     * has. The phone's cards are not asked (no GPS is listened to for a title).
+     */
+    fun titleSource(context: Context, useLocation: Boolean, options: RingOptions): TitleSource {
+        val mono = MonotonicClock.nowMs()
+        val title = titleWords(context)
+        val pages = InfoRing.titlePages(
+            snapshot = WeatherKeeper.snapshot.value,
+            wallNowMs = System.currentTimeMillis(),
+            monoNowMs = mono,
+            place = SunPlace.saved(context, useLocation),
+            units = WeatherUnits.of(DashReadings.settings.value),
+            words = words(context),
+            options = options,
+        )
+        return TitleSource(pages.mapNotNull { page -> InfoRingTitle.text(page, title)?.let { TitleEntry(page, it) } }, options.carousel, options.periodMs)
+    }
 
     /** Whether the GPS card may be listened to: the rider ticked it and "Usar a localização" is on; with either off the GPS is off. */
     fun gpsWanted(options: RingOptions, useLocation: Boolean): Boolean = RingData.shown(options.data, RingData.GPS) && useLocation

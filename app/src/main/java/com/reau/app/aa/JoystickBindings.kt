@@ -48,6 +48,21 @@ data class JoystickBindings(private val chosen: Map<Slot, Action> = emptyMap()) 
          */
         CYCLE_APPS({ AaCommand.CycleApps }),
 
+        /** Android Auto's own media button: it opens the last media app used (Spotify, say), from any screen. On no control by default. */
+        OPEN_MUSIC({ AaCommand.Key(ServiceDiscoveryResponse.KEY_MEDIA) }),
+
+        /** Android Auto's own phone button: it opens the phone. On no control by default. */
+        OPEN_PHONE({ AaCommand.Key(ServiceDiscoveryResponse.KEY_TEL) }),
+
+        /**
+         * Android Auto's focus arrows (the keys up, down, left and right), to walk the focus where the wheel's next and previous do not reach.
+         * On no control by default.
+         */
+        FOCUS_UP({ AaCommand.Key(ServiceDiscoveryResponse.KEY_UP) }),
+        FOCUS_DOWN({ AaCommand.Key(ServiceDiscoveryResponse.KEY_DOWN) }),
+        FOCUS_LEFT({ AaCommand.Key(ServiceDiscoveryResponse.KEY_LEFT) }),
+        FOCUS_RIGHT({ AaCommand.Key(ServiceDiscoveryResponse.KEY_RIGHT) }),
+
         /**
          * The info ring's own switch: it sends Android Auto nothing, the dash's down button in its map mode (0x15) shows and hides REau's
          * ring on the video ([com.reau.app.dash.RingCycle]). Only that button sends that code, so only that slot can have it ([allowedAt]).

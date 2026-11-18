@@ -40,7 +40,8 @@ class ServiceDiscoveryNavigationTest {
             setServices(i, getServices(i).toBuilder().apply {
                 inputSourceService = inputSourceService.toBuilder().addKeycodesSupported(3).addKeycodesSupported(84)
                     .addKeycodesSupported(87).addKeycodesSupported(88).addKeycodesSupported(85)
-                    .addKeycodesSupported(5).addKeycodesSupported(6).addKeycodesSupported(65538).build()
+                    .addKeycodesSupported(5).addKeycodesSupported(6).addKeycodesSupported(65538)
+                    .addKeycodesSupported(65537).addKeycodesSupported(65540).build()
             })
         }.build()
         hex(ServiceDiscoveryResponse(AaConfig()).data.copyOfRange(0, HEADER)) + hex(withKeys.toByteArray())
@@ -51,6 +52,9 @@ class ServiceDiscoveryNavigationTest {
     // Changed again (the joystick's double tap): plus next and previous song (87, 88).
     // And play/pause (85), for the double tap down.
     // Changed again (17/11/2026): plus Android Auto's own Navigation button (65538), for the joystick's "open the navigation".
+    // Changed again (P31 Joy): plus Android Auto's own Media (65537) and Phone (65540) buttons, for the joystick's "open the music app" and "open the
+    // phone". The keys section grows by 8 bytes (two varints of 3 bytes plus their tags): the input service 0x22 -> 0x2A, its service 0x26 -> 0x2E, and
+    // the frame by the same 8; everything else is still identical.
     @Test
     fun `off, the response is the one of before plus the joystick's keys`() {
         assertFalse("off unless asked", AaConfig().navigation)

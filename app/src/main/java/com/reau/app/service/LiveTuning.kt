@@ -84,6 +84,7 @@ object LiveTuning {
             before.dashWeather != after.dashWeather || before.infoRing != after.infoRing ||
             before.infoRingData != after.infoRingData || before.infoRingCarousel != after.infoRingCarousel ||
             before.infoRingSeconds != after.infoRingSeconds || before.infoRingInPlace != after.infoRingInPlace ||
+            before.infoTitle != after.infoTitle ||
             before.maneuverRing != after.maneuverRing
 
     /** What a stream to the dash is made with. */

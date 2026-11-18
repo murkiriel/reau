@@ -69,6 +69,7 @@ class LiveTuningTest {
         assertEquals("the carousel", setOf(Step.DASH_EXTRAS), LiveTuning.steps(before, before.copy(infoRingCarousel = !before.infoRingCarousel)))
         assertEquals("its time", setOf(Step.DASH_EXTRAS), LiveTuning.steps(before, before.copy(infoRingSeconds = 12)))
         assertEquals("its place", setOf(Step.DASH_EXTRAS), LiveTuning.steps(before, before.copy(infoRingInPlace = !before.infoRingInPlace)))
+        assertEquals("the info in the title instead of the ring", setOf(Step.DASH_EXTRAS), LiveTuning.steps(before, before.copy(infoTitle = !before.infoTitle)))
         // the two that Android Auto is told only when a session begins are not live
         assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(dashCaller = !before.dashCaller, dashMusic = !before.dashMusic)))
     }

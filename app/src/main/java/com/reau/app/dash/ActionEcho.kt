@@ -37,6 +37,12 @@ enum class EchoLabel(val res: Int) {
     ZOOM_OUT(R.string.echo_zoom_out),
     OPEN_NAVIGATION(R.string.echo_open_navigation),
     CYCLE_APPS(R.string.echo_cycle_apps),
+    OPEN_MUSIC(R.string.echo_open_music),
+    OPEN_PHONE(R.string.echo_open_phone),
+    FOCUS_UP(R.string.echo_focus_up),
+    FOCUS_DOWN(R.string.echo_focus_down),
+    FOCUS_LEFT(R.string.echo_focus_left),
+    FOCUS_RIGHT(R.string.echo_focus_right),
     INFO_RING(R.string.echo_info_ring),
     ANSWER_CALL(R.string.echo_answer_call),
     REJECT_CALL(R.string.echo_reject_call),
@@ -63,6 +69,12 @@ enum class EchoLabel(val res: Int) {
             Action.ZOOM_OUT -> ZOOM_OUT
             Action.OPEN_NAVIGATION -> OPEN_NAVIGATION
             Action.CYCLE_APPS -> CYCLE_APPS
+            Action.OPEN_MUSIC -> OPEN_MUSIC
+            Action.OPEN_PHONE -> OPEN_PHONE
+            Action.FOCUS_UP -> FOCUS_UP
+            Action.FOCUS_DOWN -> FOCUS_DOWN
+            Action.FOCUS_LEFT -> FOCUS_LEFT
+            Action.FOCUS_RIGHT -> FOCUS_RIGHT
             Action.INFO_RING -> INFO_RING
         }
     }

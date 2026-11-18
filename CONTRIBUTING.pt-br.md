@@ -11,6 +11,25 @@ O REau é software livre sob a **GNU Affero General Public License v3.0** ([LICE
 fica sob a mesma licença. Se uma mudança trouxer código, dados ou fatos de outro projeto, diga de onde vêm, para que o
 [NOTICE](NOTICE) e a tela de Créditos (`app/src/main/java/com/reau/app/settings/Credits.kt`) possam citá-lo com a licença dele.
 
+## O que pode e o que não pode entrar
+
+Uma contribuição é uma ideia, ou código sob a AGPL-3.0 ou uma licença compatível com ela (Apache-2.0, MIT, BSD e
+parecidas), com a origem citada: o projeto, o arquivo, o commit e a licença, no pull request e no cabeçalho do arquivo
+copiado. Nunca cole numa issue, num pull request, num teste, num comentário ou num arquivo:
+
+- nada do app oficial da Royal Enfield: código decompilado ou desmontado, suas imagens, ícones, layouts, fontes, textos e
+  traduções, suas chaves, certificados e tokens, seu firmware ou arquivos de atualização, nem capturas de tela dele;
+- código, texto ou imagens de um projeto sem licença (sem licença quer dizer todos os direitos reservados) ou cuja licença
+  não é compatível com a AGPL-3.0 (por exemplo uma licença não comercial, ou GPL-2.0-only);
+- nada que venha de um vazamento, de um repositório privado ou de uma fonte que pede para não ser copiada.
+
+O que se aceita dessas fontes é a ideia, dita com as suas palavras e escrita como código seu, e fatos que você mesmo
+observou no seu próprio painel (qual byte faz o quê, e em qual firmware). Um pull request que traga material dos dois
+primeiros tipos é fechado, e o material sai da história. Na dúvida, pergunte numa issue antes de mandar código. O que o
+mantenedor faz quando um titular de direitos pede a retirada de algo está em
+[TAKEDOWN_RESPONSE.pt-br.md](TAKEDOWN_RESPONSE.pt-br.md) (em inglês: [TAKEDOWN_RESPONSE.md](TAKEDOWN_RESPONSE.md); em espanhol:
+[TAKEDOWN_RESPONSE.es.md](TAKEDOWN_RESPONSE.es.md)).
+
 ## Como rodar os testes
 
 Com o JDK 21 e o Android SDK instalados, a partir desta pasta:

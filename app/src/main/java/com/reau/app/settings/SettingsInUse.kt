@@ -22,7 +22,7 @@ object SettingsInUse {
         "answerCalls", "phoneTouch", "dashMusic", "dashCaller", "gemini",
         "actionEcho", "joystickLegend", "aaNewProtocol", "clearAaFocus", "dashMask", "blurredFill", "spokenAlerts",
         "statsOverlay", "buttonOverlay", "dashPhoneStatus", "dashAlbumArt", "dashWeather", "infoRing", "infoRingData", "infoRingCarousel", "infoRingSeconds",
-        "infoRingInPlace",
+        "infoRingInPlace", "infoTitle",
         "maneuverRing", "webView", "webTouch", "webAudio",
         "experimentFpsSixThree",
         "experimentMotorcycle",

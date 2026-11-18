@@ -19,14 +19,15 @@ import org.junit.Test
  */
 class OpenNavigationActionTest {
     @Test
-    fun `the navigation button is declared to Android Auto as 65538, and the media and phone buttons are not`() {
+    fun `the navigation button is declared to Android Auto as 65538, next to the media and phone buttons`() {
         assertEquals(65538, ServiceDiscoveryResponse.KEY_NAVIGATION)
         assertEquals(0x10002, ServiceDiscoveryResponse.KEY_NAVIGATION)
         assertTrue(ServiceDiscoveryResponse.KEY_NAVIGATION in ServiceDiscoveryResponse.SUPPORTED_KEYCODES)
-        assertFalse("media (0x10001) was not asked for", 65537 in ServiceDiscoveryResponse.SUPPORTED_KEYCODES)
-        assertFalse("phone (0x10004) was not asked for", 65540 in ServiceDiscoveryResponse.SUPPORTED_KEYCODES)
+        // Changed on purpose (P31 Joy): the media (0x10001) and phone (0x10004) buttons are asked for too, for "open the music app" and "open the phone".
+        assertTrue("media (0x10001) is asked for", 65537 in ServiceDiscoveryResponse.SUPPORTED_KEYCODES)
+        assertTrue("phone (0x10004) is asked for", 65540 in ServiceDiscoveryResponse.SUPPORTED_KEYCODES)
         assertEquals("the keys declared before are still declared, once each", ServiceDiscoveryResponse.SUPPORTED_KEYCODES.distinct(), ServiceDiscoveryResponse.SUPPORTED_KEYCODES)
-        assertEquals(listOf(65536, 19, 20, 21, 22, 23, 4, 3, 84, 87, 88, 85, 5, 6, 65538), ServiceDiscoveryResponse.SUPPORTED_KEYCODES)
+        assertEquals(listOf(65536, 19, 20, 21, 22, 23, 4, 3, 84, 87, 88, 85, 5, 6, 65538, 65537, 65540), ServiceDiscoveryResponse.SUPPORTED_KEYCODES)
     }
 
     @Test
