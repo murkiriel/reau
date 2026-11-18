@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.reau.app.R
+import com.reau.app.aa.GhostSideWarning
 import com.reau.app.aa.JoystickBindings
 import com.reau.app.aa.JoystickBindings.Action
 import com.reau.app.aa.JoystickBindings.Control
@@ -155,16 +156,20 @@ private fun SelectedCard(slot: Slot, action: Action, locked: Boolean, onPick: ()
         slot.control == Control.CENTER -> stringResource(R.string.joystick_locked_center) to stringResource(R.string.joystick_locked_center_note)
         else -> stringResource(R.string.joystick_locked_up) to stringResource(R.string.joystick_locked_up_note)
     }
+    // The dash's right side sometimes comes just before the centre: the actions that cost something say so under the action (the pick is not stopped).
+    val warning = if (!locked && GhostSideWarning.warns(slot, action)) stringResource(R.string.joystick_ghost_side) else null
     ControlCard(
         stringResource(CONTROLS.getValue(slot.control)),
         stringResource(if (slot.mode == Mode.MAP) R.string.joystick_mode_map else R.string.joystick_mode_media),
-        stringResource(R.string.joystick_one_tap), what, note, locked, onPick,
+        stringResource(R.string.joystick_one_tap), what, note, locked, onPick, warning,
     )
 }
 
 /** The card of a control: its name and where it is, then the caption with what it does (and why it cannot change). */
 @Composable
-private fun ControlCard(title: String, badge: String, caption: String, what: String, note: String?, locked: Boolean, onPick: () -> Unit) {
+private fun ControlCard(
+    title: String, badge: String, caption: String, what: String, note: String?, locked: Boolean, onPick: () -> Unit, warning: String? = null,
+) {
     val colors = MaterialTheme.colorScheme
     val shape = MaterialTheme.shapes.large
     Column(
@@ -194,6 +199,12 @@ private fun ControlCard(title: String, badge: String, caption: String, what: Str
                 Text(caption, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                 Text(what, style = MaterialTheme.typography.titleMedium, color = colors.onSurface)
                 note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = colors.onSurface.copy(alpha = 0.74f)) }
+                warning?.let {
+                    Text(
+                        it, style = MaterialTheme.typography.bodySmall, color = colors.onSurface.copy(alpha = 0.74f),
+                        modifier = Modifier.testTag("joystick_ghost_warning"),
+                    )
+                }
             }
             if (!locked) MsIcon(R.drawable.ic_ms_expand_more, 22.dp, colors.onSurfaceVariant)
         }
@@ -249,5 +260,6 @@ private val ACTIONS = mapOf(
     Action.ZOOM_IN to R.string.joystick_action_zoom_in,
     Action.ZOOM_OUT to R.string.joystick_action_zoom_out,
     Action.OPEN_NAVIGATION to R.string.joystick_action_open_navigation,
+    Action.CYCLE_APPS to R.string.joystick_action_cycle_apps,
     Action.INFO_RING to R.string.joystick_action_info_ring,
 )

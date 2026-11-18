@@ -42,10 +42,12 @@ import com.reau.app.video.PhonePreview
 import com.reau.app.video.RectPx
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import java.io.File
@@ -312,6 +314,20 @@ internal class LiveSides(
         compositor.setOverlayText(it)
     }
     private val receiver: AaReceiver?
+
+    // The joystick's "switch app": the grid's button and the next of the first three apps, with the waits between ([com.reau.app.aa.AppCycle]).
+    // Its taps go through the receiver, which tells the screen watch an app was picked; nothing is sent without a session or a touch screen announced.
+    private val appCycle = com.reau.app.aa.AppCycle(
+        screen = { com.reau.app.aa.AaScreens.watch.screen.value },
+        send = { receiver?.sendInput(it) },
+        blocked = {
+            com.reau.app.aa.AppCycle.blockedReason(receiver?.state == AaLinkState.ACTIVE, setup.aaConfig.touch, setup.calls.state())
+        },
+        now = { android.os.SystemClock.elapsedRealtime() },
+        pause = { delay(it) },
+        log = { RideDiagnostics.log("aa", it) },
+    )
+
     // The phone's real state in the heartbeat while the rider's switch is on; `tuned` is read at each beat.
     private val session = DashSession(
         scope, socketFactory = setup.dashSocket, linkProbe = com.reau.app.dash.PhoneLinkProbe(context)::read,
@@ -411,6 +427,25 @@ internal class LiveSides(
     // the init and clear the map, and a page changed while the projection runs would be dropped.
     @Volatile private var joystick: JoystickMap? = null
 
+    // The joystick's legend on the dash's video ([com.reau.app.dash.ActionLegend]): 3 s, then the compositor takes it off. Declared before the init
+    // block too, which sets the switch and shows it.
+    private val legend: com.reau.app.dash.TimedShow<com.reau.app.dash.LegendCard> = com.reau.app.dash.TimedShow(
+        com.reau.app.dash.ActionLegend.SHOW_MS,
+        schedule = { delayMs, action ->
+            val job = scope.launch {
+                delay(delayMs)
+                action()
+            }
+            ({ job.cancel() })
+        },
+        changed = ::legendChanged,
+    )
+
+    /** What the legend shows changed (a card came, or its time ran out): the compositor draws it or takes it off. */
+    private fun legendChanged() {
+        compositor.setLegend(legend.current())
+    }
+
     // The map's zoom from the joystick, over the fit last asked for (every remap goes through it); each change is kept and the next
     // projection starts from it.
     private val liveZoom = com.reau.app.video.LiveZoom(setup.zoomMemory)
@@ -493,7 +528,11 @@ internal class LiveSides(
             })
             receiver = surface?.let {
                 AaReceiver(context, setup.aaConfig, it, { state ->
-                    if (state == AaLinkState.ACTIVE) live.applyPendingFit()
+                    if (state == AaLinkState.ACTIVE) {
+                        live.applyPendingFit()
+                        // A new Android Auto session starts the walk of the apps again from the first.
+                        appCycle.restart()
+                    }
                     report(ProjectionEvent.AndroidAutoChanged(state))
                     web?.androidAutoChanged(state == AaLinkState.ACTIVE)
                 }, options)
@@ -572,6 +611,8 @@ internal class LiveSides(
             session.zoomLabel = joystick.bindings.zoomControls
             session.musicCardAllowed = joystick.bindings.mediaControls
             session.infoRingPress = joystick.bindings.infoRingControl
+            session.actionEcho = setup.settings.actionEcho
+            legend.enabled = setup.settings.joystickLegend
             session.maneuverCircleEnabled = setup.settings.maneuverRing
             session.ringCycleOn = setup.settings.infoRing
             session.infoInPlace = setup.settings.infoRingInPlace
@@ -579,7 +620,28 @@ internal class LiveSides(
             session.ringStep = setup.ringStep?.step ?: 0
             session.ringFollowsScreen(com.reau.app.aa.AaScreens.watch.screen.value)
             // What the picture looks like says the screen where the displays did not (a select that opened Waze, say).
-            compositor.onLook = { look -> com.reau.app.aa.AaScreens.watch.look(look, android.os.SystemClock.elapsedRealtime()) }
+            compositor.onLook = { look ->
+                com.reau.app.aa.AaScreens.watch.look(look, android.os.SystemClock.elapsedRealtime(), com.reau.app.aa.AaApp.of(compositor.lookedScreen))
+            }
+        }
+        // The music mode (Spotify in front and playing): fed by every change of the screen, the app and the media status, so the moment the music
+        // stopped is exact; the joystick asks it at each press. Its switching on and off go to the ride log, with the reason.
+        val music = com.reau.app.aa.MusicMode { RideDiagnostics.log("dash", it) }
+        joystick.musicActive = music::active
+        var musicExpiry: Job? = null
+        scope.launch {
+            combine(com.reau.app.aa.AaScreens.watch.screen, com.reau.app.aa.AaScreens.watch.app, com.reau.app.aa.AaMedia.watch.now) { screen, app, media ->
+                music.update(screen, app, media, com.reau.app.util.MonotonicClock.nowMs())
+            }.collect {
+                // The end of a pause is told to the log when it comes, not at the next press.
+                musicExpiry?.cancel()
+                music.expiresAtMs()?.let { at ->
+                    musicExpiry = launch {
+                        delay(at - com.reau.app.util.MonotonicClock.nowMs())
+                        music.active(com.reau.app.util.MonotonicClock.nowMs())
+                    }
+                }
+            }
         }
         // What the joystick asked for: the call to the phone, the rest to Android Auto.
         val send: (List<AaCommand>) -> Unit = { commands ->
@@ -589,6 +651,8 @@ internal class LiveSides(
                     is AaCommand.CallVolume -> setup.calls.volume(command.step)
                     is AaCommand.PanelZoom -> panelZoom(command.step)
                     AaCommand.PanelZoomUndo -> panelZoomUndo()
+                    // Off the joystick's thread: the sequence waits for the grid, and the other buttons go on meanwhile.
+                    AaCommand.CycleApps -> scope.launch { appCycle.press() }
                     else -> receiver?.sendInput(command)
                 }
             }
@@ -598,11 +662,37 @@ internal class LiveSides(
             ringNote = note
             showButton(com.reau.app.video.ButtonOverlay.latest ?: com.reau.app.video.ButtonText("--", "no button yet"))
         }
+        // The music mode's side is held 250 ms ([JoystickMap.HELD_SIDE_MS]): a job waits for it and sends it unless the centre dropped it. One job at a
+        // time, started by the press that holds a side.
+        var heldJob: Job? = null
+        @Suppress("LoopWithTooManyJumpStatements") // the held side's wait: nothing held ends it, a side not yet due waits again
+        val releaseHeldSide: () -> Unit = {
+            heldJob?.cancel()
+            if (joystick.heldDueMs() != null) {
+                heldJob = scope.launch {
+                    while (true) {
+                        val due = joystick.heldDueMs() ?: break
+                        val wait = due - com.reau.app.util.MonotonicClock.nowMs()
+                        if (wait > 0) {
+                            delay(wait)
+                        } else {
+                            val press = joystick.release(com.reau.app.util.MonotonicClock.nowMs()) ?: continue
+                            send(press.sent)
+                            if (com.reau.app.aa.FocusClearer.toAndroidAuto(press.sent)) focus.inputSent(android.os.SystemClock.elapsedRealtime())
+                            RideDiagnostics.log("dash", "button held side -> ${press.lines.joinToString("; ")}")
+                        }
+                    }
+                }
+            }
+        }
         session.onButton = { event ->
             // On the dash's receive thread (DashSession): sent first, the log line after.
             val press = joystick.press(event, com.reau.app.util.MonotonicClock.nowMs())
             send(press.sent)
+            // What the tap did, said on the dash after it was sent: its name in the title of the gold band, and the legend of the mode when the mode is new.
+            echoAndLegend(press, joystick, context)
             if (com.reau.app.aa.FocusClearer.toAndroidAuto(press.sent)) focus.inputSent(android.os.SystemClock.elapsedRealtime())
+            releaseHeldSide()
             val call = runCatching { joystick.callForLog().name }.getOrDefault("?")
             if (!JoystickMap.knowsCode(event)) com.reau.app.data.ProjectionSummary.current.unknownButton(event.code)
             RideDiagnostics.log("dash", JoystickMap.logLine(event::class.simpleName.orEmpty(), event.code, press.lines, call))
@@ -613,6 +703,23 @@ internal class LiveSides(
         if (setup.card == null && setup.aaConfig.touch && setup.settings?.clearAaFocus == true) {
             val onNavigation = { com.reau.app.aa.AaScreens.watch.screen.value == com.reau.app.aa.AaScreen.NAV }
             clearFocusWhenIdle(scope, focus, setup.focusIdleMs, onNavigation) { receiver?.sendInput(it) }
+        }
+    }
+
+    /**
+     * The name of what [press] did goes to the title of the dash's gold band ([DashSession.echoAction]), and, when the tap is the first of a
+     * mode, the legend of that mode to the video ([legend]). Each says a line in the diagnostic log when it shows, with no text of the rider's.
+     */
+    private fun echoAndLegend(press: JoystickMap.Press, map: JoystickMap, words: Context) {
+        press.echo?.let { label ->
+            if (session.echoAction(com.reau.app.dash.ActionEchoText.text(words, label))) RideDiagnostics.log("dash", "action echo: ${label.name}")
+        }
+        press.legend?.let { mode ->
+            val card = com.reau.app.dash.ActionLegend.card(map.legend(mode)) { com.reau.app.dash.ActionEchoText.text(words, it) }
+            if (legend.show(card)) {
+                val acting = card.rows.count { it.text != null }
+                RideDiagnostics.log("dash", "joystick legend: ${mode.name.lowercase()} mode, $acting of ${card.rows.size} directions act")
+            }
         }
     }
 
@@ -936,6 +1043,8 @@ internal class LiveSides(
                 session.zoomLabel = page.zoomControls
                 session.musicCardAllowed = page.mediaControls
                 session.infoRingPress = page.infoRingControl
+                session.actionEcho = settings.actionEcho
+                legend.enabled = settings.joystickLegend
             }
             if (LiveTuning.Step.STATS_OVERLAY in steps) compositor.setOverlay(settings.overlay)
             if (LiveTuning.Step.BUTTON_OVERLAY in steps) compositor.setButtonOverlay(settings.buttonLook)

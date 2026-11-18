@@ -249,6 +249,20 @@ private fun JoystickGroup(s: REauSettings, change: (REauSettings) -> Unit, onOpe
             }
         },
         { SettingSwitch(R.string.gemini_title, R.string.by_joystick_sub, R.string.gemini, s.gemini, "gemini") { change(s.copy(gemini = it)) } },
+        {
+            // Read at each tap of the joystick (DashSession.actionEcho, LiveTuning.Step.JOYSTICK).
+            SettingSwitch(R.string.action_echo_title, R.string.action_echo_sub, R.string.action_echo, s.actionEcho, "actionEcho", now = true) {
+                change(s.copy(actionEcho = it))
+            }
+        },
+        {
+            // Read at each tap of the joystick (LiveSides.legend, LiveTuning.Step.JOYSTICK).
+            SettingSwitch(
+                R.string.joystick_legend_title, R.string.joystick_legend_sub, R.string.joystick_legend, s.joystickLegend, "joystickLegend", now = true,
+            ) {
+                change(s.copy(joystickLegend = it))
+            }
+        },
     ), tag = "group_joystick")
 }
 

@@ -47,6 +47,10 @@ package com.reau.app.video
  * 08/11 net read as "apps" with certainty, is now unsure almost always (seen in training it is right 93% of the time, but there is one night recording only, so a new night is expected to be mostly unsure,
  * rarely right); the call card is right more often. The price, measured on frames of the Android Auto 17 never seen: a few more wrong-and-sure frames in the menu and the map. Not proven on the motorcycle yet.
  *
+ * Retrained on 17/11/2026 with four outputs (map, menu, Spotify, another app; the figures are in [ScreenNet]): it reads the Android Auto with its app bar at the bottom (a map
+ * that the 10/11 net took for an app with certainty in 17.5% of its frames) and tells Spotify from the other apps. What the screen shown and the crop do is the same as
+ * before: Spotify and the other apps are both [Kind.APPS]. Which one it was goes through [ScreenNet.Result.screen] to [com.reau.app.aa.AaScreenWatch.app].
+ *
  * The net was trained on pictures reduced by the AVERAGE of each block; the GPU's bilinear fetch reads only 2×2 pixels of each 12×12 block and made the same net
  * 82.6% right with 21 maps read as apps, so the compositor reduces the copy with a 4×4-tap box ([CompositorGl.look], 99.96%) and hands it over top row first
  * ([topDown]: `glReadPixels` returns the bottom row first and turned the net's answer to 72%).
@@ -55,7 +59,10 @@ package com.reau.app.video
  * answer where the displays said nothing ([com.reau.app.aa.AaScreenWatch]).
  */
 object PictureLook {
-    /** MAP: a navigation map. MENU: the app launcher. APPS: any other app. UNSURE: black, loading, a fade, or the net is not sure enough. */
+    /**
+     * MAP: a navigation map. MENU: the app launcher. APPS: any other app, Spotify or not (the net tells them apart, [ScreenNet.Result.screen], but the screen watch
+     * and the crop take both as the apps). UNSURE: black, loading, a fade, or the net is not sure enough.
+     */
     enum class Kind { MAP, MENU, APPS, UNSURE }
 
     /** The size of the tiny copy the compositor takes of the picture. */
@@ -66,13 +73,15 @@ object PictureLook {
      * What [rgba] ([width]×[height] RGBA, rows from the top) shows. A picture of another size is [Kind.UNSURE]. [into] is filled with the net's own answer
      * (its class and confidence: the debug build's ride log writes them, [LookAudit]); the default allocates one.
      */
-    fun of(rgba: ByteArray, width: Int, height: Int, into: ScreenNet.Result = ScreenNet.Result()): Kind =
-        when (ScreenNet.classify(rgba, width, height, into).screen) {
-            ScreenNet.Screen.NAV -> Kind.MAP
-            ScreenNet.Screen.MENU -> Kind.MENU
-            ScreenNet.Screen.APPS -> Kind.APPS
-            ScreenNet.Screen.UNSURE -> Kind.UNSURE
+    fun of(rgba: ByteArray, width: Int, height: Int, into: ScreenNet.Result = ScreenNet.Result()): Kind {
+        val screen = ScreenNet.classify(rgba, width, height, into).screen
+        return when {
+            screen.isApps -> Kind.APPS
+            screen == ScreenNet.Screen.NAV -> Kind.MAP
+            screen == ScreenNet.Screen.MENU -> Kind.MENU
+            else -> Kind.UNSURE
         }
+    }
 
     /** [bottomUp] ([width]×[height] RGBA as `glReadPixels` returns it: the last row of the picture first) with its rows in the reverse order, in a new array. */
     fun topDown(bottomUp: ByteArray, width: Int, height: Int): ByteArray {

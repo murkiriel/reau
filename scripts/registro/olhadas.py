@@ -41,6 +41,11 @@ CLASSE_DA_TELA = {"MAP": "nav", "MENU": "menu", "APPS": "apps"}
 TELA_NOME = {"nav": "mapa", "menu": "menu", "apps": "apps"}
 P_BAIXO = 0.98  # LookAudit.LOW_P do app: a linha de auditoria; abaixo disto a leitura é listada (informação)
 P_INCERTO = 0.9  # ScreenNet.MIN_CONFIDENCE do app: abaixo disto a classe é UNSURE e o app mantém a tela anterior (a única conta que alarma)
+# O classificador foi treinado com a densidade 180 (a do app): numa projeção com outra (os testes de 170 de 16/11/2026) a tela dos apps sai diferente e a rede duvida, o que é do teste e
+# não do classificador. `setting density: 180 -> 170` é a troca (na tela do app) e `settings in use: density=N` a de partida; a projeção que usou outra densidade não alarma.
+DENSIDADE_DO_TREINO = 180
+DENSIDADE_TROCADA = re.compile(r"^setting density: (\d+) -> (\d+)")
+DENSIDADE_EM_USO = re.compile(r"\bsettings in use: density=(\d+)")
 LIMITE_PCT = 3.0
 LIMITE_POR_MINUTO = 7.0
 MINIMO_BAIXAS = 10
@@ -68,6 +73,19 @@ def leituras(bloco):
     return saida
 
 
+def densidade_fora(bloco):
+    """A primeira densidade diferente de `DENSIDADE_DO_TREINO` que a projeção usou (a de partida ou a de uma troca), ou None se foi sempre a do treino."""
+    for x in bloco:
+        m = DENSIDADE_TROCADA.match(x.texto)
+        valor = int(m.group(2)) if m else None
+        if valor is None:
+            m = DENSIDADE_EM_USO.search(x.texto)
+            valor = int(m.group(1)) if m else None
+        if valor is not None and valor != DENSIDADE_DO_TREINO:
+            return valor
+    return None
+
+
 def baixas(lidas):
     """As leituras com p entre 0 (exclusive: a imagem preta não é leitura) e `P_BAIXO` (exclusive): as listadas, de qualquer classe."""
     return [r for r in lidas if 0 < r["p"] < P_BAIXO]
@@ -90,7 +108,8 @@ def cortada(bloco):
 def taxa(bloco, lidas=None):
     """{sem_certeza (as UNSURE escritas mais as não escritas que eram UNSURE), sem_certeza_escritas, sem_certeza_puladas, faixa (as outras abaixo de 0,98, escritas e não escritas),
     baixas (as duas), escritas, puladas, pretas, incertas (linhas com a classe UNSURE, a preta inclusive), feitas, pct (de `sem_certeza`; None sem `look=`), minutos, por_minuto, alarme,
-    minimo_p (a pior p das UNSURE escritas; None sem nenhuma), cortada (a linha do corte, ou None)} de uma projeção; o alarme conta só `sem_certeza` e segue as regras do cabeçalho do módulo."""
+    minimo_p (a pior p das UNSURE escritas; None sem nenhuma), cortada (a linha do corte, ou None), densidade_fora (a densidade que não é a do treino, ou None), alarme_pela_taxa (o
+    alarme sem a regra da densidade)} de uma projeção; o alarme conta só `sem_certeza`, segue as regras do cabeçalho do módulo e não vale numa projeção com outra densidade (`densidade_fora`)."""
     lidas = leituras(bloco) if lidas is None else lidas
     escritas = baixas(lidas)
     puladas = sum(r["puladas"] for r in lidas)
@@ -108,10 +127,15 @@ def taxa(bloco, lidas=None):
         alarme = pct > LIMITE_PCT
     else:
         alarme = por_minuto > LIMITE_POR_MINUTO
+    densidade = densidade_fora(bloco)
+    alarme_pela_taxa = alarme
+    if densidade is not None:
+        alarme = False  # a test with another density: the net was not trained for it, so its doubt is not the classifier's defect
     return {"sem_certeza": incerto, "sem_certeza_escritas": len(incertas_escritas), "sem_certeza_puladas": incertas_puladas, "faixa": total - incerto, "baixas": total,
             "escritas": len(escritas), "puladas": puladas, "pretas": sum(1 for r in lidas if r["p"] == 0), "incertas": sum(1 for r in lidas if r["classe"] == "UNSURE"),
             "feitas": feitas, "pct": pct, "minutos": minutos, "por_minuto": por_minuto, "alarme": alarme,
-            "minimo_p": min((r["p"] for r in incertas_escritas), default=None), "cortada": cortada(bloco)}
+            "minimo_p": min((r["p"] for r in incertas_escritas), default=None), "cortada": cortada(bloco),
+            "densidade_fora": densidade, "alarme_pela_taxa": alarme_pela_taxa}
 
 
 def _v(n, casas=3):
@@ -130,6 +154,9 @@ def texto_da_taxa(t):
     if t["minimo_p"] is not None:
         base += f", a pior p={_v(t['minimo_p'])}"
     base += f"; mais {t['faixa']} na faixa de {_v(P_INCERTO, 2)} a {_v(P_BAIXO, 2)} (só informação, não alarma)"
+    if t["densidade_fora"] is not None:
+        base += (f"; densidade {t['densidade_fora']} nesta projeção e o classificador foi treinado a {DENSIDADE_DO_TREINO}: a dúvida é do teste de densidade, não alarma"
+                 + (" (pela taxa alarmaria)" if t["alarme_pela_taxa"] else ""))
     if t["cortada"] is not None:
         base += f"; {_texto_do_corte(t['cortada'])}"
     return base

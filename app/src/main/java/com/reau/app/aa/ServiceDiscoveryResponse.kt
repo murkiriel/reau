@@ -7,6 +7,7 @@
 package com.reau.app.aa
 
 import com.google.protobuf.Message
+import com.google.protobuf.UnknownFieldSet
 import com.reau.app.aa.proto.Common
 import com.reau.app.aa.proto.Control
 import com.reau.app.aa.proto.Media
@@ -63,6 +64,19 @@ class ServiceDiscoveryResponse(config: AaConfig) :
         private const val YEAR = "2026"
         private const val VEHICLE_ID = "reau"
         private const val SOFTWARE_BUILD = "1"
+
+        /**
+         * The experiment "Android Auto in motorcycle mode" (debug builds, [AaConfig.motorcycle]): a vehicle id of its own, because Android Auto remembers the
+         * vehicle type by the head unit's identity, so the new type only counts under an id it has not seen. Told in the top-level vehicle_id (5) too.
+         */
+        const val VEHICLE_ID_MOTORCYCLE = "reau-moto-1"
+
+        /** Android Auto's vehicle type for a motorcycle: 0 not said, 1 car, 2 truck, 3 motorcycle (field 9 of the head unit info as Android Auto numbers it). */
+        const val VEHICLE_TYPE_MOTORCYCLE = 3L
+
+        /** The vehicle id this configuration announces (the top level's and, in the head unit info, Android Auto's own field 4). */
+        fun vehicleIdOf(config: AaConfig): String = if (config.motorcycle) VEHICLE_ID_MOTORCYCLE else VEHICLE_ID
+
         /** The app's own version (28/10/2026: it was a fixed "0.1.0"), so what Android Auto logs about this head unit says which REau it was. */
         private val SOFTWARE_VERSION = com.reau.app.BuildConfig.VERSION_NAME
 
@@ -70,7 +84,7 @@ class ServiceDiscoveryResponse(config: AaConfig) :
             make = MAKE
             model = MODEL
             year = YEAR
-            vehicleId = VEHICLE_ID
+            vehicleId = vehicleIdOf(config)
             headUnitMake = MAKE
             headUnitModel = MODEL
             headUnitSoftwareBuild = SOFTWARE_BUILD
@@ -79,16 +93,7 @@ class ServiceDiscoveryResponse(config: AaConfig) :
             canPlayNativeMediaDuringVr = false
             hideProjectedClock = false
             displayName = MAKE
-            headunitInfo = Common.HeadUnitInfo.newBuilder().apply {
-                headUnitMake = MAKE
-                headUnitModel = MODEL
-                make = MAKE
-                model = MODEL
-                year = YEAR
-                vehicleId = VEHICLE_ID
-                headUnitSoftwareBuild = SOFTWARE_BUILD
-                headUnitSoftwareVersion = SOFTWARE_VERSION
-            }.build()
+            headunitInfo = if (config.motorcycle) motorcycleHeadUnitInfo() else carHeadUnitInfo()
             addServices(sensors())
             addServices(video(config))
             addServices(input(config))
@@ -103,6 +108,55 @@ class ServiceDiscoveryResponse(config: AaConfig) :
             if (config.media) addServices(mediaPlaybackStatus)
             if (config.phone) addServices(phoneStatus)
         }.build()
+
+        /** The head unit info as it has always gone out, with this app's own field numbers ([Common.HeadUnitInfo]); off, the bytes are these. */
+        private fun carHeadUnitInfo(): Common.HeadUnitInfo = Common.HeadUnitInfo.newBuilder().apply {
+            headUnitMake = MAKE
+            headUnitModel = MODEL
+            make = MAKE
+            model = MODEL
+            year = YEAR
+            vehicleId = VEHICLE_ID
+            headUnitSoftwareBuild = SOFTWARE_BUILD
+            headUnitSoftwareVersion = SOFTWARE_VERSION
+        }.build()
+
+        /**
+         * The head unit info of the motorcycle experiment, in the numbering of Android Auto's own copy of the message, which is the only reader (this
+         * app's [Common.HeadUnitInfo] numbers the same eight strings in another order and has no vehicle type; the generated classes are not touched).
+         * So each Kotlin field below is chosen by the NUMBER it puts on the wire, not by its name:
+         *
+         * | Kotlin field here          | on the wire | what Android Auto reads there |
+         * |----------------------------|-------------|-------------------------------|
+         * | headUnitMake               | 1           | make                          |
+         * | headUnitModel              | 2           | model                         |
+         * | make                       | 3           | year                          |
+         * | model                      | 4           | vehicle_id                    |
+         * | year                       | 5           | head_unit_make                |
+         * | headUnitSoftwareBuild      | 6           | head_unit_model               |
+         * | vehicleId                  | 7           | head_unit_software_build      |
+         * | headUnitSoftwareVersion    | 8           | head_unit_software_version    |
+         * | (unknown field, added)     | 9           | vehicle_type (3 = motorcycle) |
+         *
+         * Field 9 is written as an unknown field: the generated message does not know it, and a protobuf message serializes its unknown fields.
+         */
+        private fun motorcycleHeadUnitInfo(): Common.HeadUnitInfo = Common.HeadUnitInfo.newBuilder().apply {
+            headUnitMake = MAKE // 1: make
+            headUnitModel = MODEL // 2: model
+            make = YEAR // 3: year
+            model = VEHICLE_ID_MOTORCYCLE // 4: vehicle_id
+            year = MAKE // 5: head_unit_make
+            headUnitSoftwareBuild = MODEL // 6: head_unit_model
+            vehicleId = SOFTWARE_BUILD // 7: head_unit_software_build
+            headUnitSoftwareVersion = SOFTWARE_VERSION // 8: head_unit_software_version
+            setUnknownFields(
+                UnknownFieldSet.newBuilder()
+                    .addField(VEHICLE_TYPE_FIELD, UnknownFieldSet.Field.newBuilder().addVarint(VEHICLE_TYPE_MOTORCYCLE).build())
+                    .build(),
+            ) // 9: vehicle_type
+        }.build()
+
+        private const val VEHICLE_TYPE_FIELD = 9
 
         /**
          * Behind a switch: the music status channel, as open-headunit announces it (protocol/messages/

@@ -117,6 +117,16 @@ data class REauSettings(
     /** The joystick page's choices, as [com.reau.app.aa.JoystickBindings.encode] writes them; a new install starts with [DEFAULT_JOYSTICK]. */
     val joystick: String = DEFAULT_JOYSTICK,
     /**
+     * Each joystick tap that does something shows the action's short name for 1.5 s as the title of the dash's gold band
+     * ([com.reau.app.dash.ActionEcho]), so the rider sees what the imprecise joystick really did. On by default; read at each tap, so a change counts at once.
+     */
+    val actionEcho: Boolean = true,
+    /**
+     * When the dash's mode changes between its map and its media (and with the first tap of the projection), a card on the dash's video says for
+     * 3 s what each direction of the joystick does in that mode, by the rider's page ([com.reau.app.dash.ActionLegend]). On by default; read at each tap.
+     */
+    val joystickLegend: Boolean = true,
+    /**
      * A minute after the joystick, one touch takes Android Auto's blue focus
      * away ([com.reau.app.aa.FocusClearer]); on by default. Taken at the next start.
      */
@@ -258,6 +268,11 @@ data class REauSettings(
     val experimentEncoderLowLatency: Boolean = false,
     /** Experimental, a debug build's only (a release build always has it off, [sanitized]): the full profile streams at 6 fps and the reduced one at 3, not 4 and 2 ([DashConfig.EXPERIMENT_FPS63_FULL_FPS]); the bitrates stay. Off, 4 and 2 as always. */
     val experimentFpsSixThree: Boolean = false,
+    /**
+     * Experimental, a debug build's only (a release build always has it off, [sanitized]): the head unit tells Android Auto it is a MOTORCYCLE, under a vehicle id of its
+     * own ([com.reau.app.aa.ServiceDiscoveryResponse.VEHICLE_ID_MOTORCYCLE]), see [aaConfig]. It counts from the next Android Auto session. Off, the announcement is the one it always was.
+     */
+    val experimentMotorcycle: Boolean = false,
 ) {
     /** The reduced profile's pace: [DashConfig.PROFILE_REDUCED_FPS], or with [experimentFpsSixThree] its own, [DashConfig.EXPERIMENT_FPS63_REDUCED_FPS]. */
     val profileReducedFps: Int get() = if (experimentFpsSixThree) DashConfig.EXPERIMENT_FPS63_REDUCED_FPS else DashConfig.PROFILE_REDUCED_FPS
@@ -325,6 +340,7 @@ data class REauSettings(
         protocolMinor = if (aaNewProtocol) com.reau.app.aa.Messages.MINOR_NEWER else com.reau.app.aa.Messages.MINOR_DEFAULT,
         protocolSix = experimentProtocolSix,
         wakeBeforeDial = experimentWakeAa,
+        motorcycle = experimentMotorcycle,
     )
 
     /**
@@ -408,6 +424,8 @@ data class REauSettings(
             statsOverlay = statsOverlay && debugBuild,
             buttonOverlay = buttonOverlay && debugBuild,
             experimentFpsSixThree = fps63,
+            // The motorcycle announcement is a debug build's experiment: a value left on by one build must not count in the other.
+            experimentMotorcycle = experimentMotorcycle && debugBuild,
             clockSlowPercent = 0,
             phoneTouch = true,
             density = density.coerceIn(DENSITY),

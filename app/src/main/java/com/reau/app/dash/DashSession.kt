@@ -583,9 +583,11 @@ class DashSession(
      */
     private fun liveRouteCard(projectionOn: Boolean): ByteArray {
         val n = shownNav()
+        // For a moment after a joystick tap the title is the short name of its action ([echo]), guiding or not.
+        val echoed = echo.current()
         return if (n != null) DashCommands.routeCard(
-            // The street while guiding, else REau.
-            n.road.ifBlank { destinationName }, projectionOn,
+            // The action's name for a moment, else the street while guiding, else REau.
+            echoed ?: n.road.ifBlank { destinationName }, projectionOn,
             maneuver = ringGlyph(n),
             primaryUnit = n.primaryUnit,
             totalDist = n.totalDist,
@@ -596,7 +598,48 @@ class DashSession(
             nextManeuver = nextShown(n),
             proximity = proximityBar(n),
         )
-        else DashCommands.idleRouteCard(if (ringOn) idleCard else DashIdleCard.HIDDEN, destinationName, projectionOn, clockHHMM())
+        else DashCommands.idleRouteCard(if (ringOn) idleCard else DashIdleCard.HIDDEN, echoed ?: destinationName, projectionOn, clockHHMM())
+    }
+
+    /**
+     * The echo of the joystick tap in the title of the card ([ActionEcho]): its name for [ActionEcho.SHOW_MS], and when that runs out the title
+     * goes back to what it was. Both moments send the card at once, not at the next second of the card's loop. Internal so a test puts in a
+     * clock and a wait of its own.
+     */
+    @Volatile internal var echo = TimedShow<String>(
+        ActionEcho.SHOW_MS,
+        schedule = { delayMs, action ->
+            val job = scope.launch(Dispatchers.IO) {
+                delay(delayMs)
+                action()
+            }
+            ({ job.cancel() })
+        },
+        changed = ::sendTitleNow,
+    )
+
+    /**
+     * Whether the name of a tap's action is shown as the card's title (the rider's "Eco da ação" switch); on by default. Switched off while
+     * one shows, the title goes back at once.
+     */
+    var actionEcho: Boolean
+        get() = echo.enabled
+        set(value) {
+            echo.enabled = value
+        }
+
+    /**
+     * Shows [text] as the title of the card for [ActionEcho.SHOW_MS], in the place of the echo before it. Returns whether it was taken (not
+     * when the echo is off or the text is empty); the card is sent only while streaming.
+     */
+    fun echoAction(text: String): Boolean {
+        val said = text.trim()
+        return said.isNotEmpty() && echo.show(said)
+    }
+
+    /** The route card sent now with the title it has now (the echo, or what it was). Nothing is sent out of the streaming. */
+    private fun sendTitleNow() {
+        if (_state.value == DashState.STREAMING) socket?.let { sock -> runCatching { sock.send(liveRouteCard(projectionOn = true)) } }
     }
 
     /** The phone's own decimal separator is a comma (pt-BR): the dash writes its distances so (05 0A). */
@@ -727,6 +770,8 @@ class DashSession(
         rxJob?.cancel(); projHbJob?.cancel(); routeCardJob?.cancel(); heartbeatJob?.cancel(); navInfoJob?.cancel()
         cardsJob?.cancel()
         statsJob?.cancel()
+        // A name of a tap still showing is not carried to the next session, and its wait ends here.
+        echo.drop()
         nav = null
         forgetLastManeuver()
         socket?.let { sock ->
@@ -1483,7 +1528,7 @@ class DashSession(
         rxJob?.cancel(); heartbeatJob?.cancel(); projHbJob?.cancel(); routeCardJob?.cancel(); navInfoJob?.cancel()
         // The 5 s stats line and the cards loop have nothing to report once the session is down; left running they
         // wrote a `dash-stats ... tx=0` line every 5 s for as long as the dash stayed away.
-        statsJob?.cancel(); cardsJob?.cancel()
+        statsJob?.cancel(); cardsJob?.cancel(); echo.drop()
         // The session coroutine too (it may be the caller: then it returns right after this, and the
         // cancellation only ends it at its next suspension, which never comes).
         sessionJob?.cancel()

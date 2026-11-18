@@ -74,6 +74,11 @@ internal class CompositorGl {
     private var badgeW = 0
     private var badgeH = 0
 
+    // The joystick's legend (LegendInk): the same program, a texture of its own.
+    private var legendTexture = 0
+    private var legendW = 0
+    private var legendH = 0
+
     // The info ring (InfoRingInk): the same program, a texture of its own.
     private var ringTexture = 0
     private var ringW = 0
@@ -245,6 +250,20 @@ internal class CompositorGl {
         badgeH = bitmap.height
     }
 
+    /** The picture of the joystick's legend ([LegendInk.render]), or null for none; copied at once, as [setOverlay] does. Drawn by [drawLegend]. */
+    fun setLegend(bitmap: Bitmap?) {
+        if (bitmap == null) {
+            legendW = 0
+            legendH = 0
+            return
+        }
+        if (overlayProgram == 0) initOverlay()
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, legendTexture)
+        GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0)
+        legendW = bitmap.width
+        legendH = bitmap.height
+    }
+
     /** The picture of the info ring ([InfoRingInk.render]), or null for none; copied at once, as [setOverlay] does. */
     fun setRing(bitmap: Bitmap?) {
         if (bitmap == null) {
@@ -280,12 +299,13 @@ internal class CompositorGl {
         overlayProgram = buildProgram(vs, fs)
         overlayPosition = GLES20.glGetAttribLocation(overlayProgram, "aPosition")
         overlayTexCoord = GLES20.glGetAttribLocation(overlayProgram, "aTexCoord")
-        val ids = IntArray(4)
-        GLES20.glGenTextures(4, ids, 0)
+        val ids = IntArray(5)
+        GLES20.glGenTextures(5, ids, 0)
         overlayTexture = ids[0]
         badgeTexture = ids[1]
         ringTexture = ids[2]
         buttonTexture = ids[3]
+        legendTexture = ids[4]
         for (texture in ids) {
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texture)
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
@@ -309,6 +329,12 @@ internal class CompositorGl {
     fun drawBadge() {
         val (x, y) = StaleBadgeInk.corner(badgeW, badgeH)
         drawQuad(badgeTexture, badgeW, badgeH, x, y)
+    }
+
+    /** Lays the joystick's legend in the middle of the frame, over what [draw] drew. Nothing without a picture from [setLegend]. */
+    fun drawLegend() {
+        val (x, y) = LegendLayout.corner(legendW, legendH)
+        drawQuad(legendTexture, legendW, legendH, x, y)
     }
 
     /** Lays the info ring on the right of the frame, over what [draw] drew. Nothing without a picture from [setRing]. */

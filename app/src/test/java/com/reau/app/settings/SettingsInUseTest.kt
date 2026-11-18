@@ -30,10 +30,10 @@ class SettingsInUseTest {
                 "recordVideo=${com.reau.app.BuildConfig.DEBUG} recordSessions=${com.reau.app.BuildConfig.DEBUG} cardImage=default mapTheme=AUTO maneuverData=true maneuverFpsProfile=true " +
                 "speedFpsProfile=true navProfileMode=PESSIMISTA autoJoinWifi=true detailedLog=${com.reau.app.BuildConfig.DEBUG} rideLog=true useLocation=true " +
                 "logKeepDays=${if (com.reau.app.BuildConfig.DEBUG) 0 else 30} noDashStopMinutes=20 answerCalls=true phoneTouch=true dashMusic=true dashCaller=true aaNewProtocol=true " +
-                "gemini=true clearAaFocus=true dashMask=true blurredFill=false spokenAlerts=false " +
+                "gemini=true actionEcho=true joystickLegend=true clearAaFocus=true dashMask=true blurredFill=false spokenAlerts=false " +
                 "statsOverlay=false buttonOverlay=false dashPhoneStatus=true dashAlbumArt=true maneuverRing=false dashWeather=true infoRing=false infoRingData=7 infoRingCarousel=true infoRingSeconds=7 infoRingInPlace=false webView=false webTouch=false webAudio=PHONE " +
                 "experimentRtpPacing=false experimentDebugDscp=false experimentAdaptiveBitrate=false experimentWifiBind=false experimentStartGuard=true experimentEncoderWatch=false experimentFocusGap=false experimentNightMemory=false experimentWeatherAge=false experimentHeatCeiling=false experimentGpsSpeed=false " +
-                "experimentRecalcInactive=false experimentColorMatrix=false experimentProtocolSix=false experimentTolerantRx=false experimentWakeAa=false experimentEncoderLowLatency=false experimentFpsSixThree=false",
+                "experimentRecalcInactive=false experimentColorMatrix=false experimentProtocolSix=false experimentTolerantRx=false experimentWakeAa=false experimentEncoderLowLatency=false experimentFpsSixThree=false experimentMotorcycle=false",
             SettingsInUse.line(REauSettings()),
         )
     }
@@ -63,7 +63,7 @@ class SettingsInUseTest {
     fun `nothing but names, numbers and truths goes to the line, and what is left out stays out`() {
         val odd = REauSettings(joystick = "free text, with a path /storage/emulated/0/x and a name Fulano")
         val line = SettingsInUse.line(odd)
-        assertFalse(line, "Fulano" in line || "/storage" in line || "joystick" in line || "free text" in line)
+        assertFalse(line, "Fulano" in line || "/storage" in line || " joystick=" in line || "free text" in line)
         val words = line.removePrefix("settings in use: ").split(" ")
         for (word in words) {
             assertTrue("a pair of plain words: '$word'", word.matches(Regex("""[A-Za-z]+=[A-Za-z0-9_.-]+""")))

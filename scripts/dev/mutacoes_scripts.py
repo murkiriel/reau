@@ -3,26 +3,28 @@
 
 The test files are Python (`registro/test_chaves.py` is found in scripts/registro, a bare name in scripts/, `dev/test_teste_cego.py` in scripts/dev): no Gradle runs for these.
 Every name of that work starts with `leva2/` (`leva3/` for the masking made fast, 15/11/2026), so `python3 scripts/dev/mutacoes.py leva2/` runs only these; the ones of the bench panel
-(scripts/painel_falso, 13/11/2026) start with `painel/`; the ones of the round 6 (the reader's menu-to-map crop, 15/11/2026) start with `leva6/`.
+(scripts/painel_falso, 13/11/2026) start with `painel/`; the ones of the round 6 (the reader's menu-to-map crop, 15/11/2026) start with `leva6/`; the ones of the work of 17/11/2026 (the end of the ride told apart from a fall, the space warning, the dash's name glued in the system log reader, A4 to A9) start with `leva30/`.
 """
 
 REG = "scripts/registro/"
 COLETA = "scripts/coletar_do_celular.sh"
+FIM = "registro/test_fim_de_viagem.py"
+A4 = "registro/test_a4_a10_leitor.py"
 
 MUTATIONS_SCRIPTS = [
     # ── coletar_do_celular.sh: the two warnings ────────────────────────────────────────────────────────────────────────────────────────
     ("leva2/coleta: o espaço das gravações a exatamente 800 MB deixa de avisar", COLETA,
-     'if [ "$kb" -ge $((AVISO_MB * 1024)) ]; then', 'if [ "$kb" -gt $((AVISO_MB * 1024)) ]; then', ["test_coletar_espaco.py"]),
+     'if [ -n "$kb" ] && [ "$kb" -ge $((AVISO_MB * 1024)) ]; then', 'if [ -n "$kb" ] && [ "$kb" -gt $((AVISO_MB * 1024)) ]; then', ["test_coletar_espaco.py"]),
     ("leva2/coleta: só a primeira linha 'recordings space' vale e não a última", COLETA,
      "awk '/recordings space:/ && !/sessions over their share/ {ultima = $0} END {print ultima}'", "awk '/recordings space:/ && !/sessions over their share/ {if (!ultima) ultima = $0} END {print ultima}'", ["test_coletar_espaco.py"]),
     ("leva2/coleta: a linha da cota das sessões vale como a do total", COLETA,
      "awk '/recordings space:/ && !/sessions over their share/ {ultima = $0} END {print ultima}'", "awk '/recordings space:/ {ultima = $0} END {print ultima}'", ["test_coletar_espaco.py"]),
     ("leva2/coleta: o teto lido da linha é ignorado", COLETA,
      '  [ -z "$teto_lido" ] || teto_kb="$teto_lido"\n', "", ["test_coletar_espaco.py"]),
-    ("leva2/coleta: o aviso de espaço se repete pela linha e pela cópia", COLETA,
-     "    break\n", "", ["test_coletar_espaco.py"]),
+    ("leva2/coleta: a linha left of não vale quando nada foi copiado", COLETA,
+     'elif [ -n "$ocupado_kb" ]; then', "elif false; then", ["test_coletar_espaco.py"]),
     ("leva2/coleta: o tamanho copiado não conta sem a linha left of", COLETA,
-     'for kb in "$ocupado_kb" "$copiado_kb"; do', 'for kb in "$ocupado_kb"; do', ["test_coletar_espaco.py"]),
+     'if [ "${copiado_kb:-0}" -gt 0 ]; then', 'if [ "${copiado_kb:-0}" -gt 0 ] && [ -n "$ocupado_kb" ]; then', ["test_coletar_espaco.py"]),
     ("leva2/coleta: o buffer exatamente no mínimo vale como pequeno", COLETA,
      "if (kib < min) print nome, kib", "if (kib <= min) print nome, kib", ["test_coletar_espaco.py"]),
     ("leva2/coleta: o buffer crash também é avisado", COLETA,
@@ -372,4 +374,59 @@ MUTATIONS_SCRIPTS = [
      '"mediana": statistics.median(passos)', '"mediana": statistics.mean(passos)', ["registro/test_leva9_lacunas.py"]),
     ("leva9/detalhes: a chave que o app não conhece fica fora do resumo do batimento", REG + "detalhes.py",
      "CAMPOS + [(k, f\"campo {k}\", None) for k in desconhecidas]:", "CAMPOS:", ["registro/test_leva9_lacunas.py"]),
+    # ── leva 30 (17/11/2026): o fim da viagem separado da queda, a cota do aviso de espaço, o painel colado no leitor do sistema e os achados A4 a A9 ──────────────
+    ("leva30/fim de viagem: o reason 3 vale de 10 s antes e não de 20 s", REG + "ler_registro.py",
+     "DEAUTH_ANTES_S = 20.0", "DEAUTH_ANTES_S = 10.0", [FIM]),
+    ("leva30/fim de viagem: o reason 3 vale até 2 s depois e não até 5 s", REG + "ler_registro.py",
+     "DEAUTH_DEPOIS_S = 5.0", "DEAUTH_DEPOIS_S = 2.0", [FIM]),
+    ("leva30/fim de viagem: o reason 3 que o próprio celular gerou também é o painel saindo", REG + "ler_registro.py",
+     "d.motivo == MOTIVO_SAIU and not d.local)", "d.motivo == MOTIVO_SAIU)", [FIM]),
+    ("leva30/fim de viagem: o dumpsys com local_gen=true também é o painel saindo", REG + "ler_registro.py",
+     'motivo == str(MOTIVO_SAIU) and d.local_gen == "false")', "motivo == str(MOTIVO_SAIU))", [FIM]),
+    ("leva30/fim de viagem: outro motivo no sistema não impede a leitura sem log", REG + "ler_registro.py",
+     "            elif perto:\n                g[0].sistema_viu_outra_causa = True\n", "            elif perto:\n                pass\n", [FIM]),
+    ("leva30/fim de viagem: o desligar do piloto até 60 s depois vale como o fim", REG + "ler_registro.py",
+     "FIM_DO_DONO_S = 30.0", "FIM_DO_DONO_S = 60.0", [FIM]),
+    ("leva30/fim de viagem: o sinal fraco antes da queda também vale como o fim sem log", REG + "ler_registro.py",
+     "(_sinal_antes_dbm(grupo, bloco) or -999) >= chaves.FIRME_DBM", "(_sinal_antes_dbm(grupo, bloco) or -999) >= -100", [FIM]),
+    ("leva30/fim de viagem: o painel que volta pela imagem (STREAMING) não conta como volta", REG + "ler_registro.py",
+     'VOLTA_DO_PAINEL = ("bike network available", "→ STREAMING")', 'VOLTA_DO_PAINEL = ("bike network available",)', [FIM]),
+    ("leva30/fim de viagem: o painel que volta depois de 5 min também salva a queda", REG + "ler_registro.py",
+     "0 < tempo.dif(x.segundos, queda.segundos) <= VOLTA_S", "0 < tempo.dif(x.segundos, queda.segundos) <= VOLTA_S * 100", [FIM]),
+    ("leva30/fim de viagem: a projeção ainda ligada vale como desligada pelo piloto", REG + "ler_registro.py",
+     "if firme and fim.texto.startswith(DESLIGOU) and", "if firme and", [FIM]),
+    ("leva30/fim de viagem: a sessão do Android Auto que acabou também é queda do painel", REG + "ler_registro.py",
+     'SINAIS_DO_WIFI = ("link lost — reconnecting", "bike network lost", "RX watchdog:")', 'SINAIS_DO_WIFI = ("link lost — reconnecting", "bike network lost", "RX watchdog:", "AaReceiver: session ended")', [FIM]),
+    ("leva30/fim de viagem: o fim de viagem entra na conta das quedas do dia", REG + "ler_registro.py",
+     'n["quedas"] += len(grupos) - sum(1 for g in grupos if _painel_desligou(g, bloco))', 'n["quedas"] += len(grupos)', [FIM]),
+    ("leva30/fim de viagem: o LG: 1 do driver é lido como o outro lado", REG + "logcat_sistema.py",
+     'motivo, local = int(m.group(1)), m.group(2) == "1"\n        elif "CTRL', 'motivo, local = int(m.group(1)), False\n        elif "CTRL', [FIM]),
+    ("leva30/fim de viagem: o locally_generated=1 do wpa_supplicant é lido como o outro lado", REG + "logcat_sistema.py",
+     'motivo, local = int(m.group(1)), m.group(2) == "1"\n        else:', 'motivo, local = int(m.group(1)), False\n        else:', [FIM]),
+    ("leva30/mascarar: o leitor do sistema volta a só ver o nome do painel com borda", REG + "mascarar.py",
+     'DASH_QUALQUER = re.compile(_OTHER.pattern + "|" + _DASH.pattern)', "DASH_QUALQUER = _OTHER", ["registro/test_logcat_sistema.py"]),
+    ("leva30/coleta: a linha left of de dias atrás volta a valer mais que a cópia", COLETA,
+     'if [ "${copiado_kb:-0}" -gt 0 ]; then', 'if [ "${copiado_kb:-0}" -gt 0 ] && [ -z "$ocupado_kb" ]; then', ["test_coletar_espaco.py"]),
+    ("leva30/coleta: a porcentagem do aviso trunca em vez de arredondar", COLETA,
+     "$(( (kb * 100 + teto_kb / 2) / teto_kb )) % ocupado", "$(( kb * 100 / teto_kb )) % ocupado", ["test_coletar_espaco.py"]),
+    ("leva30/coleta: a primeira linha do buffer sai inteira no INFO", COLETA,
+     "{print $1, $2; exit}", "{print; exit}", ["test_coletar_espaco.py"]),
+    ("leva30/coleta: o bloco do processo do Android Auto não pára no seguinte", COLETA,
+     "{dentro = index($0, alvo) > 0}", "{dentro = dentro || index($0, alvo) > 0}", ["test_coletar_espaco.py"]),
+    ("leva30/A4: a falha de entrada do driver vale de 5 s antes e não de 15 s", REG + "ler_registro.py",
+     "JOIN_ANTES_S = 15.0", "JOIN_ANTES_S = 5.0", [A4]),
+    ("leva30/A4: o outro app de até 10 min antes também é citado", REG + "ler_registro.py",
+     "OUTRO_APP_ATE_S = 60.0", "OUTRO_APP_ATE_S = 600.0", [A4]),
+    ("leva30/A4: o pedido expirado não ganha a explicação do sistema", REG + "ler_registro.py",
+     "    achados = explicar_pedidos_expirados(achados, caminhos, linhas, janela)\n", "", [A4]),
+    ("leva30/A5: a densidade de 170 também alarma", REG + "olhadas.py",
+     "        alarme = False  # a test with another density", "        pass  # a test with another density", [A4]),
+    ("leva30/A5: a densidade do treino passa a ser 170", REG + "olhadas.py",
+     "DENSIDADE_DO_TREINO = 180", "DENSIDADE_DO_TREINO = 170", [A4]),
+    ("leva30/A7: a janela com dash=0 também vale como o primeiro quadro", REG + "ler_registro.py",
+     "if m and float(m.group(3)) > 0:", "if m and float(m.group(3)) >= 0:", [A4]),
+    ("leva30/A7: o começo da faixa do primeiro quadro pode ficar antes de transmitir", REG + "ler_registro.py",
+     "de = max(ate - float(m.group(2)), 0.0)", "de = ate - float(m.group(2))", [A4]),
+    ("leva30/A7: o primeiro quadro calculado repete o que o app já escreveu", REG + "ler_registro.py",
+     '    if any("dash DECODED first IDR" in x.texto for x in bloco):\n        return None\n', "", [A4]),
 ]

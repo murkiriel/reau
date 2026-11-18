@@ -50,6 +50,8 @@ class SettingsScreenNowTest {
         Row("map_theme", "Tema", "Theme"),
         Row("use_location", "Usar a localização", "Use location"),
         Row("answer_calls", "Atender ligação", "Answer calls"),
+        Row("actionEcho", "Nome da ação no painel", "Action name on the dash"),
+        Row("joystickLegend", "Legenda do joystick no painel", "Joystick legend on the dash"),
         Row("dash_phone_status", "Estado do celular", "Phone status"),
         Row("dash_album_art", "Capa do álbum", "Album art"),
         Row("dash_maneuver_ring", "Anel de manobras", "Maneuver ring"),
@@ -76,6 +78,7 @@ class SettingsScreenNowTest {
         "open_joystick", "card_now", "view_logs", "share", "delete",
         "exp_debug_dscp", "exp_wifi_bind", "exp_start_guard", "exp_focus_gap", "exp_night_memory",
         "exp_color_matrix", "exp_protocol_six", "exp_tolerant_rx", "exp_wake_aa", "exp_encoder_low_latency",
+        "exp_motorcycle",
     )
 
     private data class Row(val tag: String, val titlePt: String, val titleEn: String)

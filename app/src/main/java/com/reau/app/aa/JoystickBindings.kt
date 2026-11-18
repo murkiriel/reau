@@ -43,6 +43,12 @@ data class JoystickBindings(private val chosen: Map<Slot, Action> = emptyMap()) 
         OPEN_NAVIGATION({ AaCommand.Key(ServiceDiscoveryResponse.KEY_NAVIGATION) }),
 
         /**
+         * Switches to the next of the first three apps of Android Auto's grid, in the order the rider set there (1, 2, 3, 1...): taps the grid's
+         * button, waits for the grid and taps the app ([AppCycle]). Needs the touch screen announced. On no control by default.
+         */
+        CYCLE_APPS({ AaCommand.CycleApps }),
+
+        /**
          * The info ring's own switch: it sends Android Auto nothing, the dash's down button in its map mode (0x15) shows and hides REau's
          * ring on the video ([com.reau.app.dash.RingCycle]). Only that button sends that code, so only that slot can have it ([allowedAt]).
          */

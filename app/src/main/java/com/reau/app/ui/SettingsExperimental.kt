@@ -15,7 +15,14 @@ import com.reau.app.ui.components.SwitchRow
  */
 @Composable
 internal fun ConnectionExperimentsGroup(s: REauSettings, change: (REauSettings) -> Unit) {
-    SettingsGroup(R.drawable.ic_ms_wifi, stringResource(R.string.group_connection_experiments), listOf(
+    // A debug build's own switch: a release build has no row for it, and its settings keep it off ([REauSettings.sanitized]).
+    val motorcycleRow: @Composable () -> Unit = {
+        SwitchRow(
+            stringResource(R.string.exp_motorcycle_title), s.experimentMotorcycle, { change(s.copy(experimentMotorcycle = it)) }, "exp_motorcycle",
+            sub = stringResource(R.string.exp_motorcycle_sub),
+        )
+    }
+    SettingsGroup(R.drawable.ic_ms_wifi, stringResource(R.string.group_connection_experiments), listOf<@Composable () -> Unit>(
         {
             SwitchRow(
                 stringResource(R.string.exp_pacing_title), s.experimentRtpPacing, { change(s.copy(experimentRtpPacing = it)) }, "exp_rtp_pacing",
@@ -65,7 +72,7 @@ internal fun ConnectionExperimentsGroup(s: REauSettings, change: (REauSettings) 
                 sub = stringResource(R.string.exp_wake_aa_sub),
             )
         },
-    ), tag = "group_connection_experiments")
+    ).let { if (com.reau.app.BuildConfig.DEBUG) it + motorcycleRow else it }, tag = "group_connection_experiments")
 }
 
 /**

@@ -177,6 +177,8 @@
     <string name="joystick_action_zoom_in">Acercar</string>
     <string name="joystick_action_zoom_out">Alejar</string>
     <string name="joystick_action_open_navigation">Abrir la navegación (Waze o Maps)</string>
+    <string name="joystick_action_cycle_apps">Cambiar de app (las 3 primeras del menú de apps)</string>
+    <string name="joystick_ghost_side">Este lado a veces se dispara junto con el centro.</string>
     <!-- The instrument cluster display experiment -->
     <!-- The dash's bubble with no route, and the joystick in its map mode -->
     <string name="permissions_title">Permisos</string>
@@ -417,6 +419,8 @@
     <string name="exp_tolerant_rx_sub">Experimental: el silencio del tablero solo entra en el registro a los 12 s y tumba la sesión a los 60 s (hoy, 4 s); cuando el tablero vuelve, se pide un cuadro clave. Los paquetes de control salen con 12 ms entre sí. Vale desde la próxima conexión</string>
     <string name="exp_wake_aa_title">Despertar Android Auto antes de marcar</string>
     <string name="exp_wake_aa_sub">Experimental: con la batería restringida, Android congela Android Auto después de cada sesión, por hasta unos 45 minutos. Antes de la primera marcación de un arranque, si la última sesión terminó entre 8 segundos y 45 minutos atrás, y una vez después de un apretón de manos sin respuesta, REau abre los ajustes de Android Auto, espera 700 ms y solo entonces marca. La pantalla de ajustes puede asomar por un instante. Vale desde el próximo encendido</string>
+    <string name="exp_motorcycle_title">Android Auto en modo moto</string>
+    <string name="exp_motorcycle_sub">Experimental, solo en la versión de depuración: Android Auto pasa a tratar la central de REau como una moto, y no como un carro. La primera vez la ve como un vehículo nuevo y puede pedir de nuevo los permisos en el celular; el micrófono puede pasar a ser el del celular. Aún en prueba. Vale desde el próximo encendido</string>
     <string name="pairing_known_title">Tablero conocido</string>
     <string name="pairing_known_info">Este es el tablero cuyo nombre completo de Wi-Fi REau ya conoce y que necesita para conectarse. \"Olvidar\" borra ese nombre, todo lo que el tablero ha reportado (los datos de la moto de abajo) y la red sugerida a Android; después, REau vuelve a buscar el tablero (con REau abierta, el nombre aparece solo) o tú escribes el nombre completo. Úsalo cuando cambies de moto o de tablero.</string>
     <string name="pairing_unknown_title">Ningún tablero conocido</string>
@@ -912,4 +916,29 @@
     <string name="voice_dash_back">Tablero de vuelta.</string>
     <string name="voice_phone_hot">Celular caliente. Sácalo del sol o del bolsillo cerrado.</string>
     <string name="voice_wifi_off">Wi-Fi del teléfono apagado.</string>
+    <!-- El eco de la acción y la leyenda del joystick: los mismos nombres cortos (hasta 19 caracteres, Latin-1, como el tablero lee el nombre de la calle) en la franja dorada y en el video del tablero -->
+    <string name="echo_wheel_previous">Elemento anterior</string>
+    <string name="echo_wheel_next">Elemento siguiente</string>
+    <string name="echo_confirm">Confirmar</string>
+    <string name="echo_back">Atrás</string>
+    <string name="echo_home">Menú de apps</string>
+    <string name="echo_play_pause">Reproducir/pausar</string>
+    <string name="echo_next_song">Canción siguiente</string>
+    <string name="echo_previous_song">Canción anterior</string>
+    <string name="echo_assistant">Gemini</string>
+    <string name="echo_zoom_in">Acercar</string>
+    <string name="echo_zoom_out">Alejar</string>
+    <string name="echo_cycle_apps">Cambiar de app</string>
+    <string name="echo_open_navigation">Abrir navegación</string>
+    <string name="echo_info_ring">Anillo de info</string>
+    <string name="echo_answer_call">Contestar</string>
+    <string name="echo_reject_call">Rechazar</string>
+    <string name="echo_end_call">Colgar</string>
+    <string name="echo_media_mode">Modo multimedia</string>
+    <string name="action_echo_title">Nombre de la acción en el tablero</string>
+    <string name="action_echo_sub">Muestra qué hizo cada toque del joystick</string>
+    <string name="action_echo">Cada toque del joystick que hace algo muestra el nombre corto de la acción (Canción siguiente, Atrás, Contestar) durante 1,5 segundos en el título de la franja dorada del tablero, donde va el nombre de la calle, y luego el título vuelve. Con un joystick de manillar que no es preciso, ves en el tablero lo que el toque realmente hizo; un toque que no hace nada no muestra nada. Activado por defecto; el cambio se aplica de inmediato.</string>
+    <string name="joystick_legend_title">Leyenda del joystick en el tablero</string>
+    <string name="joystick_legend_sub">Muestra qué hace cada dirección</string>
+    <string name="joystick_legend">Cuando el tablero cambia entre el modo mapa y el modo multimedia, y en el primer toque de la proyección, una tarjeta pequeña muestra durante 3 segundos, en medio de la imagen, qué hace cada dirección del joystick en ese modo, según la página del joystick. El tablero no dice en qué modo está, así que REau lo sabe por el toque y la tarjeta aparece en el primer toque del modo nuevo; no aparece durante una llamada. Activado por defecto; el cambio se aplica de inmediato.</string>
 </resources>

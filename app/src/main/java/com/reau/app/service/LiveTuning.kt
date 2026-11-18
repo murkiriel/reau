@@ -30,7 +30,7 @@ object LiveTuning {
         /** The blurred background in the fit's border ("Fundo desfocado nas bordas"): on or off, taken at the next frame. */
         BLURRED_FILL,
 
-        /** The joystick page, taken at the next tap. */
+        /** The joystick page and the switches of the action echo and the legend, taken at the next tap. */
         JOYSTICK,
 
         /** The stats text on the dash's video: on or off, its place and size, taken at the next frame. */
@@ -69,7 +69,7 @@ object LiveTuning {
         if (before.stream != after.stream) add(Step.NEW_STREAM)
         if (before.mapTheme != after.mapTheme || before.useLocation != after.useLocation) add(Step.NIGHT_NOW)
         if (before.blurredFill != after.blurredFill) add(Step.BLURRED_FILL)
-        if (before.joystick != after.joystick) add(Step.JOYSTICK)
+        if (before.joystick != after.joystick || before.actionEcho != after.actionEcho || before.joystickLegend != after.joystickLegend) add(Step.JOYSTICK)
         if (before.overlay != after.overlay) add(Step.STATS_OVERLAY)
         if (before.buttonLook != after.buttonLook) add(Step.BUTTON_OVERLAY)
         if (webChanged(before, after)) add(Step.WEB)

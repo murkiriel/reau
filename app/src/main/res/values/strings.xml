@@ -177,6 +177,8 @@
     <string name="joystick_action_zoom_in">Zoom in</string>
     <string name="joystick_action_zoom_out">Zoom out</string>
     <string name="joystick_action_open_navigation">Open navigation (Waze or Maps)</string>
+    <string name="joystick_action_cycle_apps">Switch app (the first 3 of the apps menu)</string>
+    <string name="joystick_ghost_side">This side sometimes fires together with the center.</string>
     <!-- The instrument cluster display experiment -->
     <!-- The dash's bubble with no route, and the joystick in its map mode -->
     <string name="permissions_title">Permissions</string>
@@ -428,6 +430,8 @@
     <string name="exp_tolerant_rx_sub">Experimental: the dash\'s silence only goes to the log at 12 s and ends the session at 60 s (today, 4 s); when the dash is back, a keyframe is asked. Control packets leave 12 ms apart. Counts from the next connection</string>
     <string name="exp_wake_aa_title">Wake Android Auto before dialling</string>
     <string name="exp_wake_aa_sub">Experimental: with its battery restricted, Android freezes Android Auto after each session for up to about 45 minutes. Before the first dial of a start, if the last session ended between 8 seconds and 45 minutes ago, and once after a handshake that got no answer, REau opens Android Auto\'s settings, waits 700 ms and only then dials. The settings screen may show for a moment. Counts from the next time you turn on</string>
+    <string name="exp_motorcycle_title">Android Auto in motorcycle mode</string>
+    <string name="exp_motorcycle_sub">Experimental, debug version only: Android Auto treats the REau head unit as a motorcycle, not a car. The first time, it sees it as a new vehicle and may ask for the permissions on the phone again; the microphone used may become the phone’s own. Still being tested. Counts from the next time you turn on</string>
     <string name="pairing_known_title">Known dash</string>
     <string name="pairing_known_info">This is the dash whose full Wi-Fi name REau already knows, which it needs to connect. \"Forget\" deletes that name, everything the dash has reported (the bike data below) and the network suggested to Android; after that, REau looks for the dash again (with REau open, the name shows up on its own) or you type the full name. Use it when you change motorcycle or dash.</string>
     <string name="pairing_unknown_title">No known dash</string>
@@ -922,4 +926,29 @@
     <string name="voice_dash_back">Dash is back.</string>
     <string name="voice_phone_hot">Phone is hot. Take it out of the sun or a closed pocket.</string>
     <string name="voice_wifi_off">Phone Wi-Fi is off.</string>
+    <!-- The action echo and the joystick legend: the same short names (at most 19 characters, Latin-1, as the dash reads the street name) in the dash’s gold band and on its video -->
+    <string name="echo_wheel_previous">Previous item</string>
+    <string name="echo_wheel_next">Next item</string>
+    <string name="echo_confirm">Confirm</string>
+    <string name="echo_back">Back</string>
+    <string name="echo_home">Apps menu</string>
+    <string name="echo_play_pause">Play/pause</string>
+    <string name="echo_next_song">Next song</string>
+    <string name="echo_previous_song">Previous song</string>
+    <string name="echo_assistant">Gemini</string>
+    <string name="echo_zoom_in">Zoom in</string>
+    <string name="echo_zoom_out">Zoom out</string>
+    <string name="echo_cycle_apps">Switch app</string>
+    <string name="echo_open_navigation">Open navigation</string>
+    <string name="echo_info_ring">Info ring</string>
+    <string name="echo_answer_call">Answer</string>
+    <string name="echo_reject_call">Decline</string>
+    <string name="echo_end_call">Hang up</string>
+    <string name="echo_media_mode">Media mode</string>
+    <string name="action_echo_title">Action name on the dash</string>
+    <string name="action_echo_sub">Shows what each joystick tap did</string>
+    <string name="action_echo">Each joystick tap that does something shows the action’s short name (Next song, Back, Answer) for 1.5 seconds in the title of the dash’s gold band, where the street name goes, and then the title comes back. With a handlebar joystick that is not precise, you see on the dash what the tap really did; a tap that does nothing shows nothing. On by default; a change applies at once.</string>
+    <string name="joystick_legend_title">Joystick legend on the dash</string>
+    <string name="joystick_legend_sub">Shows what each direction does</string>
+    <string name="joystick_legend">When the dash changes between its map and media modes, and at the first tap of the projection, a small card shows for 3 seconds in the middle of the picture what each direction of the joystick does in that mode, as set on the joystick page. The dash does not say its mode, so REau learns it from the tap and the card comes with the first tap of the new mode; it does not appear during a call. On by default; a change applies at once.</string>
 </resources>

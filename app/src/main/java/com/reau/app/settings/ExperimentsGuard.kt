@@ -39,12 +39,13 @@ object ExperimentsGuard {
         "experimentWakeAa".takeIf { settings.experimentWakeAa },
         "experimentEncoderLowLatency".takeIf { settings.experimentEncoderLowLatency },
         "experimentFpsSixThree".takeIf { settings.experimentFpsSixThree },
+        "experimentMotorcycle".takeIf { settings.experimentMotorcycle },
     )
 
     /** [settings] with every experimental switch off but the guard. */
     fun allOff(settings: REauSettings): REauSettings = settings.copy(
         experimentRtpPacing = false, experimentDebugDscp = false, experimentAdaptiveBitrate = false, experimentWifiBind = false,
-        experimentEncoderLowLatency = false, experimentFpsSixThree = false,
+        experimentEncoderLowLatency = false, experimentFpsSixThree = false, experimentMotorcycle = false,
         experimentEncoderWatch = false, experimentFocusGap = false, experimentNightMemory = false,
         experimentWeatherAge = false, experimentHeatCeiling = false, experimentGpsSpeed = false, experimentRecalcInactive = false,
         experimentColorMatrix = false, experimentProtocolSix = false, experimentTolerantRx = false, experimentWakeAa = false,

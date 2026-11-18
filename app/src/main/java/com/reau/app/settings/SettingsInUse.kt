@@ -20,11 +20,12 @@ object SettingsInUse {
         "maneuverData", "maneuverFpsProfile", "speedFpsProfile", "navProfileMode",
         "autoJoinWifi", "detailedLog", "rideLog", "useLocation", "logKeepDays", "noDashStopMinutes",
         "answerCalls", "phoneTouch", "dashMusic", "dashCaller", "gemini",
-        "aaNewProtocol", "clearAaFocus", "dashMask", "blurredFill", "spokenAlerts",
+        "actionEcho", "joystickLegend", "aaNewProtocol", "clearAaFocus", "dashMask", "blurredFill", "spokenAlerts",
         "statsOverlay", "buttonOverlay", "dashPhoneStatus", "dashAlbumArt", "dashWeather", "infoRing", "infoRingData", "infoRingCarousel", "infoRingSeconds",
         "infoRingInPlace",
         "maneuverRing", "webView", "webTouch", "webAudio",
         "experimentFpsSixThree",
+        "experimentMotorcycle",
         "experimentRtpPacing", "experimentDebugDscp", "experimentAdaptiveBitrate", "experimentWifiBind", "experimentStartGuard",
         "experimentEncoderWatch", "experimentFocusGap", "experimentNightMemory", "experimentEncoderLowLatency",
         "experimentWeatherAge", "experimentHeatCeiling", "experimentGpsSpeed", "experimentRecalcInactive", "experimentColorMatrix",
@@ -69,6 +70,8 @@ object SettingsInUse {
             "Qualcomm encoder asked not to hold frames (the maker's low-latency key)".takeIf { settings.experimentEncoderLowLatency },
             "video at ${DashConfig.EXPERIMENT_FPS63_FULL_FPS} fps (${DashConfig.EXPERIMENT_FPS63_REDUCED_FPS} fps in the reduced profile)"
                 .takeIf { settings.experimentFpsSixThree },
+            "head unit announced to Android Auto as a motorcycle (vehicle id ${com.reau.app.aa.ServiceDiscoveryResponse.VEHICLE_ID_MOTORCYCLE})"
+                .takeIf { settings.experimentMotorcycle },
         )
         return if (on.isEmpty()) null else "connection experiments ON: ${on.joinToString("; ")}"
     }

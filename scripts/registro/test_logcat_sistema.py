@@ -178,6 +178,45 @@ class WifiNasQuedasTest(unittest.TestCase):
         self.assertIn("(+3 linhas)", ls.wifi_nas_quedas(e, [datetime(2026, 11, 8, 10, 0, 53)], 2026)[0])
 
 
+class PainelColadoNoSistemaTest(unittest.TestCase):
+    """The dash's name glued to a letter or a digit on its left (`xRE_…`) was neither chosen nor hidden by the reader of the system log (its pattern had a `\\b` edge): the same
+    table of cases as `mascarar.py` (`CASOS` of test_mascarar_rapido) must give the same."""
+    DASH = "RE_" + "AB12" + "_" + "345678"
+
+    def resumo(self, texto, tag="WifiService"):
+        return ls._resumo_wifi(ls.Entrada(11, 8, "10:00:51.000", 1, 1, "I", tag, texto))
+
+    def test_the_name_glued_on_the_left_is_hidden_in_the_line_the_reader_tells(self):
+        for texto, esperado in ((f"disconnect from x{self.DASH}", f"WifiService disconnect from x{mascarar.MASK}"),
+                                (f"disconnect from 9{self.DASH} now", f"WifiService disconnect from 9{mascarar.MASK} now"),
+                                (f"a{self.DASH}b", f"WifiService a{mascarar.MASK}b"),
+                                (f"disconnect from {self.DASH}", f"WifiService disconnect from {mascarar.MASK}")):
+            with self.subTest(texto=texto):
+                self.assertEqual(esperado, self.resumo(texto))
+
+    def test_in_an_address_or_after_a_percent_escape_it_is_hidden_too(self):
+        self.assertEqual(f"WifiService GET /x?n=%22{mascarar.MASK}%22&m=1", self.resumo(f"GET /x?n=%22{self.DASH}%22&m=1"))
+        self.assertEqual(f"WifiService n=%2f{mascarar.MASK}", self.resumo(f"n=%2f{self.DASH}"))
+        self.assertEqual(f"WifiService n=%7e{mascarar.MASK}", self.resumo(f"n=%7e{self.DASH}"))
+
+    def test_a_longer_or_odd_variant_does_not_leak(self):
+        self.assertEqual(f"WifiService disconnect from {mascarar.MASK} now", self.resumo("disconnect from RE_ABCD now"))
+        self.assertEqual(f"WifiService from {mascarar.MASK}", self.resumo(f"from {self.DASH}y"))
+
+    def test_a_common_word_that_only_holds_re_in_the_middle_is_not_the_dash_and_the_line_is_not_told(self):
+        for texto in ("MODE_RE_ABCD", "PURE_REF", "PURE_RE_ABCD", "_RE_ABCD", "xRE_ABCD", "%2RE_ABCD", "REAU is not RE_", "SCORE_AB12_34"):
+            with self.subTest(texto=texto):
+                self.assertIsNone(self.resumo(texto))
+
+    def test_the_reader_and_the_script_hide_the_same_in_the_dash_cases_of_the_table(self):
+        casos = [f"url=%22{self.DASH}%22", f"x{self.DASH}", f"{self.DASH}y", f"x{self.DASH}y", f"MODE_{self.DASH}", f"a {self.DASH}, b ({self.DASH})",
+                 "RE_ABCD up", "(RE_ABCDEF)", "name=RE_ABCDEF", "%22RE_ABCDEF%22", "%2fRE_ABCDEF", "MODE_RE_ABCD", "PURE_REF", "PURE_RE_ABCD", "_RE_ABCD", "xRE_ABCD",
+                 "%2RE_ABCD", "%zzRE_ABCD", "REAU is not RE_"]
+        for texto in casos:
+            with self.subTest(texto=texto):
+                self.assertEqual(mascarar.mascarar(texto), ls.DASH.sub(mascarar.MASK, texto))
+
+
 class EnchenteEBufferTest(unittest.TestCase):
     def test_the_thermal_flood_is_not_coverage_and_the_tags_tell_the_buffer(self):
         termica = ls.Entrada(11, 8, "10:00:00.000", 1, 1, "E", "ThermalHalWrapper", "x")

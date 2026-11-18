@@ -16,7 +16,7 @@ BUFFERS_PEQUENOS = ("main: ring buffer is 256 KiB (251 KiB consumed, 1 MiB reada
 BUFFERS_GRANDES = BUFFERS_PEQUENOS.replace("256 KiB (251", "4 MiB (251").replace("256 KiB (244", "2048 KiB (244")
 
 
-def fake_adb(pasta: Path, buffers: str, arquivos: Path | None) -> Path:
+def fake_adb(pasta: Path, buffers: str, arquivos: Path | None, extra: str = "") -> Path:
     """A fake adb: `logcat -g` answers [buffers]; the `tar c -C files PASTA` of run-as is made from [arquivos]/PASTA (nothing if it is missing)."""
     log = pasta / "adb.log"
     (pasta / "buffers.txt").write_text(buffers, encoding="utf-8")
@@ -26,6 +26,7 @@ def fake_adb(pasta: Path, buffers: str, arquivos: Path | None) -> Path:
         f'echo "$*" >> "{log}"\n'
         'if [ "$1" = devices ]; then printf "List of devices attached\\nABC123\\tdevice\\n"; exit 0; fi\n'
         f'case "$*" in *"logcat -g"*) cat "{pasta / "buffers.txt"}"; exit 0;; esac\n'
+        + extra +
         'case "$*" in *"exec-out run-as com.reau.app tar c -C files "*)\n'
         '  for ultimo; do :; done\n'
         f'  if [ -n "{arquivos or ""}" ] && [ -d "{arquivos or "/nao"}/$ultimo" ]; then tar c -C "{arquivos or "/nao"}" "$ultimo"; else exit 1; fi; exit 0;; esac\n'
@@ -36,7 +37,7 @@ def fake_adb(pasta: Path, buffers: str, arquivos: Path | None) -> Path:
     return log
 
 
-def rodar(buffers=BUFFERS_GRANDES, ride=None, tamanho_kb=0, **ambiente):
+def rodar(buffers=BUFFERS_GRANDES, ride=None, tamanho_kb=0, extra="", **ambiente):
     """Runs the script. [ride]: text of a ride log for diag/; [tamanho_kb]: KB of a video/ file to be copied. Returns (done, out dir, adb log lines)."""
     tmp = tempfile.TemporaryDirectory()
     base = Path(tmp.name)
@@ -48,7 +49,7 @@ def rodar(buffers=BUFFERS_GRANDES, ride=None, tamanho_kb=0, **ambiente):
         (arquivos / "video").mkdir()
         with open(arquivos / "video" / "reau_x.h264", "wb") as f:
             f.truncate(tamanho_kb * 1024)
-    log = fake_adb(base, buffers, arquivos)
+    log = fake_adb(base, buffers, arquivos, extra)
     saida = base / "saida"
     env = {**os.environ, "ADB": str(base / "adb"), "REAU_SAIDA": str(saida), **ambiente}
     done = subprocess.run(["bash", str(SCRIPT), "ABC123"], env=env, capture_output=True, text=True)
@@ -204,7 +205,106 @@ class EspacoDasGravacoesTest(unittest.TestCase):
                 self.assertNotIn(" -G ", f" {c} ")
                 self.assertNotIn("logcat -c", c)
                 self.assertTrue(c.removeprefix("-s ABC123 ").startswith(("devices", "shell getprop", "shell dumpsys", "shell cmd appops get", "shell am get-standby-bucket",
-                                                                       "shell settings get", "logcat", "exec-out run-as")), c)
+                                                                       "shell settings get", "logcat", "exec-out run-as", "shell ps -A -o")), c)
+
+class CopiaVenceALinhaAntigaTest(unittest.TestCase):
+    """A2 (17/11/2026): a `left of` line is a photo of the moment the app deleted something; the one of 14/11 said 974 MB where the copy, made days later, had 806 MB."""
+
+    def test_the_copy_size_decides_and_the_stale_line_does_not_inflate_the_warning(self):
+        done, saida, _, tmp = rodar(ride=linha_de_espaco(974 * 1024), tamanho_kb=806 * 1024)
+        with tmp:
+            # `du` adds a few KB of directory blocks, so the free space is 217 or 218 MB depending on the file system
+            self.assertRegex(done.stderr, r"gravações em 806 MB de 1024 MB \(livre 21[78] MB, 79 % ocupado, pelo tamanho de sessions/ \+ video/ copiados;")
+            self.assertNotIn("974", done.stderr)
+            info = (saida / "INFO.txt").read_text(encoding="utf-8")
+            self.assertRegex(info, r"sessions/ \+ video/ copiados: 8253\d\d KB \(79 % do teto de 1048576 KB\)")
+            self.assertIn(f"{974 * 1024} KB left of 1048576 KB", info)  # the line itself is still told in the INFO, as a record
+
+    def test_a_stale_line_over_the_limit_does_not_warn_when_the_copy_is_small(self):
+        done, _, _, tmp = rodar(ride=linha_de_espaco(974 * 1024), tamanho_kb=300 * 1024)
+        with tmp:
+            self.assertNotIn("gravações em", done.stderr)
+
+    def test_a_small_line_does_not_hide_a_big_copy(self):
+        done, _, _, tmp = rodar(ride=linha_de_espaco(100 * 1024), tamanho_kb=900 * 1024)
+        with tmp:
+            self.assertIn("gravações em 900 MB de 1024 MB (livre 12", done.stderr)  # 123 or 124 MB: `du` counts the directory blocks
+            self.assertIn("88 % ocupado, pelo tamanho", done.stderr)
+
+    def test_only_when_nothing_was_copied_the_line_decides_and_says_so(self):
+        done, _, _, tmp = rodar(ride=linha_de_espaco(974 * 1024))
+        with tmp:
+            self.assertIn("gravações em 974 MB de 1024 MB (livre 50 MB, 95 % ocupado, pela última linha 'recordings space' dos registros (nada foi copiado);", done.stderr)
+
+    def test_the_percentage_uses_the_cap_of_the_line_when_there_is_one(self):
+        done, _, _, tmp = rodar(ride=linha_de_espaco(100, 2 * 1048576), tamanho_kb=900 * 1024)
+        with tmp:
+            self.assertRegex(done.stderr, r"gravações em 900 MB de 2048 MB \(livre 114[78] MB, 44 % ocupado")
+
+
+# A9 (17/11/2026): what the INFO.txt says of the logcat buffers and of the Android Auto process that projects.
+DUMP_PROCESSOS = (
+    "  *APP* UID 10101 ProcessRecord{abc1 777:com.exemplo.outro/u0a101}\n"
+    "    curAdj=900 setAdj=900 frozen=false\n"
+    "  *APP* UID 10123 ProcessRecord{abc2 4242:com.google.android.projection.gearhead:projection/u0a123}\n"
+    "    startTime=-12m3s curAdj=920 procState=17 frozen=true\n"
+    "    lastActivityTime=-9m1s importance=cached\n"
+    "  *APP* UID 10102 ProcessRecord{abc3 888:com.exemplo.terceiro/u0a102}\n"
+    "    curAdj=100 frozen=true\n")
+RESPOSTAS_A9 = (
+    'case "$*" in *"logcat -b main -d -v threadtime -m"*) printf -- "--------- beginning of main\\n11-16 22:06:01.123  1  1 I Etiqueta: texto privado do aparelho\\n"; exit 0;; esac\n'
+    'case "$*" in *"shell ps -A -o PID,STAT,ETIME,NAME"*) printf "PID STAT ELAPSED NAME\\n 777 S 01:02 com.exemplo.outro\\n 4242 S 12:03 com.google.android.projection.gearhead:projection\\n"; exit 0;; esac\n'
+    f'case "$*" in *"shell dumpsys activity processes"*) printf "%s" "{DUMP_PROCESSOS}"; exit 0;; esac\n')
+
+
+class InfoDoLogcatEDoAndroidAutoTest(unittest.TestCase):
+    def info(self, **kw):
+        done, saida, comandos, tmp = rodar(extra=RESPOSTAS_A9, **kw)
+        with tmp:
+            return done, (saida / "INFO.txt").read_text(encoding="utf-8"), comandos
+
+    def test_each_buffer_says_its_size_and_the_time_of_its_first_line_and_nothing_else_of_the_line(self):
+        done, info, _ = self.info(buffers=BUFFERS_PEQUENOS)
+        self.assertEqual(0, done.returncode, done.stderr)
+        self.assertIn("--- história de cada buffer do logcat", info)
+        self.assertIn("main: 256 KiB; primeira linha 11-16 22:06:01.123", info)
+        self.assertNotIn("texto privado", info)
+        self.assertNotIn("Etiqueta", info)
+
+    def test_a_buffer_with_no_line_or_no_size_is_told_as_not_read(self):
+        _, info, _ = self.info(buffers="logcat: error\n")
+        self.assertIn("system: tamanho não lido; primeira linha não lida", info)
+        self.assertIn("crash: tamanho não lido; primeira linha não lida", info)
+
+    def test_the_projection_process_gives_pid_state_and_age(self):
+        _, info, _ = self.info()
+        self.assertIn("--- o processo do Android Auto que projeta", info)
+        self.assertIn("4242 S 12:03 com.google.android.projection.gearhead:projection", info)
+        self.assertNotIn("com.exemplo.outro\n", info.split("PID STAT")[1].split("---")[0])
+
+    def test_only_the_projection_process_block_of_the_dump_is_kept(self):
+        _, info, _ = self.info()
+        for esperado in ("ProcessRecord{abc2 4242:com.google.android.projection.gearhead:projection/u0a123}", "frozen=true", "importance=cached", "startTime=-12m3s"):
+            self.assertIn(esperado, info)
+        self.assertNotIn("abc1", info)
+        self.assertNotIn("abc3", info)
+        self.assertEqual(1, info.count("frozen=true"))  # the third process is also frozen: it must not come in
+
+    def test_without_the_process_it_says_so_and_the_collection_goes_on(self):
+        done, saida, _, tmp = rodar()
+        with tmp:
+            self.assertEqual(0, done.returncode, done.stderr)
+            self.assertIn("(o processo :projection não existe agora)", (saida / "INFO.txt").read_text(encoding="utf-8"))
+
+    def test_the_new_reads_are_reads_only(self):
+        _, _, comandos = self.info()
+        novos = [c for c in comandos if "-m 3" in c or "ps -A" in c or "activity processes" in c]
+        self.assertEqual(5, len(novos), novos)
+        for c in novos:
+            self.assertNotIn(" -G ", f" {c} ")
+            self.assertNotIn("logcat -c", c)
+            self.assertNotIn(" kill", c)
+            self.assertNotIn("force-stop", c)
 
 
 if __name__ == "__main__":

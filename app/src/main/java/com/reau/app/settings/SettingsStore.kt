@@ -213,6 +213,8 @@ class SettingsStore(private val prefs: SharedPreferences) {
                 val saved = prefs.contains(KEY_JOYSTICK)
                 if (!saved || prefs.getBoolean(KEY_JOYSTICK_ONE_TAP, false)) it else com.reau.app.aa.JoystickBindings.withoutMapChoices(it)
             },
+            actionEcho = prefs.getBoolean(KEY_ACTION_ECHO, defaults.actionEcho),
+            joystickLegend = prefs.getBoolean(KEY_JOYSTICK_LEGEND, defaults.joystickLegend),
             clearAaFocus = prefs.getBoolean(KEY_CLEAR_AA_FOCUS, defaults.clearAaFocus),
             dashMask = prefs.getBoolean(KEY_DASH_MASK, defaults.dashMask),
             blurredFill = prefs.getBoolean(KEY_BLURRED_FILL, defaults.blurredFill),
@@ -257,6 +259,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             experimentWakeAa = prefs.getBoolean(KEY_EXPERIMENT_WAKE_AA, defaults.experimentWakeAa),
             experimentEncoderLowLatency = prefs.getBoolean(KEY_EXPERIMENT_ENCODER_LOW_LATENCY, defaults.experimentEncoderLowLatency),
             experimentFpsSixThree = prefs.getBoolean(KEY_EXPERIMENT_FPS63, defaults.experimentFpsSixThree),
+            experimentMotorcycle = prefs.getBoolean(KEY_EXPERIMENT_MOTORCYCLE, defaults.experimentMotorcycle),
         ).sanitized()
     }
 
@@ -328,6 +331,8 @@ class SettingsStore(private val prefs: SharedPreferences) {
             // The ring-hiding switches went (hiding the ring never worked on the dash); their old keys go with them.
             remove(KEY_HIDE_RING_MEDIA)
             remove(KEY_RING_ALWAYS_OFF)
+            putBoolean(KEY_ACTION_ECHO, s.actionEcho)
+            putBoolean(KEY_JOYSTICK_LEGEND, s.joystickLegend)
             putBoolean(KEY_CLEAR_AA_FOCUS, s.clearAaFocus)
             putBoolean(KEY_DASH_MASK, s.dashMask)
             putBoolean(KEY_BLURRED_FILL, s.blurredFill)
@@ -371,6 +376,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             putBoolean(KEY_EXPERIMENT_WAKE_AA, s.experimentWakeAa)
             putBoolean(KEY_EXPERIMENT_ENCODER_LOW_LATENCY, s.experimentEncoderLowLatency)
             putBoolean(KEY_EXPERIMENT_FPS63, s.experimentFpsSixThree)
+            putBoolean(KEY_EXPERIMENT_MOTORCYCLE, s.experimentMotorcycle)
         }
     }
 
@@ -497,6 +503,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val KEY_EXPERIMENT_WAKE_AA = "experiment_wake_aa"
         private const val KEY_EXPERIMENT_ENCODER_LOW_LATENCY = "experiment_encoder_low_latency"
         private const val KEY_EXPERIMENT_FPS63 = "experiment_fps63"
+        private const val KEY_EXPERIMENT_MOTORCYCLE = "experiment_motorcycle"
         private const val OLD_KEY_AA_SLOW_PACE = "aa_slow_pace"
         private const val OLD_KEY_AA_SLOW_PACE_FPS = "aa_slow_pace_fps"
         private const val KEY_AA_NEW_PROTOCOL = "aa_new_protocol"
@@ -505,6 +512,8 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val OLD_KEY_CLUSTER = "cluster"
         private const val KEY_HIDE_RING_MEDIA = "hide_ring_media"
         private const val KEY_RING_ALWAYS_OFF = "ring_always_off"
+        private const val KEY_ACTION_ECHO = "actionEcho"
+        private const val KEY_JOYSTICK_LEGEND = "joystickLegend"
         private const val KEY_CLEAR_AA_FOCUS = "clear_aa_focus"
 
         fun open(context: Context): SettingsStore = SettingsStore(context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE))

@@ -23,7 +23,9 @@ import sys
 # The dash's own pattern has no edge at all: it is hidden glued to any text before or after it (`xRE_AB12_345678`, `%22RE_AB12_345678%22`).
 _OTHER = re.compile(r"(?:(?<=%[0-9A-Fa-f]{2})|\b)RE_[A-Za-z0-9_]{4,}")
 _DASH = re.compile(r"RE_[A-Za-z0-9]{4}_\d{6}")
-DASH_QUALQUER = _OTHER  # any name that starts as a dash's does (what the system log reader hides too)
+# What the system log reader (`logcat_sistema.py`) picks lines by and hides: the two patterns above as one, so the name glued to a letter or a digit on its left (`xRE_AB12_345678`)
+# is found there too (it was not: with only `_OTHER` the reader neither chose such a line nor hid the name in it).
+DASH_QUALQUER = re.compile(_OTHER.pattern + "|" + _DASH.pattern)
 MAC = re.compile(r"\b(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}\b")
 MASK = "RE_****_******"
 MASK_MAC = "**:**:**:**:**:**"

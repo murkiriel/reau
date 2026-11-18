@@ -77,10 +77,18 @@ object AaScreens {
 /**
  * The screen shown, said by the picture ([look]) and by the keys sent ([homeSent], [selectSent]); an unsure look keeps the last screen. Each
  * change is said once through [say], for the ride log.
+ *
+ * The app in front ([app]: Spotify, another app, none for the map and the menu, or unknown) is said by the same looks, with the same waits, on the side: the screen
+ * never reads it (Spotify and the other apps are both [AaScreen.APPS], with the same crop), and it only appears in the ride log.
  */
 class AaScreenWatch(private val say: (String) -> Unit) {
     private val current = MutableStateFlow(AaScreen.UNKNOWN)
     val screen: StateFlow<AaScreen> = current.asStateFlow()
+
+    // Which app is in front, said by the same looks and the same waits as the screen (it changes nothing in the screen): [AaApp].
+    private val currentApp = MutableStateFlow(AaApp.UNKNOWN)
+    val app: StateFlow<AaApp> = currentApp.asStateFlow()
+    private val appLooks = AppGate()
 
     // What the picture says ([look]) once its first moments have passed, and the settle waits that a select or the Home key start.
     private val picture = PictureGate()
@@ -98,6 +106,8 @@ class AaScreenWatch(private val say: (String) -> Unit) {
         firstLookMs = 0L
         listening = false
         current.value = AaScreen.UNKNOWN
+        appLooks.restart()
+        currentApp.value = AaApp.UNKNOWN
     }
 
     /**
@@ -116,6 +126,9 @@ class AaScreenWatch(private val say: (String) -> Unit) {
         picture.arm(nowMs + PictureGate.SETTLE_MS)
         current.value = AaScreen.APPS
         say(if (rail != null) "aa-screen: a tap on the side bar's shortcuts, the picture says what it picked" else "aa-screen: apps (a select in the menu)")
+        // What opened is not known until the picture says it (the app that was in front is leaving).
+        appLooks.restart()
+        setApp(AaApp.UNKNOWN, "a select")
     }
 
     /**
@@ -130,6 +143,7 @@ class AaScreenWatch(private val say: (String) -> Unit) {
         if (current.value == AaScreen.MENU) return
         current.value = AaScreen.MENU
         say("aa-screen: menu (the Home key)")
+        setApp(AaApp.NONE, "the Home key")
     }
 
     /**
@@ -148,9 +162,10 @@ class AaScreenWatch(private val say: (String) -> Unit) {
     /**
      * What Android Auto's picture looks like at [nowMs] ([PictureLook]); the screen it changed to, or null. The first [FIRST_LOOKS_MS] of a
      * session are not read (a loading screen is no screen). Each change, and the first look that agrees with the screen, is said with what it saw.
+     * [seen]: which app the net called the picture when it is an app's ([AaApp.of]); it only tells [app], the screen does not read it.
      */
     @Synchronized
-    fun look(kind: PictureLook.Kind, nowMs: Long): AaScreen? {
+    fun look(kind: PictureLook.Kind, nowMs: Long, seen: AaApp = AaApp.UNKNOWN): AaScreen? {
         lastKind = kind
         if (firstLookMs == 0L) firstLookMs = nowMs
         if (!listening) {
@@ -160,6 +175,7 @@ class AaScreenWatch(private val say: (String) -> Unit) {
             say("aa-screen: the picture says the screen (${FIRST_LOOKS_MS} ms after the first look)")
         }
         val shown = current.value
+        val counted = picture.counts(kind, nowMs)
         val verdict = picture.next(kind, nowMs, shown)
         val to = verdict?.changeTo
         if (verdict != null && to == null) say("aa-screen: ${shown.name.lowercase()} confirmed by the picture (${verdict.saw})")
@@ -167,7 +183,36 @@ class AaScreenWatch(private val say: (String) -> Unit) {
             current.value = to
             say("aa-screen: ${to.name.lowercase()} (by the picture: ${verdict.saw}, from ${shown.name.lowercase()})")
         }
+        followApp(kind, seen, counted)
         return to
+    }
+
+    /**
+     * The app in front after a look: the looks that count are fed to the app count whatever the screen is (the count of the app that makes the apps' screen
+     * is the same count), and the app is read only with the apps' screen shown; the map and the menu have none, and an apps' screen whose app is not settled has none known.
+     */
+    private fun followApp(kind: PictureLook.Kind, seen: AaApp, counted: Boolean) {
+        val settled = if (counted) appLooks.next(kind, seen) else null
+        when (current.value) {
+            AaScreen.NAV, AaScreen.MENU -> setApp(AaApp.NONE, "the picture")
+            AaScreen.UNKNOWN -> setApp(AaApp.UNKNOWN, "the picture")
+            AaScreen.APPS -> when {
+                settled != null -> setApp(settled, "the picture")
+                currentApp.value == AaApp.NONE -> setApp(AaApp.UNKNOWN, "the picture")
+                else -> Unit
+            }
+        }
+    }
+
+    /**
+     * The app in front is [to]. Said once per change of the app the picture named (Spotify or another), with what [why] made it: that the app is none
+     * (the map, the menu) or not known yet is what the screen's own lines already say.
+     */
+    private fun setApp(to: AaApp, why: String) {
+        val was = currentApp.value
+        if (to == was) return
+        currentApp.value = to
+        if (was.named || to.named) say("aa-screen: app ${to.name.lowercase()} ($why, from ${was.name.lowercase()})")
     }
 
     private companion object {
@@ -238,7 +283,7 @@ internal class PictureGate {
      * that are not of a map wait for the settle, so the map of the app picked comes in as soon as it is drawn (it took 0.8 s more, 25/10/2026).
      * After the Home key it is the other way round: the map leaving the screen is the old one ([holdMaps]).
      */
-    private fun counts(kind: PictureLook.Kind, nowMs: Long): Boolean =
+    fun counts(kind: PictureLook.Kind, nowMs: Long): Boolean =
         if (kind == PictureLook.Kind.MAP) nowMs >= mapsFromMs else nowMs >= fromMs
 
     private fun verdict(shown: AaScreen): Verdict? {

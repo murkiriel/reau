@@ -40,6 +40,11 @@ data class AaConfig(
     val protocolSix: Boolean = false,
     /** Experimental: Android Auto is woken before a dial that may find it frozen by Android ([AaWake]). */
     val wakeBeforeDial: Boolean = false,
+    /**
+     * Experimental, a debug build's only: the head unit tells Android Auto it is a MOTORCYCLE ([ServiceDiscoveryResponse.VEHICLE_TYPE_MOTORCYCLE]) with a
+     * vehicle id of its own ([ServiceDiscoveryResponse.VEHICLE_ID_MOTORCYCLE]). Like the rest of this class it is told once, when a session begins.
+     */
+    val motorcycle: Boolean = false,
 ) {
     companion object {
         /**

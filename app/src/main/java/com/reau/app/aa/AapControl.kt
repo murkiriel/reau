@@ -249,6 +249,7 @@ internal class AapControlService(private val aapTransport: AapTransport, private
 
     private fun serviceDiscoveryRequest(request: Control.ServiceDiscoveryRequest): Int {
         AaLog.i(DiscoveryLog.line(request.phoneName))
+        DiscoveryLog.announcedLine(config)?.let { AaLog.i(it) }
         aapTransport.send(ServiceDiscoveryResponse(config))
         return 0
     }

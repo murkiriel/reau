@@ -243,3 +243,58 @@ def wifi_nas_quedas(entradas, quedas, ano, da_moto=()):
             moto = " (moto desligada)" if queda in da_moto else ""
             saida.append(f"{queda:%H:%M:%S}: o Wi-Fi do painel caiu{moto} — o sistema disse: " + " | ".join(achados[:WIFI_POR_QUEDA]) + mais)
     return saida
+
+
+# O que o SISTEMA diz de quem derrubou o Wi-Fi: o `Deauth RX … reason 3` do driver (o ponto de acesso do painel avisou que estava saindo: a moto desligou),
+# o `Disconnect reason: 3 … LG: 0` que o driver escreve em seguida e o `CTRL-EVENT-DISCONNECTED … reason=3` do `wpa_supplicant` (`locally_generated=1` é o celular que saiu).
+# O driver escreve numa etiqueta com `:` dentro (`[schedu][0x…][12:03:58.477855] wlan`), que o formato `-v threadtime` acima não lê: estas linhas são lidas cruas.
+HORA_CRUA = re.compile(r"^(\d\d)-(\d\d) (\d\d):(\d\d):(\d\d)\.(\d{3})\s")
+DEAUTH_RX = re.compile(r"Deauth RX: .*?\breason (\d+)\b")
+DESCONEXAO_HDD = re.compile(r"Disconnect reason: (\d+)\b.*?\bLG: (\d)")
+DESCONEXAO_WPA = re.compile(r"CTRL-EVENT-DISCONNECTED\b.*?\breason=(\d+)(?:.*?\blocally_generated=(\d))?")
+MARCAS_DE_DESCONEXAO = ("Deauth RX", "Disconnect reason", "CTRL-EVENT-DISCONNECTED")
+DesconexaoDoSistema = namedtuple("DesconexaoDoSistema", "quando motivo local")
+
+
+def _cruas(caminhos, ano, marcas):
+    """(instante, linha) de cada linha crua dos `logcat-sistema*.txt` que traz alguma das [marcas]; um dia que o ano não tem (29/02) fica de fora."""
+    for a in arquivos(caminhos):
+        with open(a, encoding="utf-8", errors="replace") as f:
+            for bruta in f:
+                if not any(marca in bruta for marca in marcas):
+                    continue
+                h = HORA_CRUA.match(bruta)
+                if h is None:
+                    continue
+                try:
+                    quando = datetime(ano, int(h.group(1)), int(h.group(2)), int(h.group(3)), int(h.group(4)), int(h.group(5))) + timedelta(milliseconds=int(h.group(6)))
+                except ValueError:
+                    continue
+                yield quando, bruta
+
+
+def desconexoes_do_wifi(caminhos, ano):
+    """As desconexões do Wi-Fi que o logcat do sistema registrou: [DesconexaoDoSistema(quando, motivo, local)], em ordem de hora. `motivo` é o número (3 é `DEAUTH_LEAVING`),
+    `local` é verdadeiro quando foi o celular que saiu (`locally_generated=1`, `LG: 1`); o `Deauth RX` é sempre o outro lado. Só a hora, o motivo e quem saiu: nunca o endereço nem o nome da rede."""
+    saida = []
+    for quando, bruta in _cruas(caminhos, ano, MARCAS_DE_DESCONEXAO):
+        if "Deauth RX" in bruta and (m := DEAUTH_RX.search(bruta)):
+            motivo, local = int(m.group(1)), False
+        elif "Disconnect reason" in bruta and (m := DESCONEXAO_HDD.search(bruta)):
+            motivo, local = int(m.group(1)), m.group(2) == "1"
+        elif "CTRL-EVENT-DISCONNECTED" in bruta and (m := DESCONEXAO_WPA.search(bruta)):
+            motivo, local = int(m.group(1)), m.group(2) == "1"
+        else:
+            continue
+        saida.append(DesconexaoDoSistema(quando, motivo, local))
+    return sorted(saida)
+
+
+# O driver escreve `lim_process_join_failure_timeout: Join Failure Timeout` quando o celular pediu para entrar numa rede e o ponto de acesso não respondeu a tempo
+# (o painel que ainda não está pronto, ou que atendia outro pedido). Só a hora: a linha traz o endereço do ponto de acesso.
+FALHA_DE_ENTRADA = ("lim_process_join_failure_timeout", "Join Failure Timeout")
+
+
+def falhas_de_entrada(caminhos, ano):
+    """Os instantes (datetime, em ordem) das falhas de entrada numa rede Wi-Fi que o driver registrou (`FALHA_DE_ENTRADA`)."""
+    return sorted(quando for quando, _ in _cruas(caminhos, ano, FALHA_DE_ENTRADA))

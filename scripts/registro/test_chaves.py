@@ -111,6 +111,15 @@ class LinhasDeChavesTest(unittest.TestCase):
         self.assertEqual(({"experimentFpsSixThree"}, True), chaves.chaves_da_linha("settings in use: density=180 experimentFpsSixThree=true experimentStartGuard=true"))
         self.assertEqual((set(), True), chaves.chaves_da_linha("settings in use: density=180 experimentFpsSixThree=false experimentStartGuard=true"))
         self.assertEqual("vídeo a 6/3 fps", chaves.rotulo(frozenset({"experimentFpsSixThree"}), True))
+    def test_the_motorcycle_key_is_found_by_the_line_the_app_writes_and_only_by_it(self):
+        # the phrase as SettingsInUse.experimentsLine writes it (app/src/main/java/com/reau/app/settings/SettingsInUse.kt)
+        escrita = "head unit announced to Android Auto as a motorcycle (vehicle id reau-moto-1)"
+        self.assertEqual(({"experimentMotorcycle"}, True), chaves.chaves_da_linha(f"connection experiments ON: {escrita}"))
+        self.assertEqual(({"experimentMotorcycle", "experimentFocusGap"}, True),
+                         chaves.chaves_da_linha(f"connection experiments ON: 400 ms focus gap when a keyframe is asked of Android Auto; {escrita}"))
+        self.assertEqual(({"experimentMotorcycle"}, True), chaves.chaves_da_linha("settings in use: density=180 experimentMotorcycle=true experimentStartGuard=true"))
+        self.assertEqual((set(), True), chaves.chaves_da_linha("settings in use: density=180 experimentMotorcycle=false experimentStartGuard=true"))
+        self.assertEqual("central anunciada como moto", chaves.rotulo(frozenset({"experimentMotorcycle"}), True))
 
     def test_the_bind_retries_key_is_found_in_the_old_line_with_the_lock_and_in_the_new_one_without_it(self):
         antes = "connection experiments ON: Wi-Fi low-latency lock and bind retries on the same network"

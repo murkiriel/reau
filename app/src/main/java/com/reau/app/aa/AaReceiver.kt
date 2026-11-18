@@ -259,6 +259,8 @@ internal class AaReceiver(
             // The phone's own business (LiveSides hands them to PhoneCalls); nothing goes to Android Auto.
             AaCommand.AnswerCall, AaCommand.EndCall, is AaCommand.CallVolume, is AaCommand.PanelZoom, AaCommand.PanelZoomUndo ->
                 return AaLog.i("$command is not an Android Auto input")
+            // A sequence with waits, not one input: LiveSides runs it ([AppCycle]) and sends its taps one by one.
+            AaCommand.CycleApps -> return AaLog.i("$command is a sequence of taps, not one input")
         }
         // An input may change Android Auto's screen with no window event after it: read the screen again.
         // The select leaves the menu; the Home key opens the app menu, which the displays do not always say ([AaScreenWatch.homeSent]); the
@@ -403,10 +405,23 @@ internal class AaReceiver(
                 AaRestartGap.maybeClosingSinceMs,
             ),
         )
+        val acceptedAt = SystemClock.elapsedRealtime()
         val result = runSession(mine, socket)
         // A negotiation Android Auto never answered: the next dial is preceded by one wake, once in a projection (it may be frozen by Android).
         if (result == Handshake.MUTE) waking.muteNegotiation()
+        // And what REau can read of Android Auto at that moment goes to the log, one line for each (not for a stop that cut the handshake short).
+        if (result == Handshake.MUTE && isCurrent(mine)) reportMute(unanswered.inARow + 1, acceptedAt)
         afterSession(mine, unanswered, handshook = result == Handshake.DONE)
+    }
+
+    /** The [AaProcessState] line for the [inARow]-th handshake in a row that Android Auto left unanswered; its connection was accepted at [acceptedAt]. */
+    private fun reportMute(inARow: Int, acceptedAt: Long) {
+        val now = SystemClock.elapsedRealtime()
+        val sinceGoodEnd = AaRestartGap.lastEndedAtMs?.let { now - it }?.takeIf { it >= 0 }
+        AaProcessState.report(
+            AaProcessState.Mute(inARow, now - acceptedAt, sinceGoodEnd, port, context.packageName),
+            read = { AaProcessState.read(context) }, say = ::logReceiver,
+        )
     }
 
     /** How a session's handshake went: done, failed after Android Auto answered the version request, or never answered at all. */
@@ -594,7 +609,7 @@ internal class AaReceiver(
             answered = true
             sink.setSurface(videoSurface)
             // The music and phone status channels, read when announced and asked for.
-            val cards = if (onNowPlaying != null || onCaller != null) AapCards(onNowPlaying, onCaller, onMediaApp) else null
+            val cards = if (onNowPlaying != null || onCaller != null) AapCards(onNowPlaying, onCaller, onMediaApp, AaMedia.watch::playback) else null
             val reading = AapMessageHandlerType(transport, config, sink::process, onNavigation, microphone, cards, onAudio)
             handler = reading
             val counted = AaStatsHandler(stats, reading)
@@ -636,6 +651,7 @@ internal class AaReceiver(
             // Nor a song or a call card.
             onNowPlaying?.invoke(null)
             onCaller?.invoke(null)
+            AaMedia.watch.reset()
             recorder?.close()
             // The socket first: a decoder that hangs in its release (the codec's driver, not REau) must not leave it open, with Android Auto
             // serving a session nobody reads and answering the next dial into silence.

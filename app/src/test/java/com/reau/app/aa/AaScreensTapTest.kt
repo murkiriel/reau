@@ -24,9 +24,9 @@ class AaScreensTapTest {
 
     @Test
     fun `a tap on a shortcut of the side bar with an app in front waits, and the picture says the map when it comes`() {
-        for (y in listOf(199, 277)) {
+        for (y in listOf(198, 275)) {
             val watch = spotifyShown()
-            AaScreens.tapSent(755, y, nowMs = 10_000)
+            AaScreens.tapSent(45, y, nowMs = 10_000)
             assertNull("$y", watch.look(PictureLook.Kind.MAP, 10_100))
             assertEquals("$y", AaScreen.NAV, watch.look(PictureLook.Kind.MAP, 10_350))
         }
@@ -35,19 +35,19 @@ class AaScreensTapTest {
     @Test
     fun `the media shortcut after a dark picture does not arm the picture, the navigation one does`() {
         val media = spotifyShown(look = PictureLook.Kind.APPS)
-        AaScreens.tapSent(755, 277, nowMs = 10_000)
+        AaScreens.tapSent(45, 275, nowMs = 10_000)
         // not armed: a map seen at once still needs its two looks, but the dark looks are not held back by a settle
         assertNull(media.look(PictureLook.Kind.APPS, 10_100))
         assertEquals(AaScreen.APPS, media.screen.value)
         val navigation = spotifyShown(look = PictureLook.Kind.APPS)
-        AaScreens.tapSent(755, 199, nowMs = 10_000)
+        AaScreens.tapSent(45, 198, nowMs = 10_000)
         navigation.look(PictureLook.Kind.MAP, 10_100)
         assertEquals(AaScreen.NAV, navigation.look(PictureLook.Kind.MAP, 10_350))
     }
 
     @Test
-    fun `a tap on the picture, on the microphone or on the menu's button does not wait`() {
-        for ((x, y) in listOf(400 to 200, 755 to 353, 755 to 431)) {
+    fun `a tap on the picture, on the microphone, on the grid's button or on the old bar at the right does not wait`() {
+        for ((x, y) in listOf(400 to 200, 45 to 352, 45 to 430, 755 to 198, 755 to 275)) {
             val watch = spotifyShown()
             AaScreens.tapSent(x, y, nowMs = 10_000)
             assertEquals("$x,$y", AaScreen.APPS, watch.screen.value)

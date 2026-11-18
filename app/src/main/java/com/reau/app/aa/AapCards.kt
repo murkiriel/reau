@@ -35,6 +35,7 @@ internal class AapCards(
     private val onNowPlaying: ((AaNowPlaying?) -> Unit)?,
     private val onCaller: ((AaCaller?) -> Unit)?,
     private val onMediaApp: ((String) -> Unit)? = null,
+    private val onPlayback: ((source: String?, playing: Boolean?) -> Unit)? = null,
 ) {
     private val media = AapFragments()
     private val phone = AapFragments()
@@ -71,7 +72,7 @@ internal class AapCards(
     private fun music(whole: AapFragments.Whole) {
         when (whole.type) {
             MEDIA_PLAYBACK_METADATA -> song(MediaPlayback.MediaMetaData.parseFrom(whole.payload))
-            MEDIA_PLAYBACK_STATUS -> MediaPlayback.MediaPlaybackStatus.parseFrom(whole.payload).let { source(it); state(it) }
+            MEDIA_PLAYBACK_STATUS -> MediaPlayback.MediaPlaybackStatus.parseFrom(whole.payload).let { source(it); state(it); playback(it) }
         }
     }
 
@@ -106,6 +107,17 @@ internal class AapCards(
         if (!status.hasMediaSource() || source.isEmpty() || source == lastSource) return
         lastSource = source
         onMediaApp?.invoke(source)
+    }
+
+    /**
+     * What the status says for [AaMedia], from the same message the card and the music app are read from: the app it names and whether the state is PLAYING,
+     * each null when the status leaves it out (a blank name is none). Said at every status, the watch keeps what changed; the song is not part of it.
+     */
+    private fun playback(status: MediaPlayback.MediaPlaybackStatus) {
+        val source = if (status.hasMediaSource()) status.mediaSource?.trim().orEmpty().ifEmpty { null } else null
+        val playing = if (status.hasState()) status.state == MediaPlayback.MediaPlaybackStatus.State.PLAYING else null
+        if (source == null && playing == null) return
+        onPlayback?.invoke(source, playing)
     }
 
     private fun call(whole: AapFragments.Whole) {

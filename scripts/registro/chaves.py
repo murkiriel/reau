@@ -57,6 +57,8 @@ CHAVES = [
     ("experimentEncoderLowLatency", "baixa latência do codificador", "Qualcomm encoder asked not to hold frames"),
     # A de 17/11/2026, só da versão de depuração: o vídeo a 6 fps (3 no perfil reduzido) em vez de 4 e 2; separa as corridas 6/3 das de 4/2.
     ("experimentFpsSixThree", "vídeo a 6/3 fps", "video at 6 fps (3 fps in the reduced profile)"),
+    # A de 17/11/2026, só da versão de depuração: a central se anuncia ao Android Auto como motocicleta (vehicle_type 3, vehicle_id próprio).
+    ("experimentMotorcycle", "central anunciada como moto", "announced to Android Auto as a motorcycle"),
 ]
 GUARDA = "experimentStartGuard"
 SETTINGS = "settings in use:"

@@ -11,8 +11,9 @@
 # Dois avisos (só leitura; saem na tela e no fim do INFO.txt, em "--- avisos da coleta"):
 #   - o tamanho dos buffers do logcat (`logcat -g`, lido NO COMEÇO, antes de qualquer outra leitura): buffer `main` ou `system` abaixo de 1 MiB (LOGCAT_MIN_KIB=1024)
 #     quer dizer que o logcat do sistema guarda pouca história (o de 256 KiB cobre menos de 1 h): colete logo depois da corrida;
-#   - o espaço das gravações (item 11c): a última linha `recordings space: N files removed (X KB), Y KB left of Z KB` dos registros copiados (Y é o que ficou ocupado do
-#     teto Z; o app só a escreve quando apagou algo) e o tamanho de sessions/ + video/ copiados. Ocupado a partir de REAU_AVISO_MB (padrão 800) MB, o teto está perto:
+#   - o espaço das gravações (item 11c): o tamanho de sessions/ + video/ copiados (o que vale, é o estado de agora) e, só quando nada foi copiado, a última linha
+#     `recordings space: N files removed (X KB), Y KB left of Z KB` dos registros copiados (Y é o que ficou ocupado do teto Z; o app só a escreve quando apagou algo, então pode
+#     ser de dias antes: ela vai ao INFO.txt, mas não decide o aviso se há cópia). Ocupado a partir de REAU_AVISO_MB (padrão 800) MB, o teto está perto:
 #     o app apaga os arquivos mais antigos e um evento raro some; colete a cada ≤ 2 dias de uso.
 #     A linha `recordings space: sessions over their share: …` (a cota das sessões, metade do teto) é de outra conta e não vale aqui: só a do total.
 #
@@ -140,6 +141,25 @@ for pkg in com.reau.app com.reau.app.lite; do
 done
 rmdir "$OUT/antigo-lite" 2>/dev/null || true
 
+# O que o INFO.txt também diz (A9, 17/11/2026), só leitura: (1) quanta história cada buffer do logcat guarda, com o tamanho e a hora da primeira linha dele (só a data e a hora, nunca o
+# texto: ele é de qualquer app); com o `-b all` junto não dá para saber de que buffer é cada linha, e o `main` costuma cobrir só umas 3 h; (2) o estado do processo do Android Auto que
+# projeta (`:projection`): quando começou (tempo de vida do `ps`) e, do `dumpsys activity processes`, o que ele diz do registro dele (importância, se está congelado). Quem lê o INFO.txt
+# prova ou descarta o Android Auto congelado sem ter de adivinhar. O `-m` pára o logcat nas primeiras linhas; um aparelho que não o aceite deixa a linha como «não lido».
+{
+  echo "--- história de cada buffer do logcat (tamanho; hora da primeira linha)"
+  for buffer in main system crash; do
+    tamanho="$(printf '%s\n' "$BUFFERS" | sed -n "s/^$buffer: ring buffer is \([0-9][0-9]* [KMG]iB\).*/\1/p" | head -1)"
+    primeira="$("$ADB" -s "$SERIAL" logcat -b "$buffer" -d -v threadtime -m 3 2>/dev/null | awk '/^[0-9][0-9]-[0-9][0-9] [0-9:.]+ / {print $1, $2; exit}' || true)"
+    echo "$buffer: ${tamanho:-tamanho não lido}; primeira linha ${primeira:-não lida (buffer vazio ou o aparelho não aceita o -m)}"
+  done
+  echo "--- o processo do Android Auto que projeta ($GEARHEAD:projection)"
+  processo="$(no_celular ps -A -o PID,STAT,ETIME,NAME 2>/dev/null | tr -d '\r' | awk -v alvo="$GEARHEAD:projection" 'index($0, alvo)' || true)"
+  if [ -n "$processo" ]; then echo "PID STAT ETIME(desde o início) NOME"; printf '%s\n' "$processo"; else echo "(o processo :projection não existe agora)"; fi
+  no_celular dumpsys activity processes 2>/dev/null | awk -v alvo="$GEARHEAD:projection" '
+    /^  \*(APP|PERS)\*/ {dentro = index($0, alvo) > 0}
+    dentro && /ProcessRecord\{|[Ff]rozen|[Cc]ached|curAdj|setAdj|procState|importance|[Ss]tartTime|lastActivityTime/ {print}' | head -20 || true
+} >> "$OUT/INFO.txt" 2>&1
+
 # O espaço das gravações (sessions/ e video/), pelo `left of` que o app escreve ao apagar o mais antigo e pelo tamanho do que veio na cópia. Só lê arquivos já copiados.
 AVISO_MB="${REAU_AVISO_MB:-800}"
 ESPACO_PADRAO_KB=1048576
@@ -154,15 +174,19 @@ copiado_kb="$(du -sk "$OUT/sessions" "$OUT/video" 2>/dev/null | awk '{s += $1} E
 {
   echo "--- espaço das gravações (item 11c)"
   echo "ultima linha 'recordings space:' dos registros copiados: ${ultima:-(nenhuma: o app só a escreve quando apaga algo)}"
-  echo "sessions/ + video/ copiados: ${copiado_kb} KB; teto: ${teto_kb} KB"
+  echo "sessions/ + video/ copiados: ${copiado_kb} KB ($(( (copiado_kb * 100 + teto_kb / 2) / teto_kb )) % do teto de ${teto_kb} KB)"
 } >> "$OUT/INFO.txt"
-for kb in "$ocupado_kb" "$copiado_kb"; do
-  [ -n "$kb" ] || continue
-  if [ "$kb" -ge $((AVISO_MB * 1024)) ]; then
-    avisar "gravações em $((kb / 1024)) MB de $((teto_kb / 1024)) MB (livre $(( (teto_kb - kb) / 1024 )) MB; aviso a partir de ${AVISO_MB} MB): o app apaga as mais antigas ao passar do teto; colete a cada 2 dias de uso ou logo depois de um evento raro"
-    break
-  fi
-done
+# O que vale é o tamanho do que veio na cópia (o estado de agora). A linha `left of` é uma foto do momento em que o app apagou algo e pode ser de dias antes: a de 14/11
+# disse 974 MB onde a cópia, tirada dias depois, tinha 806 MB (79 %). Só quando nada foi copiado (sem run-as, sem gravações) a linha decide.
+kb=""; fonte=""
+if [ "${copiado_kb:-0}" -gt 0 ]; then
+  kb="$copiado_kb"; fonte="pelo tamanho de sessions/ + video/ copiados"
+elif [ -n "$ocupado_kb" ]; then
+  kb="$ocupado_kb"; fonte="pela última linha 'recordings space' dos registros (nada foi copiado)"
+fi
+if [ -n "$kb" ] && [ "$kb" -ge $((AVISO_MB * 1024)) ]; then
+  avisar "gravações em $((kb / 1024)) MB de $((teto_kb / 1024)) MB (livre $(( (teto_kb - kb) / 1024 )) MB, $(( (kb * 100 + teto_kb / 2) / teto_kb )) % ocupado, $fonte; aviso a partir de ${AVISO_MB} MB): o app apaga as mais antigas ao passar do teto; colete a cada 2 dias de uso ou logo depois de um evento raro"
+fi
 if [ -n "$AVISOS" ]; then { echo "--- avisos da coleta"; printf '%s' "$AVISOS"; } >> "$OUT/INFO.txt"; fi
 
 echo "coletado em $OUT"

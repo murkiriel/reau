@@ -83,6 +83,9 @@ class DashCompositor(private val log: (String) -> Unit) {
     private val lookResult = ScreenNet.Result()
     private val lookAudit = LookAudit()
 
+    /** The net's own class for the look [onLook] is being told of (Spotify or another app, which [PictureLook.Kind] does not say): read inside the listener, on the compositor's thread. */
+    val lookedScreen: ScreenNet.Screen get() = lookResult.screen
+
     // Shut from the start of a projection until its first picture ([awaitNewPicture]): the compositor outlives Android Auto's sessions and would otherwise look at the old picture.
     private val lookGate = LookGate()
 
@@ -135,6 +138,9 @@ class DashCompositor(private val log: (String) -> Unit) {
 
     /** The badge on the video is the "waiting for Android Auto" notice: it goes with the first new picture, on the GL thread, with no wait for the 1/4 s poll. */
     private var badgeLeavesWithPicture = false
+
+    /** What the joystick's legend says on the dash's video now, or null for none. */
+    private var legend: com.reau.app.dash.LegendCard? = null
 
     /** What the info ring draws on the dash's video now, or null for no ring. */
     private var infoRing: com.reau.app.weather.RingFrame? = null
@@ -409,6 +415,30 @@ class DashCompositor(private val log: (String) -> Unit) {
         }.onFailure { log("compositor: the picture-stuck badge failed and is off: $it") }
     }
 
+    /**
+     * Shows the joystick's legend ([card]) in the middle of the dash's video from the next frame; null takes it off. Drawn once into a texture
+     * (here, on the GL thread), so a frame costs one more quad; the same card again does nothing, and a change is drawn at once ([redrawSoon]),
+     * as a tap is rare and the video may be at the idle pace.
+     */
+    fun setLegend(card: com.reau.app.dash.LegendCard?) = onGlThread(wait = false) {
+        if (card == legend) return@onGlThread
+        legend = card
+        runCatching {
+            if (card == null) {
+                gl.setLegend(null)
+            } else {
+                val picture = LegendInk.render(card)
+                gl.setLegend(picture)
+                picture.recycle()
+            }
+        }.onFailure {
+            legend = null
+            gl.setLegend(null)
+            log("compositor: the joystick legend failed and is off: $it")
+        }
+        redrawSoon()
+    }
+
     /** Lays the info ring in the place of the dash's manoeuvre bubble ([inPlace]) or on the right; drawn again at once. */
     fun setInfoRingPlace(inPlace: Boolean) = onGlThread(wait = false) {
         if (gl.ringInPlace == inPlace) return@onGlThread
@@ -643,6 +673,7 @@ class DashCompositor(private val log: (String) -> Unit) {
         if (overlay.on) gl.drawOverlay(overlay.x, overlay.y)
         if (buttonOverlay.on) gl.drawButton(buttonOverlay.x, buttonOverlay.y)
         if (infoRing != null) gl.drawRing()
+        if (legend != null) gl.drawLegend()
         if (staleBadge != null) gl.drawBadge()
 
         val clock = CompositorRules.advance(lastStampMs, ptsMs, sinceLastFrameMs, pace.clockSlowPercent)

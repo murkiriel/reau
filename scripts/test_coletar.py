@@ -14,7 +14,7 @@ SCRIPT = Path(__file__).resolve().parent / "coletar_do_celular.sh"
 
 # What the script may ask of the phone, as the words that start a command after `-s SERIAL` (or `adb` alone).
 READ_ONLY = ("devices", "shell getprop", "shell dumpsys", "shell cmd appops get", "shell am get-standby-bucket", "shell settings get",
-             "logcat", "exec-out run-as")
+             "logcat", "exec-out run-as", "shell ps -A -o PID,STAT,ETIME,NAME")
 FORBIDDEN = ("battery set", "battery reset", "whitelist +", "whitelist -", "logcat -c", "logcat --clear", " -G ", "install", "uninstall", " rm ", "push", "pull", "kill-server", "settings put", " pm ", "shell pm", "reboot", "am force-stop",
              "am start", "appops set", "cmd appops set", "disable", "clear", "tcpip", "root", "remount")
 
@@ -150,9 +150,9 @@ class ReadOnlyTest(unittest.TestCase):
         for command in commands:
             rest = command.removeprefix("-s ABC123 ")
             if rest.startswith("shell dumpsys"):
-                self.assertRegex(rest, r"^shell dumpsys (package \S+|deviceidle whitelist|power|battery|wifi|connectivity|location)$", command)
+                self.assertRegex(rest, r"^shell dumpsys (package \S+|deviceidle whitelist|power|battery|wifi|connectivity|location|activity processes)$", command)
             if rest.startswith("logcat"):
-                self.assertRegex(rest, r"^logcat (-b (all|crash) -d -v threadtime|-g)$", command)
+                self.assertRegex(rest, r"^logcat (-b (all|crash) -d -v threadtime|-b (main|system|crash) -d -v threadtime -m 3|-g)$", command)
 
     def test_a_folder_that_is_missing_does_not_stop_the_others_and_the_warning_names_the_recordings(self):
         done, _, _ = run(["ABC123"])

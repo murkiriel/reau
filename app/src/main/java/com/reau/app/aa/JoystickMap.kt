@@ -5,6 +5,8 @@ import com.reau.app.aa.JoystickBindings.Control
 import com.reau.app.aa.JoystickBindings.Gesture
 import com.reau.app.aa.JoystickBindings.Mode
 import com.reau.app.aa.JoystickBindings.Slot
+import com.reau.app.dash.ActionLegend
+import com.reau.app.dash.EchoLabel
 import com.reau.app.dash.protocol.DashButtonEvent
 import com.reau.app.phone.CallState
 
@@ -16,6 +18,11 @@ sealed class AaCommand {
     data class Steps(val commands: List<AaCommand>) : AaCommand()
     /** A finger from the phone's "Tela do Android Auto", at a point of the video. */
     data class Touch(val action: PhoneTouch.Action, val x: Int, val y: Int) : AaCommand()
+    /**
+     * The switch to the next of the first three apps of Android Auto's grid ([AppCycle]): a sequence with waits in it (taps and the screen's word),
+     * so it is not sent as one input; LiveSides starts it in its own coroutine. It reaches Android Auto as touches.
+     */
+    data object CycleApps : AaCommand()
     /** Not for Android Auto: the phone answers the ringing call ([com.reau.app.phone.PhoneCalls]). */
     data object AnswerCall : AaCommand()
     /** Not for Android Auto: the phone rejects the ringing call or ends the one going on. */
@@ -51,6 +58,10 @@ sealed class AaCommand {
  * the call just answered nor moves the focus; another control counts at once (the middle ending a call just answered
  * was held back in use). [callState] is always idle unless the rider switched
  * answering on.
+ *
+ * The music mode ([MusicMode], [musicActive]): with Spotify on the screen and playing, the media mode's left, right and centre are previous song,
+ * next song and play/pause (a call, as always, comes first). A side goes [HELD_SIDE_MS] after the tap, through [release], and is dropped if the
+ * media centre comes meanwhile (the dash's ghost: a side just before the centre); the centre goes at once. The map mode and up and down never change.
  */
 @Suppress("TooManyFunctions") // one small function per rule of the page; the call state read per tap is two more
 class JoystickMap(
@@ -58,8 +69,12 @@ class JoystickMap(
     private val assistant: Boolean = false,
     private val callState: () -> CallState = { CallState.IDLE },
 ) {
-    /** What a tap gave: what to send, and the ride log's words. */
-    data class Press(val sent: List<AaCommand>, val lines: List<String>)
+    /**
+     * What a tap gave: what to send, and the ride log's words. [echo] is the name the dash's gold band says of it ([com.reau.app.dash.ActionEcho]):
+     * null for a tap that did nothing (a bounce, a tap ignored or not mapped, an action of "nothing"). [legend] is the dash mode this tap is the first
+     * of (the first of the projection, or one after taps of the other mode): the joystick's legend of that mode is due ([com.reau.app.dash.ActionLegend]).
+     */
+    data class Press(val sent: List<AaCommand>, val lines: List<String>, val echo: EchoLabel? = null, val legend: Mode? = null)
 
     private var lastBackMs = Long.MIN_VALUE / 2
     private var quietUntilMs = Long.MIN_VALUE / 2
@@ -67,10 +82,22 @@ class JoystickMap(
     // is the accident; another control right after, such as the middle ending a call just answered, is meant).
     private var quietControl: Control? = null
     private var lastCode = -1
+    // The dash mode of the last tap that had one, null before the first: the dash does not say its mode, the codes of the taps do.
+    private var lastMode: Mode? = null
     private var lastCodeMs = Long.MIN_VALUE / 2
     private var lastSideMs = Long.MIN_VALUE / 2
     // The last side, its mode and what it sent, for the dash's press of the centre ([CenterUndo]).
     private val centerUndo = CenterUndo()
+
+    /**
+     * Whether the music mode is on at the given time ([MusicMode.active]); set by the projection. Off, the page is the rider's alone. On,
+     * the media mode's sides and centre are the song's keys ([musicPress]).
+     */
+    @Volatile var musicActive: (nowMs: Long) -> Boolean = { false }
+
+    // The music mode's side, held for HELD_SIDE_MS before it goes: a centre that comes meanwhile says it was the dash's ghost.
+    private class HeldSide(val control: Control, val command: AaCommand, val pressedMs: Long)
+    private var held: HeldSide? = null
 
     // The call state read in this press: the state is a settings load, a permission check and a call to the phone service, and a press
     // asked for it up to three times (audit of 26/10/2026); it cannot change between the first and the last in a tap.
@@ -84,6 +111,21 @@ class JoystickMap(
 
     @Synchronized
     fun press(event: DashButtonEvent, nowMs: Long): Press {
+        // A held side whose time came goes first, in the order it was pressed (the tick that releases it may not have run yet).
+        val due = releaseHeld(nowMs, force = false) ?: return handle(event, nowMs)
+        val press = handle(event, nowMs)
+        return press.copy(sent = due.sent + press.sent, lines = press.lines + due.lines)
+    }
+
+    /** When the held side of the music mode is due to go, or null when none is held; the projection waits until then and calls [release]. */
+    @Synchronized
+    fun heldDueMs(): Long? = held?.let { it.pressedMs + HELD_SIDE_MS }
+
+    /** The held side if its time has come at [nowMs]; null when none is held or it is not due yet. */
+    @Synchronized
+    fun release(nowMs: Long): Press? = releaseHeld(nowMs, force = false)
+
+    private fun handle(event: DashButtonEvent, nowMs: Long): Press {
         pressCall = null
         val place = whereOf(event)
         // The dash's bounce (the same code again within BOUNCE_MS; a 0x05 has come
@@ -93,7 +135,7 @@ class JoystickMap(
         lastCode = event.code
         lastCodeMs = nowMs
         val callScreen = callScreenSide(event)
-        return byCode(event, bounce) ?: centerUndo.pressFor(place, nowMs) ?: when {
+        val press = byCode(event, bounce) ?: centerUndo.pressFor(place, nowMs) ?: when {
             event is DashButtonEvent.JoystickBack -> backPress(nowMs)
             callScreen != null -> {
                 if (callScreen != Control.CENTER) lastSideMs = nowMs
@@ -107,7 +149,39 @@ class JoystickMap(
                 ?: Press(emptyList(), listOf("not mapped -> nothing"))
             else -> pressOfPage(place, nowMs)
         }
+        return press.copy(legend = legendDue(modeOf(event, place)))
     }
+
+    /** The dash mode a tap's code tells; null for the codes that are no mode's (the dash's notice, the calls' own). The map mode's up is the dash's own back. */
+    private fun modeOf(event: DashButtonEvent, place: Pair<Mode, Control>?): Mode? =
+        place?.first ?: Mode.MAP.takeIf { event is DashButtonEvent.JoystickBack }
+
+    /**
+     * [mode] when its legend is due: the tap is the first of the projection or the first of a mode other than the last tap's. The mode is
+     * remembered by every tap that has one, ignored or not. While the phone rings or a call goes on the sides are the call's, so no legend is due.
+     */
+    private fun legendDue(mode: Mode?): Mode? {
+        if (mode == null) return null
+        val changed = mode != lastMode
+        lastMode = mode
+        return mode.takeIf { changed && callNow() == CallState.IDLE }
+    }
+
+    /**
+     * What each direction does in [mode] by the rider's page, in the order the legend lists them ([com.reau.app.dash.ActionLegend.ORDER]); null
+     * for one that does nothing. In the map mode the up is the dash's own back (REau sends back, or home when twice) and the middle puts the dash in its
+     * media mode. Read when the legend is built, so a page changed meanwhile counts.
+     */
+    fun legend(mode: Mode): List<Pair<Control, EchoLabel?>> = ActionLegend.ORDER.map { control ->
+        control to when {
+            mode == Mode.MAP && control == Control.UP -> EchoLabel.BACK
+            mode == Mode.MAP && control == Control.CENTER -> EchoLabel.MEDIA_MODE
+            else -> spoken(bindings[Slot(mode, control, Gesture.ONCE)])
+        }
+    }
+
+    /** The label of a page action the tap really does: the assistant with no microphone given sends nothing, and the tap does nothing. The info ring's switch sends nothing either, but it acts. */
+    private fun spoken(action: Action): EchoLabel? = EchoLabel.of(action)?.takeIf { action.command(assistant) != null || action == Action.INFO_RING }
 
     /**
      * The control of the dash's own call screen: while the phone rings 0x02 is the left and 0x01 the right; on a call
@@ -131,7 +205,7 @@ class JoystickMap(
         else -> {
             quietUntilMs = nowMs + CALL_QUIET_MS
             quietControl = Control.CENTER
-            Press(listOf(AaCommand.EndCall), listOf("call: center -> EndCall"))
+            Press(listOf(AaCommand.EndCall), listOf("call: center -> EndCall"), callEcho(AaCommand.EndCall))
         }
     }
 
@@ -152,11 +226,52 @@ class JoystickMap(
     private fun pressOfPage(place: Pair<Mode, Control>, nowMs: Long): Press {
         val side = place.second == Control.LEFT || place.second == Control.RIGHT
         if (side) lastSideMs = nowMs
+        // A centre while the music mode holds a side: that side was the dash's ghost, and goes no further.
+        val dropped = if (place == Mode.MEDIA to Control.CENTER) dropHeld(nowMs) else null
         val back = centerUndo.stepsBackFor(place, nowMs)
-        val press = callFirst(place.second, nowMs) ?: onPage(place.first, place.second)
+        val press = callFirst(place.second, nowMs) ?: musicPress(place, nowMs) ?: onPage(place.first, place.second)
         if (side) centerUndo.remember(place.first, press.sent, nowMs)
-        if (back.isEmpty()) return press
-        return Press(back + press.sent, listOf("media center right after a side: its step of the focus is taken back") + press.lines)
+        val result = if (back.isEmpty()) press else {
+            Press(back + press.sent, listOf("media center right after a side: its step of the focus is taken back") + press.lines, press.echo)
+        }
+        return if (dropped == null) result else result.copy(lines = result.lines + dropped)
+    }
+
+    /**
+     * The music mode's press: previous song, next song and play/pause on the media mode's left, right and centre, when the phone is quiet and
+     * [musicActive]; null for any other press (it goes through the page). The centre goes at once. A side is held [HELD_SIDE_MS] first, the
+     * dash's ghost being a side that comes up to about 200 ms before the centre ([dropHeld]); a side pressed while another is held sends the first.
+     */
+    @Suppress("ReturnCount", "ComplexCondition") // one guard of the four things the mode needs, then the centre and the side each their own way
+    private fun musicPress(place: Pair<Mode, Control>, nowMs: Long): Press? {
+        val (mode, control) = place
+        if (mode != Mode.MEDIA || control !in MUSIC_CONTROLS || callNow() != CallState.IDLE || !musicActive(nowMs)) return null
+        val action = when (control) {
+            Control.LEFT -> Action.PREVIOUS_SONG
+            Control.RIGHT -> Action.NEXT_SONG
+            else -> Action.PLAY_PAUSE
+        }
+        val command = action.command(assistant) ?: return null
+        val shown = "${name(mode, control)} once -> music mode, ${action.name.lowercase()}"
+        if (control == Control.CENTER) return Press(listOf(command), listOf(shown), spoken(action))
+        val earlier = releaseHeld(nowMs, force = true)
+        held = HeldSide(control, command, nowMs)
+        return Press(earlier?.sent.orEmpty(), listOf("$shown, after $HELD_SIDE_MS ms unless the centre comes") + earlier?.lines.orEmpty(), spoken(action))
+    }
+
+    /** The held side's command as a press, when its time has come at [nowMs] (or at once with [force]); the side is no longer held. */
+    private fun releaseHeld(nowMs: Long, force: Boolean): Press? {
+        val side = held ?: return null
+        if (!force && nowMs - side.pressedMs < HELD_SIDE_MS) return null
+        held = null
+        return Press(listOf(side.command), listOf("music mode: ${side.control.name.lowercase()} sent ${nowMs - side.pressedMs} ms after the tap"))
+    }
+
+    /** The log line of the held side dropped because the centre came at [nowMs], or null when none is held. */
+    private fun dropHeld(nowMs: Long): String? {
+        val side = held ?: return null
+        held = null
+        return "music mode: ${side.control.name.lowercase()} dropped as the dash's ghost, the centre came ${nowMs - side.pressedMs} ms after it"
     }
 
     /** A tap through the rider's page. */
@@ -166,7 +281,7 @@ class JoystickMap(
         val command = action.command(assistant)
         // The info ring's switch sends nothing to Android Auto: the session shows or hides the ring by the code (DashSession.ringAfterPress).
         val line = "${name(mode, control)} once -> ${command ?: if (action == Action.INFO_RING) "info ring" else Action.NOTHING.name.lowercase()}"
-        return Press(listOfNotNull(command), listOf(line))
+        return Press(listOfNotNull(command), listOf(line), spoken(action))
     }
 
     /** What the code alone settles: the dash's notice, a bounce, and the call's volume (before any side or page). */
@@ -188,7 +303,8 @@ class JoystickMap(
 
     private fun backPress(nowMs: Long): Press {
         val key = back(nowMs)
-        return Press(listOf(key), listOf("back -> $key"))
+        val home = key == AaCommand.Key(ServiceDiscoveryResponse.KEY_HOME)
+        return Press(listOf(key), listOf("back -> $key"), if (home) EchoLabel.HOME else EchoLabel.BACK)
     }
 
     /** The calls, above the page: a [Press] when the tap was the call's, null when it goes through the page. */
@@ -202,11 +318,18 @@ class JoystickMap(
             call != null -> {
                 quietUntilMs = nowMs + CALL_QUIET_MS
                 quietControl = side
-                Press(listOf(call), listOf("call: $name -> $call"))
+                Press(listOf(call), listOf("call: $name -> $call"), callEcho(call))
             }
             state == CallState.IN_CALL -> Press(emptyList(), listOf("$name: on a call, nothing"))
             else -> null
         }
+    }
+
+    /** What the dash says of a call's tap: the left answers; the other end of a ringing phone declines, on a call it hangs up. */
+    private fun callEcho(call: AaCommand): EchoLabel = when {
+        call == AaCommand.AnswerCall -> EchoLabel.ANSWER_CALL
+        callNow() == CallState.RINGING -> EchoLabel.REJECT_CALL
+        else -> EchoLabel.END_CALL
     }
 
     private fun back(nowMs: Long): AaCommand {
@@ -245,6 +368,15 @@ class JoystickMap(
          * [CenterUndo.UNDO_MS], the side is the ghost (rides: 111 to 188 ms) and the centre takes its step back.
          */
         const val MEDIA_CENTER_COMBO_MS = 100L
+
+        /**
+         * How long the music mode holds a side before it goes (a song skipped cannot be taken back). The dash's ghost, a side before the centre, came 111
+         * to 202 ms before it in 33 cases; this is [CenterUndo.UNDO_MS], the longest a centre still takes a side for the ghost.
+         */
+        const val HELD_SIDE_MS = CenterUndo.UNDO_MS
+
+        /** The media mode's controls that are the song's in the music mode; up and down stay the page's. */
+        private val MUSIC_CONTROLS = setOf(Control.LEFT, Control.RIGHT, Control.CENTER)
 
         /**
          * The controls a side can bring along in the same gesture ([comesWithSide] adds down in the map mode: in the media mode 0x07 is the
