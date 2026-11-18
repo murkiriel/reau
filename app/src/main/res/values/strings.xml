@@ -325,6 +325,7 @@
     <string name="sub_unresponsive">Stop and start its server in the ⋮ menu; REau tries again on its own</string>
     <string name="sub_image_stale">The dash shows the last picture while the bike moves</string>
     <string name="stale_badge">PICTURE STUCK</string>
+    <string name="waiting_badge">Waiting for Android Auto</string>
     <string name="sub_no_video">The dash is black: force stop Android Auto</string>
     <string name="sub_dash_lost">The connection to the dash dropped. REau comes back by itself when it answers again. If the motorcycle is on and it takes over a minute, turn it off and on with the key</string>
     <string name="sub_dash_lost_for">The dash stopped answering %1$d s ago. REau comes back by itself when it answers again. If the motorcycle is on and it takes over a minute, turn it off and on with the key</string>

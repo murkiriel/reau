@@ -353,6 +353,19 @@ internal class LiveSides(
     // The bike's speed for the stream's log, from Android Auto's route.
     private val navSpeed = com.reau.app.stream.NavSpeed()
 
+    // What the one badge on the dash's video may say: the picture is stuck (watchAppVideo) or Android Auto is gone (watchWaiting). Waiting wins.
+    @Volatile private var badgeStale = false
+    @Volatile private var badgeWaiting = false
+
+    private fun showBadge() {
+        val text = when {
+            badgeWaiting -> appContext.getString(R.string.waiting_badge)
+            badgeStale -> appContext.getString(R.string.stale_badge)
+            else -> null
+        }
+        compositor.setStaleBadge(text, leavesWithPicture = badgeWaiting)
+    }
+
     // The distances to the dash in miles and feet or in metres: what the dash says it is set to, else the country of the phone's own locales (not the app's language); said in the log when it changes.
     private var navImperialSaid: Boolean? = null
     private fun navImperial(): Boolean {
@@ -513,7 +526,10 @@ internal class LiveSides(
                 compositor.setBlurredFill(it.blurredFill)
             }
         }
-        if (started && receiver != null) scope.launch { watchAppVideo() }
+        if (started && receiver != null) {
+            scope.launch { watchAppVideo() }
+            scope.launch { watchWaiting() }
+        }
         scope.launch { ProjectionMachine.dashLinks(session.state).collect { report(ProjectionEvent.DashChanged(it)) } }
         // The weather for the dash: looked at every minute, fetched at most every quarter of an hour, and after a failure with a growing wait (WeatherBackoff).
         scope.launch {
@@ -760,12 +776,41 @@ internal class LiveSides(
                     if (isStale) "Android Auto's picture is stuck: no new picture for $staleFor s with the bike moving"
                     else "Android Auto's picture is alive again",
                 )
-                compositor.setStaleBadge(if (isStale) appContext.getString(R.string.stale_badge) else null)
+                badgeStale = isStale
+                showBadge()
                 report(ProjectionEvent.AndroidAutoImageStale(isStale))
             }
             units = nowUnits
             bytes = nowBytes
             at = now
+        }
+    }
+
+    /**
+     * A few times a second: Android Auto's session gone for 5 s while the dash is still showing the video puts the "waiting for Android Auto"
+     * notice on it, and the first new picture takes it off ([com.reau.app.aa.WaitingForAndroidAuto]; the compositor drops it with that picture
+     * and this loop only tells the log and the state). A shorter drop leaves the last picture on the dash, as before.
+     */
+    private suspend fun kotlinx.coroutines.CoroutineScope.watchWaiting() {
+        val waiting = com.reau.app.aa.WaitingForAndroidAuto()
+        while (isActive) {
+            delay(WAITING_POLL_MS)
+            val dashShowing = ProjectionMachine.linkOf(session.state.value) == DashLink.READY
+            val change = waiting.check(
+                android.os.SystemClock.elapsedRealtime(), receiver?.state == AaLinkState.ACTIVE, dashShowing, com.reau.app.aa.AaVideoMeter.units.get(),
+            ) ?: continue
+            RideDiagnostics.log(
+                "projection",
+                when {
+                    change ->
+                        "Android Auto's session has been gone for ${com.reau.app.aa.WaitingForAndroidAuto.AFTER_MS / 1000} s with the dash connected: " +
+                            "the dash says it is waiting for Android Auto"
+                    dashShowing -> "Android Auto's picture is back: the dash's waiting notice is off"
+                    else -> "the dash is gone: the waiting notice is off"
+                },
+            )
+            badgeWaiting = change
+            showBadge()
         }
     }
 
@@ -992,6 +1037,9 @@ private fun clearFocusWhenIdle(
 
 /** How often the weather is looked at (the fetch itself waits [com.reau.app.weather.WeatherKeeper.REFRESH_MS]). */
 private const val WEATHER_POLL_MS = 60_000L
+
+/** How often the "waiting for Android Auto" notice is looked at: the 5 s are counted to within this. */
+private const val WAITING_POLL_MS = 250L
 
 /** The ring's switch and the dash's ring are looked at every [InfoRingFeed.POLL_MS]; what it says every [RING_TICKS_PER_LOOK] looks (a second): pages turn every few seconds (seven by default, five to thirty). */
 private const val RING_TICKS_PER_LOOK = 20

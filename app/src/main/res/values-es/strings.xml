@@ -314,6 +314,7 @@
     <string name="sub_unresponsive">Detén e inicia su servidor en el menú ⋮; REau lo intenta de nuevo sola</string>
     <string name="sub_image_stale">El tablero muestra la última imagen mientras la moto se mueve</string>
     <string name="stale_badge">IMAGEN CONGELADA</string>
+    <string name="waiting_badge">Esperando Android Auto</string>
     <string name="sub_no_video">El tablero está negro: fuerza la detención de Android Auto</string>
     <string name="sub_dash_lost">La conexión con el tablero se cayó. REau vuelve sola cuando él responda de nuevo. Si la moto está encendida y pasa de un minuto, apágala y enciéndela con la llave</string>
     <string name="sub_dash_lost_for">El tablero dejó de responder hace %1$d s. REau vuelve sola cuando él responda de nuevo. Si la moto está encendida y pasa de un minuto, apágala y enciéndela con la llave</string>

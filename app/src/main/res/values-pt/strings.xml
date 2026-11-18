@@ -313,6 +313,7 @@
     <string name="sub_unresponsive">Pare e inicie o servidor no menu ⋮; o REau tenta de novo sozinho</string>
     <string name="sub_image_stale">O painel mostra a última imagem enquanto a moto anda</string>
     <string name="stale_badge">IMAGEM PARADA</string>
+    <string name="waiting_badge">Aguardando o Android Auto</string>
     <string name="sub_no_video">O painel fica preto: force a parada do Android Auto</string>
     <string name="sub_dash_lost">A conexão com o painel caiu. O REau volta sozinho quando ele responder de novo. Se a moto está ligada e passar de 1 minuto, desligue e ligue a moto pela chave</string>
     <string name="sub_dash_lost_for">O painel parou de responder há %1$d s. O REau volta sozinho quando ele responder de novo. Se a moto está ligada e passar de 1 minuto, desligue e ligue a moto pela chave</string>

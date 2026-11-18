@@ -133,6 +133,9 @@ class DashCompositor(private val log: (String) -> Unit) {
     /** The words of the "picture stuck" badge on the dash's video, or null for none (Android Auto's picture is alive). */
     private var staleBadge: String? = null
 
+    /** The badge on the video is the "waiting for Android Auto" notice: it goes with the first new picture, on the GL thread, with no wait for the 1/4 s poll. */
+    private var badgeLeavesWithPicture = false
+
     /** What the info ring draws on the dash's video now, or null for no ring. */
     private var infoRing: com.reau.app.weather.RingFrame? = null
 
@@ -171,6 +174,9 @@ class DashCompositor(private val log: (String) -> Unit) {
                     if (latched) {
                         hasImage = true
                         newImage = true
+                        // A picture of Android Auto's own ends the waiting notice before the frame that carries it is drawn.
+                        val kept = CompositorRules.badgeAfterPicture(staleBadge, badgeLeavesWithPicture)
+                        if (kept != staleBadge) setStaleBadge(kept)
                         waitClock.arrived(System.nanoTime())
                         lookGate.pictureArrived()
                         takeLook()
@@ -384,8 +390,12 @@ class DashCompositor(private val log: (String) -> Unit) {
         }
     }
 
-    /** Shows the "picture stuck" badge saying [text] on the dash's video from the next frame; null takes it off. */
-    fun setStaleBadge(text: String?) = onGlThread(wait = false) {
+    /**
+     * Shows the badge saying [text] on the dash's video from the next frame (the "picture stuck" one, or the "waiting for Android Auto"
+     * notice); null takes it off. With [leavesWithPicture] it also goes by itself the moment the next picture of Android Auto is latched.
+     */
+    fun setStaleBadge(text: String?, leavesWithPicture: Boolean = false) = onGlThread(wait = false) {
+        badgeLeavesWithPicture = text != null && leavesWithPicture
         if (text == staleBadge) return@onGlThread
         staleBadge = text
         runCatching {
@@ -735,6 +745,9 @@ internal object CompositorRules {
 
     /** While the web output is on and nothing new comes, the last picture is drawn again every [everyNs]. */
     fun webDue(hasImage: Boolean, nowNs: Long, lastDrawNs: Long, everyNs: Long): Boolean = hasImage && nowNs - lastDrawNs >= everyNs
+
+    /** The badge [text] after a new picture is latched: the waiting notice ([leavesWithPicture]) is gone, any other badge stays. */
+    fun badgeAfterPicture(text: String?, leavesWithPicture: Boolean): String? = if (leavesWithPicture) null else text
 
     /** The look at the picture is taken at most once every [everyMs]. */
     fun lookDue(nowMs: Long, lastLookMs: Long, everyMs: Long): Boolean = nowMs - lastLookMs >= everyMs
