@@ -409,6 +409,8 @@
     <string name="exp_color_sub">Experimental: al codificador del tablero se le pide BT.601, rango limitado, SDR. Si el códec lo rechaza, se pide como antes, y el registro dice lo que aceptó. Vale desde el próximo video</string>
     <string name="exp_encoder_low_latency_title">Baja latencia del codificador (Qualcomm)</string>
     <string name="exp_encoder_low_latency_sub">Experimental: le pide al codificador Qualcomm (el del tablero) que no retenga cuadros. Vale solo para celulares Qualcomm; cualquier otro codificador se pide como siempre. Si el códec lo rechaza, se pide de nuevo sin la clave. El efecto se ve en el tiempo de codificación del registro. Vale desde el próximo video</string>
+    <string name="exp_fps63_title">Video a 6 fps (3 fps en el perfil reducido)</string>
+    <string name="exp_fps63_sub">Experimental, solo en la versión de depuración: el video al tablero va a 6 fps en el perfil A y a 3 fps en el B, en vez de 4 y 2; los bitrates no cambian. El mapa se mueve con más fluidez, con cerca de 40 por ciento más de tráfico de radio y un poco más de batería. Aún en prueba. Vale al instante, y el video vuelve a empezar</string>
     <string name="exp_protocol_six_title">Protocolo 6.0 de Android Auto</string>
     <string name="exp_protocol_six_sub">Experimental: el apretón de manos pide la versión 6.0 del protocolo (hoy, 1.7). Si Android Auto la rechaza o el apretón de manos falla, se vuelve a pedir 1.7 hasta que la app se cierre, y el registro dice lo que se pidió y se respondió. Vale desde el próximo encendido</string>
     <string name="exp_tolerant_rx_title">Vigilancia del tablero más tolerante</string>
@@ -446,7 +448,7 @@
     <string name="gemini_title">Gemini</string>
     <string name="by_joystick_sub">Con el joystick del manillar</string>
     <string name="fps_title">Tope de cuadros por segundo</string>
-    <string name="profiles_fps_sub">Perfil A: 4. Perfil B: %1$d. Fijo</string>
+    <string name="profiles_fps_sub">Perfil A: %1$d. Perfil B: %2$d. Fijo</string>
     <string name="profiles_info">REau usa dos perfiles de video fijos para el tablero: el A, con %1$d fps y %2$d kbps, la imagen más fluida, y el B, la mitad (%3$d fps y %4$d kbps), más liviano para el Wi-Fi y el tablero. Entre ellos eligen el perfil por maniobra y el perfil por velocidad, justo debajo. Estos valores no se pueden cambiar.</string>
     <string name="profiles_bitrate_sub">Perfil A: 400 kbps. Perfil B: %1$d kbps. Fijo</string>
     <string name="bitrate_title">Bitrate</string>

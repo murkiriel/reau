@@ -90,5 +90,6 @@ object LiveTuning {
     private val REauSettings.stream get() = listOf(
         fpsCeiling, clockSlowPercent, effectiveStreamBitrateBps, bitrateMode, keyframeSec, experimentRtpPacing, experimentAdaptiveBitrate,
         experimentEncoderWatch,
+        experimentFpsSixThree,
     )
 }

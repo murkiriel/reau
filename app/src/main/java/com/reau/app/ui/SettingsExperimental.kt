@@ -74,7 +74,14 @@ internal fun ConnectionExperimentsGroup(s: REauSettings, change: (REauSettings) 
  */
 @Composable
 internal fun VideoExperimentsGroup(s: REauSettings, change: (REauSettings) -> Unit) {
-    SettingsGroup(R.drawable.ic_ms_tune, stringResource(R.string.group_video_experiments), listOf(
+    // A debug build's own switch: a release build has no row for it, and its settings keep it off ([REauSettings.sanitized]).
+    val fps63Row: @Composable () -> Unit = {
+        SwitchRow(
+            stringResource(R.string.exp_fps63_title), s.experimentFpsSixThree, { change(s.copy(experimentFpsSixThree = it)) }, "exp_fps63",
+            sub = stringResource(R.string.exp_fps63_sub), now = true,
+        )
+    }
+    SettingsGroup(R.drawable.ic_ms_tune, stringResource(R.string.group_video_experiments), listOf<@Composable () -> Unit>(
         {
             SwitchRow(
                 stringResource(R.string.exp_encoder_watch_title), s.experimentEncoderWatch,
@@ -119,7 +126,7 @@ internal fun VideoExperimentsGroup(s: REauSettings, change: (REauSettings) -> Un
                 sub = stringResource(R.string.exp_encoder_low_latency_sub),
             )
         },
-    ), tag = "group_video_experiments")
+    ).let { if (com.reau.app.BuildConfig.DEBUG) it + fps63Row else it }, tag = "group_video_experiments")
 }
 
 /**

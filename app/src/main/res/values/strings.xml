@@ -420,6 +420,8 @@
     <string name="exp_color_sub">Experimental: the dash\'s encoder is asked for BT.601, limited range, SDR. If the codec refuses, it is asked as before, and the log says what it accepted. Counts from the next video</string>
     <string name="exp_encoder_low_latency_title">Encoder low latency (Qualcomm)</string>
     <string name="exp_encoder_low_latency_sub">Experimental: asks a Qualcomm encoder (the dash\'s) not to hold frames back. Only for Qualcomm phones; any other encoder is asked as always. If the codec refuses, it is asked again without it. The effect shows in the encoding time of the log. Counts from the next video</string>
+    <string name="exp_fps63_title">Video at 6 fps (3 fps in the reduced profile)</string>
+    <string name="exp_fps63_sub">Experimental, debug build only: the video to the dash goes at 6 fps in profile A and 3 fps in profile B, instead of 4 and 2; the bitrates stay. The map moves more smoothly, with about 40 percent more radio traffic and a little more battery. Still being tested. Counts at once, the video starts again</string>
     <string name="exp_protocol_six_title">Android Auto protocol 6.0</string>
     <string name="exp_protocol_six_sub">Experimental: the handshake asks for protocol version 6.0 (today, 1.7). If Android Auto refuses it or the handshake fails, 1.7 is asked again until the app closes, and the log says what was asked and answered. Counts from the next time you turn on</string>
     <string name="exp_tolerant_rx_title">More tolerant dash watch</string>
@@ -457,7 +459,7 @@
     <string name="gemini_title">Gemini</string>
     <string name="by_joystick_sub">By handlebar joystick</string>
     <string name="fps_title">Frame rate cap</string>
-    <string name="profiles_fps_sub">Profile A: 4. Profile B: %1$d. Fixed</string>
+    <string name="profiles_fps_sub">Profile A: %1$d. Profile B: %2$d. Fixed</string>
     <string name="profiles_info">REau uses two fixed video profiles for the dash: A, %1$d fps and %2$d kbps, the smoother picture, and B, half of that (%3$d fps and %4$d kbps), lighter on the Wi-Fi and the dash. The maneuver profile and the speed profile, just below, choose between them. These values can’t be changed.</string>
     <string name="profiles_bitrate_sub">Profile A: 400 kbps. Profile B: %1$d kbps. Fixed</string>
     <string name="bitrate_title">Bitrate</string>

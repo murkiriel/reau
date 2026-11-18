@@ -256,6 +256,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             experimentTolerantRx = prefs.getBoolean(KEY_EXPERIMENT_TOLERANT_RX, defaults.experimentTolerantRx),
             experimentWakeAa = prefs.getBoolean(KEY_EXPERIMENT_WAKE_AA, defaults.experimentWakeAa),
             experimentEncoderLowLatency = prefs.getBoolean(KEY_EXPERIMENT_ENCODER_LOW_LATENCY, defaults.experimentEncoderLowLatency),
+            experimentFpsSixThree = prefs.getBoolean(KEY_EXPERIMENT_FPS63, defaults.experimentFpsSixThree),
         ).sanitized()
     }
 
@@ -369,6 +370,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             putBoolean(KEY_EXPERIMENT_TOLERANT_RX, s.experimentTolerantRx)
             putBoolean(KEY_EXPERIMENT_WAKE_AA, s.experimentWakeAa)
             putBoolean(KEY_EXPERIMENT_ENCODER_LOW_LATENCY, s.experimentEncoderLowLatency)
+            putBoolean(KEY_EXPERIMENT_FPS63, s.experimentFpsSixThree)
         }
     }
 
@@ -494,6 +496,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val KEY_EXPERIMENT_TOLERANT_RX = "experiment_tolerant_rx"
         private const val KEY_EXPERIMENT_WAKE_AA = "experiment_wake_aa"
         private const val KEY_EXPERIMENT_ENCODER_LOW_LATENCY = "experiment_encoder_low_latency"
+        private const val KEY_EXPERIMENT_FPS63 = "experiment_fps63"
         private const val OLD_KEY_AA_SLOW_PACE = "aa_slow_pace"
         private const val OLD_KEY_AA_SLOW_PACE_FPS = "aa_slow_pace_fps"
         private const val KEY_AA_NEW_PROTOCOL = "aa_new_protocol"

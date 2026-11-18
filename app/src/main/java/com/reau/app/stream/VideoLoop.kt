@@ -99,6 +99,8 @@ internal class VideoLoop(
         val colorMatrix: Boolean = false,
         /** Experimental ([com.reau.app.settings.REauSettings.experimentEncoderLowLatency]): a Qualcomm encoder is also asked for the maker's low-latency key ([com.reau.app.dash.video.VendorLowLatency]). */
         val encoderLowLatency: Boolean = false,
+        /** Experimental ([com.reau.app.settings.REauSettings.experimentFpsSixThree]): the reduced profile is the exact half of the full pace (6 and 3 fps), not on an even step. */
+        val exactHalfReduced: Boolean = false,
     ) {
         /**
          * These settings with what the rider's own settings decide of the stream: the rate ceiling and clock, the bitrate (the experimental
@@ -117,6 +119,7 @@ internal class VideoLoop(
             encoderMuteWatch = rider.experimentEncoderWatch,
             colorMatrix = rider.experimentColorMatrix,
             encoderLowLatency = rider.experimentEncoderLowLatency,
+            exactHalfReduced = rider.experimentFpsSixThree,
         )
     }
 
@@ -155,6 +158,7 @@ internal class VideoLoop(
         if (thermalCapped(ceiling, settings.ceilingFps)) logThermal(status)
         val g = StreamGovernor(
             ceiling, settings.clockSlowPercent, settings.windowMs, settings.bitrateBps, settings.keyframeSec, lightScreenFps = settings.lightScreenFps,
+            exactHalfReduced = settings.exactHalfReduced,
         )
         val rec = recordInto(settings.recordDir, settings.recordFrames)?.let {
             H264Recorder(it, settings.recordFrames, H264Recorder.nameFor(System.currentTimeMillis()), settings.recordRolling, log)
@@ -190,7 +194,8 @@ internal class VideoLoop(
                 "clock ${settings.clockSlowPercent}% slow" +
                 (if (settings.rtpPacing) ", RTP packets spaced out (experiment)" else "") +
                 (if (settings.adaptiveBitrate) ", bitrate follows the encoder's real output (experiment)" else "") +
-                (if (settings.encoderMuteWatch) ", a mute encoder is rebuilt (experiment)" else ""),
+                (if (settings.encoderMuteWatch) ", a mute encoder is rebuilt (experiment)" else "") +
+                (if (settings.exactHalfReduced) ", 6/3 fps profiles (experiment)" else ""),
         )
         stats?.panelStarted()
         stats?.stream(settings.bitrateMode, g.keyframeSec, fixed = true)

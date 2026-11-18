@@ -51,6 +51,14 @@ object DashConfig {
     const val EXPERIMENT_FLOOR_BPS = 64_000
 
     /**
+     * The debug build's experimental pace ([com.reau.app.settings.REauSettings.experimentFpsSixThree]): the full profile at 6 fps and the reduced one at 3,
+     * the bitrates as they are ([PROFILE_FULL_BPS], [PROFILE_REDUCED_BPS]). 3 is odd, so it is the one pace that [snapStreamFps] would not give: the
+     * governor takes the exact half of the full pace for the reduced profile when this experiment is on.
+     */
+    const val EXPERIMENT_FPS63_FULL_FPS = 6
+    const val EXPERIMENT_FPS63_REDUCED_FPS = 3
+
+    /**
      * "Automatic", as a stored setting may still say: the stream used to pick 1 or 2 s itself. Nothing picks any more (cut on 14/11/2026):
      * the settings turn it into 1 s when they are read, and the stream reads a 0 as 1 s too.
      */

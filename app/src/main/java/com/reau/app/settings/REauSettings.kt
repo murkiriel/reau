@@ -256,7 +256,12 @@ data class REauSettings(
     val experimentWakeAa: Boolean = false,
     /** Experimental: a Qualcomm encoder of the dash (`c2.qti.` or `OMX.qcom.`) is also asked for the maker's low-latency key, so it does not hold frames ([com.reau.app.dash.video.VendorLowLatency]); a codec that refuses is asked again without it. Off, or with any other encoder, the format is as always. */
     val experimentEncoderLowLatency: Boolean = false,
+    /** Experimental, a debug build's only (a release build always has it off, [sanitized]): the full profile streams at 6 fps and the reduced one at 3, not 4 and 2 ([DashConfig.EXPERIMENT_FPS63_FULL_FPS]); the bitrates stay. Off, 4 and 2 as always. */
+    val experimentFpsSixThree: Boolean = false,
 ) {
+    /** The reduced profile's pace: [DashConfig.PROFILE_REDUCED_FPS], or with [experimentFpsSixThree] its own, [DashConfig.EXPERIMENT_FPS63_REDUCED_FPS]. */
+    val profileReducedFps: Int get() = if (experimentFpsSixThree) DashConfig.EXPERIMENT_FPS63_REDUCED_FPS else DashConfig.PROFILE_REDUCED_FPS
+
     /**
      * The bitrate the stream is built for and asked for while pictures keep coming: the profile's ([streamBitrateBps], 400 kbps) or, with
      * [experimentAdaptiveBitrate], [DashConfig.EXPERIMENT_TARGET_BPS]. [sanitized] keeps [streamBitrateBps] fixed; this is where the experiment lowers it.
@@ -391,15 +396,18 @@ data class REauSettings(
      * instrument cluster experiment went from the code itself); the newer protocol and the focus clearing are fixed on. The two texts over
      * the dash's video are kept only when [debugBuild] is true (the recordings are kept as stored in both builds). Four more are fixed, the stream's
      * rate ceiling, bitrate, bitrate mode and keyframe: profile 1 is 4 fps / 400 kbps / constant / 1 s and profile 2,
-     * its half, 2 fps / 200 kbps (the navigation profiles choose between them, [DashConfig.PROFILE_FULL_FPS]), and the
+     * its half, 2 fps / 200 kbps (the navigation profiles choose between them, [DashConfig.PROFILE_FULL_FPS]; the debug build's
+     * [experimentFpsSixThree], off in a release, makes them 6 and 3 fps), and the
      * maneuver data and the two navigation profiles (by maneuver, by speed) are always on, the pessimistic one winning when they disagree
      * ([navProfileMode]).
      */
     fun sanitized(debugBuild: Boolean = com.reau.app.BuildConfig.DEBUG): REauSettings {
+        val fps63 = experimentFpsSixThree && debugBuild
         val framed = copy(
             // The two texts over the dash's video are a debug build's: a value left on by one build must not draw in the other.
             statsOverlay = statsOverlay && debugBuild,
             buttonOverlay = buttonOverlay && debugBuild,
+            experimentFpsSixThree = fps63,
             clockSlowPercent = 0,
             phoneTouch = true,
             density = density.coerceIn(DENSITY),
@@ -411,7 +419,7 @@ data class REauSettings(
             aaNewProtocol = true,
             maneuverFpsProfile = true,
             speedFpsProfile = true,
-            fpsCeiling = DashConfig.PROFILE_FULL_FPS,
+            fpsCeiling = if (fps63) DashConfig.EXPERIMENT_FPS63_FULL_FPS else DashConfig.PROFILE_FULL_FPS,
             streamBitrateBps = DashConfig.PROFILE_FULL_BPS,
             bitrateMode = BitrateMode.CBR,
             keyframeSec = DashConfig.PROFILE_KEYFRAME_SEC,

@@ -65,7 +65,7 @@ class SettingsScreenNowTest {
      * experimental ones count from the next connection or the next start, and carry none.
      */
     private val experimentsWithChip = listOf(
-        "exp_rtp_pacing", "exp_adaptive_bitrate", "exp_encoder_watch", "exp_weather_age", "exp_heat_ceiling", "exp_gps_speed", "exp_recalc_inactive",
+        "exp_rtp_pacing", "exp_adaptive_bitrate", "exp_encoder_watch", "exp_weather_age", "exp_heat_ceiling", "exp_gps_speed", "exp_recalc_inactive", "exp_fps63",
     )
 
     /** The rows that wait for the next start, are fixed, or are not settings at all (their buttons): no chip. */

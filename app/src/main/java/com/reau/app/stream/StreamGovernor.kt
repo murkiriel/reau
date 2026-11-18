@@ -50,6 +50,11 @@ internal class StreamGovernor(
     private val reducedBitrateBps: Int = DashConfig.PROFILE_REDUCED_BPS,
     /** The pace on a light screen of Android Auto ([LightScreen]); 0: off, the pace is always the profile's. */
     private val lightScreenFps: Int = 0,
+    /**
+     * The debug build's experiment ([com.reau.app.settings.REauSettings.experimentFpsSixThree]): the reduced tier is the exact half of the full pace
+     * (6 gives 3), not rounded to an even step. False (the default): half of it on an even step, as always (4 gives 2).
+     */
+    private val exactHalfReduced: Boolean = false,
 ) {
     /** What happened since the previous poll ([dashAcks] is the dash's running total). */
     data class Poll(
@@ -213,7 +218,8 @@ internal class StreamGovernor(
      * FULL is the full pace — the Settings' own ceiling — never above what the dash has already shown it can hold.
      * REDUCED is half of it, snapped to an even step — allowed down to [NAV_MIN_FPS] (2, REau's idle pace too,
      * `DashEncoder.kt`'s "4 fps active / 2 fps idle"), below [DashConfig.MIN_STREAM_FPS] on purpose: that floor is
-     * about the full pace, not this deliberate, bounded reduction.
+     * about the full pace, not this deliberate, bounded reduction. With [exactHalfReduced] (the debug build's 6/3 experiment) it is the exact half,
+     * odd or not, from the same floor.
      */
     private fun tierFps(tier: QualityTier): Int = when (tier) {
         QualityTier.FULL -> fullFps
@@ -222,6 +228,8 @@ internal class StreamGovernor(
 
     private fun snapNavFps(fps: Int): Int {
         val clamped = fps.coerceAtLeast(NAV_MIN_FPS)
+        // The 6/3 experiment keeps the exact half, odd or not.
+        if (exactHalfReduced) return clamped
         return clamped - (clamped - NAV_MIN_FPS) % DashConfig.STREAM_FPS_STEP
     }
 

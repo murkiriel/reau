@@ -83,12 +83,12 @@ internal fun ProfileDetailsRow(s: REauSettings) {
 internal fun StreamProfileRows(s: REauSettings) {
     LockedRow(
         stringResource(R.string.fps_title), "${s.fpsCeiling}", "fps",
-        sub = stringResource(R.string.profiles_fps_sub, DashConfig.PROFILE_REDUCED_FPS),
+        sub = stringResource(R.string.profiles_fps_sub, s.fpsCeiling, s.profileReducedFps),
         info = Info(
             stringResource(R.string.fps_title),
             stringResource(
-                R.string.profiles_info, DashConfig.PROFILE_FULL_FPS, DashConfig.PROFILE_FULL_BPS / 1000,
-                DashConfig.PROFILE_REDUCED_FPS, DashConfig.PROFILE_REDUCED_BPS / 1000,
+                R.string.profiles_info, s.fpsCeiling, DashConfig.PROFILE_FULL_BPS / 1000,
+                s.profileReducedFps, DashConfig.PROFILE_REDUCED_BPS / 1000,
             ),
         ),
     )

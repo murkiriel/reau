@@ -55,6 +55,8 @@ CHAVES = [
     ("experimentWakeAa", "acordar o Android Auto", "Android Auto woken"),
     # A de 17/11/2026: a chave de baixa latência do fabricante pedida ao codificador Qualcomm.
     ("experimentEncoderLowLatency", "baixa latência do codificador", "Qualcomm encoder asked not to hold frames"),
+    # A de 17/11/2026, só da versão de depuração: o vídeo a 6 fps (3 no perfil reduzido) em vez de 4 e 2; separa as corridas 6/3 das de 4/2.
+    ("experimentFpsSixThree", "vídeo a 6/3 fps", "video at 6 fps (3 fps in the reduced profile)"),
 ]
 GUARDA = "experimentStartGuard"
 SETTINGS = "settings in use:"
