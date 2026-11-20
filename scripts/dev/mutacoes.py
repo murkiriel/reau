@@ -4578,7 +4578,7 @@ MUTATIONS += [
     ("P32T texto: o aviso em espanhol esquece que o ritmo vale só com o teste ligado", "app/src/main/res/values-es/strings.xml",
      "El ritmo elegido vale solo mientras la prueba esté activada. ", "", ["FpsTestCardSettingsTest"]),
     ("P32T texto: o título do seletor em português muda", "app/src/main/res/values-pt/strings.xml",
-     '<string name="fps_test_card_rate_title">Ritmo da prova</string>', '<string name="fps_test_card_rate_title">Ritmo</string>', ["FpsTestCardSettingsTest"]),
+     '<string name="fps_test_card_rate_title">Ritmo do contador</string>', '<string name="fps_test_card_rate_title">Ritmo</string>', ["FpsTestCardSettingsTest"]),
 ]
 
 # Plano 32 (20/11/2026): o ritmo do vídeo é uma escolha entre REau (A 6 fps, B 3) e Original (A 4, B 2), na hora, em toda versão; e a dica de por que o vídeo não passa de 6 fps.

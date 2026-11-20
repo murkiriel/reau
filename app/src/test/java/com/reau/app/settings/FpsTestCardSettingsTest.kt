@@ -134,8 +134,8 @@ class FpsTestCardSettingsTest {
         assertTrue(File("src/main/res/values/strings.xml").readText().contains("The pace you pick applies only while the test is on."))
         assertTrue(File("src/main/res/values-es/strings.xml").readText().contains("El ritmo elegido vale solo mientras la prueba esté activada."))
         val pt = File("src/main/res/values-pt/strings.xml").readText()
-        assertTrue(pt.contains("""<string name="fps_test_card_title">Quadro de prova de FPS</string>"""))
-        assertTrue(pt.contains("""<string name="fps_test_card_rate_title">Ritmo da prova</string>"""))
+        assertTrue(pt.contains("""<string name="fps_test_card_title">Contador de quadros no painel</string>"""))
+        assertTrue(pt.contains("""<string name="fps_test_card_rate_title">Ritmo do contador</string>"""))
         assertTrue(File("src/main/res/values/strings.xml").readText().contains("""<string name="fps_test_card_rate_title">Test rate</string>"""))
         assertTrue(File("src/main/res/values-es/strings.xml").readText().contains("""<string name="fps_test_card_rate_title">Ritmo de la prueba</string>"""))
     }

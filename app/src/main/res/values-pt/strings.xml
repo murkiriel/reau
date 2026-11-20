@@ -452,10 +452,10 @@
     <string name="button_title">Código do botão no vídeo</string>
     <string name="button_overlay">Escreve no vídeo do painel o código do último botão que o painel mandou (por exemplo \"0x05  PlayPause\") e, menor, o que o REau fez com ele, em laranja com borda preta. O texto fica até outro botão ser apertado; ligada, a posição (X e Y) e o tamanho aparecem aqui. É para teste e só da build de debug: vale na hora e o texto fica sobre o mapa.</string>
     <string name="section_button">Código do botão no vídeo</string>
-    <string name="section_fps_test_card">Quadro de prova de FPS</string>
-    <string name="fps_test_card_title">Quadro de prova de FPS</string>
+    <string name="section_fps_test_card">Contador de quadros no painel</string>
+    <string name="fps_test_card_title">Contador de quadros no painel</string>
     <string name="fps_test_card_info">Troca a imagem do painel por um quadro de teste numerado: filme o painel, e um número que falta é um quadro perdido e um repetido é um quadro que o painel mostrou duas vezes (cada quadro tem número, casa verde, quadrado par/ímpar e o número em binário). O ritmo escolhido vale só enquanto o teste estiver ligado. Só da build de debug, vale na hora, e o mapa some enquanto estiver ligada.</string>
-    <string name="fps_test_card_rate_title">Ritmo da prova</string>
+    <string name="fps_test_card_rate_title">Ritmo do contador</string>
     <string name="section_info_ring">Anel de informações no painel</string>
     <string name="info_ring_title">Anel de informações</string>
     <string name="info_ring_sub">Chuva, vento e trovoada sobre o mapa; os outros cartões você liga</string>
