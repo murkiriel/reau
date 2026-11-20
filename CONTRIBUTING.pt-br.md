@@ -162,8 +162,8 @@ ali até o painel falso acompanhar.
 
 O protocolo do Android Auto e o do painel (`aa/` e `dash/protocol/`), o aperto de mão com o painel e o caminho do vídeo (o
 codificador, o compositor, o ritmo dos quadros) só se provam num painel de verdade. Os testes de unidade não substituem
-isso: não mude essas partes sem poder dizer o que você experimentou no painel, com qual firmware. O protocolo foi observado
-no firmware 11.63 e verificado no 13.10; em outro firmware nada é garantido.
+isso: não mude essas partes sem poder dizer o que você experimentou no painel, com qual firmware. Foi testado
+no firmware 13.10; em outro firmware nada é garantido.
 
 ## Dados pessoais
 

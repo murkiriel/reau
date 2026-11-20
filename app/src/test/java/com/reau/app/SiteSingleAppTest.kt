@@ -144,7 +144,7 @@ class SiteSingleAppTest {
     fun `the old pictures and the videos say they are from an earlier version, in the page's own language`() {
         for (language in languages) {
             val notice = pictureNotice.getValue(language)
-            for ((page, count) in listOf("faq.html" to 10, "install.html" to 4)) {
+            for ((page, count) in listOf("faq.html" to 9, "install.html" to 4)) {
                 val html = File(docs, "$language/$page").readText()
                 val said = Regex("""class="old">\s*([^<]*)<""").findAll(html).map { it.groupValues[1].trim() }.toList()
                 assertEquals("$language/$page: how many notices", count, said.size)

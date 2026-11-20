@@ -161,8 +161,8 @@ the ports, the button codes, the packets and the exit sequence from the Kotlin s
 
 The Android Auto protocol and the dash protocol (`aa/` and `dash/protocol/`), the dash handshake and the video path (the
 encoder, the compositor, the pacing) only prove themselves on a real dash. The unit tests do not replace that: do not
-change them unless you can say what you tried on the dash, with its firmware. The protocol was observed on firmware 11.63
-and verified on 13.10; on another firmware nothing is guaranteed.
+change them unless you can say what you tried on the dash, with its firmware. It was tested on firmware 13.10; on another
+firmware nothing is guaranteed.
 
 ## Personal data
 

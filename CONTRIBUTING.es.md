@@ -163,8 +163,8 @@ un cambio en la app falla ahí hasta que el panel falso lo siga.
 
 El protocolo de Android Auto y el protocolo del tablero (`aa/` y `dash/protocol/`), el handshake con el tablero y la ruta del video (el
 codificador, el compositor, el ritmo de envío) solo se comprueban en un tablero real. Las pruebas unitarias no lo reemplazan: no
-los cambies a menos que puedas decir qué probaste en el tablero, con su firmware. El protocolo se observó en el firmware 11.63
-y se verificó en el 13.10; en otro firmware no hay ninguna garantía.
+los cambies a menos que puedas decir qué probaste en el tablero, con su firmware. Se probó en el firmware 13.10;
+en otro firmware no hay ninguna garantía.
 
 ## Datos personales
 
