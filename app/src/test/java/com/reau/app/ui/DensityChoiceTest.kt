@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The Android Auto DPI on the fit screen (plan 32, 20/11/2026): three choices, 180, 190 and 200, as segments (the same ones the other
+ * The Android Auto DPI on the fit screen (plan 32, 20/11/2026): three choices, 180, 200 and 220, as segments (the same ones the other
  * choices of the app use), no counter. The screen is read from its source, as the other tests of this folder do (there is no Compose test on the JVM).
  */
 class DensityChoiceTest {
@@ -17,7 +17,7 @@ class DensityChoiceTest {
 
     @Test
     fun `the offered densities are the three of the settings, one segment each, tagged by its value`() {
-        assertEquals(listOf(180, 190, 200), REauSettings.DENSITIES)
+        assertEquals(listOf(180, 200, 220), REauSettings.DENSITIES)
         assertTrue(block, block.contains("SegmentedRow("))
         assertTrue(block, block.contains("REauSettings.DENSITIES.map { it.toString() to \"density_\$it\" }"))
         assertTrue("the chosen segment is the setting's", block.contains("REauSettings.DENSITIES.indexOf(s.density)"))

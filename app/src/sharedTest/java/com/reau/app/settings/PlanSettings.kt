@@ -7,7 +7,7 @@ package com.reau.app.settings
  */
 object PlanSettings {
     val PLAN = REauSettings(
-        density = 190, fit = Fit.WHOLE_VISIBLE, cropPercent = 60, cropX = null, cropY = null, moveX = 0, fpsCeiling = 16, menuFit = null,
+        density = 200, fit = Fit.WHOLE_VISIBLE, cropPercent = 60, cropX = null, cropY = null, moveX = 0, fpsCeiling = 16, menuFit = null,
         maneuverData = false, autoJoinWifi = false, answerCalls = false, dashMusic = false, dashCaller = false,
         gemini = false, joystick = "", dashMask = false, cardImage = null,
         recordVideo = false, recordSessions = false, detailedLog = false, infoRing = false, dashWeather = false,

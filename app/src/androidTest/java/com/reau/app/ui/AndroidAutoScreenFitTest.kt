@@ -203,13 +203,13 @@ class AndroidAutoScreenFitTest {
 
     // ── the density with the fit, one for the menu and the apps (moved from SettingsScreenTest) ──
 
-    /** The density is one of three choices (180, 190, 200), a segment each; the chosen one is the setting. */
+    /** The density is one of three choices (180, 200, 220), a segment each; the chosen one is the setting. */
     @Test
     fun theDensityIsOneOfThreeChoices() {
-        tap("density_190")
-        assertEquals(190, settings.density)
         tap("density_200")
         assertEquals(200, settings.density)
+        tap("density_220")
+        assertEquals(220, settings.density)
         tap("density_180")
         assertEquals(180, settings.density)
     }

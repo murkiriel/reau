@@ -605,7 +605,7 @@
     <string name="aa_screen_touch_short">Toque e arraste na imagem para usar o Android Auto.</string>
     <string name="mask_chip">Máscara</string>
     <string name="density_title">DPI do Android Auto</string>
-    <string name="density_hint">Escolha 180, 190 ou 200; padrão 180.</string>
+    <string name="density_hint">Escolha 180, 200 ou 220; padrão 180.</string>
     <string name="density_sub">Maior = letras e botões maiores. Um só para o menu e os apps; mudar reinicia a sessão.</string>
     <string name="tab_apps">Outros</string>
     <string name="tab_apps_sub">Menu de apps, Spotify…</string>

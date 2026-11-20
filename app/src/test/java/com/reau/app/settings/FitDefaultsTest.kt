@@ -66,7 +66,7 @@ class FitDefaultsTest {
     @Test
     fun `a density with no row gets the measured row, which is what it got before the table`() {
         val measured = FitDefaults.forDensity(180)
-        for (density in listOf(80, 120, 160, 170, 190, 200, 240, 320, 640)) assertSame("density $density", measured, FitDefaults.forDensity(density))
+        for (density in listOf(80, 120, 160, 170, 190, 200, 220, 240, 320, 640)) assertSame("density $density", measured, FitDefaults.forDensity(density))
     }
 
     @Test

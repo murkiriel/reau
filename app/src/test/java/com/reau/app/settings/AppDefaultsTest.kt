@@ -76,10 +76,10 @@ class AppDefaultsTest {
     @Test
     fun `what a phone stored is kept`() {
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
-        prefs.edit().putInt("density", 190).putString("fit", "FILL_DOME").putInt("fps_ceiling", 16)
+        prefs.edit().putInt("density", 220).putString("fit", "FILL_DOME").putInt("fps_ceiling", 16)
             .putBoolean("menu_fit_on", false).putBoolean("gemini", false).putString("joystick", "media.up.once=HOME").apply()
         val s = SettingsStore(prefs).load()
-        assertEquals(190, s.density)
+        assertEquals(220, s.density)
         assertEquals("the fill-the-dome of before reads as the whole picture", Fit.WHOLE_VISIBLE, s.fit)
         // But for the video, which an older store gets conservative once (the old pace key is not read: the video is fixed at 6 fps).
         assertEquals(6, s.fpsCeiling)

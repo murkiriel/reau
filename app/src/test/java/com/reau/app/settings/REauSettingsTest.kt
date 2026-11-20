@@ -22,7 +22,7 @@ class REauSettingsTest {
      * (AppDefaultsTest); what a test checks of the behaviour does not depend on them.
      */
     private val plan = REauSettings(
-        density = 190, fit = Fit.WHOLE_VISIBLE, cropPercent = 60, cropX = null, cropY = null, moveX = 0, fpsCeiling = 16, menuFit = null,
+        density = 200, fit = Fit.WHOLE_VISIBLE, cropPercent = 60, cropX = null, cropY = null, moveX = 0, fpsCeiling = 16, menuFit = null,
         maneuverData = false, autoJoinWifi = false, answerCalls = false, dashMusic = false, dashCaller = false,
         gemini = false, joystick = "", dashMask = false,
     )
@@ -97,7 +97,7 @@ class REauSettingsTest {
 
     @Test
     fun `the choices offered`() {
-        assertEquals(listOf(180, 190, 200), REauSettings.DENSITIES)
+        assertEquals(listOf(180, 200, 220), REauSettings.DENSITIES)
         assertEquals(4..30, REauSettings.FPS)
         assertEquals(20..100, REauSettings.CROP)
         assertEquals(listOf(0, 3, 5, 8), REauSettings.CLOCK)
@@ -130,12 +130,12 @@ class REauSettingsTest {
         assertEquals(180 to 6, low.density to low.fpsCeiling)
     }
 
-    /** Plan 32 (20/11/2026): the DPI is one of 180, 190 and 200; whatever else was saved goes back to the default, 180, not to a neighbour. */
+    /** Plan 32 (20/11/2026): the DPI is one of 180, 200 and 220; whatever else was saved goes back to the default, 180, not to a neighbour. */
     @Test
     fun `the density is one of the three offered, any other goes back to 180`() {
         val expected = mapOf(
-            160 to 180, 185 to 180, 195 to 180, 210 to 180, 240 to 180, 180 to 180, 190 to 190, 200 to 200,
-            -5 to 180, 0 to 180, 170 to 180, 199 to 180, 201 to 180, 640 to 180, Int.MAX_VALUE to 180, Int.MIN_VALUE to 180,
+            160 to 180, 185 to 180, 195 to 180, 210 to 180, 240 to 180, 180 to 180, 190 to 180, 200 to 200, 220 to 220,
+            -5 to 180, 0 to 180, 170 to 180, 199 to 180, 201 to 180, 219 to 180, 221 to 180, 640 to 180, Int.MAX_VALUE to 180, Int.MIN_VALUE to 180,
         )
         for ((asked, kept) in expected) {
             assertEquals("asked $asked", kept, REauSettings.allowedDensity(asked))
@@ -146,7 +146,7 @@ class REauSettingsTest {
 
     @Test
     fun `a density an older build saved out of the list is read as 180 and saved back so`() {
-        for ((stored, kept) in mapOf(160 to 180, 185 to 180, 195 to 180, 210 to 180, 240 to 180, 180 to 180, 190 to 190, 200 to 200)) {
+        for ((stored, kept) in mapOf(160 to 180, 185 to 180, 190 to 180, 210 to 180, 240 to 180, 180 to 180, 200 to 200, 220 to 220)) {
             val prefs = KeystoreBackedPrefsTest.FakePrefs()
             prefs.edit().putInt("density", stored).apply()
             val store = SettingsStore(prefs)
@@ -519,7 +519,7 @@ class REauSettingsTest {
     fun `what is saved is what is loaded`() {
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
         val s = REauSettings(
-            density = 190, marginW = 200, marginH = 100, fit = Fit.WHOLE_VISIBLE,
+            density = 220, marginW = 200, marginH = 100, fit = Fit.WHOLE_VISIBLE,
             cropPercent = 80, recordVideo = true, recordSessions = true,
             moveX = -12, moveY = 40,
         )

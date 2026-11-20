@@ -479,7 +479,7 @@ data class REauSettings(
         fun defaultLogKeepDays(debugBuild: Boolean = com.reau.app.BuildConfig.DEBUG): Int = if (debugBuild) 0 else DEFAULT_LOG_KEEP_DAYS
 
         /** The Android Auto DPIs the rider can pick (plan 32, 20/11/2026); 180 is the default. */
-        val DENSITIES = listOf(180, 190, 200)
+        val DENSITIES = listOf(180, 200, 220)
 
         /** [value] when it is one of [DENSITIES]; anything else goes back to the default, 180 (it is not rounded to a neighbour). */
         fun allowedDensity(value: Int): Int = if (value in DENSITIES) value else DEFAULT_DENSITY

@@ -4453,7 +4453,7 @@ MUTATIONS += [
 ]
 
 
-# Plano 32 (20/11/2026): o DPI do Android Auto é uma escolha entre 180, 190 e 200 (P32D), não mais um contador de 80 a 640.
+# Plano 32 (20/11/2026): o DPI do Android Auto é uma escolha entre 180, 200 e 220 (P32D), não mais um contador de 80 a 640.
 MUTATIONS += [
     ("P32D DPI: o que está fora da lista vai para o valor de cima", MAIN + "settings/REauSettings.kt",
      "if (value in DENSITIES) value else DEFAULT_DENSITY", "if (value in DENSITIES) value else DENSITIES.last()", ["REauSettingsTest"]),
@@ -4465,8 +4465,8 @@ MUTATIONS += [
      "if (value in DENSITIES) value else DEFAULT_DENSITY", "DENSITIES.minBy { kotlin.math.abs(it.toLong() - value) }", ["REauSettingsTest"]),
     ("P32D DPI: o que está fora da lista não é trazido para ela", MAIN + "settings/REauSettings.kt",
      "density = allowedDensity(density),", "density = density,", ["REauSettingsTest"]),
-    ("P32D DPI: a lista oferece 210 no lugar de 200", MAIN + "settings/REauSettings.kt",
-     "val DENSITIES = listOf(180, 190, 200)", "val DENSITIES = listOf(180, 190, 210)", ["REauSettingsTest", "DensityChoiceTest"]),
+    ("P32D DPI: a lista oferece 230 no lugar de 220", MAIN + "settings/REauSettings.kt",
+     "val DENSITIES = listOf(180, 200, 220)", "val DENSITIES = listOf(180, 200, 230)", ["REauSettingsTest", "DensityChoiceTest"]),
     ("P32D DPI: o segmento marcado não é o da configuração", MAIN + "ui/FitPanel.kt",
      "REauSettings.DENSITIES.indexOf(s.density),", "0,", ["DensityChoiceTest"]),
     ("P32D DPI: o toque grava o índice do segmento e não o valor", MAIN + "ui/FitPanel.kt",
@@ -4474,11 +4474,11 @@ MUTATIONS += [
     ("P32D DPI: os segmentos perdem a etiqueta do valor", MAIN + "ui/FitPanel.kt",
      'REauSettings.DENSITIES.map { it.toString() to "density_$it" },', 'REauSettings.DENSITIES.map { it.toString() to "density" },', ["DensityChoiceTest"]),
     ("P32D DPI: a dica em português esquece os três valores", "app/src/main/res/values-pt/strings.xml",
-     "Escolha 180, 190 ou 200; padrão 180.", "Escolha o DPI; padrão 180.", ["DensityChoiceTest"]),
+     "Escolha 180, 200 ou 220; padrão 180.", "Escolha o DPI; padrão 180.", ["DensityChoiceTest"]),
     ("P32D DPI: a dica em inglês esquece os três valores", "app/src/main/res/values/strings.xml",
-     "Pick 180, 190 or 200; default 180.", "Pick the DPI; default 180.", ["DensityChoiceTest"]),
+     "Pick 180, 200 or 220; default 180.", "Pick the DPI; default 180.", ["DensityChoiceTest"]),
     ("P32D DPI: a dica em espanhol esquece os três valores", "app/src/main/res/values-es/strings.xml",
-     "Elige 180, 190 o 200; por defecto 180.", "Elige el DPI; por defecto 180.", ["DensityChoiceTest"]),
+     "Elige 180, 200 o 220; por defecto 180.", "Elige el DPI; por defecto 180.", ["DensityChoiceTest"]),
 ]
 
 
