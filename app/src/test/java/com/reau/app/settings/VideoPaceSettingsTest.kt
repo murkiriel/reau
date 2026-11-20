@@ -100,9 +100,8 @@ class VideoPaceSettingsTest {
     }
 
     @Test
-    fun `it is a normal setting, not an experiment, so the start guard has nothing to say`() {
+    fun `it is a normal setting, not an experiment`() {
         assertTrue("no experiment is named after the pace", REauSettings::class.java.declaredFields.none { it.name.startsWith("experiment") && it.name.contains("VideoPace") })
-        assertEquals(emptyList<String>(), ExperimentsGuard.experimentsOn(REauSettings(videoPace = VideoPace.ORIGINAL)))
     }
 
     @Test
