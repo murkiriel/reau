@@ -57,7 +57,7 @@ class FitDefaultsTest {
 
     @Test
     fun `no other density has a row, no number was made up`() {
-        for (density in REauSettings.DENSITY) {
+        for (density in REauSettings.DENSITIES) {
             if (density != 180) assertNull("density $density", FitDefaults.measured(density))
         }
         assertNull(FitDefaults.measured(0))

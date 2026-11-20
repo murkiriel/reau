@@ -135,7 +135,7 @@ class InfoButtonsTest {
         // The apps' tab: the mode; the info ring; the stats text, its steps hidden until it is switched on.
         check(
             listOf(o("fit_mode", "fit_WHOLE_VISIBLE"), o("info_ring"), o("stats_overlay"), o("button_overlay")),
-            listOf(o("density", "density_value"), o("move_x", "move_x_value"), o("fit_reset")),
+            listOf(o("density", "density_180"), o("move_x", "move_x_value"), o("fit_reset")),
         )
         everyInfoOpens(listOf("fit_mode", "info_ring", "stats_overlay", "button_overlay"))
     }

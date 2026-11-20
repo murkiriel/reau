@@ -203,28 +203,25 @@ class AndroidAutoScreenFitTest {
 
     // ── the density with the fit, one for the menu and the apps (moved from SettingsScreenTest) ──
 
-    /** The redesign: every counter of the fit steps by one and by ten, the density too. */
+    /** The density is one of three choices (180, 190, 200), a segment each; the chosen one is the setting. */
     @Test
-    fun theDensityGoesUpAndDownByOneAndByTenWithinItsRange() {
-        text("density_value", "160")
-        tap("density_plus10")
-        text("density_value", "170")
-        repeat(3) { tap("density_minus") }
-        assertEquals(167, settings.density)
-        tap("density_minus10")
-        assertEquals(157, settings.density)
-        settings = settings.copy(density = 80)
-        tap("density_minus")
-        assertEquals("never below 80", 80, settings.density)
+    fun theDensityIsOneOfThreeChoices() {
+        tap("density_190")
+        assertEquals(190, settings.density)
+        tap("density_200")
+        assertEquals(200, settings.density)
+        tap("density_180")
+        assertEquals(180, settings.density)
     }
 
     @Test
     fun theDensityIsOneForTheNavigationAndTheOthers() {
         tap("fit_tab_nav")
-        tap("density_plus10")
-        assertEquals(170, settings.density)
+        tap("density_200")
+        assertEquals(200, settings.density)
         tap("fit_tab_apps")
-        text("density_value", "170")
+        assertEquals(200, settings.density)
+        compose.onNodeWithTag("density_200").assertIsSelected()
     }
 
     // ── the redesign: steps of ten everywhere, the way back to the defaults, the tab that opened ────────────────────

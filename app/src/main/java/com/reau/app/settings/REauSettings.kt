@@ -391,7 +391,7 @@ data class REauSettings(
             videoFrame = DashConfig.VIDEO_FRAME.id,
             clockSlowPercent = 0,
             phoneTouch = true,
-            density = density.coerceIn(DENSITY),
+            density = nearestDensity(density),
             marginW = marginW.coerceIn(0, AaVideo.WIDTH - MIN_PICTURE),
             marginH = marginH.coerceIn(0, AaVideo.HEIGHT - MIN_PICTURE),
             navProfileMode = NavProfileMode.PESSIMISTA,
@@ -458,7 +458,12 @@ data class REauSettings(
         /** The days the logs are kept on a new install: never (0) in a debug build, made to be read after a long test, 30 in a release. */
         fun defaultLogKeepDays(debugBuild: Boolean = com.reau.app.BuildConfig.DEBUG): Int = if (debugBuild) 0 else DEFAULT_LOG_KEEP_DAYS
 
-        val DENSITY = 80..640
+        /** The Android Auto DPIs the rider can pick (plan 32, 20/11/2026); 180 is the default. */
+        val DENSITIES = listOf(180, 190, 200)
+
+        /** The offered DPI closest to [value]; on a tie, the smaller one (the list is ascending and [minBy] keeps the first). */
+        fun nearestDensity(value: Int): Int = DENSITIES.minBy { kotlin.math.abs(it.toLong() - value) }
+
         val FPS = 4..30
         val CROP = 20..100
 
@@ -471,7 +476,6 @@ data class REauSettings(
         /** How far the picture can be moved on the dash, each way, in dash pixels (the frame is 526×300). */
         val MOVE = -150..150
         val CLOCK = listOf(0, 3, 5, 8)
-        const val STEP_DENSITY = 10
         const val STEP_MARGIN = 10
         const val STEP_MOVE = 1
         private const val DEFAULT_DENSITY = 180

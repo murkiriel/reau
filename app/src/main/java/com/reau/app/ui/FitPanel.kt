@@ -54,6 +54,7 @@ import com.reau.app.ui.components.GroupLabel
 import com.reau.app.ui.components.Info
 import com.reau.app.ui.components.InfoButton
 import com.reau.app.ui.components.MsIcon
+import com.reau.app.ui.components.SegmentedRow
 import com.reau.app.ui.components.StatusKind
 import com.reau.app.ui.components.CheckRow
 import com.reau.app.ui.components.StepperRow
@@ -169,13 +170,7 @@ private fun FitResetDialog(tab: FitTab, onCancel: () -> Unit, onReset: () -> Uni
 /** The fit's blocks (the density, the tabs, the mode and its counters), [BLOCK_GAP] apart. */
 @Composable
 private fun FitBlocks(tab: FitTab, onTab: (FitTab) -> Unit, s: REauSettings, change: (REauSettings) -> Unit) {
-    Card {
-        FineStepper(
-            stringResource(R.string.density_title), stringResource(R.string.density_hint), s.density, REauSettings.DENSITY,
-            { change(s.copy(density = it)) }, "density",
-        )
-        Text(stringResource(R.string.density_sub), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
+    DensityChoice(s, change)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         TabRail(
             listOf(
@@ -187,6 +182,21 @@ private fun FitBlocks(tab: FitTab, onTab: (FitTab) -> Unit, s: REauSettings, cha
     }
     TabFit(tab, s, change)
     BlurredFillRow(s, change)
+}
+
+/** The Android Auto DPI: one of [REauSettings.DENSITIES] as segments under the title, in a card of its own (tags `density`, `density_180`...). */
+@Composable
+private fun DensityChoice(s: REauSettings, change: (REauSettings) -> Unit) {
+    Column(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainer)) {
+        SegmentedRow(
+            stringResource(R.string.density_title),
+            REauSettings.DENSITIES.map { it.toString() to "density_$it" },
+            REauSettings.DENSITIES.indexOf(s.density),
+            { change(s.copy(density = REauSettings.DENSITIES[it])) },
+            sub = stringResource(R.string.density_hint) + "\n" + stringResource(R.string.density_sub),
+            tag = "density",
+        )
+    }
 }
 
 /** The blurred background in the border the fit leaves: one switch, off by default, for both tabs (it is not a part of a fit). */

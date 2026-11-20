@@ -4438,6 +4438,31 @@ MUTATIONS += [
 ]
 
 
+# Plano 32 (20/11/2026): o DPI do Android Auto é uma escolha entre 180, 190 e 200 (P32D), não mais um contador de 80 a 640.
+MUTATIONS += [
+    ("P32D DPI: num empate o valor maior é o escolhido", MAIN + "settings/REauSettings.kt",
+     "DENSITIES.minBy { kotlin.math.abs(it.toLong() - value) }", "DENSITIES.reversed().minBy { kotlin.math.abs(it.toLong() - value) }", ["REauSettingsTest"]),
+    ("P32D DPI: a distância estoura com um valor muito negativo", MAIN + "settings/REauSettings.kt",
+     "kotlin.math.abs(it.toLong() - value)", "kotlin.math.abs(it - value)", ["REauSettingsTest"]),
+    ("P32D DPI: o que está fora da lista não é trazido para ela", MAIN + "settings/REauSettings.kt",
+     "density = nearestDensity(density),", "density = density,", ["REauSettingsTest"]),
+    ("P32D DPI: a lista oferece 210 no lugar de 200", MAIN + "settings/REauSettings.kt",
+     "val DENSITIES = listOf(180, 190, 200)", "val DENSITIES = listOf(180, 190, 210)", ["REauSettingsTest", "DensityChoiceTest"]),
+    ("P32D DPI: o segmento marcado não é o da configuração", MAIN + "ui/FitPanel.kt",
+     "REauSettings.DENSITIES.indexOf(s.density),", "0,", ["DensityChoiceTest"]),
+    ("P32D DPI: o toque grava o índice do segmento e não o valor", MAIN + "ui/FitPanel.kt",
+     "{ change(s.copy(density = REauSettings.DENSITIES[it])) },", "{ change(s.copy(density = it)) },", ["DensityChoiceTest"]),
+    ("P32D DPI: os segmentos perdem a etiqueta do valor", MAIN + "ui/FitPanel.kt",
+     'REauSettings.DENSITIES.map { it.toString() to "density_$it" },', 'REauSettings.DENSITIES.map { it.toString() to "density" },', ["DensityChoiceTest"]),
+    ("P32D DPI: a dica em português esquece os três valores", "app/src/main/res/values-pt/strings.xml",
+     "Escolha 180, 190 ou 200; padrão 180.", "Escolha o DPI; padrão 180.", ["DensityChoiceTest"]),
+    ("P32D DPI: a dica em inglês esquece os três valores", "app/src/main/res/values/strings.xml",
+     "Pick 180, 190 or 200; default 180.", "Pick the DPI; default 180.", ["DensityChoiceTest"]),
+    ("P32D DPI: a dica em espanhol esquece os três valores", "app/src/main/res/values-es/strings.xml",
+     "Elige 180, 190 o 200; por defecto 180.", "Elige el DPI; por defecto 180.", ["DensityChoiceTest"]),
+]
+
+
 def command_for(classes):
     """The command that runs a mutation's tests: Python test files (`test_*.py`) with unittest, JVM unit test classes with Gradle. A bare name (`test_apk_audit.py`) is found
     in scripts/; one with a folder (`registro/test_chaves.py`, `dev/test_teste_cego.py`) in that folder of scripts/ (the folders are not packages, so discover does not go

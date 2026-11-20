@@ -22,7 +22,7 @@ class REauSettingsTest {
      * (AppDefaultsTest); what a test checks of the behaviour does not depend on them.
      */
     private val plan = REauSettings(
-        density = 160, fit = Fit.WHOLE_VISIBLE, cropPercent = 60, cropX = null, cropY = null, moveX = 0, fpsCeiling = 16, menuFit = null,
+        density = 190, fit = Fit.WHOLE_VISIBLE, cropPercent = 60, cropX = null, cropY = null, moveX = 0, fpsCeiling = 16, menuFit = null,
         maneuverData = false, autoJoinWifi = false, answerCalls = false, dashMusic = false, dashCaller = false,
         gemini = false, joystick = "", dashMask = false,
     )
@@ -43,8 +43,8 @@ class REauSettingsTest {
 
     @Test
     fun `the Android Auto configuration carries density and margins`() {
-        val s = REauSettings(density = 240, marginW = 100, marginH = 40)
-        assertEquals(240, s.aaConfig.density)
+        val s = REauSettings(density = 200, marginW = 100, marginH = 40)
+        assertEquals(200, s.aaConfig.density)
         assertEquals(AaMargins(100, 40), s.aaConfig.margins)
     }
 
@@ -97,11 +97,10 @@ class REauSettingsTest {
 
     @Test
     fun `the choices offered`() {
-        assertEquals(80..640, REauSettings.DENSITY)
+        assertEquals(listOf(180, 190, 200), REauSettings.DENSITIES)
         assertEquals(4..30, REauSettings.FPS)
         assertEquals(20..100, REauSettings.CROP)
         assertEquals(listOf(0, 3, 5, 8), REauSettings.CLOCK)
-        assertEquals(10, REauSettings.STEP_DENSITY)
         assertEquals(10, REauSettings.STEP_MARGIN)
         assertEquals("negative moves too: left and up", -150..150, REauSettings.MOVE)
         // The crop and the move go one by one, for the finest fit (were 10, 5 and 4).
@@ -118,7 +117,7 @@ class REauSettingsTest {
             density = 9_999, marginW = -5, marginH = 900,
             cropPercent = 3, fpsCeiling = 99, clockSlowPercent = 4, moveX = -999, moveY = 999,
         ).sanitized()
-        assertEquals(640, wild.density)
+        assertEquals("the nearest of the three offered", 200, wild.density)
         assertEquals(0, wild.marginW)
         assertEquals("at least 16 px of picture left", 480 - 16, wild.marginH)
         assertEquals(20, wild.cropPercent)
@@ -128,7 +127,33 @@ class REauSettingsTest {
         assertEquals(-150 to 150, wild.moveX to wild.moveY)
 
         val low = REauSettings(density = 1, fpsCeiling = 1).sanitized()
-        assertEquals(80 to 6, low.density to low.fpsCeiling)
+        assertEquals(180 to 6, low.density to low.fpsCeiling)
+    }
+
+    /** Plan 32 (20/11/2026): the DPI is one of 180, 190 and 200; whatever else was saved goes to the nearest, the smaller on a tie. */
+    @Test
+    fun `the density is one of the three offered, any other goes to the nearest and a tie to the smaller`() {
+        val expected = mapOf(
+            160 to 180, 185 to 180, 195 to 190, 240 to 200, 180 to 180, 190 to 190, 200 to 200,
+            -5 to 180, 0 to 180, 170 to 180, 175 to 180, 187 to 190, 192 to 190, 205 to 200, 640 to 200, Int.MAX_VALUE to 200, Int.MIN_VALUE to 180,
+        )
+        for ((asked, kept) in expected) {
+            assertEquals("asked $asked", kept, REauSettings.nearestDensity(asked))
+            assertEquals("asked $asked, sanitized", kept, REauSettings(density = asked).sanitized().density)
+        }
+        assertEquals("a new install is on 180", 180, REauSettings().density)
+    }
+
+    @Test
+    fun `a density an older build saved out of the list is read already normalized and saved back so`() {
+        for ((stored, kept) in mapOf(160 to 180, 185 to 180, 195 to 190, 240 to 200, 180 to 180, 190 to 190, 200 to 200)) {
+            val prefs = KeystoreBackedPrefsTest.FakePrefs()
+            prefs.edit().putInt("density", stored).apply()
+            val store = SettingsStore(prefs)
+            assertEquals("stored $stored", kept, store.load().density)
+            store.save(store.load())
+            assertEquals("stored $stored, saved back", kept, prefs.getInt("density", 0))
+        }
     }
 
     @Test
@@ -510,7 +535,7 @@ class REauSettingsTest {
             .putInt("density", 5).putString("fit", "NOPE").putInt("fps_ceiling", 200)
             .putInt("stream_bitrate", 5_000_000).putInt("keyframe_sec", 9).apply()
         val s = SettingsStore(prefs).load()
-        assertEquals(80, s.density)
+        assertEquals(180, s.density)
         assertEquals("an unknown fit is read as the default", REauSettings().fit, s.fit)
         // The old keys of the pace and the bitrate are not read; a release build is fixed at 4 fps / 400 kbps, a debug build starts at its default (FixedProfilesTest).
         assertEquals("the stream's values", listOf(if (com.reau.app.BuildConfig.DEBUG) 6 else 4, 400_000, 1), listOf(s.fpsCeiling, s.streamBitrateBps, s.keyframeSec))
@@ -647,7 +672,7 @@ class REauSettingsTest {
     fun `what is saved is saved sane`() {
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
         SettingsStore(prefs).save(REauSettings(density = 5_000))
-        assertEquals(640, prefs.getInt("density", 0))
+        assertEquals(200, prefs.getInt("density", 0))
     }
 
     // The map-mode choices of the page saved before the one-tap joystick are forgotten on the first reading; the media
@@ -877,6 +902,6 @@ class REauSettingsTest {
         assertEquals(listOf("cardImage: picked -> default"), none.copy(cardImage = picked).changesTo(REauSettings()))
         assertEquals("another picture is still a change", listOf("cardImage: picked -> picked"), none.copy(cardImage = picked).changesTo(none.copy(cardImage = "content://x/y")))
         assertEquals(false, none.changesTo(none.copy(cardImage = picked)).any { "Face" in it || "DCIM" in it || "content:" in it })
-        assertEquals("the other settings are told as before", listOf("density: 160 -> 200"), REauSettings(density = 160).changesTo(REauSettings(density = 200)))
+        assertEquals("the other settings are told as before", listOf("density: 180 -> 200"), REauSettings(density = 180).changesTo(REauSettings(density = 200)))
     }
 }
