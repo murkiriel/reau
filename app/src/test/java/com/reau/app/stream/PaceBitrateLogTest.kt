@@ -45,6 +45,21 @@ class PaceBitrateLogTest {
     }
 
     @Test
+    fun `the reserve without the ceiling is a line of its own, after the reserve with it`() {
+        assertEquals("reserve (no cap)", Kind.RESERVE_UNCAPPED.label)
+        assertTrue(Kind.RESERVE.ordinal < Kind.RESERVE_UNCAPPED.ordinal)
+        val l = log()
+        l.add(Kind.RESERVE_UNCAPPED, 8, 8, 64_000, 1_000)
+        l.add(Kind.RESERVE, 6, 6, 50_000, 2_000)
+        l.add(Kind.A, 8, 8, 64_000, 3_000)
+        assertEquals(
+            "bitrate by pace: A 8 fps avg 512 kbps 8.0 fps sent 0.0 min; reserve 6 fps avg 400 kbps 6.0 fps sent 0.0 min; " +
+                "reserve (no cap) 8 fps avg 512 kbps 8.0 fps sent 0.0 min",
+            l.line(),
+        )
+    }
+
+    @Test
     fun `the same kind at another rate is another line`() {
         val l = log()
         l.add(Kind.B, 4, 4, 25_000, 1_000)

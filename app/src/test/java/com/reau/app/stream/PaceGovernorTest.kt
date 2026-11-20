@@ -280,6 +280,23 @@ class PaceGovernorTest {
     }
 
     @Test
+    fun `the reserve with the cap switched off is measured on its own line, at the pace the profile really ran`() {
+        val g = started(8, reserveCap = false)
+        g.poll(lowFuel = true)
+        repeat(8) { _ -> g.poll(lowFuel = true) }
+        val inside = g.paceSummary()!!
+        assertTrue(inside, "reserve (no cap) 8 fps" in inside)
+        assertTrue("it is not the capped reserve's line: $inside", "reserve 6" !in inside.replace("reserve (no cap)", ""))
+        g.poll(lowFuel = false)
+        repeat(4) { _ -> g.poll(lowFuel = false) }
+        assertTrue("outside the reserve the time goes back to A: ${g.paceSummary()}", "A 8 fps" in g.paceSummary()!!)
+        val capped = started(8)
+        capped.poll(lowFuel = true)
+        repeat(8) { _ -> capped.poll(lowFuel = true) }
+        assertTrue(capped.paceSummary()!!, "reserve 6 fps" in capped.paceSummary()!! && "(no cap)" !in capped.paceSummary()!!)
+    }
+
+    @Test
     fun `the cap switched off is not told again at every poll, and a stream that starts again tells it again`() {
         val g = started(8, reserveCap = false)
         assertEquals(1, g.poll(lowFuel = true).reserveLogs().size)

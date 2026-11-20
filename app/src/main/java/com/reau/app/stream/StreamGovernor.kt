@@ -196,11 +196,15 @@ internal class StreamGovernor(
     /** The reserve was on at the last poll with the cap switched off: only to tell it once on the way in and once on the way out. */
     private var reserveSeenUncapped = false
 
-    /** What the stream is at now, for [PaceBitrateLog]: the light screens, profile B, profile A held under the reserve's ceiling, or profile A. */
+    /**
+     * What the stream is at now, for [PaceBitrateLog]: the light screens, profile B, profile A held under the reserve's ceiling, profile A in the reserve
+     * with the debug switch having the ceiling off (so a comparison of profiles there is measured on its own line), or profile A.
+     */
     private fun paceKind(): PaceBitrateLog.Kind = when {
         lightOn -> PaceBitrateLog.Kind.LIGHT
         navTier == QualityTier.REDUCED -> PaceBitrateLog.Kind.B
         reserveOn && fullFps > DashConfig.RESERVE_CAP_FPS -> PaceBitrateLog.Kind.RESERVE
+        reserveSeenUncapped -> PaceBitrateLog.Kind.RESERVE_UNCAPPED
         else -> PaceBitrateLog.Kind.A
     }
 

@@ -25,6 +25,9 @@ internal class PaceBitrateLog(private val everyMs: Long = SUMMARY_EVERY_MS) {
 
         /** Profile A held under the reserve's ceiling ([com.reau.app.dash.DashConfig.RESERVE_CAP_FPS]). */
         RESERVE("reserve"),
+
+        /** The bike is in the reserve and the debug switch has the ceiling off ([com.reau.app.settings.REauSettings.reserveCapOn]): the profile at its own pace, measured apart. */
+        RESERVE_UNCAPPED("reserve (no cap)"),
     }
 
     private data class Key(val kind: Kind, val fps: Int)
