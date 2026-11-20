@@ -47,7 +47,7 @@ class JoystickEchoTest {
             Action.WHEEL_PREVIOUS to EchoLabel.WHEEL_PREVIOUS, Action.WHEEL_NEXT to EchoLabel.WHEEL_NEXT, Action.CONFIRM to EchoLabel.CONFIRM,
             Action.BACK to EchoLabel.BACK, Action.HOME to EchoLabel.HOME, Action.PLAY_PAUSE to EchoLabel.PLAY_PAUSE,
             Action.NEXT_SONG to EchoLabel.NEXT_SONG, Action.PREVIOUS_SONG to EchoLabel.PREVIOUS_SONG, Action.ASSISTANT to EchoLabel.ASSISTANT,
-            Action.ZOOM_IN to EchoLabel.ZOOM_IN, Action.ZOOM_OUT to EchoLabel.ZOOM_OUT, Action.OPEN_NAVIGATION to EchoLabel.OPEN_NAVIGATION,
+            Action.ZOOM_IN to EchoLabel.ZOOM_IN, Action.ZOOM_OUT to EchoLabel.ZOOM_OUT, Action.SWAP_MAP_MUSIC to EchoLabel.SWAP_MAP_MUSIC,
         )
         for ((action, label) in wanted) {
             val m = JoystickMap(page(Mode.MEDIA, Control.UP, action), assistant = true)
@@ -57,7 +57,7 @@ class JoystickEchoTest {
 
     @Test
     fun `the new actions echo too, the info ring's switch among them`() {
-        assertEquals(EchoLabel.OPEN_NAVIGATION, JoystickMap(page(Mode.MEDIA, Control.CENTER, Action.OPEN_NAVIGATION)).press(mediaCenter, 0).echo)
+        assertEquals(EchoLabel.SWAP_MAP_MUSIC, JoystickMap(page(Mode.MEDIA, Control.CENTER, Action.SWAP_MAP_MUSIC)).press(mediaCenter, 0).echo)
         assertEquals("the ring's switch sends nothing, but it acts", EchoLabel.INFO_RING, JoystickMap().press(mapDown, 0).echo)
         assertEquals(EchoLabel.ZOOM_OUT, JoystickMap(page(Mode.MAP, Control.RIGHT, Action.ZOOM_OUT)).press(mapRight, 0).echo)
     }

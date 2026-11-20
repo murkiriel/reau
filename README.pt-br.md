@@ -73,7 +73,7 @@ Há um APK publicado na página de Releases do projeto; para compilar o seu em v
 
 O REau não tem conta, anúncio nem coleta de dados. A tela **"O REau e os seus dados"**, no próprio app, diz o que
 fica guardado no celular e o que sai dele, com o motivo. O que sai do celular vai para o painel e, só com o servidor de rede
-opcional ligado, para outros aparelhos da sua rede local; as únicas idas à internet são o clima (Open-Meteo, para o painel, que vem ligado, ou o anel de informações, que vem desligado: não pede nada até você liberar a localização, e cada um tem uma chave) e o botão “Verificar atualização” em Ajustes, que só pergunta ao GitHub quando você toca. A permissão de localização também deixa o Android dar ao REau a lista de redes Wi-Fi, para ver a do painel, com o app atrás de outro (Android Auto, Waze) ou com a tela apagada; o REau não lê a posição para isso, e o Android pode mostrar o ícone de localização durante a projeção.
+opcional ligado, para outros aparelhos da sua rede local; as únicas idas à internet são o clima (Open-Meteo, para o painel, que vem ligado, ou o anel de informações, que vem desligado: não pede nada até você liberar a localização, e cada um tem uma chave) e a verificação de atualização em Ajustes (o botão “Verificar atualização” e, uma vez por dia, sozinha, a chave “Avisar quando houver atualização”, ligada de fábrica), que só pergunta ao GitHub qual é a última versão. A permissão de localização também deixa o Android dar ao REau a lista de redes Wi-Fi, para ver a do painel, com o app atrás de outro (Android Auto, Waze) ou com a tela apagada; o REau não lê a posição para isso, e o Android pode mostrar o ícone de localização durante a projeção.
 
 ## Segurança
 

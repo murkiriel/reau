@@ -259,8 +259,8 @@ internal class AaReceiver(
             // The phone's own business (LiveSides hands them to PhoneCalls); nothing goes to Android Auto.
             AaCommand.AnswerCall, AaCommand.EndCall, is AaCommand.CallVolume, is AaCommand.Volume, is AaCommand.PanelZoom, AaCommand.PanelZoomUndo ->
                 return AaLog.i("$command is not an Android Auto input")
-            // A sequence with waits, not one input: LiveSides runs it ([AppCycle]) and sends its taps one by one.
-            AaCommand.CycleApps -> return AaLog.i("$command is a sequence of taps, not one input")
+            // Not one input yet: LiveSides turns it into the media key or the navigation key by the screen shown ([SwapMapMusic]).
+            AaCommand.SwapMapMusic -> return AaLog.i("$command is resolved by the screen before it is sent, not an input")
         }
         // An input may change Android Auto's screen with no window event after it: read the screen again.
         // The select leaves the menu; the Home key opens the app menu, which the displays do not always say ([AaScreenWatch.homeSent]); the

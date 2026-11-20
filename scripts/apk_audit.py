@@ -140,6 +140,7 @@ EXPORTED_COMPONENTS = frozenset({
 })
 UNEXPORTED_COMPONENTS = frozenset({
     "com.reau.app.service.ProjectionService",
+    "com.reau.app.update.UpdateCheckJob",
     "androidx.core.content.FileProvider",
     "androidx.startup.InitializationProvider",
 })

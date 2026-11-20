@@ -71,7 +71,8 @@ class ApkAttestationTest {
             assertTrue("$language: the section", "id=\"conferir-apk\"" in page && section.isNotBlank())
             assertTrue("$language: the whole fingerprint of the project's key", "<code>$official</code>" in section)
             assertTrue("$language: the command for the computer", "apksigner verify --print-certs" in section)
-            assertTrue("$language: where the app shows it", Regex("Check for updates|Verificar atualização|Buscar actualizaciones").containsMatchIn(section))
+            // P32A: the app no longer shows the fingerprint on "Check for updates", so the page does not send the reader there.
+            assertFalse("$language: the app does not show it any more", Regex("In the app, at the end|No app, no fim|En la app, al final").containsMatchIn(section))
             assertFalse("$language: nothing about the attestation on the site", Regex("attestation|atestação|atestación").containsMatchIn(page))
             assertFalse("$language: no gh attestation command", "gh attestation" in page)
         }

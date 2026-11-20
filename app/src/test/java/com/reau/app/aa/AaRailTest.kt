@@ -20,13 +20,6 @@ class AaRailTest {
     fun `the microphone and the grid's button are not shortcuts`() {
         assertNull("microphone", AaRail.slot(45, 352))
         assertNull("grid's button", AaRail.slot(45, 430))
-        assertNull("grid's button, from the constants", AaRail.slot(AaRail.GRID_X, AaRail.GRID_Y))
-    }
-
-    @Test
-    fun `the grid's button is where it was measured`() {
-        assertEquals(45, AaRail.GRID_X)
-        assertEquals(430, AaRail.GRID_Y)
     }
 
     @Test

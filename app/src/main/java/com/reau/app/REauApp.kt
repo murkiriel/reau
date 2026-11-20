@@ -74,5 +74,9 @@ class REauApp : Application() {
         // The bike Wi-Fi suggestion, in step with the switch and the dash's name (Android keeps it otherwise).
         // (off the main thread: binder calls to the Wi-Fi service)
         DashWifiSuggestions.syncSoon(this)
+        // The daily check for a newer version, in step with its switch (scheduled once, cancelled when off); the job is not kept across a reboot, so every start puts it back.
+        kotlin.concurrent.thread(name = "update-job") {
+            runCatching { com.reau.app.update.UpdateNoticeAndroid.sync(this, settings.updateNotice) }
+        }
     }
 }

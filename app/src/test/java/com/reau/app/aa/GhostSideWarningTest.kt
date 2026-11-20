@@ -13,10 +13,8 @@ import org.junit.Test
 class GhostSideWarningTest {
     @Test
     fun `the warning is for the right, in any mode and gesture, with the costly actions`() {
-        // P31 Joy: opening the music app or the phone by mistake is as expensive as opening the navigation, so they warn too.
-        val costly = listOf(
-            Action.CYCLE_APPS, Action.OPEN_NAVIGATION, Action.OPEN_MUSIC, Action.OPEN_PHONE, Action.ASSISTANT, Action.NEXT_SONG, Action.PREVIOUS_SONG,
-        )
+        // P32A: the swap opens the map or the music app, as expensive by mistake as the opening of either was, so it warns.
+        val costly = listOf(Action.SWAP_MAP_MUSIC, Action.ASSISTANT, Action.NEXT_SONG, Action.PREVIOUS_SONG)
         for (mode in Mode.entries) for (gesture in Gesture.entries) {
             val right = Slot(mode, Control.RIGHT, gesture)
             for (action in costly) assertTrue("$right $action", GhostSideWarning.warns(right, action))

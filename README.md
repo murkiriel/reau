@@ -71,7 +71,7 @@ An APK is published on the project's Releases page; to build your own instead, G
 
 REau has no account, no ads and no data collection. The **"REau and your data"** screen, inside the app, says what
 stays on the phone and what leaves it, and why. What leaves the phone goes to the dash and, only with the optional network
-server on, to other devices on your local network; the only trips to the internet are the weather (Open-Meteo, for the dash, on by default, or the info ring, off by default: it asks nothing until you allow the location, and each has a switch) and the “Check for updates” button in Settings, which asks GitHub only when you tap it. The location permission also lets Android give REau the list of Wi-Fi networks, to see the dash's, while the app is behind another one (Android Auto, Waze) or the screen is off; REau reads no position for that, and Android may show the location icon during the projection.
+server on, to other devices on your local network; the only trips to the internet are the weather (Open-Meteo, for the dash, on by default, or the info ring, off by default: it asks nothing until you allow the location, and each has a switch) and the update check in Settings (the “Check for updates” button and, once a day by itself, the “Notify when there is an update” switch, on by default), which asks GitHub only for the latest version number. The location permission also lets Android give REau the list of Wi-Fi networks, to see the dash's, while the app is behind another one (Android Auto, Waze) or the screen is off; REau reads no position for that, and Android may show the location icon during the projection.
 
 ## Safety
 

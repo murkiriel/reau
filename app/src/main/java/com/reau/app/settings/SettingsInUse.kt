@@ -36,6 +36,8 @@ object SettingsInUse {
     internal val NOT_LOGGED = setOf(
         "cropX", "cropY", "moveX", "moveY", "menuFit", "menuFitKept", "navFit", "zoom", "cover", "statsX", "statsY", "statsSize",
         "buttonX", "buttonY", "buttonSize", "joystick",
+        // The daily update check says itself in the log each time it runs ([com.reau.app.update.UpdateNotice.logLine]).
+        "updateNotice",
     )
 
     fun line(settings: REauSettings): String {

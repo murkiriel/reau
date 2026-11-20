@@ -283,6 +283,11 @@ data class REauSettings(
      * own ([com.reau.app.aa.ServiceDiscoveryResponse.VEHICLE_ID_MOTORCYCLE]), see [aaConfig]. It counts from the next Android Auto session. Off, the announcement is the one it always was.
      */
     val experimentMotorcycle: Boolean = false,
+    /**
+     * Once a day, with the internet on, REau asks GitHub (the same single request as the "Check now" button, [com.reau.app.update.ReleaseCheck]) whether a newer version is
+     * published, and posts one notification per version ([com.reau.app.update.UpdateNotice]). Nothing is downloaded or installed. On by default; off cancels the daily job.
+     */
+    val updateNotice: Boolean = true,
 ) {
     /** The size the stream's encoder is built for: [videoFrame] after [sanitized] (528x304; the dash's own 526x300 only after the fall back, when no encoder takes 528x304). */
     val frameSize: DashConfig.FrameSize

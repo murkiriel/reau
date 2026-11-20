@@ -49,10 +49,7 @@ enum class EchoLabel(val res: Int) {
     ASSISTANT(R.string.echo_assistant),
     ZOOM_IN(R.string.echo_zoom_in),
     ZOOM_OUT(R.string.echo_zoom_out),
-    OPEN_NAVIGATION(R.string.echo_open_navigation),
-    CYCLE_APPS(R.string.echo_cycle_apps),
-    OPEN_MUSIC(R.string.echo_open_music),
-    OPEN_PHONE(R.string.echo_open_phone),
+    SWAP_MAP_MUSIC(R.string.echo_swap_map_music),
     FOCUS_UP(R.string.echo_focus_up),
     FOCUS_DOWN(R.string.echo_focus_down),
     FOCUS_LEFT(R.string.echo_focus_left),
@@ -61,6 +58,13 @@ enum class EchoLabel(val res: Int) {
     ANSWER_CALL(R.string.echo_answer_call),
     REJECT_CALL(R.string.echo_reject_call),
     END_CALL(R.string.echo_end_call),
+
+    /**
+     * The echo of the swap, by where the tap went ([com.reau.app.aa.SwapMapMusic.Target]): the destination's name. [SWAP_MAP_MUSIC] is its name in the legend, where
+     * the screen is not known yet; the title says one of these two.
+     */
+    SWAP_TO_MUSIC(R.string.echo_swap_to_music),
+    SWAP_TO_MAP(R.string.echo_swap_to_map),
 
     /** The dash's own: the map mode's centre puts it in its media mode (shown in the legend, never echoed). */
     MEDIA_MODE(R.string.echo_media_mode),
@@ -86,10 +90,7 @@ enum class EchoLabel(val res: Int) {
             Action.ASSISTANT -> ASSISTANT
             Action.ZOOM_IN -> ZOOM_IN
             Action.ZOOM_OUT -> ZOOM_OUT
-            Action.OPEN_NAVIGATION -> OPEN_NAVIGATION
-            Action.CYCLE_APPS -> CYCLE_APPS
-            Action.OPEN_MUSIC -> OPEN_MUSIC
-            Action.OPEN_PHONE -> OPEN_PHONE
+            Action.SWAP_MAP_MUSIC -> SWAP_MAP_MUSIC
             Action.FOCUS_UP -> FOCUS_UP
             Action.FOCUS_DOWN -> FOCUS_DOWN
             Action.FOCUS_LEFT -> FOCUS_LEFT

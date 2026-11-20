@@ -8,7 +8,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import com.reau.app.R
 import com.reau.app.data.RideDiagnostics
 import com.reau.app.devtools.FaultInjection.Fault
@@ -22,7 +24,8 @@ import com.reau.app.ui.components.RowAction
 /**
  * Debug builds only: the rows at the end of Ajustes → Depuração that fire each warning of the app, to check its sound, its vibration and its
  * channel on the phone, and that arm the faults of [FaultInjection]. The release build has a [DebugTriggers] with no row (`src/release`), and
- * nothing here is in it. The texts are in English only: they are for whoever builds the app, and a release never shows them.
+ * nothing here is in it. The texts are in `src/debug/res` (pt, en, es), so a release does not carry them; the rows are in three groups: test the
+ * warnings, simulate failures, test the dash arrows.
  */
 object DebugTriggers {
     /** The temperature the "phone hot" notice is fired with: above the 44 degrees that sets it off by itself. */
@@ -37,26 +40,27 @@ object DebugTriggers {
         return listOf<@Composable () -> Unit>(
             {
                 ActionsRow(
-                    "Fire a warning", listOf(
-                        RowAction("Dash stuck", "debug_fire_dash_stuck", R.drawable.ic_ms_construction) { fire(context, "dash stuck") },
-                        RowAction("Phone hot", "debug_fire_phone_hot", R.drawable.ic_ms_construction) { fire(context, "phone hot") },
-                        RowAction("Dash gone, stopped", "debug_fire_no_dash", R.drawable.ic_ms_construction) { fire(context, "no dash stop") },
-                        RowAction("Alert channel", "debug_alert_channel", R.drawable.ic_ms_construction) { openAlertChannel(context) },
+                    stringResource(R.string.debug_warn_title), listOf(
+                        RowAction(stringResource(R.string.debug_warn_dash_stuck), "debug_fire_dash_stuck", R.drawable.ic_ms_construction) { fire(context, "dash stuck") },
+                        RowAction(stringResource(R.string.debug_warn_phone_hot), "debug_fire_phone_hot", R.drawable.ic_ms_construction) { fire(context, "phone hot") },
+                        RowAction(stringResource(R.string.debug_warn_no_dash), "debug_fire_no_dash", R.drawable.ic_ms_construction) { fire(context, "no dash stop") },
+                        RowAction(stringResource(R.string.debug_warn_channel), "debug_alert_channel", R.drawable.ic_ms_construction) { openAlertChannel(context) },
                     ),
-                    sub = "Each posts the real notice. Check the sound, the vibration (screen off, in the pocket) and the channel; " +
-                        "\"Alert channel\" opens its page in the system's settings.",
+                    sub = stringResource(R.string.debug_warn_sub),
                     tag = "debug_fire",
                 )
             },
             {
                 ActionsRow(
-                    "Inject a fault", listOf(
-                        RowAction("Decoder stalls", "debug_fault_decoder", R.drawable.ic_ms_construction) { arm(Fault.DECODER_STALL) },
-                        RowAction("Encoder mute", "debug_fault_encoder", R.drawable.ic_ms_construction) { arm(Fault.ENCODER_MUTE) },
-                        RowAction("Focus cycle", "debug_fault_focus", R.drawable.ic_ms_construction) { arm(Fault.FOCUS_CYCLE) },
+                    stringResource(R.string.debug_fault_title), listOf(
+                        RowAction(stringResource(R.string.debug_fault_decoder), "debug_fault_decoder", R.drawable.ic_ms_construction) { arm(Fault.DECODER_STALL) },
+                        RowAction(stringResource(R.string.debug_fault_encoder), "debug_fault_encoder", R.drawable.ic_ms_construction) { arm(Fault.ENCODER_MUTE) },
+                        RowAction(stringResource(R.string.debug_fault_keyframe), "debug_fault_focus", R.drawable.ic_ms_construction) { arm(Fault.FOCUS_CYCLE) },
                     ),
-                    sub = "With a projection running. Decoder: the stall watch restarts it in 3 s. " +
-                        "Encoder: the experimental mute watch (switch on) rebuilds it in 3 s. Focus: Android Auto is asked for a keyframe.",
+                    // The group's line, then what each button does (the resources say it in the language of the app).
+                    sub = listOf(
+                        R.string.debug_fault_sub, R.string.debug_fault_decoder_what, R.string.debug_fault_encoder_what, R.string.debug_fault_keyframe_what,
+                    ).joinToString("\n") { stringResource(it) },
                     tag = "debug_fault",
                 )
             },
@@ -80,17 +84,18 @@ object DebugTriggers {
         DisposableEffect(Unit) { onDispose { ArrowTrial.stop() } }
         LaunchedEffect(available) { if (!available) ArrowTrial.stop() }
         if (!available) {
-            ActionsRow("Arrow test", emptyList(), sub = "Only with the panel connected: start the projection and wait for the panel.", tag = "debug_arrow_off")
+            ActionsRow(stringResource(R.string.debug_arrow_title), emptyList(), sub = stringResource(R.string.debug_arrow_sub_off), tag = "debug_arrow_off")
             return
         }
+        val words = ArrowTrial.LabelWords(stringResource(R.string.debug_arrow_hidden), stringResource(R.string.debug_arrow_unnamed))
+        val language = LocalConfiguration.current.locales[0].language
         ActionsRow(
-            "Arrow test", listOf(
-                RowAction("Previous", "debug_arrow_previous", R.drawable.ic_ms_construction) { ArrowTrial.previous() },
-                RowAction("Next", "debug_arrow_next", R.drawable.ic_ms_construction) { ArrowTrial.next() },
-                RowAction("Stop", "debug_arrow_stop", R.drawable.ic_ms_construction) { ArrowTrial.stop() },
+            stringResource(R.string.debug_arrow_title), listOf(
+                RowAction(stringResource(R.string.debug_arrow_previous), "debug_arrow_previous", R.drawable.ic_ms_construction) { ArrowTrial.previous() },
+                RowAction(stringResource(R.string.debug_arrow_next), "debug_arrow_next", R.drawable.ic_ms_construction) { ArrowTrial.next() },
+                RowAction(stringResource(R.string.debug_arrow_stop), "debug_arrow_stop", R.drawable.ic_ms_construction) { ArrowTrial.stop() },
             ),
-            sub = sent?.let { "Sending ${ArrowTrial.label(it)}" }
-                ?: "Off: the real arrow. Next sends the first arrow of the test sequence to the panel's maneuver bubble.",
+            sub = sent?.let { stringResource(R.string.debug_arrow_sending, ArrowTrial.label(it, language, words)) } ?: stringResource(R.string.debug_arrow_sub_idle),
             tag = "debug_arrow",
         )
     }

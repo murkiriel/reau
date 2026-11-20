@@ -90,7 +90,7 @@ fun SettingsScreen(
                     VideoExperimentsGroup(settings, change)
                     DashExperimentsGroup(settings, change)
                     DebugGroup(settings, change, actions, say)
-                    UpdateGroup()
+                    UpdateGroup(settings, change)
                 }
                 SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding()) {
                     Snackbar(it, Modifier.testTag("snackbar"), shape = MaterialTheme.shapes.small)

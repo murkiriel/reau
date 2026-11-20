@@ -8,7 +8,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** The fingerprint of the signing certificate in "Check for updates": how it is read, shown and compared with the project's. */
+/** The fingerprint of the signing certificate: how it is read, shown and compared with the project's (the screen no longer shows it, P32A). */
 class SigningCheckTest {
     private val one = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
     private val other = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -95,44 +95,13 @@ class SigningCheckTest {
     }
 
     @Test
-    fun `the debug text is not an alarm in the three languages and says it is the debug key`() {
-        val words = mapOf("values" to listOf("Debug build", "debug key"), "values-pt" to listOf("Build de depuração", "chave de depuração"), "values-es" to listOf("Versión de depuración", "clave de depuración"))
-        for ((folder, expected) in words) {
-            val xml = File("src/main/res/$folder/strings.xml").readText()
-            val debug = Regex("""<string name="update_sign_debug">(.*?)</string>""").find(xml)!!.groupValues[1]
-            val differ = Regex("""<string name="update_sign_differ">(.*?)</string>""").find(xml)!!.groupValues[1]
-            for (word in expected) assertTrue("$folder: '$word' in $debug", word in debug)
-            assertNotEquals("$folder: the debug text is not the one of a difference", differ, debug)
-        }
-    }
-
-    @Test
-    fun `the eight texts of the block are in the three languages, each one its own`() {
-        val keys = listOf("update_sign_title", "update_sign_expected", "update_sign_installed", "update_sign_match", "update_sign_differ", "update_sign_debug", "update_sign_unset", "update_sign_unreadable")
-        val seen = mutableSetOf<String>()
+    fun `the screen no longer shows the signature block, and none of its texts is left in the three languages`() {
+        // P32A: the owner took the block out of "Check for updates"; the check of the signature stays here (ApkAttestationTest holds the constant against the install page).
+        val source = File("src/main/java/com/reau/app/ui/UpdateGroup.kt").readText()
+        assertTrue(!source.contains("SigningCheck") && !source.contains("SigningBlock") && !source.contains("update_signing"))
         for (folder in listOf("values", "values-pt", "values-es")) {
             val xml = File("src/main/res/$folder/strings.xml").readText()
-            for (key in keys) {
-                val text = Regex("""<string name="$key">(.*?)</string>""").find(xml)?.groupValues?.get(1)
-                assertTrue("$folder: $key", !text.isNullOrBlank())
-                assertTrue("$folder $key is its own text", seen.add("$folder/$text"))
-            }
-            assertTrue("$folder: SHA-256 is named", "SHA-256" in Regex("""<string name="update_sign_installed">(.*?)</string>""").find(xml)!!.groupValues[1])
+            assertTrue("$folder: a signature text is left", !Regex("""name="update_sign_""").containsMatchIn(xml))
         }
-    }
-
-    @Test
-    fun `the block shows the fingerprints in a monospace font, selectable, from the constant and from the package record`() {
-        val source = File("src/main/java/com/reau/app/ui/UpdateGroup.kt").readText()
-        val fingerprint = source.substringAfter("private fun Fingerprint(")
-        assertTrue("monospace", "fontFamily = FontFamily.Monospace" in fingerprint)
-        assertTrue("selectable and copiable", "SelectionContainer {" in fingerprint)
-        assertTrue("the expected one is the constant, and the debug build is told from the release", "SigningCheck.verdict(SigningCheck.EXPECTED_SHA256, installed, BuildConfig.DEBUG)" in source)
-        assertTrue("the expected one is shown only when it is a real fingerprint", "SigningCheck.normalize(SigningCheck.EXPECTED_SHA256) != null" in source)
-        assertTrue("the debug build has its own text", "SigningCheck.Verdict.DEBUG_BUILD -> R.string.update_sign_debug" in source)
-        assertTrue("the installed one is read from the package record", "remember { SigningCheck.installed(context) }" in source)
-        val reading = File("src/main/java/com/reau/app/update/SigningCheck.kt").readText()
-        assertTrue("the signing certificates of the package, not the signing history", "GET_SIGNING_CERTIFICATES" in reading && "apkContentsSigners" in reading)
-        assertTrue("both fingerprints are shown with the same formatting", Regex.escape("SigningCheck.display(").toRegex().findAll(source).count() == 2)
     }
 }

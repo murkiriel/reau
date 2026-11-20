@@ -8,7 +8,7 @@ import org.junit.Test
 
 /**
  * The words of the notices of this round, in the three languages: the permission texts the owner approved word for word, the three new alerts, the
- * notice about what the recordings hold, and the privacy answer about the crash report. The expected texts are typed out here, not read from the code.
+ * absence of the notices about what the recordings hold (removed by the owner, P32A), and the privacy answer about the crash report. The expected texts are typed out here, not read from the code.
  */
 class RiderNoticesTextTest {
     private val src = File("src").takeIf { it.isDirectory } ?: File("app/src")
@@ -39,7 +39,7 @@ class RiderNoticesTextTest {
 
     private val newNames = listOf(
         "notif_title_bind_refused", "notif_text_bind_refused", "warn_alerts_muted_title", "warn_alerts_muted", "warn_alerts_blocked_title",
-        "warn_alerts_blocked", "action_open_alert_settings", "recordings_notice", "share_recordings_notice",
+        "warn_alerts_blocked", "action_open_alert_settings",
     )
 
     @Test
@@ -84,29 +84,28 @@ class RiderNoticesTextTest {
         assertTrue(string("pt", "warn_alerts_blocked").contains("“${string("pt", "notif_alert_channel_name")}”"))
     }
 
-    // -- what the recordings hold ------------------------------------------------------------------------------------------
+    // -- what the recordings hold: the two "Careful" cards of the Debug section were taken out (the owner, P32A) ---------------
 
     @Test
-    fun `the notice on the recordings says they hold the map, where you rode, and the names of who calls`() {
-        for (name in listOf("recordings_notice", "share_recordings_notice")) {
-            assertTrue(string("pt", name), string("pt", name).let { "mapa" in it && "por onde você andou" in it && "nomes de quem liga" in it })
-            assertTrue(string("en", name), string("en", name).let { "map" in it && "where you rode" in it && "names of who calls" in it })
-            assertTrue(string("es", name), string("es", name).let { "mapa" in it && "por dónde rodaste" in it && "nombres de quien llama" in it })
+    fun `the two notices on the recordings are gone from the three languages`() {
+        for (folder in folders.values) {
+            val xml = File(src, "main/res/$folder/strings.xml").readText()
+            for (name in listOf("recordings_notice", "share_recordings_notice")) assertFalse("$folder still has $name", xml.contains("\"$name\""))
         }
     }
 
     @Test
-    fun `the notice is on the screen above the two recording switches and under the share buttons`() {
+    fun `the Debug section shows no notice card above the recording switches or under the share buttons`() {
         val source = File(src, "main/java/com/reau/app/ui/SettingsDebug.kt").readText()
+        assertFalse("the card is still there", source.contains("RecordingsNotice"))
+        assertFalse(source.contains("recordings_notice"))
         val rows = source.substringAfter("private fun recordingRows").substringBefore("\n}\n")
-        assertTrue("first in the recording rows", rows.indexOf("RecordingsNotice(R.string.recordings_notice") in 0 until rows.indexOf("\"record_video\""))
-        assertTrue(rows.indexOf("\"record_video\"") < rows.indexOf("\"record_sessions\""))
+        assertTrue("the first row of the recordings is the video switch", rows.indexOf("\"record_video\"") in 0 until rows.indexOf("\"record_sessions\""))
         val group = source.substringAfter("return listOf<@Composable () -> Unit>(\n        { RideLog").substringBefore("{ LogKeepDays")
         val lines = group.lines().map { it.trim() }
         val share = lines.indexOfFirst { it.startsWith("{ ShareRow(actions) }") }
-        assertTrue("right under the share buttons", share >= 0 && lines[share + 1].contains("RecordingsNotice(R.string.share_recordings_notice"))
-        assertTrue("and before the delete buttons", lines[share + 2].startsWith("{ DeleteRow"))
-        assertEquals("nothing else changes what is recorded: the switches still write the same settings", 2, Regex("""recordVideo = it|recordSessions = it""").findAll(rows).count())
+        assertTrue("the delete buttons come right under the share buttons", share >= 0 && lines[share + 1].startsWith("{ DeleteRow"))
+        assertEquals("the switches still write the same settings", 2, Regex("""recordVideo = it|recordSessions = it""").findAll(rows).count())
     }
 
     // -- the privacy answer about the crash report -----------------------------------------------------------------------

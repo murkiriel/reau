@@ -321,17 +321,11 @@ internal class LiveSides(
     }
     private val receiver: AaReceiver?
 
-    // The joystick's "switch app": the grid's button and the next of the first three apps, with the waits between ([com.reau.app.aa.AppCycle]).
-    // Its taps go through the receiver, which tells the screen watch an app was picked; nothing is sent without a session or a touch screen announced.
-    private val appCycle = com.reau.app.aa.AppCycle(
+    // The joystick's "switch map and music": the key for the destination is chosen at the tap, by the screen the watch settled on ([com.reau.app.aa.SwapMapMusic]).
+    private val swapMapMusic = com.reau.app.aa.SwapMapMusic(
         screen = { com.reau.app.aa.AaScreens.watch.screen.value },
-        send = { receiver?.sendInput(it) },
-        blocked = {
-            com.reau.app.aa.AppCycle.blockedReason(receiver?.state == AaLinkState.ACTIVE, setup.aaConfig.touch, setup.calls.state())
-        },
-        now = { android.os.SystemClock.elapsedRealtime() },
-        pause = { delay(it) },
-        log = { RideDiagnostics.log("aa", it) },
+        app = { com.reau.app.aa.AaScreens.watch.app.value },
+        log = { RideDiagnostics.log("dash", it) },
     )
 
     // The phone's real state in the heartbeat while the rider's switch is on; `tuned` is read at each beat.
@@ -547,11 +541,7 @@ internal class LiveSides(
             })
             receiver = surface?.let {
                 AaReceiver(context, setup.aaConfig, it, { state ->
-                    if (state == AaLinkState.ACTIVE) {
-                        live.applyPendingFit()
-                        // A new Android Auto session starts the walk of the apps again from the first.
-                        appCycle.restart()
-                    }
+                    if (state == AaLinkState.ACTIVE) live.applyPendingFit()
                     report(ProjectionEvent.AndroidAutoChanged(state))
                     web?.androidAutoChanged(state == AaLinkState.ACTIVE)
                 }, options)
@@ -675,8 +665,8 @@ internal class LiveSides(
                     is AaCommand.PanelZoom -> panelZoom(command.step)
                     AaCommand.PanelZoomUndo -> panelZoomUndo()
                     is AaCommand.Volume -> volumeStep(command.step, context)
-                    // Off the joystick's thread: the sequence waits for the grid, and the other buttons go on meanwhile.
-                    AaCommand.CycleApps -> scope.launch { appCycle.press() }
+                    // The destination is chosen now, by the screen shown; the key then goes as any other (its echo is read right after, see [swapMapMusic]).
+                    AaCommand.SwapMapMusic -> receiver?.sendInput(swapMapMusic.resolve())
                     // The song is about to change: the dash waits for its name to say it in the title ([DashSession.songChangeAsked]), before the key goes so that the metadata cannot come first.
                     is AaCommand.Key -> {
                         if (JoystickMap.isSongKey(command.keycode)) session.songChangeAsked()
@@ -741,7 +731,9 @@ internal class LiveSides(
      * mode, the legend of that mode to the video ([legend]). Each says a line in the diagnostic log when it shows, with no text of the rider's.
      */
     private fun echoAndLegend(press: JoystickMap.Press, map: JoystickMap, words: Context, volumeText: String? = null) {
-        press.echo?.let { label ->
+        press.echo?.let { named ->
+            // The swap's title is the destination ("Music" or "Map"), known only now that the tap chose it ([swapMapMusic]).
+            val label = com.reau.app.aa.SwapMapMusic.echoFor(named, swapMapMusic.lastTarget)
             val text = volumeText ?: com.reau.app.dash.ActionEchoText.text(words, label)
             // A song change keeps its name in the title until the new song's name comes (up to the end of the wait).
             val taken = if (label.changesSong) session.echoSongAction(text) else session.echoAction(text)

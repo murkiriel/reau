@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only (src/debug): the texts of the tools at the end of Ajustes > Depuração. A release never carries them. -->
+<resources>
+    <string name="debug_warn_title">Testar os avisos</string>
+    <string name="debug_warn_sub">Cada botão dispara a notificação real. Confira o som, a vibração com a tela apagada e no bolso, e o canal.</string>
+    <string name="debug_warn_dash_stuck">Painel travado</string>
+    <string name="debug_warn_phone_hot">Celular quente</string>
+    <string name="debug_warn_no_dash">Painel sumiu, projeção parada</string>
+    <string name="debug_warn_channel">Abrir o canal de alertas</string>
+    <string name="debug_fault_title">Simular falhas</string>
+    <string name="debug_fault_sub">Com a projeção rodando. O REau deve se recuperar sozinho.</string>
+    <string name="debug_fault_decoder">Travar o decodificador</string>
+    <string name="debug_fault_encoder">Calar o codificador</string>
+    <string name="debug_fault_keyframe">Pedir um quadro completo</string>
+    <string name="debug_fault_decoder_what">Travar o decodificador: o vigia o reinicia em 3 s.</string>
+    <string name="debug_fault_encoder_what">Calar o codificador: com a chave do vigia experimental ligada, ele é refeito em 3 s.</string>
+    <string name="debug_fault_keyframe_what">Pedir um quadro completo: pede um keyframe ao Android Auto.</string>
+    <string name="debug_arrow_title">Testar as setas do painel</string>
+    <string name="debug_arrow_sub_off">Só com o painel conectado. Inicie a projeção e espere o painel. Percorra as setas de manobra e fotografe o painel com a moto parada; Parar devolve a seta real.</string>
+    <string name="debug_arrow_sub_idle">Só com o painel conectado. Percorra as setas de manobra e fotografe o painel com a moto parada; Parar devolve a seta real.</string>
+    <string name="debug_arrow_sending">Enviando %1$s</string>
+    <string name="debug_arrow_previous">Anterior</string>
+    <string name="debug_arrow_next">Próxima</string>
+    <string name="debug_arrow_stop">Parar</string>
+    <string name="debug_arrow_unnamed">sem nome ainda: anote o que o painel desenha</string>
+    <string name="debug_arrow_hidden">esconde a bolha</string>
+</resources>

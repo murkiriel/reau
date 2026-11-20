@@ -82,7 +82,7 @@ object GhostSideWarning {
      * The actions that cost something when they fire by mistake.
      */
     val ACTIONS: Set<Action> = setOf(
-        Action.CYCLE_APPS, Action.OPEN_NAVIGATION, Action.OPEN_MUSIC, Action.OPEN_PHONE, Action.ASSISTANT, Action.NEXT_SONG, Action.PREVIOUS_SONG,
+        Action.SWAP_MAP_MUSIC, Action.ASSISTANT, Action.NEXT_SONG, Action.PREVIOUS_SONG,
     )
 
     /** Whether the page says "this side sometimes fires together with the centre" under [action] picked for [slot]: the right, in any mode and gesture. */

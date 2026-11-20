@@ -47,20 +47,13 @@ data class JoystickBindings(private val chosen: Map<Slot, Action> = emptyMap()) 
         ZOOM_IN({ AaCommand.PanelZoom(1) }),
         ZOOM_OUT({ AaCommand.PanelZoom(-1) }),
 
-        /** Android Auto's own navigation button: it opens the last navigation app used (Waze or Maps), full screen, from any screen. On no control by default. */
-        OPEN_NAVIGATION({ AaCommand.Key(ServiceDiscoveryResponse.KEY_NAVIGATION) }),
-
         /**
-         * Switches to the next of the first three apps of Android Auto's grid, in the order the rider set there (1, 2, 3, 1...): taps the grid's
-         * button, waits for the grid and taps the app ([AppCycle]). Needs the touch screen announced. On no control by default.
+         * One action for the map and the music: it asks what Android Auto shows ([SwapMapMusic]) and, on the map, opens the last music app
+         * (Android Auto's own media button); on anything else (Spotify, the app menu, another app, a screen not known), the last navigation app
+         * (its navigation button). On no control by default. Pages saved with the two old actions that opened them one by one read as this one
+         * ([decode]).
          */
-        CYCLE_APPS({ AaCommand.CycleApps }),
-
-        /** Android Auto's own media button: it opens the last media app used (Spotify, say), from any screen. On no control by default. */
-        OPEN_MUSIC({ AaCommand.Key(ServiceDiscoveryResponse.KEY_MEDIA) }),
-
-        /** Android Auto's own phone button: it opens the phone. On no control by default. */
-        OPEN_PHONE({ AaCommand.Key(ServiceDiscoveryResponse.KEY_TEL) }),
+        SWAP_MAP_MUSIC({ AaCommand.SwapMapMusic }),
 
         /**
          * Android Auto's focus arrows (the keys up, down, left and right), to walk the focus where the wheel's next and previous do not reach.
@@ -166,6 +159,13 @@ data class JoystickBindings(private val chosen: Map<Slot, Action> = emptyMap()) 
         private val BY_KEY = SLOTS.associateBy { it.key }
 
         /**
+         * The names of actions that no longer exist, and what a page saved with them reads as: the two that opened the music app and the navigation
+         * became one ([Action.SWAP_MAP_MUSIC]); the ones that opened the phone and switched among the first three apps are gone (a name left out here
+         * is left out when read, and its slot goes back to its default).
+         */
+        private val RENAMED = mapOf("OPEN_MUSIC" to Action.SWAP_MAP_MUSIC, "OPEN_NAVIGATION" to Action.SWAP_MAP_MUSIC)
+
+        /**
          * [text] without its map-mode choices: those saved
          * before the one-tap joystick put Gemini on every map line, and the map mode's sides move the focus now.
          */
@@ -176,7 +176,7 @@ data class JoystickBindings(private val chosen: Map<Slot, Action> = emptyMap()) 
             val chosen = text.split(';').mapNotNull { entry ->
                 val (key, name) = entry.split('=', limit = 2).takeIf { it.size == 2 } ?: return@mapNotNull null
                 val slot = BY_KEY[key] ?: return@mapNotNull null
-                val action = Action.entries.firstOrNull { it.name == name } ?: return@mapNotNull null
+                val action = RENAMED[name] ?: Action.entries.firstOrNull { it.name == name } ?: return@mapNotNull null
                 slot to action
             }
             return chosen.fold(DEFAULT) { page, (slot, action) -> page.with(slot, action) }

@@ -16,10 +16,6 @@ object AaRail {
     const val Y_SPLIT = 238
     const val Y_TO = 318
 
-    /** The centre of the button that opens the apps' grid (the bar's lowest button). */
-    const val GRID_X = 45
-    const val GRID_Y = 430
-
     /** The shortcut a tap at ([x], [y]) of the video lands on; null when it lands on none. */
     fun slot(x: Int, y: Int): Slot? = when {
         x < 0 || x >= X_TO -> null

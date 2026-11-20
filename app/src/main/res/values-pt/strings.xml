@@ -22,6 +22,10 @@
     <string name="notif_text_dash_lost">A conexão com o painel caiu. O REau volta sozinho; se passar de 1 minuto com a moto ligada, desligue e ligue a moto pela chave</string>
     <string name="notif_alert_channel_name">Avisos do painel</string>
     <string name="notif_alert_channel_desc">Avisa com som e vibração quando o painel ou o celular precisa de algo seu, como desligar e ligar a ignição, ou o celular estar quente demais</string>
+    <string name="notif_update_channel_name">Atualizações</string>
+    <string name="notif_update_channel_desc">Avisa, sem barulho, que há uma versão mais nova do REau publicada</string>
+    <string name="notif_update_title">REau %1$s disponível</string>
+    <string name="notif_update_text">Toque para ver a página da versão. Nada é baixado nem instalado.</string>
     <string name="notif_title_dash_stuck">O Wi-Fi do painel travou</string>
     <string name="notif_text_dash_stuck">O painel está ligado mas não aceita a conexão. Desligue e ligue a ignição da moto; o REau reconecta sozinho</string>
     <string name="notif_title_phone_hot">O celular está quente</string>
@@ -178,10 +182,7 @@
     <string name="joystick_action_assistant">Gemini (chave ligada)</string>
     <string name="joystick_action_zoom_in">Aproximar</string>
     <string name="joystick_action_zoom_out">Afastar</string>
-    <string name="joystick_action_open_navigation">Abrir a navegação (Waze ou Maps)</string>
-    <string name="joystick_action_cycle_apps">Trocar de app (os 3 primeiros do menu de apps)</string>
-    <string name="joystick_action_open_music">Abrir o app de música (o último usado)</string>
-    <string name="joystick_action_open_phone">Abrir o telefone</string>
+    <string name="joystick_action_swap_map_music">Alternar mapa e música</string>
     <string name="joystick_action_focus_up">Foco para cima</string>
     <string name="joystick_action_focus_down">Foco para baixo</string>
     <string name="joystick_action_focus_left">Foco para a esquerda</string>
@@ -250,7 +251,7 @@
     <string name="about_data_what_title">O que o REau é</string>
     <string name="about_data_what">Uma ponte local entre o Android Auto do celular e o painel da moto: adapta a imagem, com música, quem liga e estado do celular, e manda pelo Wi-Fi do painel.</string>
     <string name="about_data_leaves_title">O que sai do celular</string>
-    <string name="about_data_leaves">Para o painel, pelo Wi-Fi: a imagem e, com as chaves ligadas, música, quem liga e estado do celular; na internet, só o clima opcional e a verificação de atualização ao tocar.</string>
+    <string name="about_data_leaves">Para o painel, pelo Wi-Fi: a imagem e, com chaves ligadas, música, quem liga e estado do celular; na internet, só o clima opcional e a verificação de atualização, ao tocar ou diariamente.</string>
     <string name="about_data_web_title">O navegador (só se você ligar)</string>
     <string name="about_data_web">Só com \"Ligar o servidor de rede\" (desligado de fábrica), quem estiver na mesma rede e digitar o PIN vê a imagem do Android Auto sem criptografia; evite redes de estranhos.</string>
     <string name="about_data_stays_title">O que fica no celular</string>
@@ -607,12 +608,10 @@
     <string name="record_sessions_title">Gravar as sessões do Android Auto</string>
     <string name="record_sessions_sub">Guarda o mapa e o trajeto</string>
     <string name="record_sessions_info">Grava tudo o que o Android Auto manda numa conexão (imagem, rota, música, quem liga, mensagens), guardando os últimos 50 a 100 MB, 3 a 15 minutos de trajeto (768 MB na build de debug). Desligada por padrão no app que você instala para andar e ligada na build de debug, revela por onde você andou: fica na pasta do app e só sai se você usar \"Compartilhar › Com gravações\". Somam no máximo 200 MB (1024 MB na build de debug) e saem pelo prazo de \"Apagar sozinho os mais velhos que\"; vale na próxima vez que ligar.</string>
-    <string name="recordings_notice">Atenção: as gravações contêm o mapa, ou seja, por onde você andou, e os nomes de quem liga. Ficam só no celular.</string>
     <string name="detailed_title">Registro detalhado</string>
     <string name="detailed_sub">Arquivo bem maior</string>
     <string name="share_title">Compartilhar</string>
     <string name="share_sub">Sai do celular só quando você toca aqui</string>
-    <string name="share_recordings_notice">Atenção: “Com gravações” leva para fora o mapa (por onde você andou) e os nomes de quem liga. Compartilhe só com quem você confia.</string>
     <string name="share_logs_short">Registros</string>
     <string name="share_recordings_short">Com gravações (grande)</string>
     <string name="delete_title">Apagar</string>
@@ -911,15 +910,8 @@
     <string name="update_failed">O GitHub não respondeu como esperado. Tente de novo mais tarde.</string>
     <string name="update_button_check">Verificar agora</string>
     <string name="update_button_open">Ver a versão</string>
-    <string name="update_info">O REau só pergunta ao GitHub (api.github.com) quando você toca; o GitHub vê o endereço do celular, sem conta. Nada é baixado nem instalado.</string>
-    <string name="update_sign_title">Assinatura deste APK</string>
-    <string name="update_sign_expected">Esperada, das versões do projeto (SHA-256)</string>
-    <string name="update_sign_installed">Do APK instalado (SHA-256)</string>
-    <string name="update_sign_match">As duas batem: este APK tem a assinatura das versões do projeto.</string>
-    <string name="update_sign_differ">As duas diferem: este APK não foi assinado com a chave das versões do projeto (uma build de teste, por exemplo).</string>
-    <string name="update_sign_debug">Build de depuração: assinada com a chave de depuração, não com a das versões publicadas; não se espera que as duas batam.</string>
-    <string name="update_sign_unset">Esta build não traz a impressão digital do projeto, então não há com o que comparar.</string>
-    <string name="update_sign_unreadable">O Android não informou a assinatura deste APK.</string>
+    <string name="update_notice_title">Avisar quando houver atualização</string>
+    <string name="update_notice_sub">Uma vez por dia, com internet, o REau pergunta ao GitHub (api.github.com) qual é a última versão, sem conta e sem nada sobre você, e avisa uma vez por versão. Nada é baixado nem instalado.</string>
 
     <!-- A small line on the main screen while the old app with the seal on its icon (id ending in .lite) is still installed -->
     <string name="old_app_note">O app REau antigo (o do ícone com selo) ainda está instalado. Não é mais necessário: pode desinstalá-lo.</string>
@@ -948,14 +940,13 @@
     <string name="echo_assistant">Gemini</string>
     <string name="echo_zoom_in">Aproximar</string>
     <string name="echo_zoom_out">Afastar</string>
-    <string name="echo_cycle_apps">Trocar de app</string>
-    <string name="echo_open_music">Abrir música</string>
-    <string name="echo_open_phone">Abrir telefone</string>
     <string name="echo_focus_up">Foco acima</string>
     <string name="echo_focus_down">Foco abaixo</string>
     <string name="echo_focus_left">Foco à esquerda</string>
     <string name="echo_focus_right">Foco à direita</string>
-    <string name="echo_open_navigation">Abrir navegação</string>
+    <string name="echo_swap_map_music">Mapa/música</string>
+    <string name="echo_swap_to_music">Música</string>
+    <string name="echo_swap_to_map">Mapa</string>
     <string name="echo_info_ring">Anel de info</string>
     <string name="echo_answer_call">Atender</string>
     <string name="echo_reject_call">Recusar</string>

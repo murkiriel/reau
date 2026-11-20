@@ -19,10 +19,10 @@ sealed class AaCommand {
     /** A finger from the phone's "Tela do Android Auto", at a point of the video. */
     data class Touch(val action: PhoneTouch.Action, val x: Int, val y: Int) : AaCommand()
     /**
-     * The switch to the next of the first three apps of Android Auto's grid ([AppCycle]): a sequence with waits in it (taps and the screen's word),
-     * so it is not sent as one input; LiveSides starts it in its own coroutine. It reaches Android Auto as touches.
+     * The map or the music, whichever is not in front ([SwapMapMusic]): the screen is only known at the moment of the tap, so LiveSides turns
+     * it into the media key or the navigation key then. Never reaches Android Auto as it is.
      */
-    data object CycleApps : AaCommand()
+    data object SwapMapMusic : AaCommand()
     /** Not for Android Auto: the phone answers the ringing call ([com.reau.app.phone.PhoneCalls]). */
     data object AnswerCall : AaCommand()
     /** Not for Android Auto: the phone rejects the ringing call or ends the one going on. */

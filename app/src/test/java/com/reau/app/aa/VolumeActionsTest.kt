@@ -117,8 +117,8 @@ class VolumeActionsTest {
         assertEquals("media.up.once=VOLUME_UP;media.down.once=VOLUME_DOWN", page.encode())
         assertEquals(page, JoystickBindings.decode(page.encode()))
         assertEquals(
-            Action.OPEN_NAVIGATION,
-            JoystickBindings.decode("media.up.once=VOLUME_UP;media.left.once=OPEN_NAVIGATION")[Slot(Mode.MEDIA, Control.LEFT, Gesture.ONCE)],
+            Action.SWAP_MAP_MUSIC,
+            JoystickBindings.decode("media.up.once=VOLUME_UP;media.left.once=SWAP_MAP_MUSIC")[Slot(Mode.MEDIA, Control.LEFT, Gesture.ONCE)],
         )
         assertEquals("a page with the old names is read as before", Action.NEXT_SONG, JoystickBindings.decode("media.up.once=NEXT_SONG")[mediaUpSlot])
     }

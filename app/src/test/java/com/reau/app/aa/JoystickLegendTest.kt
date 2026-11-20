@@ -144,7 +144,7 @@ class JoystickLegendTest {
 
     @Test
     fun `the legend says what a tap does, the same name the echo gives it`() {
-        val m = JoystickMap(JoystickBindings.DEFAULT.with(Slot(Mode.MEDIA, Control.CENTER, Gesture.ONCE), Action.OPEN_NAVIGATION))
+        val m = JoystickMap(JoystickBindings.DEFAULT.with(Slot(Mode.MEDIA, Control.CENTER, Gesture.ONCE), Action.SWAP_MAP_MUSIC))
         val legendName = m.legend(Mode.MEDIA).first { it.first == Control.CENTER }.second
         assertEquals(legendName, m.press(mediaCenter, 0).echo)
     }

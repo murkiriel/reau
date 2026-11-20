@@ -111,6 +111,12 @@
             </intent-filter>
         </service>
 
+        <!-- The daily check for a newer version (UpdateNotice): Android's JobScheduler binds it, so only the system may (BIND_JOB_SERVICE). -->
+        <service
+            android:name=".update.UpdateCheckJob"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
         <service
             android:name=".service.ProjectionService"
             android:exported="false"

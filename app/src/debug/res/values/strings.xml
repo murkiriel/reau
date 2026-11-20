@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only (src/debug): the texts of the tools at the end of Ajustes > Depuração. A release never carries them. -->
+<resources>
+    <string name="debug_warn_title">Test the warnings</string>
+    <string name="debug_warn_sub">Each button fires the real notification. Check the sound, the vibration with the screen off and in the pocket, and the channel.</string>
+    <string name="debug_warn_dash_stuck">Dash stuck</string>
+    <string name="debug_warn_phone_hot">Phone hot</string>
+    <string name="debug_warn_no_dash">Dash gone, projection stopped</string>
+    <string name="debug_warn_channel">Open the alerts channel</string>
+    <string name="debug_fault_title">Simulate failures</string>
+    <string name="debug_fault_sub">With the projection running. REau should recover by itself.</string>
+    <string name="debug_fault_decoder">Stall the decoder</string>
+    <string name="debug_fault_encoder">Mute the encoder</string>
+    <string name="debug_fault_keyframe">Ask for a full frame</string>
+    <string name="debug_fault_decoder_what">Stall the decoder: the watch restarts it in 3 s.</string>
+    <string name="debug_fault_encoder_what">Mute the encoder: with the experimental watch switch on, it is rebuilt in 3 s.</string>
+    <string name="debug_fault_keyframe_what">Ask for a full frame: asks Android Auto for a keyframe.</string>
+    <string name="debug_arrow_title">Test the dash arrows</string>
+    <string name="debug_arrow_sub_off">Only with the dash connected. Start the projection and wait for the dash. Step through the maneuver arrows and photograph the dash with the motorcycle stopped; Stop gives the real arrow back.</string>
+    <string name="debug_arrow_sub_idle">Only with the dash connected. Step through the maneuver arrows and photograph the dash with the motorcycle stopped; Stop gives the real arrow back.</string>
+    <string name="debug_arrow_sending">Sending %1$s</string>
+    <string name="debug_arrow_previous">Previous</string>
+    <string name="debug_arrow_next">Next</string>
+    <string name="debug_arrow_stop">Stop</string>
+    <string name="debug_arrow_unnamed">no name yet: write down what the dash draws</string>
+    <string name="debug_arrow_hidden">hides the bubble</string>
+</resources>

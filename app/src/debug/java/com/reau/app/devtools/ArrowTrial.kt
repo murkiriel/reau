@@ -50,4 +50,21 @@ object ArrowTrial {
         }
         return "0x%02X  %s%s".format(code, name, if (pt != null) "  ($pt)" else "")
     }
+
+    /** The two words of the label that the screen takes from its resources: a byte that hides the bubble, and one with no name yet. */
+    data class LabelWords(val hidden: String, val unnamed: String)
+
+    /**
+     * What the screen writes for the photo, in the app's [language] (`pt`, `es`, anything else is English): the byte in hex and the name expected for it
+     * (`0x2D  Abrir à direita`). The log keeps the two-language [label].
+     */
+    fun label(code: Int, language: String, words: LabelWords): String {
+        val name = when (language) {
+            "pt" -> DashManeuverGlyphs.describePt(code)
+            "es" -> ArrowNamesEs.name(code)
+            else -> DashManeuverGlyphs.describe(code)
+        }
+        val text = name ?: if (code >= DashManeuverGlyphs.HIDDEN_BUBBLE) words.hidden else words.unnamed
+        return "0x%02X  %s".format(code, text)
+    }
 }

@@ -14,7 +14,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.reau.app.BuildConfig
 import com.reau.app.R
 import com.reau.app.update.ReleaseCheck
-import com.reau.app.update.SigningCheck
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -28,19 +27,20 @@ class UpdateRowTest {
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private var state by mutableStateOf<UpdateState>(UpdateState.Idle)
-    private var installed by mutableStateOf<List<String>?>(null)
     private var checks = 0
     private val opened = mutableListOf<String>()
 
-    private fun show() = compose.setContent { AppTheme { UpdateRow(state, { checks++ }, installed) { opened += it } } }
+    private fun show() = compose.setContent { AppTheme { UpdateRow(state, { checks++ }) { opened += it } } }
 
     private fun status() = compose.onNodeWithTag("update_status")
 
     @Test
-    fun beforeTheTapItSaysTheVersionAndThatNothingIsAskedByItself() {
+    fun beforeTheTapItSaysTheVersionAndNothingIsAskedByTheRow() {
         show()
         status().assertIsDisplayed().assertTextContains(BuildConfig.VERSION_NAME, substring = true)
-        compose.onNodeWithTag("update_note").assertTextContains("api.github.com", substring = true)
+        // The block of the signature and the paragraph about api.github.com are gone from the row (P32A).
+        compose.onNodeWithTag("update_note").assertDoesNotExist()
+        compose.onNodeWithTag("update_signing").assertDoesNotExist()
         compose.onNodeWithTag("update_open").assertDoesNotExist()
         assertEquals("nothing is asked until the tap", 0, checks)
         compose.onNodeWithTag("update_check").performClick()
@@ -108,30 +108,5 @@ class UpdateRowTest {
         state = UpdateState.Checking
         show()
         status().assertTextContains(context.getString(R.string.update_checking))
-    }
-
-    @Test
-    fun theSignatureOfTheInstalledApkIsShownAndSaidWhetherItIsTheProjects() {
-        val fingerprint = SigningCheck.fingerprint("a certificate".toByteArray())
-        installed = listOf(fingerprint)
-        show()
-        compose.onNodeWithTag("update_sign_installed").assertIsDisplayed().assertTextContains(SigningCheck.display(fingerprint))
-        compose.onNodeWithTag("update_sign_expected").assertIsDisplayed().assertTextContains(SigningCheck.display(SigningCheck.EXPECTED_SHA256))
-        val says = when (SigningCheck.verdict(SigningCheck.EXPECTED_SHA256, installed, BuildConfig.DEBUG)) {
-            SigningCheck.Verdict.MATCH -> R.string.update_sign_match
-            SigningCheck.Verdict.DIFFERENT -> R.string.update_sign_differ
-            SigningCheck.Verdict.DEBUG_BUILD -> R.string.update_sign_debug
-            SigningCheck.Verdict.NOT_SET -> R.string.update_sign_unset
-            SigningCheck.Verdict.UNREADABLE -> R.string.update_sign_unreadable
-        }
-        compose.onNodeWithTag("update_sign_verdict").assertIsDisplayed().assertTextContains(context.getString(says))
-    }
-
-    @Test
-    fun whenAndroidDoesNotGiveTheSignatureItSaysSoAndShowsNoNumber() {
-        installed = null
-        show()
-        compose.onNodeWithTag("update_sign_verdict").assertTextContains(context.getString(R.string.update_sign_unreadable))
-        compose.onNodeWithTag("update_sign_installed").assertDoesNotExist()
     }
 }

@@ -104,6 +104,7 @@ RELEASE_COMPONENTS = [
     ("activity", "com.reau.app.MainActivity", True, True),
     ("service", "com.reau.app.service.QuickStartTile", True, True),
     ("service", "com.reau.app.service.ProjectionService", False, False),
+    ("service", "com.reau.app.update.UpdateCheckJob", False, False),
     ("provider", "androidx.core.content.FileProvider", False, False),
     ("provider", "androidx.startup.InitializationProvider", False, False),
     ("receiver", "androidx.profileinstaller.ProfileInstallReceiver", True, True),
