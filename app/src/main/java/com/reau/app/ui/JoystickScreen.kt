@@ -256,6 +256,8 @@ private val ACTIONS = mapOf(
     Action.PLAY_PAUSE to R.string.joystick_action_play_pause,
     Action.NEXT_SONG to R.string.joystick_action_next_song,
     Action.PREVIOUS_SONG to R.string.joystick_action_previous_song,
+    Action.VOLUME_UP to R.string.joystick_action_volume_up,
+    Action.VOLUME_DOWN to R.string.joystick_action_volume_down,
     Action.ASSISTANT to R.string.joystick_action_assistant,
     Action.ZOOM_IN to R.string.joystick_action_zoom_in,
     Action.ZOOM_OUT to R.string.joystick_action_zoom_out,

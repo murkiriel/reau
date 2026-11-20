@@ -14,6 +14,18 @@ object ActionEcho {
     /** How long the name of the action stays in the title. */
     const val SHOW_MS = 1_500L
 
+    /**
+     * How long the name of the song that was just changed to stays in the title ([SongEcho]): longer than an action's name, as a song's name
+     * takes more reading, and the rider is looking at the road.
+     */
+    const val SONG_SHOW_MS = 3_000L
+
+    /**
+     * How long after the tap that changes the song (the key's sending) its name is waited for: Android Auto sends the new song's metadata a little later, and
+     * one that comes after this is not the tap's any more (the title is not taken for a song that changed by itself).
+     */
+    const val SONG_WAIT_MS = 4_000L
+
     /** The most characters of a label: what the dash's street field holds ([DashCommands.ROAD_MAX]), the shortest of its texts. */
     const val LABEL_MAX = DashCommands.ROAD_MAX
 }
@@ -32,6 +44,8 @@ enum class EchoLabel(val res: Int) {
     PLAY_PAUSE(R.string.echo_play_pause),
     NEXT_SONG(R.string.echo_next_song),
     PREVIOUS_SONG(R.string.echo_previous_song),
+    VOLUME_UP(R.string.echo_volume_up),
+    VOLUME_DOWN(R.string.echo_volume_down),
     ASSISTANT(R.string.echo_assistant),
     ZOOM_IN(R.string.echo_zoom_in),
     ZOOM_OUT(R.string.echo_zoom_out),
@@ -52,6 +66,9 @@ enum class EchoLabel(val res: Int) {
     MEDIA_MODE(R.string.echo_media_mode),
     ;
 
+    /** The label of a tap that changes the song: its title is held until the new song's name comes ([DashSession.echoSongAction]). */
+    val changesSong: Boolean get() = this == NEXT_SONG || this == PREVIOUS_SONG
+
     companion object {
         /** The label of a page action; null for "nothing", which says nothing. */
         fun of(action: Action): EchoLabel? = when (action) {
@@ -64,6 +81,8 @@ enum class EchoLabel(val res: Int) {
             Action.PLAY_PAUSE -> PLAY_PAUSE
             Action.NEXT_SONG -> NEXT_SONG
             Action.PREVIOUS_SONG -> PREVIOUS_SONG
+            Action.VOLUME_UP -> VOLUME_UP
+            Action.VOLUME_DOWN -> VOLUME_DOWN
             Action.ASSISTANT -> ASSISTANT
             Action.ZOOM_IN -> ZOOM_IN
             Action.ZOOM_OUT -> ZOOM_OUT

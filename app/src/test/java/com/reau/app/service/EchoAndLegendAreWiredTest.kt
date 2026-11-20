@@ -27,7 +27,7 @@ class EchoAndLegendAreWiredTest {
     fun `the tap is sent first, then its name and the legend are said, and the log line comes after`() {
         val tap = live.between("session.onButton = { event ->", "showButton(com.reau.app.video.ButtonOverlay.textFor(")
         val send = tap.indexOf("send(press.sent)")
-        val say = tap.indexOf("echoAndLegend(press, joystick, context)")
+        val say = tap.indexOf("echoAndLegend(press, joystick, context, volumeEcho)")
         val log = tap.indexOf("RideDiagnostics.log(\"dash\", JoystickMap.logLine(")
         assertTrue(tap, send in 0 until say && say < log)
     }
@@ -35,7 +35,7 @@ class EchoAndLegendAreWiredTest {
     @Test
     fun `the echo goes to the session's title and the legend to the compositor, each with its line in the diagnostic log`() {
         val say = live.between("private fun echoAndLegend(", "/** What the maneuver ring last did")
-        assertTrue(say, "session.echoAction(com.reau.app.dash.ActionEchoText.text(words, label))" in say)
+        assertTrue(say, "val text = volumeText ?: com.reau.app.dash.ActionEchoText.text(words, label)" in say && "session.echoAction(text)" in say)
         assertTrue(say, "RideDiagnostics.log(\"dash\", \"action echo: \${label.name}\")" in say)
         assertTrue(say, "map.legend(mode)" in say && "legend.show(card)" in say)
         assertTrue(say, "RideDiagnostics.log(\"dash\", \"joystick legend: " in say)

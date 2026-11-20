@@ -31,13 +31,16 @@ class TimedShow<T : Any>(
             if (!value) clear()
         }
 
-    /** Keeps [value] for [showMs] from now, in the place of what showed, and tells [changed]; false (nothing kept) when it is off. */
-    fun show(value: T): Boolean {
+    /**
+     * Keeps [value] for [forMs] from now ([showMs] unless said: the name of a song takes longer to read than an action's), in the place of what showed, and tells
+     * [changed]; false (nothing kept) when it is off.
+     */
+    fun show(value: T, forMs: Long = showMs): Boolean {
         val kept = synchronized(lock) {
             if (!enabled) return@synchronized false
-            shown = Shown(value, nowMs() + showMs)
+            shown = Shown(value, nowMs() + forMs)
             cancelWait?.invoke()
-            cancelWait = schedule(showMs, ::expire)
+            cancelWait = schedule(forMs, ::expire)
             true
         }
         if (kept) changed()

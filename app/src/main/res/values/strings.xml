@@ -173,6 +173,8 @@
     <string name="joystick_action_play_pause">Play/pause</string>
     <string name="joystick_action_next_song">Next song</string>
     <string name="joystick_action_previous_song">Previous song</string>
+    <string name="joystick_action_volume_up">Volume up</string>
+    <string name="joystick_action_volume_down">Volume down</string>
     <string name="joystick_action_assistant">Gemini (switch on)</string>
     <string name="joystick_action_zoom_in">Zoom in</string>
     <string name="joystick_action_zoom_out">Zoom out</string>
@@ -963,6 +965,8 @@
     <string name="echo_play_pause">Play/pause</string>
     <string name="echo_next_song">Next song</string>
     <string name="echo_previous_song">Previous song</string>
+    <string name="echo_volume_up">Volume up</string>
+    <string name="echo_volume_down">Volume down</string>
     <string name="echo_assistant">Gemini</string>
     <string name="echo_zoom_in">Zoom in</string>
     <string name="echo_zoom_out">Zoom out</string>
@@ -978,6 +982,9 @@
     <string name="echo_answer_call">Answer</string>
     <string name="echo_reject_call">Decline</string>
     <string name="echo_end_call">Hang up</string>
+    <!-- What the dash's title says after a volume tap: the level now out of the most the phone has, the call's while a call goes on (at most 19 characters with 3-digit numbers) -->
+    <string name="volume_echo_level">Volume %1$d/%2$d</string>
+    <string name="volume_echo_call">Call %1$d/%2$d</string>
     <string name="echo_media_mode">Media mode</string>
     <string name="action_echo_title">Action name on the dash</string>
     <string name="action_echo_sub">Shows what each joystick tap did</string>

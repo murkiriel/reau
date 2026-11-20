@@ -49,9 +49,9 @@ class FocusClearer(private val idleMs: Long = IDLE_MS) {
         /** Whether a joystick press' commands ([sent]) went to Android Auto: anything but the phone's call keys. */
         fun toAndroidAuto(sent: List<AaCommand>): Boolean = sent.any { !forThePhoneOrThePicture(it) }
 
-        /** The phone's call keys, and the picture's zoom: none of them reaches Android Auto. */
+        /** The phone's call keys and volume, and the picture's zoom: none of them reaches Android Auto. */
         private fun forThePhoneOrThePicture(command: AaCommand): Boolean = when (command) {
-            AaCommand.AnswerCall, AaCommand.EndCall, AaCommand.PanelZoomUndo, is AaCommand.CallVolume, is AaCommand.PanelZoom -> true
+            AaCommand.AnswerCall, AaCommand.EndCall, AaCommand.PanelZoomUndo, is AaCommand.CallVolume, is AaCommand.Volume, is AaCommand.PanelZoom -> true
             else -> false
         }
     }

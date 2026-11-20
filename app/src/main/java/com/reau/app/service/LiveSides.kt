@@ -94,6 +94,8 @@ internal class LiveSides(
         val thermalStatus: () -> Int = { VideoLoop.THERMAL_UNKNOWN },
         /** The call as the joystick sees it, and answering or ending it (behind a switch). */
         val calls: Calls = Calls(),
+        /** The phone's volume for the joystick's volume actions; none in a test (the actions then do nothing). */
+        val volume: com.reau.app.phone.PhoneVolume? = null,
         /** The rider's settings these sides were built from: what a change while running is told apart from. */
         val settings: REauSettings? = null,
         /** How long after the joystick Android Auto's blue focus is touched away (shorter in a test). */
@@ -198,6 +200,7 @@ internal class LiveSides(
                     night = { isNightNow(context, SettingsStore.open(context).load()) },
                     thermalStatus = { phoneThermalStatus(context) },
                     calls = phoneCalls(context),
+                    volume = com.reau.app.phone.PhoneVolume(com.reau.app.phone.AudioVolume(context)),
                     settings = settings,
                     phoneStatus = PhoneStatusReader(context)::read,
                     weather = { freshOnly -> com.reau.app.weather.WeatherKeeper.forDash(freshOnly = freshOnly) },
@@ -658,8 +661,14 @@ internal class LiveSides(
                     is AaCommand.CallVolume -> setup.calls.volume(command.step)
                     is AaCommand.PanelZoom -> panelZoom(command.step)
                     AaCommand.PanelZoomUndo -> panelZoomUndo()
+                    is AaCommand.Volume -> volumeStep(command.step, context)
                     // Off the joystick's thread: the sequence waits for the grid, and the other buttons go on meanwhile.
                     AaCommand.CycleApps -> scope.launch { appCycle.press() }
+                    // The song is about to change: the dash waits for its name to say it in the title ([DashSession.songChangeAsked]), before the key goes so that the metadata cannot come first.
+                    is AaCommand.Key -> {
+                        if (JoystickMap.isSongKey(command.keycode)) session.songChangeAsked()
+                        receiver?.sendInput(command)
+                    }
                     else -> receiver?.sendInput(command)
                 }
             }
@@ -695,9 +704,10 @@ internal class LiveSides(
         session.onButton = { event ->
             // On the dash's receive thread (DashSession): sent first, the log line after.
             val press = joystick.press(event, com.reau.app.util.MonotonicClock.nowMs())
+            volumeEcho = null
             send(press.sent)
-            // What the tap did, said on the dash after it was sent: its name in the title of the gold band, and the legend of the mode when the mode is new.
-            echoAndLegend(press, joystick, context)
+            // What the tap did, said on the dash after it was sent: its name in the title of the gold band (a volume step says the level it reached instead), and the legend of the mode when the mode is new.
+            echoAndLegend(press, joystick, context, volumeEcho)
             if (com.reau.app.aa.FocusClearer.toAndroidAuto(press.sent)) focus.inputSent(android.os.SystemClock.elapsedRealtime())
             releaseHeldSide()
             val call = runCatching { joystick.callForLog().name }.getOrDefault("?")
@@ -717,9 +727,12 @@ internal class LiveSides(
      * The name of what [press] did goes to the title of the dash's gold band ([DashSession.echoAction]), and, when the tap is the first of a
      * mode, the legend of that mode to the video ([legend]). Each says a line in the diagnostic log when it shows, with no text of the rider's.
      */
-    private fun echoAndLegend(press: JoystickMap.Press, map: JoystickMap, words: Context) {
+    private fun echoAndLegend(press: JoystickMap.Press, map: JoystickMap, words: Context, volumeText: String? = null) {
         press.echo?.let { label ->
-            if (session.echoAction(com.reau.app.dash.ActionEchoText.text(words, label))) RideDiagnostics.log("dash", "action echo: ${label.name}")
+            val text = volumeText ?: com.reau.app.dash.ActionEchoText.text(words, label)
+            // A song change keeps its name in the title until the new song's name comes (up to the end of the wait).
+            val taken = if (label.changesSong) session.echoSongAction(text) else session.echoAction(text)
+            if (taken) RideDiagnostics.log("dash", "action echo: ${label.name}")
         }
         press.legend?.let { mode ->
             val card = com.reau.app.dash.ActionLegend.card(map.legend(mode)) { com.reau.app.dash.ActionEchoText.text(words, it) }
@@ -728,6 +741,24 @@ internal class LiveSides(
                 RideDiagnostics.log("dash", "joystick legend: ${mode.name.lowercase()} mode, $acting of ${card.rows.size} directions act")
             }
         }
+    }
+
+    /** The title's words for the volume step just taken ("Volume 12/30"), set by [volumeStep] while the tap is sent and read right after by its echo. */
+    @Volatile private var volumeEcho: String? = null
+
+    /**
+     * The joystick's volume action, one step: the phone's music volume, or the call's during a call ([com.reau.app.phone.PhoneVolume]), with no system panel. The
+     * dash's status goes at once, so its volume bar moves now and not at the next second; the title says the level reached. The log says the stream and the levels.
+     */
+    private fun volumeStep(step: Int, words: Context) {
+        val change = setup.volume?.step(step, setup.calls.state())
+        if (change == null) {
+            RideDiagnostics.log("projection", "joystick volume ${if (step > 0) "up" else "down"}: the phone did not take it")
+            return
+        }
+        RideDiagnostics.log("projection", change.logLine(step))
+        volumeEcho = com.reau.app.dash.ActionEchoText.volume(words, change)
+        session.sendStatusNow()
     }
 
     /** What the maneuver ring last did (see [DashSession.onRingChange]); written under every text of the last button. */

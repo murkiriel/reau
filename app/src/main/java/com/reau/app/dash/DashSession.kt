@@ -447,6 +447,12 @@ class DashSession(
      * the text, in this order: music on, the text, no album art, playing or paused.
      */
     fun updateNowPlaying(title: String, album: String, artist: String, playing: Boolean = true, coverJpeg: ByteArray? = null) {
+        // A song changed by the rider's tap (next, previous) says its name in the title for a moment, when its metadata comes within the wait ([SongEcho]).
+        songEcho.onSong(title)?.let(::echoSong)
+        val cardKey = listOf(title, album, artist, playing.toString())
+        val cardChanged = cardKey != lastCardKey
+        lastCardKey = cardKey
+        songNow = title
         val chunks = coverJpeg?.let(DashCommands::albumArtChunks)?.takeIf { it.isNotEmpty() }
         // A new picture goes out once, when the track changes; the same one is not sent again.
         if (chunks == null) {
@@ -464,6 +470,48 @@ class DashSession(
             DashCommands.musicCover(chunks != null),
             DashCommands.musicPlaying(playing),
         )
+        // The card is repeated every second, so the new song would show up to a second late: a change goes out at once (the cards' own round, with the cover).
+        if (cardChanged) sendCardsNow()
+    }
+
+    // What the music card says now, to tell a change from Android Auto's repeats; the song alone is what a tap's change is told from.
+    @Volatile private var lastCardKey: List<String>? = null
+    @Volatile private var songNow: String? = null
+
+    /**
+     * The wait for the name of the song a tap changes to ([SongEcho]): the joystick's next-song and previous-song keys open it as they are sent
+     * ([songChangeAsked]). Internal so a test puts in a clock of its own.
+     */
+    @Volatile internal var songEcho = SongEcho()
+
+    /**
+     * A key that changes the song was sent to Android Auto: the next song to come in the following [ActionEcho.SONG_WAIT_MS] is the title of the card for
+     * [ActionEcho.SONG_SHOW_MS], in the place of the action's name. Not while a call is on the card: the call comes first.
+     */
+    fun songChangeAsked() {
+        if (callerName == null) songEcho.asked(songNow)
+        // The music mode's side is sent 250 ms after its tap: its action's name is already in the title, and is held from here to the end of the wait too.
+        val label = songLabel
+        if (label != null && echo.current() == label && songEcho.waiting()) echo.show(label, songEcho.remainingMs())
+    }
+
+    // The text of the song change's action name that is the echo now (null before any): what tells it from another action's, which is not held.
+    @Volatile private var songLabel: String? = null
+
+    /**
+     * [echoAction] for a tap that changes the song: the action's name ("Next song") stays in the title until the new song's name replaces it or the wait for it
+     * ends ([SongEcho.remainingMs]), and not only for [ActionEcho.SHOW_MS], so the title does not go back to the street for a moment before the name comes.
+     */
+    fun echoSongAction(text: String): Boolean {
+        val said = text.trim()
+        val taken = said.isNotEmpty() && echo.show(said, maxOf(ActionEcho.SHOW_MS, songEcho.remainingMs()))
+        if (taken) songLabel = said
+        return taken
+    }
+
+    /** [name] (cut and in the dash's letters already) as the title: the echo's own place, longer; the log says it, never the name. */
+    private fun echoSong(name: String) {
+        if (callerName == null && echo.show(name, ActionEcho.SONG_SHOW_MS)) com.reau.app.data.RideDiagnostics.log("dash", "action echo: the new song's name")
     }
 
     /** Nothing playing; the last card is no longer repeated, and the dash is told once there is no song. */
@@ -471,6 +519,8 @@ class DashSession(
         nowPlayingPackets = null
         coverSlices = null
         coverSent = null
+        lastCardKey = null
+        songNow = null
     }
 
     /** The call as the status packets say it every second: ringing, in a call, or none. */
@@ -647,6 +697,18 @@ class DashSession(
         return said.isNotEmpty() && echo.show(said)
     }
 
+    /**
+     * The status heartbeat (the battery, the volumes, the call) sent now, not at the next second of its loop: after a volume step the dash's bar
+     * moves at once. The same packet the loop makes; nothing is sent out of the streaming.
+     */
+    fun sendStatusNow() {
+        if (_state.value != DashState.STREAMING) return
+        val sock = socket ?: return
+        scope.launch(Dispatchers.IO) {
+            runCatching { sock.send(DashCommands.heartbeat(weather = weatherProvider(), status = phoneStatusProvider(), call = callNow())) }
+        }
+    }
+
     /** The route card sent now with the title it has now (the echo, or what it was). Nothing is sent out of the streaming. */
     private fun sendTitleNow() {
         if (_state.value == DashState.STREAMING) socket?.let { sock -> runCatching { sock.send(liveRouteCard(projectionOn = true)) } }
@@ -781,7 +843,7 @@ class DashSession(
         cardsJob?.cancel()
         statsJob?.cancel()
         // A name of a tap still showing is not carried to the next session, and its wait ends here.
-        echo.drop()
+        echo.drop(); songEcho.cancel()
         nav = null
         forgetLastManeuver()
         socket?.let { sock ->
@@ -1538,7 +1600,7 @@ class DashSession(
         rxJob?.cancel(); heartbeatJob?.cancel(); projHbJob?.cancel(); routeCardJob?.cancel(); navInfoJob?.cancel()
         // The 5 s stats line and the cards loop have nothing to report once the session is down; left running they
         // wrote a `dash-stats ... tx=0` line every 5 s for as long as the dash stayed away.
-        statsJob?.cancel(); cardsJob?.cancel(); echo.drop()
+        statsJob?.cancel(); cardsJob?.cancel(); echo.drop(); songEcho.cancel()
         // The session coroutine too (it may be the caller: then it returns right after this, and the
         // cancellation only ends it at its next suspension, which never comes).
         sessionJob?.cancel()

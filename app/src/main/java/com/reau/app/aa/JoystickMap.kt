@@ -29,6 +29,12 @@ sealed class AaCommand {
     data object EndCall : AaCommand()
     /** Not for Android Auto: the phone's call volume one [step] up (1) or down (-1), as the dash's own codes ask while a call goes on. */
     data class CallVolume(val step: Int) : AaCommand()
+    /**
+     * Not for Android Auto: the phone's own volume one [step] up (1) or down (-1), the music's, or the call's while a call goes on
+     * ([com.reau.app.phone.PhoneVolume]); what the page's volume actions ([Action.VOLUME_UP], [Action.VOLUME_DOWN]) send. The audio plays on the phone,
+     * so there is nothing for Android Auto to do. [CallVolume] is the dash's own codes while a call goes on, a different tap.
+     */
+    data class Volume(val step: Int) : AaCommand()
     /** Not for Android Auto: the picture sent to the dash one [step] nearer (1) or farther (-1), the bottom edge kept ([com.reau.app.video.LiveZoom]). */
     data class PanelZoom(val step: Int) : AaCommand()
     /** Not for Android Auto: takes back the last [PanelZoom] step, if it changed the picture (a side that came with a press of the centre). */
@@ -340,6 +346,12 @@ class JoystickMap(
     }
 
     companion object {
+        /**
+         * Whether [keycode] is Android Auto's next or previous song: the moment the song is about to change, so the dash can show the new name
+         * when the metadata comes ([com.reau.app.dash.SongEcho]). Seen at the sending, so the music mode's held side counts when it goes, not when it is tapped.
+         */
+        fun isSongKey(keycode: Int): Boolean = keycode == ServiceDiscoveryResponse.KEY_MEDIA_NEXT || keycode == ServiceDiscoveryResponse.KEY_MEDIA_PREVIOUS
+
         /** The ride log's line for a button (with the state of the call, to read a press made in one). */
         fun logLine(name: String, code: Int, lines: List<String>, call: String): String =
             "button $name 0x${"%02X".format(code)} -> ${lines.ifEmpty { listOf("nothing") }.joinToString("; ")} [call=$call]${codeNote(code)}"

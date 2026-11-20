@@ -35,6 +35,14 @@ data class JoystickBindings(private val chosen: Map<Slot, Action> = emptyMap()) 
         PLAY_PAUSE({ AaCommand.Key(ServiceDiscoveryResponse.KEY_MEDIA_PLAY_PAUSE) }),
         NEXT_SONG({ AaCommand.Key(ServiceDiscoveryResponse.KEY_MEDIA_NEXT) }),
         PREVIOUS_SONG({ AaCommand.Key(ServiceDiscoveryResponse.KEY_MEDIA_PREVIOUS) }),
+
+        /**
+         * The phone's volume one step up or down, with no panel on the screen: the music's, or the call's during a call ([com.reau.app.phone.PhoneVolume]).
+         * The dash calls the media mode's up and down "volume" (0x06, 0x07), but no default page uses them so; these are choices
+         * on the page, on no control by default. Not a "music control" for the card ([mediaControls]): the card is about the song.
+         */
+        VOLUME_UP({ AaCommand.Volume(1) }),
+        VOLUME_DOWN({ AaCommand.Volume(-1) }),
         ASSISTANT({ assistant -> if (assistant) AaCommand.Key(ServiceDiscoveryResponse.KEY_ASSISTANT) else null }),
         ZOOM_IN({ AaCommand.PanelZoom(1) }),
         ZOOM_OUT({ AaCommand.PanelZoom(-1) }),
@@ -128,6 +136,7 @@ data class JoystickBindings(private val chosen: Map<Slot, Action> = emptyMap()) 
 
         private val ZOOM_ACTIONS = listOf(Action.ZOOM_IN, Action.ZOOM_OUT)
 
+        // The song's own controls; the volume is not one: the card shows the song, and a volume knob does not need it.
         private val MEDIA_ACTIONS = setOf(Action.PREVIOUS_SONG, Action.PLAY_PAUSE, Action.NEXT_SONG)
 
 

@@ -257,7 +257,7 @@ internal class AaReceiver(
             is AaCommand.Steps -> command.commands.forEach(::sendInput)
             is AaCommand.Touch -> input.sendTouch(command.action, command.x, command.y)
             // The phone's own business (LiveSides hands them to PhoneCalls); nothing goes to Android Auto.
-            AaCommand.AnswerCall, AaCommand.EndCall, is AaCommand.CallVolume, is AaCommand.PanelZoom, AaCommand.PanelZoomUndo ->
+            AaCommand.AnswerCall, AaCommand.EndCall, is AaCommand.CallVolume, is AaCommand.Volume, is AaCommand.PanelZoom, AaCommand.PanelZoomUndo ->
                 return AaLog.i("$command is not an Android Auto input")
             // A sequence with waits, not one input: LiveSides runs it ([AppCycle]) and sends its taps one by one.
             AaCommand.CycleApps -> return AaLog.i("$command is a sequence of taps, not one input")
