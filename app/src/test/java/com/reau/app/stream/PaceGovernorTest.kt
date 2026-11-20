@@ -268,6 +268,14 @@ class PaceGovernorTest {
     }
 
     @Test
+    fun `a governor made without a word about the switch has the cap on, as every release build does`() {
+        val g = StreamGovernor(8, bitrateCeilingBps = 600_000, reducedBitrateBps = 300_000, lightScreenFps = 6).also { it.start(nowMs); it.poll(1) }
+        val entered = g.poll(lowFuel = true)
+        assertEquals(6, g.fps)
+        assertEquals(listOf("reserve: pace capped at 6 fps (was 8)"), entered.reserveLogs())
+    }
+
+    @Test
     fun `with the cap switched off profile B and the light screens keep their own pace in the reserve`() {
         val g = started(8, reserveCap = false)
         g.poll(lowFuel = true)
