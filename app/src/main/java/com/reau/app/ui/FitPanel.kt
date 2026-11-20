@@ -182,7 +182,6 @@ private fun FitBlocks(tab: FitTab, onTab: (FitTab) -> Unit, s: REauSettings, cha
         )
     }
     TabFit(tab, s, change)
-    BlurredFillRow(s, change)
 }
 
 /** The Android Auto DPI: one of [REauSettings.DENSITIES] as segments under the title, in a card of its own (tags `density`, `density_180`...). */
@@ -196,19 +195,6 @@ private fun DensityChoice(s: REauSettings, change: (REauSettings) -> Unit) {
             { change(s.copy(density = REauSettings.DENSITIES[it])) },
             sub = stringResource(R.string.density_hint) + "\n" + stringResource(R.string.density_sub),
             tag = "density",
-        )
-    }
-}
-
-/** The blurred background in the border the fit leaves: one switch, off by default, for both tabs (it is not a part of a fit). */
-@Composable
-private fun BlurredFillRow(s: REauSettings, change: (REauSettings) -> Unit) {
-    val shape = MaterialTheme.shapes.medium
-    Column(Modifier.fillMaxWidth().clip(shape).background(MaterialTheme.colorScheme.surfaceContainer)) {
-        SwitchRow(
-            stringResource(R.string.blurred_fill_title), s.blurredFill, { change(s.copy(blurredFill = it)) }, "blurred_fill",
-            sub = stringResource(R.string.blurred_fill_sub),
-            info = Info(stringResource(R.string.blurred_fill_title), stringResource(R.string.blurred_fill_info)),
         )
     }
 }

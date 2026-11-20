@@ -147,11 +147,10 @@ class PictureSizeTest {
         assertTrue(gl.contains("outputW = size.width\n        outputH = size.height"))
         assertTrue("the picture, in its own viewport", gl.contains("drawQuad(window, viewport)"))
         assertTrue("the rider's cover, in the output's pixels", gl.contains("GLES20.glScissor(r.x, r.y, r.w, r.h)"))
-        assertTrue("the blurred background", gl.contains("GLES20.glViewport(plan.frame.x, plan.frame.y, plan.frame.w, plan.frame.h)"))
         assertTrue("the overlays, the ring, the legend: the output's size", gl.contains("CompositorMath.overlayQuad(RectPx(x, y, width, height), outputW, outputH)"))
         assertEquals("the overlays and the clear cover the whole output", 2, Regex("""glViewport\(0, 0, outputW, outputH\)""").findAll(gl).count())
         assertFalse("no draw for the dash is left at the frame's own size", gl.contains("glViewport(0, 0, DashGlass.FRAME_W, DashGlass.FRAME_H)"))
-        assertTrue("the small copy of the blurred background and the preview keep their own sizes", gl.contains("drawQuad(plan.window, plan.small, LOOK_FILTER)"))
+        assertTrue("the small copy of the look keeps its own size", gl.contains("drawQuad(WHOLE_PICTURE, RectPx(0, 0, PictureLook.SAMPLE_W, PictureLook.SAMPLE_H), LOOK_FILTER)"))
     }
 
     // ---- the area: the picture fills it, the elements keep their pixels, nothing is scaled
@@ -246,25 +245,6 @@ class PictureSizeTest {
     }
 
     @Test
-    fun `the blurred background is planned for the area, and a picture that fills it leaves no border`() {
-        val whole = FrameFit.fillDome(content, fixed)
-        assertEquals(null, CompositorMath.backdrop(true, whole.source, RectPx(0, 0, 528, 304), 800, 480, 528, 304))
-        val plan = checkNotNull(CompositorMath.backdrop(true, whole.source, whole.dest, 800, 480, 528, 304))
-        assertEquals(RectPx(0, 0, 528, 304), plan.frame)
-        assertEquals(RectPx(0, 0, 132, 76), plan.small)
-        assertTrue(CompositorMath.leavesBorder(RectPx(0, 0, 526, 300), 528, 304))
-        assertFalse(CompositorMath.leavesBorder(RectPx(0, 0, 528, 304), 528, 304))
-        assertEquals("the window of the background has the shape of the area", RectPx(0, 10, 800, 460), CompositorMath.backdropSource(content, 528, 304))
-        assertEquals(CompositorMath.texWindow(RectPx(0, 10, 800, 460), 800, 480), plan.window)
-        assertEquals("a picture of the dash's own size leaves the two columns and four rows of the bigger area",
-            528 to 304, checkNotNull(CompositorMath.backdrop(true, content, RectPx(0, 0, 526, 300), 800, 480, 528, 304)).frame.let { it.w to it.h })
-        assertEquals("the small copy rounds up", RectPx(0, 0, 132, 76), checkNotNull(CompositorMath.backdrop(true, content, RectPx(0, 0, 526, 300), 800, 480, 527, 301)).small)
-        val release = checkNotNull(CompositorMath.backdrop(true, content, RectPx(13, 0, 500, 300), 800, 480))
-        assertEquals(RectPx(0, 0, 526, 300), release.frame)
-        assertEquals(RectPx(0, 0, 132, 75), release.small)
-    }
-
-    @Test
     fun `an overlay keeps its pixel from the top left in the 528x304 area as in the 526x300 frame, with nothing scaled`() {
         // 100 x 40 box at (20, 10): the same pixels, so only the share of the (larger) area they take changes
         val a = CompositorMath.overlayQuad(RectPx(20, 10, 100, 40), 528, 304)
@@ -291,7 +271,7 @@ class PictureSizeTest {
     }
 
     @Test
-    fun `the compositor composes in the area it is started with, and re-plans the bands and the background for an output of another size`() {
+    fun `the compositor composes in the area it is started with, and re-plans the bands for an output of another size`() {
         val compositor = source("video/DashCompositor.kt")
         assertTrue(compositor.contains("fun start(sourceW: Int, sourceH: Int, area: DashConfig.FrameSize = DashConfig.FULL_FRAME): Boolean {"))
         assertTrue(compositor.contains("val mapping = FrameFit.fillDome(RectPx(0, 0, sourceW, sourceH), area)"))
@@ -299,11 +279,9 @@ class PictureSizeTest {
         assertTrue("the mapping is checked against the area", compositor.contains("FrameFit.problems(mapping, sourceW, sourceH, area)"))
         assertTrue(compositor.contains("cover = CompositorMath.coverRects(mapping.cover, area.width, area.height)"))
         assertTrue(compositor.contains("private val viewport: RectPx get() = CompositorMath.viewport(dest, area.height)"))
-        assertTrue("the backdrop", compositor.contains("it.source, it.dest, sourceW, sourceH, area.width, area.height)"))
         val switch = compositor.substringAfter("private fun switchOutput(").substringBefore("fun dropOutput")
         assertTrue(switch.contains("if (size != area) {\n                    area = size"))
         assertTrue(switch.contains("fitInUse?.let { cover = CompositorMath.coverRects(it.cover, size.width, size.height) }"))
-        assertTrue("and the background", switch.contains("                    backdrop = planBackdrop()\n                }"))
         assertFalse("nothing is scaled any more", compositor.contains("toOutput") || source("video/CompositorGl.kt").contains("toOutput"))
     }
 
@@ -332,7 +310,6 @@ class PictureSizeTest {
         assertTrue(source("ui/FitPanel.kt").contains("FrameFit.problems(mapping, AaVideo.WIDTH, AaVideo.HEIGHT, s.frameSize)"))
         val mask = source("ui/AaScreenMask.kt")
         assertTrue("a mask made without an area is the dash's own frame", mask.contains("val area: com.reau.app.dash.DashConfig.FrameSize = com.reau.app.dash.DashConfig.FULL_FRAME,"))
-        assertTrue(source("video/CompositorGl.kt").contains("if (backdropFbo != 0 && backdropSize != plan.small) freeBackdropObjects()"))
     }
 
     @Test

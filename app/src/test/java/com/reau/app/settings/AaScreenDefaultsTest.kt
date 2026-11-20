@@ -27,8 +27,6 @@ class AaScreenDefaultsTest {
         // The menu's own fit, on.
         "menuFit" to s.menuFit, "menuFitKept" to s.menuFitKept,
         "dashMask" to s.dashMask,
-        // New on 17/11/2026, off: the blurred fill at the edges.
-        "blurredFill" to s.blurredFill,
         "statsOverlay" to s.statsOverlay, "statsX" to s.statsX, "statsY" to s.statsY, "statsSize" to s.statsSize,
         "buttonOverlay" to s.buttonOverlay, "buttonX" to s.buttonX, "buttonY" to s.buttonY, "buttonSize" to s.buttonSize,
         // New on 20/11/2026, off at 6 fps: the FPS test card.
@@ -46,7 +44,6 @@ class AaScreenDefaultsTest {
         "menuFit" to FitParams(Fit.WHOLE_VISIBLE, 90, 32, 20, 20, 0, 100, none),
         "menuFitKept" to FitParams(Fit.WHOLE_VISIBLE, 90, 32, 20, 20, 0, 100, none),
         "dashMask" to true,
-        "blurredFill" to false,
         "statsOverlay" to false, "statsX" to 160, "statsY" to 44, "statsSize" to 22,
         "buttonOverlay" to false, "buttonX" to 170, "buttonY" to 96, "buttonSize" to 32,
         "fpsTestCard" to false, "fpsTestCardFps" to 6,

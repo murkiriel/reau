@@ -464,9 +464,6 @@
     <string name="info_ring_place_title">No lugar do anel de manobras</string>
     <string name="info_ring_place_sub">À esquerda, onde o painel desenha as manobras. Os dois se revezam</string>
     <string name="info_ring_place_info">Com o anel de informações ligado, o botão para baixo do painel no modo mapa (na tela do joystick ele pode ganhar outra ação) mostra o anel e o esconde de novo, sem mexer no anel de manobras, que segue as regras dele. Ligado (anel à esquerda, no lugar do de manobras), o anel de informações aparece no lugar do anel de manobras, então use com ele desligado. O anel de informações some no menu de apps e nos outros apps, e a escolha fica guardada para a próxima vez.</string>
-    <string name="blurred_fill_title">Fundo desfocado nas bordas</string>
-    <string name="blurred_fill_sub">Em vez das faixas pretas, as bordas mostram uma cópia desfocada da imagem. Gasta um pouco mais de bateria.</string>
-    <string name="blurred_fill_info">Onde o encaixe deixa borda (a imagem inteira, um encaixe pequeno, um app que não preenche o quadro), o painel mostra uma cópia pequena, desfocada e um pouco mais escura da imagem, em vez de preto, e o painel redondo fica sem as faixas pretas. Desligado por padrão: cada quadro ganha mais uma pequena etapa de desenho, que gasta um pouco mais de bateria e, quando a imagem se mexe, alguns bits a mais de vídeo. Não muda nada quando a imagem preenche o quadro, as faixas pretas que você escolhe continuam pretas, e a troca vale na hora.</string>
     <string name="info_ring_data_title">O que o anel diz</string>
     <string name="info_ring_data_rain">Chuva</string>
     <string name="info_ring_data_wind">Vento</string>

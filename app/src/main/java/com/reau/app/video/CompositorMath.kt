@@ -83,62 +83,6 @@ object CompositorMath {
         bottom = 1f - box.bottom.toFloat() / areaH * 2f,
     )
 
-    /** The blurred background is drawn on a copy of the frame this many times smaller on each side. */
-    const val BACKDROP_DIVISOR = 4
-
-    /** How much of its light the blurred background keeps: a little darker than the picture, so the picture stands out from it. */
-    const val BACKDROP_KEEP = 0.92f
-
-    /**
-     * Whether a picture drawn in [dest] (rows counted from the top) leaves some of the [frameW]×[frameH] composition area bare: the border that is black
-     * without the blurred background.
-     */
-    fun leavesBorder(dest: RectPx, frameW: Int = DashGlass.FRAME_W, frameH: Int = DashGlass.FRAME_H): Boolean =
-        dest.x > 0 || dest.y > 0 || dest.right < frameW || dest.bottom < frameH
-
-    /**
-     * The part of [source] the blurred background is made from: the largest one of the frame's own shape, in the middle of [source] (the
-     * background fills the whole frame, so it is taken without stretching the picture).
-     */
-    fun backdropSource(source: RectPx, areaW: Int = DashGlass.FRAME_W, areaH: Int = DashGlass.FRAME_H): RectPx {
-        val frameW = areaW.toLong()
-        val frameH = areaH.toLong()
-        return if (source.w * frameH >= source.h * frameW) {
-            val w = (source.h * frameW / frameH).toInt().coerceIn(1, source.w)
-            RectPx(source.x + (source.w - w) / 2, source.y, w, source.h)
-        } else {
-            val h = (source.w * frameH / frameW).toInt().coerceIn(1, source.h)
-            RectPx(source.x, source.y + (source.h - h) / 2, source.w, h)
-        }
-    }
-
-    /**
-     * The extra pass of the blurred background: the [window] of the source drawn into [small] (a framebuffer of a quarter the frame's side,
-     * viewport in its own pixels), then that copy blurred, kept to [keep] of its light and stretched over [frame], the whole dash frame
-     * (GL pixels), before the picture is drawn in its place.
-     */
-    data class Backdrop(val window: TexWindow, val small: RectPx, val frame: RectPx, val keep: Float)
-
-    /**
-     * The blurred background of a picture whose [source] (pixels of Android Auto's [sourceW]×[sourceH] frame) is drawn in [dest], or null
-     * for none: with the setting off ([enabled] false), or with the picture covering the whole frame there is no border to fill and
-     * nothing is drawn, nothing created.
-     */
-    @Suppress("ComplexCondition", "LongParameterList") // the four ways to draw nothing: the setting off, no border, no picture wide or high
-    fun backdrop(
-        enabled: Boolean, source: RectPx, dest: RectPx, sourceW: Int, sourceH: Int,
-        areaW: Int = DashGlass.FRAME_W, areaH: Int = DashGlass.FRAME_H,
-    ): Backdrop? {
-        if (!enabled || !leavesBorder(dest, areaW, areaH) || sourceW <= 0 || sourceH <= 0) return null
-        val d = BACKDROP_DIVISOR
-        return Backdrop(
-            window = texWindow(backdropSource(source, areaW, areaH), sourceW, sourceH),
-            small = RectPx(0, 0, (areaW + d - 1) / d, (areaH + d - 1) / d),
-            frame = RectPx(0, 0, areaW, areaH),
-            keep = BACKDROP_KEEP,
-        )
-    }
-
     /**
      * A rectangle of the source picture in texture coordinates: `u = offsetU + s × scaleU`, `v = offsetV + t ×
      * scaleV`, for s and t running 0..1 across the drawn quad, left to right and BOTTOM to top.

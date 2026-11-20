@@ -141,11 +141,6 @@ data class REauSettings(
     val clearAaFocus: Boolean = true,
     /** The dash's mask over the "Tela do Android Auto" (video/DashMask). On by default. */
     val dashMask: Boolean = true,
-    /**
-     * Where the fit leaves a border (the whole image, a small fit, an app that does not fill the frame) the dash shows a blurred, slightly darker
-     * copy of the picture instead of black ([com.reau.app.video.CompositorMath.backdrop]). Off by default: it costs a little more battery.
-     */
-    val blurredFill: Boolean = false,
 
     /**
      * The important notices are also spoken, by Android's own voice, in the rider's headset ([com.reau.app.service.RiderVoice]): the dash gone or stuck and

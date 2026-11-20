@@ -218,7 +218,6 @@ class SettingsStore(private val prefs: SharedPreferences) {
             joystickLegend = prefs.getBoolean(KEY_JOYSTICK_LEGEND, defaults.joystickLegend),
             clearAaFocus = prefs.getBoolean(KEY_CLEAR_AA_FOCUS, defaults.clearAaFocus),
             dashMask = prefs.getBoolean(KEY_DASH_MASK, defaults.dashMask),
-            blurredFill = prefs.getBoolean(KEY_BLURRED_FILL, defaults.blurredFill),
             spokenAlerts = prefs.getBoolean(KEY_SPOKEN_ALERTS, defaults.spokenAlerts),
             statsOverlay = prefs.getBoolean(KEY_STATS_OVERLAY, defaults.statsOverlay),
             statsX = prefs.getInt(KEY_STATS_X, defaults.statsX),
@@ -266,6 +265,8 @@ class SettingsStore(private val prefs: SharedPreferences) {
             // The slower Android Auto was taken out; what it saved goes.
             remove(OLD_KEY_AA_SLOW_PACE)
             remove(OLD_KEY_AA_SLOW_PACE_FPS)
+            // The blurred background at the edges was taken out; what it saved goes.
+            remove(OLD_KEY_BLURRED_FILL)
             putInt(KEY_DENSITY, s.density)
             putInt(KEY_MARGIN_W, s.marginW)
             putInt(KEY_MARGIN_H, s.marginH)
@@ -324,7 +325,6 @@ class SettingsStore(private val prefs: SharedPreferences) {
             putBoolean(KEY_JOYSTICK_LEGEND, s.joystickLegend)
             putBoolean(KEY_CLEAR_AA_FOCUS, s.clearAaFocus)
             putBoolean(KEY_DASH_MASK, s.dashMask)
-            putBoolean(KEY_BLURRED_FILL, s.blurredFill)
             putBoolean(KEY_SPOKEN_ALERTS, s.spokenAlerts)
             putBoolean(KEY_STATS_OVERLAY, s.statsOverlay)
             putInt(KEY_STATS_X, s.statsX)
@@ -436,7 +436,6 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val KEY_DASH_MUSIC = "dash_music"
         private const val KEY_DASH_CALLER = "dash_caller"
         private const val KEY_DASH_MASK = "dash_mask"
-        private const val KEY_BLURRED_FILL = "blurred_fill"
         private const val KEY_SPOKEN_ALERTS = "spoken_alerts"
         private const val KEY_STATS_OVERLAY = "stats_overlay"
         private const val KEY_STATS_X = "stats_x"
@@ -472,6 +471,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val KEY_JOYSTICK = "joystick"
         private const val KEY_JOYSTICK_ONE_TAP = "joystick_one_tap"
         private const val OLD_KEY_CLUSTER = "cluster"
+        private const val OLD_KEY_BLURRED_FILL = "blurred_fill"
         private const val KEY_HIDE_RING_MEDIA = "hide_ring_media"
         private const val KEY_RING_ALWAYS_OFF = "ring_always_off"
         private const val KEY_ACTION_ECHO = "actionEcho"

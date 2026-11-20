@@ -559,7 +559,6 @@ internal class LiveSides(
             if (started) {
                 compositor.setOverlay(it.overlay)
                 compositor.setButtonOverlay(it.buttonLook)
-                compositor.setBlurredFill(it.blurredFill)
             }
         }
         if (started && receiver != null) {
@@ -1061,7 +1060,6 @@ internal class LiveSides(
             }
             if (LiveTuning.Step.STATS_OVERLAY in steps) compositor.setOverlay(settings.overlay)
             if (LiveTuning.Step.BUTTON_OVERLAY in steps) compositor.setButtonOverlay(settings.buttonLook)
-            if (LiveTuning.Step.BLURRED_FILL in steps) compositor.setBlurredFill(settings.blurredFill)
             // `tuned` (set above) is what the beat, the music card and the route read; the weather, just switched on, is fetched now.
             if (LiveTuning.Step.DASH_EXTRAS in steps) {
                 session.maneuverCircleEnabled = settings.maneuverRing

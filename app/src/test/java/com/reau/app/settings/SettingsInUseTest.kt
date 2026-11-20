@@ -30,7 +30,7 @@ class SettingsInUseTest {
                 "recordVideo=${com.reau.app.BuildConfig.DEBUG} recordSessions=${com.reau.app.BuildConfig.DEBUG} cardImage=default mapTheme=AUTO drivingSideMode=AUTO maneuverData=true maneuverFpsProfile=true " +
                 "speedFpsProfile=true navProfileMode=PESSIMISTA autoJoinWifi=true detailedLog=${com.reau.app.BuildConfig.DEBUG} rideLog=true useLocation=true " +
                 "logKeepDays=${if (com.reau.app.BuildConfig.DEBUG) 0 else 30} noDashStopMinutes=20 answerCalls=true phoneTouch=true dashMusic=true dashCaller=true aaNewProtocol=true " +
-                "gemini=true actionEcho=true joystickLegend=true clearAaFocus=true dashMask=true blurredFill=false spokenAlerts=false " +
+                "gemini=true actionEcho=true joystickLegend=true clearAaFocus=true dashMask=true spokenAlerts=false " +
                 "statsOverlay=false buttonOverlay=false fpsTestCard=false fpsTestCardFps=6 dashPhoneStatus=true dashAlbumArt=true maneuverRing=false dashWeather=true infoRing=false infoRingData=7 infoRingCarousel=true infoRingSeconds=7 infoRingInPlace=false infoTitle=false webView=false webTouch=false webAudio=PHONE " +
                 "videoFrame=528x304 announceMotorcycle=true",
             SettingsInUse.line(REauSettings()),

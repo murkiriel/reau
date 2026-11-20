@@ -27,9 +27,6 @@ object LiveTuning {
         /** The map theme and "Usar a localização" (the place for the sun): day or night asked again now instead of at the next minute. */
         NIGHT_NOW,
 
-        /** The blurred background in the fit's border ("Fundo desfocado nas bordas"): on or off, taken at the next frame. */
-        BLURRED_FILL,
-
         /** The joystick page and the switches of the action echo and the legend, taken at the next tap. */
         JOYSTICK,
 
@@ -74,7 +71,6 @@ object LiveTuning {
         if (session) add(Step.NEW_ANDROID_AUTO_SESSION) else if (before.refitNeeded(after)) add(Step.REFIT)
         if (before.stream != after.stream) add(Step.NEW_STREAM)
         if (before.mapTheme != after.mapTheme || before.useLocation != after.useLocation) add(Step.NIGHT_NOW)
-        if (before.blurredFill != after.blurredFill) add(Step.BLURRED_FILL)
         if (before.joystick != after.joystick || before.actionEcho != after.actionEcho || before.joystickLegend != after.joystickLegend) add(Step.JOYSTICK)
         if (before.overlay != after.overlay) add(Step.STATS_OVERLAY)
         if (before.buttonLook != after.buttonLook) add(Step.BUTTON_OVERLAY)

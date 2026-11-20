@@ -465,9 +465,6 @@
     <string name="info_ring_place_title">En el lugar del anillo de maniobras</string>
     <string name="info_ring_place_sub">A la izquierda, donde el tablero dibuja las maniobras. Los dos se turnan</string>
     <string name="info_ring_place_info">Con el anillo de información activado, el botón abajo del tablero en el modo mapa (en la pantalla del joystick se le puede dar otra acción) muestra el anillo y lo oculta de nuevo, sin tocar el anillo de maniobras, que conserva sus propias reglas. Activado (anillo a la izquierda, en el lugar del anillo de maniobras), el anillo de información se muestra en lugar del de maniobras, así que úsalo con ese apagado. El anillo de información desaparece en el menú de apps y en otras apps, y la elección se conserva para la próxima vez.</string>
-    <string name="blurred_fill_title">Fondo desenfocado en los bordes</string>
-    <string name="blurred_fill_sub">En lugar de las franjas negras, los bordes muestran una copia desenfocada de la imagen. Gasta un poco más de batería.</string>
-    <string name="blurred_fill_info">Donde el encaje deja borde (la imagen entera, un encaje pequeño, una app que no llena el cuadro), el tablero muestra una copia pequeña, desenfocada y un poco más oscura de la imagen, en lugar de negro, y el tablero redondo se queda sin las franjas negras. Desactivado por defecto: cada cuadro lleva un pequeño paso de dibujo más, que gasta un poco más de batería y, cuando la imagen se mueve, algunos bits más de video. No cambia nada cuando la imagen llena el cuadro, las franjas negras que eliges siguen negras, y el cambio vale al instante.</string>
     <string name="info_ring_data_title">Lo que dice el anillo</string>
     <string name="info_ring_data_rain">Lluvia</string>
     <string name="info_ring_data_wind">Viento</string>

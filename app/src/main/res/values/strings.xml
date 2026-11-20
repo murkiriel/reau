@@ -476,9 +476,6 @@
     <string name="info_ring_place_title">In the maneuver ring’s place</string>
     <string name="info_ring_place_sub">On the left, where the dash draws the maneuvers. The two take turns</string>
     <string name="info_ring_place_info">With the info ring on, the dash’s down button in map mode (on the joystick screen it can be given another action) shows the ring and hides it again, without touching the maneuver ring, which keeps its own rules. On (ring on the left, in the maneuver ring’s place), the info ring shows instead of the maneuver ring, so use it with that one off. The info ring goes away on the app menu and in other apps, and the choice is kept for next time.</string>
-    <string name="blurred_fill_title">Blurred background at the edges</string>
-    <string name="blurred_fill_sub">Instead of black bars, the edges show a blurred copy of the picture. Uses a little more battery.</string>
-    <string name="blurred_fill_info">Where the fit leaves a border (the whole image, a small fit, an app that does not fill the frame), the dash shows a small, blurred and slightly darker copy of the picture there instead of black, so the round panel loses its black bars. Off by default: each frame takes one more small drawing step, which uses a little more battery and, when the picture moves, a few more bits of video. It changes nothing when the picture already fills the frame, the black bands you choose stay black, and the change applies at once.</string>
     <string name="info_ring_data_title">What the ring says</string>
     <string name="info_ring_data_rain">Rain</string>
     <string name="info_ring_data_wind">Wind</string>

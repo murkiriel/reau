@@ -117,11 +117,8 @@ class DashCompositor(private val log: (String) -> Unit) {
     private val viewport: RectPx get() = CompositorMath.viewport(dest, area.height)
     private var cover = emptyList<RectPx>()
 
-    // The blurred background (the setting "Fundo desfocado nas bordas"): the mapping in use, to plan it again when the setting changes,
-    // and the plan itself, null when it is off or the picture covers the frame (then nothing extra is drawn, nothing created).
-    private var blurredFill = false
+    // The mapping in use, for the cover rectangles to be made again when the area changes.
     private var fitInUse: FrameFit.Mapping? = null
-    private var backdrop: CompositorMath.Backdrop? = null
     private var previewW = 0
     private var previewH = 0
     private var webW = 0
@@ -244,7 +241,6 @@ class DashCompositor(private val log: (String) -> Unit) {
                 dest = mapping.dest
                 cover = CompositorMath.coverRects(mapping.cover, area.width, area.height)
                 fitInUse = mapping
-                backdrop = planBackdrop()
                 ok = true
             } else {
                 log("${RideDiagnostics.WARN}compositor mapping refused $problems: $mapping")
@@ -252,21 +248,6 @@ class DashCompositor(private val log: (String) -> Unit) {
         }
         return ok
     }
-
-    /**
-     * The blurred background in the border the fit leaves (a copy of the picture, small, blurred and a little darker) instead of black,
-     * [on] or off; takes the next frame, and off lets go of what it made.
-     */
-    fun setBlurredFill(on: Boolean) = onGlThread(wait = false) {
-        if (blurredFill == on) return@onGlThread
-        blurredFill = on
-        if (!on) gl.freeBackdrop()
-        backdrop = planBackdrop()
-        redrawSoon()
-    }
-
-    private fun planBackdrop(): CompositorMath.Backdrop? =
-        fitInUse?.let { CompositorMath.backdrop(blurredFill && !gl.backdropFailed, it.source, it.dest, sourceW, sourceH, area.width, area.height) }
 
     /**
      * Android Auto's picture is now [width]×[height] (a new session at another resolution). The mapping in use is
@@ -289,7 +270,7 @@ class DashCompositor(private val log: (String) -> Unit) {
 
     /**
      * Points the compositor at an encoder's input surface, [size] of it (528×304, or the dash's own 526×300 after the fall back: the area everything is composed in, drawn 1:1, nothing
-     * scaled; a size other than the one [start] was given takes the area over and the black bands and the blurred background are planned again for it, the
+     * scaled; a size other than the one [start] was given takes the area over and the black bands are planned again for it, the
      * fit staying as it was until the caller gives one made for it) and starts the clock; a frame goes out at
      * once. [onFrameSubmitted] is called with each frame's time right before the frame is posted (the encoder's
      * `frameSubmitted`). Returns only when the switch is done: from then on nothing more is drawn on a previous
@@ -316,7 +297,6 @@ class DashCompositor(private val log: (String) -> Unit) {
                 if (size != area) {
                     area = size
                     fitInUse?.let { cover = CompositorMath.coverRects(it.cover, size.width, size.height) }
-                    backdrop = planBackdrop()
                 }
                 this.onFrameSubmitted = onFrameSubmitted
                 postFailing = false
@@ -737,14 +717,6 @@ class DashCompositor(private val log: (String) -> Unit) {
         testWindowAtMs = now
     }
 
-    /** The blurred background could not be made: it is off from now on, the border stays black. */
-    private fun dropBackdropIfFailed() {
-        if (backdrop != null && gl.backdropFailed) {
-            backdrop = null
-            log("${RideDiagnostics.WARN}compositor: the blurred background could not be made and is off (the border stays black)")
-        }
-    }
-
     /** Tells once that the output surface refused a frame, and keeps whether it is refusing now. */
     private fun noteOutputRefusal(posted: Boolean) {
         if (CompositorRules.refusalToTell(posted, postFailing)) log("${RideDiagnostics.WARN}compositor: the output surface refused a frame (encoder gone?)")
@@ -765,14 +737,13 @@ class DashCompositor(private val log: (String) -> Unit) {
         val testRate = fpsTestRate
         if (testRate > 0) {
             // Only the card (black, then the card), then the two texts the rider switched on over it; the ring, the legend and the badge are not on a test card.
-            gl.draw(null, viewport, null)
+            gl.draw(null, viewport)
             gl.setTestCard(testInk.draw(FpsTestCard.cells(testDelivered, testRate), area.width, area.height))
             gl.drawTestCard()
             if (overlay.on) gl.drawOverlay(overlay.x, overlay.y)
             if (buttonOverlay.on) gl.drawButton(buttonOverlay.x, buttonOverlay.y)
         } else {
-            gl.draw(window.takeIf { hasImage }, viewport, backdrop)
-            dropBackdropIfFailed()
+            gl.draw(window.takeIf { hasImage }, viewport)
             gl.fillBlack(cover)
             if (overlay.on) gl.drawOverlay(overlay.x, overlay.y)
             if (buttonOverlay.on) gl.drawButton(buttonOverlay.x, buttonOverlay.y)
