@@ -4180,6 +4180,17 @@ MUTATIONS = [
      "private fun RecordingsNotice() = Unit\n\n/** Sharing the logs, with or without the recordings: nothing leaves the phone otherwise. */", ["RiderNoticesTextTest"]),
     ("P32A Atenção: o texto do aviso das gravações volta ao português", "app/src/main/res/values-pt/strings.xml",
      '<string name="record_video_info">', '<string name="recordings_notice">Atenção: as gravações contêm o mapa.</string>\n    <string name="record_video_info">', ["RiderNoticesTextTest"]),
+    # Leva 32 (20/11/2026): o cartão de música com o Spotify na frente e tocando (o modo música abre o cartão que a página fechava).
+    ("P32S Spotify: o cartão não abre com o Spotify tocando", MAIN + "dash/DashSession.kt",
+     "nowPlayingPackets.takeIf { musicCardAllowed || musicModePlaying }", "nowPlayingPackets.takeIf { musicCardAllowed }", ["DashSessionMusicModeCardTest", "MusicModeIsWiredTest"]),
+    ("P32S Spotify: o cartão abre também com o Spotify pausado", MAIN + "aa/MusicMode.kt",
+     "return on && pausedAtMs == NEVER", "return on", ["MusicModeTest", "DashSessionMusicModeCardTest"]),
+    ("P32S Spotify: o cartão não vai na hora ao começar a tocar", MAIN + "dash/DashSession.kt",
+     "            if (!musicCardAllowed) sendCardsNow()\n", "", ["DashSessionMusicModeCardTest"]),
+    ("P32S Spotify: o cartão abre com a página que já tem controle de música e some ao pausar", MAIN + "dash/DashSession.kt",
+     "musicCardAllowed || musicModePlaying", "musicModePlaying", ["DashSessionMusicModeCardTest"]),
+    ("P32S Spotify: o modo música não diz ao painel que toca", MAIN + "service/LiveSides.kt",
+     "session.musicModePlaying = music.playing(com.reau.app.util.MonotonicClock.nowMs())", "session.musicModePlaying = false", ["MusicModeIsWiredTest"]),
 ]
 
 

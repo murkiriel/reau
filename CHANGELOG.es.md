@@ -42,6 +42,7 @@ English: [CHANGELOG.md](CHANGELOG.md) · Português (pt-BR): [CHANGELOG.pt-br.md
 - **Los interruptores de prueba de las compilaciones de depuración** ("Conexión experimental", "Video experimental", "Tablero experimental") se fueron; REau hace lo que hacía con todos apagados.
 
 ### Corregido
+- **Con Spotify al frente y sonando, la franja dorada del tablero muestra la canción y el botón de pausa** (el título, el artista y los tres botones, como en las otras pantallas), incluso cuando la página del Joystick no tiene control de música (aún no probado en la moto).
 - **La flecha de la rotonda en el tablero se dibujaba al revés** (el error se vio en la moto; la corrección aún no): en Brasil Android Auto dice antihorario y el tablero la dibujaba horaria.
 - **El Wi-Fi del tablero deja de llamarse "trabado" cuando el teléfono ya se unió a él**, y una solicitud de red antigua ya no tumba una más nueva (aún sin ver en la moto).
 - **El video ya no pasa del ritmo del perfil después de un toque del joystick.**

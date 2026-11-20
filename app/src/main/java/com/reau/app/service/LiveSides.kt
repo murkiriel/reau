@@ -634,6 +634,8 @@ internal class LiveSides(
             combine(com.reau.app.aa.AaScreens.watch.screen, com.reau.app.aa.AaScreens.watch.app, com.reau.app.aa.AaMedia.watch.now) { screen, app, media ->
                 music.update(screen, app, media, com.reau.app.util.MonotonicClock.nowMs())
             }.collect {
+                // Spotify in front and playing: the music card goes whatever the page says, with the song (the buttons are the song's).
+                session.musicModePlaying = music.playing(com.reau.app.util.MonotonicClock.nowMs())
                 // The end of a pause is told to the log when it comes, not at the next press.
                 musicExpiry?.cancel()
                 music.expiresAtMs()?.let { at ->

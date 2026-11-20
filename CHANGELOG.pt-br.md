@@ -43,6 +43,7 @@ aparecem).
 - **As chaves de teste das builds de depuração** ("Conexão experimental", "Vídeo experimental", "Painel experimental") saíram; o REau faz o que fazia com todas desligadas.
 
 ### Corrigido
+- **Com o Spotify na frente e tocando, a faixa dourada do painel mostra a música e o botão de pausa** (o título, o artista e os três botões, como nas outras telas), mesmo quando a página do Joystick não tem controle de música (ainda não testado na moto).
 - **A seta da rotatória no painel era desenhada ao contrário** (o erro foi visto na moto; a correção ainda não): no Brasil o Android Auto diz anti-horário e o painel desenhava horário.
 - **O Wi-Fi do painel deixa de ser chamado de "travado" quando o celular já entrou nele**, e um pedido de rede antigo não derruba mais um mais novo (ainda não visto na moto).
 - **O vídeo não passa mais do ritmo do perfil depois de um toque no joystick.**

@@ -48,6 +48,16 @@ class MusicMode(private val say: (String) -> Unit = {}) {
         return on
     }
 
+    /**
+     * Whether Spotify is in front and playing right now at [nowMs]: the mode is on and no pause is counting (the grace after a pause is not playing).
+     * What the dash's music card asks ([com.reau.app.dash.DashSession.musicModePlaying]): the card is the song's and its buttons are the song's here.
+     */
+    @Synchronized
+    fun playing(nowMs: Long): Boolean {
+        expire(nowMs)
+        return on && pausedAtMs == NEVER
+    }
+
     /** When the pause in course ends the mode, or null when no pause is counting. */
     @Synchronized
     fun expiresAtMs(): Long? = if (on && pausedAtMs != NEVER) pausedAtMs + PAUSED_MS else null

@@ -391,10 +391,22 @@ class DashSession(
     }
 
     /**
-     * Whether the music card is sent at all: only while the joystick page has a music control in the media mode
+     * Whether the music card is sent at all: only while the joystick page has a music control in the media mode (or [musicModePlaying])
      * ([com.reau.app.aa.JoystickBindings.mediaControls]). Turned off while the card is up, it is cleared at the next second.
      */
     @Volatile var musicCardAllowed: Boolean = true
+
+    /**
+     * Spotify is in front and playing ([com.reau.app.aa.MusicMode.playing]): the joystick's left, right and centre are the song's keys then, whatever
+     * the page says, so the music card goes with its title, artist and buttons even when the page has no music control ([musicCardAllowed]). Paused or
+     * on another screen it is the page's say alone, as before. A change goes out at once: the card comes or is cleared without waiting for the next second.
+     */
+    @Volatile var musicModePlaying: Boolean = false
+        set(value) {
+            if (field == value) return
+            field = value
+            if (!musicCardAllowed) sendCardsNow()
+        }
 
     /**
      * Whether the dash is told its zoom state (06 0C), which is what makes its own "ZOOM" with the "-" and "+" show in the map mode.
@@ -582,7 +594,7 @@ class DashSession(
             com.reau.app.data.RideDiagnostics.log("dash", "call card cleared")
             callCardShown = false
         }
-        val music = nowPlayingPackets.takeIf { musicCardAllowed }
+        val music = nowPlayingPackets.takeIf { musicCardAllowed || musicModePlaying }
         if (music != null) {
             music.forEach { runCatching { sock.send(it) } }
             if (!musicShown) com.reau.app.data.RideDiagnostics.log("dash", "music card shown")

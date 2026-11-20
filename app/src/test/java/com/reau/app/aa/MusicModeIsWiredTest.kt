@@ -29,6 +29,14 @@ class MusicModeIsWiredTest {
     }
 
     @Test
+    fun `the music card is told when Spotify is in front and playing`() {
+        val feed = source("service/LiveSides.kt").between("val music = com.reau.app.aa.MusicMode", "// What the joystick asked for")
+        assertTrue(feed, feed.contains("session.musicModePlaying = music.playing(com.reau.app.util.MonotonicClock.nowMs())"))
+        val card = source("dash/DashSession.kt").between("val music = nowPlayingPackets.takeIf {", "}")
+        assertTrue(card, card.contains("musicCardAllowed || musicModePlaying"))
+    }
+
+    @Test
     fun `the mode's switchings go to the ride log`() {
         val feed = source("service/LiveSides.kt").between("val music = com.reau.app.aa.MusicMode", "joystick.musicActive")
         assertTrue(feed, feed.contains("RideDiagnostics.log(\"dash\", it)"))

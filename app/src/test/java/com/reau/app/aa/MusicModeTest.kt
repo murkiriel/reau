@@ -182,4 +182,37 @@ class MusicModeTest {
         assertTrue(mode.active(6_999))
         assertFalse(mode.active(7_000))
     }
+
+    @Test
+    fun `playing is the mode on with no pause counting`() {
+        assertFalse("nothing known", mode.playing(0))
+        mode.update(front = true, playing = true, nowMs = 1_000)
+        assertTrue(mode.playing(1_000))
+        assertTrue(mode.playing(900_000))
+    }
+
+    @Test
+    fun `a pause is not playing even while the mode is still on for the centre`() {
+        mode.update(front = true, playing = true, nowMs = 1_000)
+        mode.update(front = true, playing = false, nowMs = 2_000)
+        assertTrue("the mode stays on", mode.active(3_000))
+        assertFalse("but the music does not play", mode.playing(2_000))
+        assertFalse(mode.playing(3_000))
+        mode.update(front = true, playing = true, nowMs = 4_000)
+        assertTrue("it plays again", mode.playing(4_000))
+    }
+
+    @Test
+    fun `playing is off when Spotify leaves, when another app is in front or when the pause ended the mode`() {
+        mode.update(front = true, playing = true, nowMs = 1_000)
+        mode.update(front = false, playing = true, nowMs = 2_000)
+        assertFalse(mode.playing(2_000))
+        mode.update(front = true, playing = true, nowMs = 3_000)
+        mode.update(front = true, playing = false, nowMs = 4_000)
+        assertFalse(mode.playing(4_000 + MusicMode.PAUSED_MS + 1))
+        mode.update(spotifyScreen(), AaApp.OTHER, spotify, 20_000)
+        assertFalse("another app in front, whatever plays", mode.playing(20_000))
+    }
+
+    private fun spotifyScreen() = AaScreen.APPS
 }
