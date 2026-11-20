@@ -89,10 +89,13 @@ internal class H264Recorder(
         }
     }
 
-    /** The stream ended: closes the files. Nothing is written after this. */
+    /**
+     * The stream ended: closes the files. Nothing is written after this. The normal end of a projection logs "ended with the session"; [early]
+     * (the recording is cut short while the stream goes on elsewhere, e.g. a restart at another picture size) logs "stopped early".
+     */
     @Synchronized
-    fun close() {
-        if (!isDone && video != null) finish("stopped early")
+    fun close(early: Boolean = false) {
+        if (!isDone && video != null) finish(if (early) "stopped early" else "ended with the session")
         isDone = true
     }
 

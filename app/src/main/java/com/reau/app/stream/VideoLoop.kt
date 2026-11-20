@@ -205,7 +205,7 @@ internal class VideoLoop(
         val requested = settings
         val fallback = requested.atFullFrame()
         if (fallback == requested) return false
-        recorder?.close()
+        recorder?.close(early = true)
         settings = fallback
         log(fallbackLine(requested.frame, requested.ceilingFps, requested.bitrateBps))
         return start()

@@ -15,8 +15,16 @@ class LinkLossTest {
         for ((before, now) in listOf(2467 to 2462, 2462 to 2457, 2457 to 2447, 2447 to 2427)) {
             assertEquals(LinkLoss.Channel.OTHER, LinkLoss.channel(before, now))
             assertEquals(
-                "the dash's Wi-Fi is back on another channel ($before → $now MHz): its access point restarted",
+                "the dash's Wi-Fi is back on another channel ($before → $now MHz): its access point restarted, or the phone joined another one with the same name",
                 LinkLoss.backLine(before, now),
+            )
+            assertEquals(
+                "the dash's Wi-Fi is back on another channel ($before → $now MHz): its access point restarted",
+                LinkLoss.backLine(before, now, sameAp = true),
+            )
+            assertEquals(
+                "the dash's Wi-Fi is back on another channel ($before → $now MHz): another access point with the same name, not a restart",
+                LinkLoss.backLine(before, now, sameAp = false),
             )
         }
     }
@@ -27,6 +35,11 @@ class LinkLossTest {
         assertEquals("the dash's Wi-Fi is back on the same channel (2427 MHz)", LinkLoss.backLine(2427, 2427))
         assertEquals(LinkLoss.Channel.FIRST, LinkLoss.channel(null, 2427))
         assertNull(LinkLoss.backLine(null, 2427))
+        assertEquals(
+            "the dash's Wi-Fi is back on the same channel (2427 MHz): but another access point with the same name, not the one that was lost",
+            LinkLoss.backLine(2427, 2427, sameAp = false),
+        )
+        assertEquals("the dash's Wi-Fi is back on the same channel (2427 MHz)", LinkLoss.backLine(2427, 2427, sameAp = true))
     }
 
     @Test

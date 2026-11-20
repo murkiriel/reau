@@ -38,7 +38,7 @@ NOME = re.compile(r"^reau_(\d{4})(\d\d)(\d\d)_(\d\d)(\d\d)(\d\d)_(\d{3})(?P<marc
 RESUMO_QUADROS = re.compile(r"^resumo .*?\bframes=(\d+)\b")
 SESSAO_FECHADA = re.compile(r"session recording closed: (\d+) messages, (\d+) bytes( in the last part)?, \S*?/([\w.]+\.aasession) — (?:covers the first (\d+) s|the last part covers (\d+) s)")
 SESSAO_ROLOU = re.compile(r"session recording rolled over \(#(\d+)\): ([\w.]+\.aasession) keeps the first (\d+) s")
-VIDEO_PARADO = re.compile(r"video recording (?:stopped early|part \d+ complete, the next follows): (\d+) frames, (\d+) bytes, \S*?/([\w.]+\.h264)")
+VIDEO_PARADO = re.compile(r"video recording (?:ended with the session|stopped early|part \d+ complete, the next follows): (\d+) frames, (\d+) bytes, \S*?/([\w.]+\.h264)")
 ESPACO = re.compile(r"recordings space: (\d+) files? removed \((\d+) KB\), (\d+) KB left of (\d+) KB")
 # A cota das sessões (a pasta `sessions/` passou da metade do teto): a linha vem antes da do teto e não é contada com ela.
 SUBTETO = re.compile(r"recordings space: sessions over their share: (\d+) files? removed \((\d+) KB\), (\d+) KB of sessions left of (\d+) KB")

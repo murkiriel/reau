@@ -91,8 +91,14 @@ class PictureSizeTest {
         assertTrue("nothing to try at the full frame already", fall.contains("if (fallback == requested) return false"))
         assertTrue("the next start takes the settings of the fall back", fall.indexOf("settings = fallback") in 0 until fall.indexOf("return start()"))
         assertTrue("it says what happened", fall.contains("log(fallbackLine(requested.frame, requested.ceilingFps, requested.bitrateBps))"))
-        assertTrue("the recorder of the failed try is closed", fall.contains("recorder?.close()"))
+        assertTrue("the recorder of the failed try is closed, said as cut short", fall.contains("recorder?.close(early = true)"))
         assertTrue(loop.contains("fun atFullFrame(): Settings = if (frame == DashConfig.FULL_FRAME) this else copy(frame = DashConfig.FULL_FRAME)"))
+    }
+
+    @Test
+    fun `the normal stop of the loop closes the recording as the end of the session, not as cut short`() {
+        val stop = source("stream/VideoLoop.kt").substringAfter("fun stop() {").substringBefore("log(\"video loop stop")
+        assertTrue(stop, "        recorder?.close()\n        recorder = null" in stop)
     }
 
     // ---- the start line

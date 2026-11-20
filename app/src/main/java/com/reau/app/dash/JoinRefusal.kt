@@ -64,6 +64,19 @@ internal object JoinRules {
             else -> Refusal.UNKNOWN
         }
 
+    /**
+     * Log only: a note for the end of the "unavailable (initial connect)" line when the verdict is [Refusal.DASH_STUCK] but the phone has the dash's
+     * Wi-Fi up at that very moment (ride of 19/11/2026, 01:26: the radio had just been turned on, the phone joined the dash on its own 0.5 s before
+     * Android let the request go, and the verdict said "stuck" 1.8 s into a join that had worked). The verdict and what the rider is told do not
+     * change; the log only says the stuck diagnosis is doubtful. Empty for any other case.
+     */
+    internal fun stuckDoubt(refusal: Refusal, dashNetworkUpNow: Boolean): String =
+        if (refusal == Refusal.DASH_STUCK && dashNetworkUpNow) {
+            " (doubtful: the phone has the dash's Wi-Fi up right now, joined on its own; probably not a stuck dash)"
+        } else {
+            ""
+        }
+
     /** The quick refusals in a row, this one included; a request that ran its wait out starts the count over. */
     internal fun earlyInARow(previous: Int, tookMs: Long, timeoutMs: Int): Int =
         if (quickRefusal(tookMs, timeoutMs)) previous + 1 else 0

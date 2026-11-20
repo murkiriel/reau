@@ -78,11 +78,22 @@ internal object LinkLoss {
         return "phone side of the loss: Wi-Fi radio ${radio ?: UNKNOWN}, main Wi-Fi ${supplicant ?: UNKNOWN}, networks up: $up, default $usual"
     }
 
-    /** `the dash's Wi-Fi is back on another channel (2447 → 2427 MHz): its access point restarted`; null on the projection's first connection. */
-    fun backLine(before: Int?, now: Int): String? = when (channel(before, now)) {
+    /**
+     * `the dash's Wi-Fi is back on another channel (2447 → 2427 MHz): its access point restarted`; null on the projection's first connection.
+     * [sameAp] says whether the access point is the one that was lost, compared in memory only (the address is never written, see [NetNotes.apFingerprint]):
+     * true keeps the restart reading, false says it is another access point with the same name (a phone that jumps between two, as on the ride of
+     * 19/11/2026), null (Android did not give the address) says both hypotheses.
+     */
+    fun backLine(before: Int?, now: Int, sameAp: Boolean? = null): String? = when (channel(before, now)) {
         Channel.FIRST -> null
-        Channel.SAME -> "the dash's Wi-Fi is back on the same channel ($now MHz)"
-        Channel.OTHER -> "the dash's Wi-Fi is back on another channel ($before → $now MHz): its access point restarted"
+        Channel.SAME ->
+            "the dash's Wi-Fi is back on the same channel ($now MHz)" +
+                if (sameAp == false) ": but another access point with the same name, not the one that was lost" else ""
+        Channel.OTHER -> "the dash's Wi-Fi is back on another channel ($before → $now MHz): " + when (sameAp) {
+            true -> "its access point restarted"
+            false -> "another access point with the same name, not a restart"
+            null -> "its access point restarted, or the phone joined another one with the same name"
+        }
     }
 
     /** The line for Android's warning that a network is about to go. */

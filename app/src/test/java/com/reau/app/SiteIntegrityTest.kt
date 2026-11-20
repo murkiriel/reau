@@ -88,4 +88,41 @@ class SiteIntegrityTest {
         assertEquals(day.getValue("pt").first(), day.getValue("en").first())
         assertEquals(day.getValue("pt").first(), day.getValue("es").first())
     }
+
+    /** The page's visible text: tags dropped, whitespace and non-breaking spaces made single spaces. */
+    private fun text(file: File) = file.readText().replace(Regex("""<[^>]+>"""), " ").replace('\u00a0', ' ').replace(Regex("""\s+"""), " ")
+
+    /**
+     * What the AGPL-3.0 asks of a published APK is said in words: the "Source code" items of the Release are the exact code of that APK. The sentence is on the
+     * install page ("Which APK to download") and on the home page ("Free software"), in each language, and the footer of every page names the license. The
+     * phrases are kept here whole, so rewording one in a single language, or in a single page, is seen.
+     */
+    @Test
+    fun `the AGPL sentences are on the install page, the home page and every footer, in the three languages`() {
+        val install = mapOf(
+            "en" to "They are the exact source code of the APK in the same Release (the tag of that version in the repository), as the AGPL-3.0 license asks",
+            "pt" to "Eles são o código-fonte exato do APK da mesma Release (a etiqueta, ou tag, dessa versão no repositório), como a licença AGPL-3.0 pede",
+            "es" to "Son el código fuente exacto del APK de la misma Release (la etiqueta, o tag, de esa versión en el repositorio), como pide la licencia AGPL-3.0",
+        )
+        val home = mapOf(
+            "en" to "Each APK published on the Releases page comes with its exact source code: the “Source code” items of the same Release (the tag of that version).",
+            "pt" to "Cada APK publicado na página de Releases vem com o código-fonte exato dele: os itens “Source code” da mesma Release (a etiqueta da versão).",
+            "es" to "Cada APK publicado en la página de Releases viene con su código fuente exacto: los elementos “Source code” de la misma Release (la etiqueta de esa versión).",
+        )
+        val footer = mapOf(
+            "en" to "Free software under the AGPL-3.0 license.",
+            "pt" to "Software livre sob a licença AGPL-3.0.",
+            "es" to "Software libre bajo la licencia AGPL-3.0.",
+        )
+        for (language in languages) {
+            assertTrue("$language/install.html: the exact-source sentence", install.getValue(language) in text(File(docs, "$language/install.html")))
+            assertTrue("$language/index.html: the exact-source sentence", home.getValue(language) in text(File(docs, "$language/index.html")))
+            for (page in pages(language)) {
+                assertTrue("${page.relativeTo(docs)}: the footer names the license", footer.getValue(language) in text(page))
+            }
+        }
+        // The page for an address that is not there says it in the three languages at once.
+        val notFound = text(File(docs, "404.html"))
+        for (language in languages) assertTrue("404.html: the footer in $language", footer.getValue(language) in notFound)
+    }
 }

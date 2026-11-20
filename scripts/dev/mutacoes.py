@@ -2802,7 +2802,7 @@ MUTATIONS = [
     ("Divisão do DashWifiManager B 14/11: o 'sem leitura' do sinal vale como sinal", MAIN + "dash/NetNotes.kt",
      "takeIf { it > NO_RSSI }", "takeIf { it >= NO_RSSI }", ["NetNotesTest"]),
     ("Divisão do DashWifiManager B 14/11: a linha do canal sai a cada leitura depois da perda", MAIN + "dash/NetNotes.kt",
-     "            awaitingChannel = false\n            return LinkLoss.backLine(lostMhz, mhz)", "            return LinkLoss.backLine(lostMhz, mhz)",
+     "            awaitingChannel = false\n            val now = ap", "            val now = ap",
      ["NetNotesTest"]),
     ("Divisão do DashWifiManager B 14/11: a perda sem canal conhecido apaga o canal da perda anterior", MAIN + "dash/NetNotes.kt",
      "facts?.mhz?.let { lostMhz = it }", "lostMhz = facts?.mhz", ["NetNotesTest"]),
@@ -4605,6 +4605,41 @@ MUTATIONS += [
      "VideoPace.entries.indexOf(s.videoPace),", "0,", ["VideoPaceChoiceTest"]),
     ("P32R ritmo: a troca ao vivo não diz o ritmo no registro", MAIN + "service/LiveSides.kt",
      'if (before.videoPace != settings.videoPace) RideDiagnostics.log("stream", settings.videoPace.logLine())', "", ["VideoPaceSettingsTest"]),
+]
+
+# Plano 32 (20/11/2026, triviais do app): as linhas de registro que enganavam (P32V): o fim normal da gravação do vídeo, o "painel travado" duvidoso e o
+# "o ponto de acesso reiniciou" quando o celular saltou para outro ponto de acesso de mesmo nome (comparado só na memória, o endereço nunca é escrito).
+MUTATIONS += [
+    ("P32V gravação: o fim normal da sessão diz que a gravação parou cedo", MAIN + "stream/H264Recorder.kt",
+     'finish(if (early) "stopped early" else "ended with the session")', 'finish("stopped early")', ["H264RecorderTest"]),
+    ("P32V gravação: a queda do codificador deixa de dizer que a gravação foi cortada", MAIN + "stream/VideoLoop.kt",
+     "recorder?.close(early = true)", "recorder?.close()", ["PictureSizeTest"]),
+    ("P32V gravação: o fim normal do laço diz que a gravação foi cortada", MAIN + "stream/VideoLoop.kt",
+     "        recorder?.close()\n        recorder = null", "        recorder?.close(early = true)\n        recorder = null", ["PictureSizeTest"]),
+    ("P32V gravação: o leitor deixa de ler o fim normal da gravação", "scripts/registro/gravacoes.py",
+     "(?:ended with the session|stopped early|part", "(?:stopped early|part", ["registro/test_gravacoes.py"]),
+    ("P32V painel travado: a dúvida vale para qualquer veredito", MAIN + "dash/JoinRefusal.kt",
+     "if (refusal == Refusal.DASH_STUCK && dashNetworkUpNow) {", "if (dashNetworkUpNow) {", ["DashStuckTest"]),
+    ("P32V painel travado: o veredito de travado nunca é marcado como duvidoso", MAIN + "dash/JoinRefusal.kt",
+     "if (refusal == Refusal.DASH_STUCK && dashNetworkUpNow) {", "if (false) {", ["DashStuckTest"]),
+    ("P32V painel travado: a linha da recusa não leva a dúvida", MAIN + "dash/DashWifiManager.kt",
+     "JoinRules.stuckDoubt(refusal, refusal == Refusal.DASH_STUCK && findAlreadyConnectedDashNetwork() != null),", '"",', ["DashStuckTest"]),
+    ("P32V ponto de acesso: outro ponto de acesso da mesma rede ainda é dito reinício", MAIN + "dash/LinkLoss.kt",
+     'false -> "another access point with the same name, not a restart"', 'false -> "its access point restarted"', ["LinkLossTest", "NetNotesTest"]),
+    ("P32V ponto de acesso: sem o endereço a linha afirma só o reinício", MAIN + "dash/LinkLoss.kt",
+     'null -> "its access point restarted, or the phone joined another one with the same name"', 'null -> "its access point restarted"', ["LinkLossTest"]),
+    ("P32V ponto de acesso: no mesmo canal, outro ponto de acesso não é dito", MAIN + "dash/LinkLoss.kt",
+     'if (sameAp == false) ": but another access point with the same name, not the one that was lost" else ""', '""', ["LinkLossTest"]),
+    ("P32V ponto de acesso: a comparação diz mesmo ponto quando são dois", MAIN + "dash/NetNotes.kt",
+     "sameAp = if (now != null && was != null) now == was else null)", "sameAp = if (now != null && was != null) now != was else null)", ["NetNotesTest"]),
+    ("P32V ponto de acesso: o ponto de acesso perdido não é guardado para a volta", MAIN + "dash/NetNotes.kt",
+     "        ap?.let { lostAp = it }\n", "", ["NetNotesTest"]),
+    ("P32V ponto de acesso: o endereço escondido pelo Android vira um ponto de acesso", MAIN + "dash/NetNotes.kt",
+     "takeIf { it.isNotEmpty() && it != REDACTED_ADDRESS }", "takeIf { it.isNotEmpty() }", ["NetNotesTest"]),
+    ("P32V ponto de acesso: maiúsculas e minúsculas contam como outro ponto de acesso", MAIN + "dash/NetNotes.kt",
+     "?.lowercase(java.util.Locale.ROOT)?.hashCode()", "?.hashCode()", ["NetNotesTest"]),
+    ("P32V ponto de acesso: o gerente não entrega o ponto de acesso às notas", MAIN + "dash/DashWifiManager.kt",
+     "apFingerprint = NetNotes.apFingerprint(info?.bssid), // compared in memory only: the address is never logged", "apFingerprint = null,", ["NetNotesTest"]),
 ]
 
 

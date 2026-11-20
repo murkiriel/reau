@@ -158,10 +158,19 @@ class H264RecorderTest {
     }
 
     @Test
-    fun `closing early keeps what was written and ends the recording`() {
+    fun `the normal end of a session logs that the recording ended with it, not that it stopped early`() {
         val r = recorder(maxFrames = 100)
         r.write(keyframe, isKey = true, ptsMs = 0)
         r.close()
+
+        assertEquals(listOf("video recording ended with the session: 1 frames, 20 bytes, ${r.videoFile.path}"), log)
+    }
+
+    @Test
+    fun `closing early keeps what was written and ends the recording`() {
+        val r = recorder(maxFrames = 100)
+        r.write(keyframe, isKey = true, ptsMs = 0)
+        r.close(early = true)
         r.write(pFrame(1), isKey = false, ptsMs = 62)
         r.close() // twice is fine
 

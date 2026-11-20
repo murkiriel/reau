@@ -70,4 +70,22 @@ class DashStuckTest {
         assertTrue(JoinRules.reconnectDue(wantConnected = true, scheduledAt = 7, latestRequest = 7))
         assertFalse(JoinRules.reconnectDue(wantConnected = false, scheduledAt = 7, latestRequest = 7))
     }
+
+    /** 19/11/2026, 01:26: the phone joined the dash on its own 0.5 s before Android let the request go; the 1.8 s wait was called "stuck". */
+    @Test
+    fun `a stuck verdict with the dash's network up at that moment is flagged as doubtful in the log, other verdicts are not`() {
+        val doubt = JoinRules.stuckDoubt(Refusal.DASH_STUCK, dashNetworkUpNow = true)
+        assertTrue(doubt, doubt.contains("doubtful") && doubt.contains("probably not a stuck dash"))
+        assertEquals("", JoinRules.stuckDoubt(Refusal.DASH_STUCK, dashNetworkUpNow = false))
+        for (other in Refusal.values().filter { it != Refusal.DASH_STUCK }) {
+            assertEquals(other.name, "", JoinRules.stuckDoubt(other, dashNetworkUpNow = true))
+        }
+    }
+
+    @Test
+    fun `the initial-connect line carries the doubt of a stuck verdict when the dash's network is up`() {
+        val manager = java.io.File("src/main/java/com/reau/app/dash/DashWifiManager.kt").readText()
+        val line = manager.substringAfter("(initial connect) — giving up").substringBefore("_state.value")
+        assertTrue(line, "JoinRules.stuckDoubt(refusal, refusal == Refusal.DASH_STUCK && findAlreadyConnectedDashNetwork() != null)" in line)
+    }
 }

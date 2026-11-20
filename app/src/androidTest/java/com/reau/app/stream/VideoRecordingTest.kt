@@ -135,7 +135,7 @@ class VideoRecordingTest {
         val units = unitsOf(file, rows.map { it[2].toInt() })
         val pictures = H264TestDecoder().decode(units.mapIndexed { i, unit -> H264TestDecoder.Chunk(unit, rows[i][1].toLong()) })
         assertEquals(rows.size, pictures.size)
-        assertTrue("got $log", log.any { "video recording stopped early: ${rows.size} frames" in it })
+        assertTrue("got $log", log.any { "video recording ended with the session: ${rows.size} frames" in it })
     }
 
     @Test

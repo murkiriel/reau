@@ -1,7 +1,9 @@
 package com.reau.app.dash
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -9,8 +11,9 @@ import org.junit.Test
  * function of the manager until 14/11/2026, which only an instrumented test reached).
  */
 class NetNotesTest {
-    private fun read(mhz: Int? = 2447, rssi: Int? = -50, specifier: Boolean? = true, validated: Boolean = false, notRestricted: Boolean = true) =
-        CapsRead(mhz, rssi, specifier, validated, notRestricted)
+    private fun read(
+        mhz: Int? = 2447, rssi: Int? = -50, specifier: Boolean? = true, validated: Boolean = false, notRestricted: Boolean = true, ap: Int? = null,
+    ) = CapsRead(mhz, rssi, specifier, validated, notRestricted, apFingerprint = ap)
 
     // ── What is kept of each snapshot ──────────────────────────────────────────────────────────────
 
@@ -134,5 +137,52 @@ class NetNotesTest {
         notes.note(read(validated = true, notRestricted = false), nowMs = 0L)
         assertEquals(NetworkOwner.words(false, 4, notRestricted = false, validated = true), notes.owner(false, 4, null, null))
         assertEquals(NetworkOwner.words(false, 4, notRestricted = true, validated = false), notes.owner(false, 4, notRestricted = true, validated = false))
+    }
+
+    // ── Restart or a jump to another access point of the same name (ride of 19/11/2026) ─────────────────────
+
+    @Test
+    fun `another channel with another access point is not called a restart`() {
+        val notes = NetNotes()
+        notes.note(read(mhz = 2447, ap = 111), nowMs = 0L)
+        notes.lost()
+        val line = notes.note(read(mhz = 2427, ap = 222), nowMs = 10L)
+        assertEquals(LinkLoss.backLine(2447, 2427, sameAp = false), line)
+        assertEquals(true, line!!.contains("another access point with the same name, not a restart"))
+    }
+
+    @Test
+    fun `another channel with the same access point is a restart`() {
+        val notes = NetNotes()
+        notes.note(read(mhz = 2447, ap = 111), nowMs = 0L)
+        notes.lost()
+        assertEquals(LinkLoss.backLine(2447, 2427, sameAp = true), notes.note(read(mhz = 2427, ap = 111), nowMs = 10L))
+    }
+
+    @Test
+    fun `without the access point of one side both hypotheses are said`() {
+        val notes = NetNotes()
+        notes.note(read(mhz = 2447, ap = null), nowMs = 0L)
+        notes.lost()
+        assertEquals(LinkLoss.backLine(2447, 2427, sameAp = null), notes.note(read(mhz = 2427, ap = 222), nowMs = 10L))
+    }
+
+    @Test
+    fun `the access point fingerprint ignores case and drops what Android hides, and never keeps the address`() {
+        val a = "aa:bb:cc:" + "dd:ee:ff"
+        assertEquals(NetNotes.apFingerprint(a), NetNotes.apFingerprint(a.uppercase()))
+        assertEquals(false, NetNotes.apFingerprint(a) == NetNotes.apFingerprint("aa:bb:cc:" + "dd:ee:00"))
+        assertNull(NetNotes.apFingerprint(null))
+        assertNull(NetNotes.apFingerprint(""))
+        assertNull("the redacted address of an app that may not see it", NetNotes.apFingerprint("02:00:00:00:00:" + "00"))
+    }
+
+    /** Text of the source: the manager reads the access point's address from Android, and it must only ever reach [NetNotes.apFingerprint]. */
+    @Test
+    fun `the manager hands the access point address to the fingerprint and writes it nowhere`() {
+        val manager = java.io.File("src/main/java/com/reau/app/dash/DashWifiManager.kt").readText()
+        assertTrue(manager, "apFingerprint = NetNotes.apFingerprint(info?.bssid)" in manager)
+        val others = manager.lines().filter { "bssid" in it.lowercase() && "NetNotes.apFingerprint(info?.bssid)" !in it }
+        assertFalse("the address is read in one place only: $others", others.isNotEmpty())
     }
 }

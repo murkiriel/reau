@@ -126,12 +126,14 @@ class ContasDoAppTest(unittest.TestCase):
             "[AA] session recording rolled over (#1): reau_20261108_175809_640.1.aasession keeps the first 1815 s of that part; the part before it is dropped",
             "[AA] session recording closed: 92526 messages, 185503056 bytes in the last part, /data/user/0/com.reau.app/files/sessions/reau_20261108_175809_640.aasession — the last part covers 1090 s, after 1 roll",
             "video recording stopped early: 859 frames, 8175258 bytes, /data/user/0/com.reau.app/files/video/reau_20261108_125824_856.h264",
+            "video recording ended with the session: 40 frames, 400000 bytes, /data/user/0/com.reau.app/files/video/reau_20261108_130000_000.h264",
             "video recording part 1 complete, the next follows: 3000 frames, 29531904 bytes, /data/user/0/com.reau.app/files/video/reau_20261108_175831_340.h264",
             "recordings space: 3 files removed (45351 KB), 1042833 KB left of 1048576 KB"))
         self.assertEqual({"mensagens": 9992, "bytes": 38801755, "ultima_parte": False, "cobre_s": 320}, c["sessoes"]["reau_20261108_125815_044.aasession"])
         self.assertTrue(c["sessoes"]["reau_20261108_175809_640.aasession"]["ultima_parte"])
         self.assertEqual([(1, "reau_20261108_175809_640.1.aasession", 1815)], c["rolagens"])
         self.assertEqual({"quadros": 859, "bytes": 8175258}, c["videos"]["reau_20261108_125824_856.h264"])
+        self.assertEqual(40, c["videos"]["reau_20261108_130000_000.h264"]["quadros"])
         self.assertEqual(3000, c["videos"]["reau_20261108_175831_340.h264"]["quadros"])
         self.assertEqual([(3, 45351, 1042833, 1048576)], c["espaco"])
 

@@ -649,7 +649,8 @@ class DashWifiManager(
             com.reau.app.data.RideDiagnostics.warn(
                 "wifi", "unavailable after ${tookMs}ms (initial connect) — giving up, seenInScan=$seenInScan " +
                     "quick=$quickRefusals joined=$joinedOnce refusal=$refusal firstApproval=$requestFirstApproval " +
-                    "approvedBefore=${approvedBefore()}; ${lastScanEvidence()}",
+                    "approvedBefore=${approvedBefore()}; ${lastScanEvidence()}" +
+                    JoinRules.stuckDoubt(refusal, refusal == Refusal.DASH_STUCK && findAlreadyConnectedDashNetwork() != null),
             )
             _state.value = WifiState(
                 status = WifiConnStatus.ERROR,
@@ -713,6 +714,7 @@ class DashWifiManager(
             specifier = hasSpecifier(caps),
             validated = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
             notRestricted = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED),
+            apFingerprint = NetNotes.apFingerprint(info?.bssid), // compared in memory only: the address is never logged
         )
     }
 
