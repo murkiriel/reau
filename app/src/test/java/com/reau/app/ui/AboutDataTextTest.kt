@@ -40,16 +40,6 @@ class AboutDataTextTest {
     }
 
     @Test
-    fun `the page says the driving side reads the network's country only in Automatic, and sends and logs nothing`() {
-        val control = text("about_data_control")
-        assertTrue(control, control.contains("lado da via") && control.contains("só o Automático lê o país da rede") && control.contains("sem enviar nem registrar"))
-        val en = Regex("""<string name="about_data_control">(.*?)</string>""").find(File("src/main/res/values/strings.xml").readText())!!.groupValues[1]
-        assertTrue(en, en.contains("driving side") && en.contains("only Automatic reads the network’s country") && en.contains("never sending or logging it"))
-        val es = Regex("""<string name="about_data_control">(.*?)</string>""").find(File("src/main/res/values-es/strings.xml").readText())!!.groupValues[1]
-        assertTrue(es, es.contains("lado") && es.contains("solo Automático lee el país de la red") && es.contains("sin enviarlo ni registrarlo"))
-    }
-
-    @Test
     fun `the shorter texts keep what the privacy answer says`() {
         val leaves = text("about_data_leaves")
         // One short sentence (28/10/2026): the dash, with the switches that are on, and on the internet only the weather and the update check

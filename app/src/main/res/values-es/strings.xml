@@ -259,7 +259,7 @@
     <string name="about_data_kept_title">Qué recuerda REau del tablero</string>
     <string name="about_data_kept">Nombre y contraseña del Wi-Fi del tablero y lo que informó, cifrados con una clave de Android, y la posición redondeada y el último clima, si existen, en la carpeta de la app.</string>
     <string name="about_data_control_title">Qué controlas tú</string>
-    <string name="about_data_control">En Ajustes → Depuración apagas el registro y borras registros y grabaciones, y en En el tablero eliges el lado: solo Automático lee el país de la red, sin enviarlo ni registrarlo.</string>
+    <string name="about_data_control">En Ajustes → Depuración apagas el registro y borras registros y grabaciones, y en Ajustes → En el tablero apagas las tarjetas de música y de quién llama.</string>
     <string name="about_data_reach_title">Qué queda fuera del alcance de REau</string>
     <string name="about_data_reach">Lo que llega a Android Auto le pertenece a él: tu voz en Gemini y las rutas de Waze siguen las reglas de Google y de Waze, no las de REau.</string>
     <string name="action_open_credits">Créditos</string>

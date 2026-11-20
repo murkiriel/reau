@@ -259,7 +259,7 @@
     <string name="about_data_kept_title">O que o REau lembra do painel</string>
     <string name="about_data_kept">Nome e senha do Wi-Fi do painel e o que ele informou, cifrados por uma chave do Android, e a posição arredondada e o último clima, se existirem, na pasta do app.</string>
     <string name="about_data_control_title">O que você controla</string>
-    <string name="about_data_control">Em Ajustes → Depuração você desliga o registro e apaga as gravações, e em No painel escolhe o lado da via: só o Automático lê o país da rede, sem enviar nem registrar.</string>
+    <string name="about_data_control">Em Ajustes → Depuração você desliga o registro e apaga registros e gravações, e em Ajustes → No painel desliga os cartões de música e de quem liga.</string>
     <string name="about_data_reach_title">O que fica fora do alcance do REau</string>
     <string name="about_data_reach">O que chega ao Android Auto é dele: a sua voz no Gemini e as rotas do Waze seguem as regras do Google e do Waze, não as do REau.</string>
     <string name="action_open_credits">Créditos</string>
