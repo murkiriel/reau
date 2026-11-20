@@ -2,12 +2,24 @@
 # Não é a integração contínua (ci.yml, que roda a cada PR e push): isto demora e não decide nada sobre um PR; só mostra
 # quanto do código os testes pisam e se os testes de verdade travam as decisões (cada mutação muda uma decisão e algum teste tem de falhar).
 # Só lê o código, não assina, não publica nada e não usa segredo. Actions só as oficiais da GitHub, fixadas pelo commit (as mesmas do ci.yml).
+#
+# Qual código é testado: o agendamento (schedule) sempre roda o ARQUIVO da branch padrão e, sem mais nada, baixa o código dela. Para testar outra branch (a de trabalho
+# antes de ela chegar à padrão) há duas saídas, que valem em qualquer branch onde este arquivo esteja:
+#   - rodar à mão (Actions > Qualidade > Run workflow, ou `gh workflow run qualidade.yml --ref <branch>`): "Use workflow from" escolhe a branch e o código baixado é o dela;
+#   - o campo `ref` do rodar à mão (uma branch, tag ou commit) e a variável do repositório QUALIDADE_REF (Settings > Secrets and variables > Actions > Variables),
+#     que vale também para o agendamento: baixam esse ref em vez do da execução. Sem nenhum dos dois, vale o ref da execução (o comportamento de sempre).
+# Cada trabalho escreve no resumo o commit que baixou.
 name: Qualidade
 
 on:
   schedule:
     - cron: "17 5 * * 1" # segunda-feira, 05:17 UTC
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag ou commit a testar (vazio: a variável QUALIDADE_REF do repositório, ou a branch escolhida em \"Use workflow from\")"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -29,7 +41,13 @@ jobs:
       - name: Baixar o código
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
+          # O campo do rodar à mão, senão a variável do repositório, senão o ref da execução (vazio no `with` seria o mesmo que o da execução).
+          ref: ${{ inputs.ref || vars.QUALIDADE_REF || github.sha }}
           persist-credentials: false
+
+      - name: Dizer qual código foi baixado
+        run: |
+          { echo "Código testado: \`$(git rev-parse --short HEAD)\` — $(git log -1 --format=%s)"; echo; } >> "$GITHUB_STEP_SUMMARY"
 
       - name: JDK 21 (Temurin) com cache do Gradle
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
@@ -38,9 +56,15 @@ jobs:
           java-version: "21"
           cache: gradle
 
-      # Roda os testes de unidade e escreve o relatório em app/build/reports/jacoco/ (html e xml).
+      # Roda os testes de unidade e escreve o relatório em app/build/reports/jacoco/ (html e xml). Se um teste falha, o relatório não sai; um teste que falha uma vez em
+      # centenas de execuções (uma corrida de threads, como a de 9/11/2026) derrubaria a semana inteira de cobertura, que nem decide nada. Por isso uma segunda tentativa,
+      # com aviso; uma falha de verdade falha de novo e o trabalho fica vermelho.
       - name: Testes com cobertura
-        run: ./gradlew --console=plain --max-workers=2 :app:jacocoTestReport
+        run: |
+          ./gradlew --console=plain --max-workers=2 :app:jacocoTestReport || {
+            echo "::warning::Os testes falharam; uma segunda tentativa, para separar um teste instável de uma falha de verdade."
+            ./gradlew --console=plain --max-workers=2 :app:jacocoTestReport
+          }
 
       - name: Resumo da cobertura
         run: |
@@ -64,10 +88,11 @@ jobs:
   mutacao:
     name: Teste de mutação (fatia ${{ matrix.fatia }} de 22)
     runs-on: ubuntu-24.04
-    # 2 141 mutações em 20/11/2026 (python3 scripts/dev/mutacoes.py --lista conta), cada uma um Gradle de testes. Com o daemon ligado e o código já compilado
-    # cada uma leva de 10 a 60 s; uma fatia de um vinte e dois avos (98) leva de 16 a 98 min, dentro do limite de 120 (com vinte e uma fatias, de 103, o pior caso
-    # chegaria aos 103 min, com pouca folga para a partida; com dez, de 215, passaria).
-    # Medir a cada execução e ajustar o número de fatias se a lista crescer (o script aceita qualquer N).
+    # 2 386 mutações em 20/11/2026 (python3 scripts/dev/mutacoes.py --lista conta), cada uma um Gradle de testes. Com o daemon ligado e o código já compilado
+    # cada uma leva de 10 a 60 s; uma fatia de um vinte e dois avos (108 ou 109) leva de 18 a 109 min, dentro do limite de 120 (com vinte e uma fatias, de 113 ou 114, o pior
+    # caso chegaria aos 114 min, quase sem folga para a partida; com dez, de 239, passaria). A margem de 11 min acaba perto de 2 600 mutações: com 24 fatias (99 a 100)
+    # sobra mais.
+    # Medir a cada execução e ajustar o número de fatias se a lista crescer (o script aceita qualquer N; mudar o 22 aqui, na matriz, na linha do script e no resumo).
     # (mutacao-mensal.yml roda uma fatia de doze por mês, como rede mais leve.)
     timeout-minutes: 120
     strategy:
@@ -81,7 +106,13 @@ jobs:
       - name: Baixar o código
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
+          # O campo do rodar à mão, senão a variável do repositório, senão o ref da execução (vazio no `with` seria o mesmo que o da execução).
+          ref: ${{ inputs.ref || vars.QUALIDADE_REF || github.sha }}
           persist-credentials: false
+
+      - name: Dizer qual código foi baixado
+        run: |
+          { echo "Código testado: \`$(git rev-parse --short HEAD)\` — $(git log -1 --format=%s)"; echo; } >> "$GITHUB_STEP_SUMMARY"
 
       - name: JDK 21 (Temurin) com cache do Gradle
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1

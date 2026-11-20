@@ -7,6 +7,7 @@ import stat
 import subprocess
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parent / "coletar_do_celular.sh"
@@ -37,18 +38,21 @@ def fake_adb(pasta: Path, buffers: str, arquivos: Path | None, extra: str = "") 
     return log
 
 
-def rodar(buffers=BUFFERS_GRANDES, ride=None, tamanho_kb=0, extra="", **ambiente):
-    """Runs the script. [ride]: text of a ride log for diag/; [tamanho_kb]: KB of a video/ file to be copied. Returns (done, out dir, adb log lines)."""
+def rodar(buffers=BUFFERS_GRANDES, ride=None, tamanho_kb=0, extra="", arquivo_ride="ride-20261101-100000.log", copia_de=None, **ambiente):
+    """Runs the script. [ride]: text of a ride log for diag/ (named [arquivo_ride]); [tamanho_kb]: KB of a video/ file to be copied, with the modification time [copia_de]
+    (a datetime; the file's own, \"now\", when None). Returns (done, out dir, adb log lines)."""
     tmp = tempfile.TemporaryDirectory()
     base = Path(tmp.name)
     arquivos = base / "celular"
     (arquivos / "diag").mkdir(parents=True)
     if ride is not None:
-        (arquivos / "diag" / "ride-20261101-100000.log").write_text(ride, encoding="utf-8")
+        (arquivos / "diag" / arquivo_ride).write_text(ride, encoding="utf-8")
     if tamanho_kb:
         (arquivos / "video").mkdir()
         with open(arquivos / "video" / "reau_x.h264", "wb") as f:
             f.truncate(tamanho_kb * 1024)
+        if copia_de is not None:
+            os.utime(arquivos / "video" / "reau_x.h264", (copia_de.timestamp(), copia_de.timestamp()))
     log = fake_adb(base, buffers, arquivos, extra)
     saida = base / "saida"
     env = {**os.environ, "ADB": str(base / "adb"), "REAU_SAIDA": str(saida), **ambiente}
@@ -240,6 +244,46 @@ class CopiaVenceALinhaAntigaTest(unittest.TestCase):
         done, _, _, tmp = rodar(ride=linha_de_espaco(100, 2 * 1048576), tamanho_kb=900 * 1024)
         with tmp:
             self.assertRegex(done.stderr, r"gravações em 900 MB de 2048 MB \(livre 114[78] MB, 44 % ocupado")
+
+
+
+class LinhaMaisNovaQueACopiaTest(unittest.TestCase):
+    """A2: the `left of` line decides only when it is newer than the newest copied file (the day comes from the name of the ride log, the time from the line); the copy decides
+    otherwise. The ride log of the tests starts at 2026-11-01 10:00:00 and the line is stamped 10:00:00.000."""
+
+    def test_a_line_newer_than_every_copied_file_decides_and_says_so(self):
+        done, _, _, tmp = rodar(ride=linha_de_espaco(974 * 1024), tamanho_kb=300 * 1024, copia_de=datetime(2026, 10, 31, 12, 0, 0))
+        with tmp:
+            self.assertIn("gravações em 974 MB de 1024 MB (livre 50 MB, 95 % ocupado, pela última linha 'recordings space' dos registros, mais recente que os arquivos da cópia;", done.stderr)
+
+    def test_a_copied_file_newer_than_the_line_leaves_the_decision_to_the_copy(self):
+        done, _, _, tmp = rodar(ride=linha_de_espaco(974 * 1024), tamanho_kb=300 * 1024, copia_de=datetime(2026, 11, 1, 10, 0, 1))
+        with tmp:
+            self.assertNotIn("gravações em", done.stderr)
+        done, _, _, tmp = rodar(ride=linha_de_espaco(974 * 1024), tamanho_kb=806 * 1024, copia_de=datetime(2026, 11, 2, 9, 0, 0))
+        with tmp:
+            self.assertRegex(done.stderr, r"gravações em 806 MB .*pelo tamanho de sessions/ \+ video/ copiados")
+
+    def test_a_ride_log_that_crossed_midnight_dates_the_line_on_the_next_day(self):
+        # The log started at 23:50 on 2026-11-01; the line (00:10:00) is of 2026-11-02 00:10, newer than a file of 2026-11-02 00:00.
+        ride = "00:10:00.000  + 5ms  [diag] recordings space: 3 files removed (45351 KB), 996352 KB left of 1048576 KB\n"
+        done, _, _, tmp = rodar(ride=ride, arquivo_ride="ride-20261101-235000.log", tamanho_kb=300 * 1024, copia_de=datetime(2026, 11, 2, 0, 0, 0))
+        with tmp:
+            self.assertIn("gravações em 973 MB de 1024 MB", done.stderr)
+            self.assertIn("mais recente que os arquivos da cópia", done.stderr)
+        done, _, _, tmp = rodar(ride=ride, arquivo_ride="ride-20261101-235000.log", tamanho_kb=300 * 1024, copia_de=datetime(2026, 11, 2, 0, 20, 0))
+        with tmp:
+            self.assertNotIn("gravações em", done.stderr)
+
+    def test_a_ride_log_with_a_name_that_gives_no_day_leaves_the_decision_to_the_copy(self):
+        done, _, _, tmp = rodar(ride=linha_de_espaco(974 * 1024), arquivo_ride="ride-sem-data.log", tamanho_kb=300 * 1024, copia_de=datetime(2026, 10, 31, 12, 0, 0))
+        with tmp:
+            self.assertNotIn("gravações em", done.stderr)
+
+    def test_the_line_stays_in_the_info_as_a_record_either_way(self):
+        done, saida, _, tmp = rodar(ride=linha_de_espaco(974 * 1024), tamanho_kb=300 * 1024, copia_de=datetime(2026, 11, 1, 10, 0, 1))
+        with tmp:
+            self.assertIn(f"{974 * 1024} KB left of 1048576 KB", (saida / "INFO.txt").read_text(encoding="utf-8"))
 
 
 # A9 (17/11/2026): what the INFO.txt says of the logcat buffers and of the Android Auto process that projects.

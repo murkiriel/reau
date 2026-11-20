@@ -8,6 +8,7 @@ and the dash's name is the invented `RE_AB12_345678`.
 """
 import io
 import contextlib
+import re
 import sys
 import tempfile
 import unittest
@@ -228,6 +229,53 @@ class ContagemDoGrupoETextoTest(unittest.TestCase):
         self.assertIn("fim de viagem, não queda", texto)
         self.assertIn("0 quedas, 1 fim de viagem", texto)
         self.assertNotIn("aa:bb", texto)
+
+
+class PadraoDaAnaliseDe16Test(unittest.TestCase):
+    """The two rides of 16/11/2026 that ended with the bike switched off (A1 of the analysis of 15 to 17/11), as synthetic logs: the signal firm, the last packet of the dash
+    under 1 s before the loss, the rider stopping the projection within 10 s. With the system log it is the `reason 3`; without it, the firm Wi-Fi and the stop."""
+
+    def registro(self, fim):
+        return projecao(olhada("10:00:40.000", "-41dBm/2417MHz/72Mbps"), perda_do_wifi("10:01:00.000"), vigia("10:01:04.200"), fim=fim)
+
+    def test_the_pattern_without_the_system_log_is_the_end_when_the_rider_stops_within_10_s(self):
+        for fim in ("10:01:09.000", "10:01:10.000"):
+            with self.subTest(fim=fim):
+                self.assertEqual([("10:01:00", True)], desligou(lido(coleta(self.registro(fim)))))
+
+    def test_the_same_pattern_with_the_deauth_says_the_system_saw_it(self):
+        linhas = lido(coleta(self.registro("10:01:09.000"), logcat=logcat_driver("10:00:58.300")))
+        self.assertEqual([("10:01:00", True)], desligou(linhas))
+        self.assertIn("o sistema registrou a saída do painel (reason 3) às 10:00:58", "\n".join(ler_registro.linha_do_tempo(linhas)))
+
+    def test_the_end_does_not_depend_on_which_of_the_two_logs_the_collection_has(self):
+        dumpsys = "StaEventList:\n10-04 10:00:59.000 NETWORK_DISCONNECTION_EVENT local_gen=false reason=3:DEAUTH_LEAVING lastRssi=-55 lastFreq=2417\n"
+        for kw in ({}, {"logcat": logcat_driver("10:00:58.300")}, {"dumpsys": dumpsys}):
+            with self.subTest(fontes=list(kw)):
+                self.assertEqual([("10:01:00", True)], desligou(lido(coleta(self.registro("10:01:09.000"), **kw))))
+
+
+class NadaQueIdentifiqueSaiTest(unittest.TestCase):
+    """The system log carries the MAC and the BSSID of the dash's access point and the name of the network: none of it may reach the reader's output, in any of its sections."""
+    MAC = re.compile(r"(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}")
+
+    def test_no_address_nor_network_name_in_the_whole_output_even_with_everything_on(self):
+        nome = "RE_AB12_345678"
+        logcat = (logcat_driver("10:00:58.300") + logcat_wpa("10:00:58.400", 3, 0)
+                  + f"10-04 10:00:58.500   900   900 I wpa_supplicant: wlan0: CTRL-EVENT-SSID-TEMP-DISABLED id=3 ssid=\"{nome}\" bssid={MAC_AP}\n"
+                  + f"10-04 10:00:58.600  1000  1000 I WifiNetworkFactory: Connection is terminated, cancelling NetworkRequest for \"{nome}\" {MAC_AP}\n")
+        registro = projecao(olhada("10:00:40.000", "-65dBm/2452MHz/72Mbps"), perda_do_wifi("10:01:00.000"), vigia("10:01:04.200"))
+        pasta = coleta(registro, logcat=logcat)
+        for argumentos in ([str(pasta)], [str(pasta), "--tudo"]):
+            with self.subTest(argumentos=argumentos[1:]):
+                saida = io.StringIO()
+                with contextlib.redirect_stdout(saida):
+                    codigo = ler_registro.main(argumentos)
+                texto = saida.getvalue()
+                self.assertEqual(0, codigo, texto)
+                self.assertIn("fim de viagem, não queda", texto)
+                self.assertIsNone(self.MAC.search(texto), texto)
+                self.assertNotIn(nome, texto)
 
 
 if __name__ == "__main__":

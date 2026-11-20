@@ -11,10 +11,11 @@
 # Dois avisos (só leitura; saem na tela e no fim do INFO.txt, em "--- avisos da coleta"):
 #   - o tamanho dos buffers do logcat (`logcat -g`, lido NO COMEÇO, antes de qualquer outra leitura): buffer `main` ou `system` abaixo de 1 MiB (LOGCAT_MIN_KIB=1024)
 #     quer dizer que o logcat do sistema guarda pouca história (o de 256 KiB cobre menos de 1 h): colete logo depois da corrida;
-#   - o espaço das gravações (item 11c): o tamanho de sessions/ + video/ copiados (o que vale, é o estado de agora) e, só quando nada foi copiado, a última linha
+#   - o espaço das gravações (item 11c): o tamanho de sessions/ + video/ copiados (o que vale, é o estado de agora). A última linha
 #     `recordings space: N files removed (X KB), Y KB left of Z KB` dos registros copiados (Y é o que ficou ocupado do teto Z; o app só a escreve quando apagou algo, então pode
-#     ser de dias antes: ela vai ao INFO.txt, mas não decide o aviso se há cópia). Ocupado a partir de REAU_AVISO_MB (padrão 800) MB, o teto está perto:
-#     o app apaga os arquivos mais antigos e um evento raro some; colete a cada ≤ 2 dias de uso.
+#     ser de dias antes) só decide quando é mais recente que o arquivo mais novo da cópia, ou quando nada foi copiado; senão vai só ao INFO.txt. A hora da linha vem do nome do
+#     `ride-AAAAMMDD-HHMMSS.log` (o dia) e da linha (a hora, no fuso do celular, que se supõe o deste computador); sem como saber, a cópia decide. Ocupado a partir de
+#     REAU_AVISO_MB (padrão 800) MB, o teto está perto: o app apaga os arquivos mais antigos e um evento raro some; colete a cada ≤ 2 dias de uso.
 #     A linha `recordings space: sessions over their share: …` (a cota das sessões, metade do teto) é de outra conta e não vale aqui: só a do total.
 #
 # ATENÇÃO: o logcat do sistema tem dado pessoal (o nome do dono, e-mails, o nome inteiro das redes Wi-Fi, a lista de apps).
@@ -163,7 +164,10 @@ rmdir "$OUT/antigo-lite" 2>/dev/null || true
 # O espaço das gravações (sessions/ e video/), pelo `left of` que o app escreve ao apagar o mais antigo e pelo tamanho do que veio na cópia. Só lê arquivos já copiados.
 AVISO_MB="${REAU_AVISO_MB:-800}"
 ESPACO_PADRAO_KB=1048576
-ultima="$(cat "$OUT"/diag/ride-*.log 2>/dev/null | awk '/recordings space:/ && !/sessions over their share/ {ultima = $0} END {print ultima}' || true)"
+# O arquivo e a linha (separados por TAB) da última linha de total, para saber de que dia ela é.
+ultima_com_arquivo="$(awk '/recordings space:/ && !/sessions over their share/ {ultima = FILENAME "\t" $0} END {print ultima}' "$OUT"/diag/ride-*.log 2>/dev/null || true)"
+ultima="${ultima_com_arquivo#*$'\t'}"
+ultima_arquivo="${ultima_com_arquivo%%$'\t'*}"
 ocupado_kb=""; teto_kb="$ESPACO_PADRAO_KB"
 if [ -n "$ultima" ]; then
   ocupado_kb="$(printf '%s\n' "$ultima" | sed -n 's/.*, \([0-9][0-9]*\) KB left of \([0-9][0-9]*\) KB.*/\1/p')"
@@ -177,12 +181,28 @@ copiado_kb="$(du -sk "$OUT/sessions" "$OUT/video" 2>/dev/null | awk '{s += $1} E
   echo "sessions/ + video/ copiados: ${copiado_kb} KB ($(( (copiado_kb * 100 + teto_kb / 2) / teto_kb )) % do teto de ${teto_kb} KB)"
 } >> "$OUT/INFO.txt"
 # O que vale é o tamanho do que veio na cópia (o estado de agora). A linha `left of` é uma foto do momento em que o app apagou algo e pode ser de dias antes: a de 14/11
-# disse 974 MB onde a cópia, tirada dias depois, tinha 806 MB (79 %). Só quando nada foi copiado (sem run-as, sem gravações) a linha decide.
+# disse 974 MB onde a cópia, tirada dias depois, tinha 806 MB (79 %). A linha só decide quando é mais recente que o arquivo mais novo da cópia, ou quando nada foi copiado
+# (sem run-as, sem gravações). Sem como datar a linha ou os arquivos, a cópia decide.
+linha_mais_nova=""
+if [ -n "$ocupado_kb" ] && [ "${copiado_kb:-0}" -gt 0 ]; then
+  dia_do_arquivo="$(basename "$ultima_arquivo" | sed -n 's/^ride-\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)-\([0-9]\{2\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)\.log$/\1-\2-\3 \4:\5:\6/p')"
+  hora_da_linha="$(printf '%s\n' "$ultima" | sed -n 's/^\([0-9][0-9]:[0-9][0-9]:[0-9][0-9]\).*/\1/p')"
+  if [ -n "$dia_do_arquivo" ] && [ -n "$hora_da_linha" ]; then
+    inicio_s="$(date -d "$dia_do_arquivo" +%s 2>/dev/null || true)"
+    linha_s="$(date -d "${dia_do_arquivo%% *} $hora_da_linha" +%s 2>/dev/null || true)"
+    # O registro passou da meia-noite: a hora da linha é menor que a da partida do arquivo, então é do dia seguinte.
+    if [ -n "$inicio_s" ] && [ -n "$linha_s" ] && [ "$linha_s" -lt "$inicio_s" ]; then linha_s=$((linha_s + 86400)); fi
+    copia_s="$(find "$OUT/sessions" "$OUT/video" -type f -printf '%T@\n' 2>/dev/null | sort -n | tail -1 | cut -d. -f1 || true)"
+    if [ -n "$linha_s" ] && [ -n "$copia_s" ] && [ "$linha_s" -gt "$copia_s" ]; then linha_mais_nova=1; fi
+  fi
+fi
 kb=""; fonte=""
-if [ "${copiado_kb:-0}" -gt 0 ]; then
+if [ "${copiado_kb:-0}" -gt 0 ] && [ -z "$linha_mais_nova" ]; then
   kb="$copiado_kb"; fonte="pelo tamanho de sessions/ + video/ copiados"
 elif [ -n "$ocupado_kb" ]; then
-  kb="$ocupado_kb"; fonte="pela última linha 'recordings space' dos registros (nada foi copiado)"
+  if [ -n "$linha_mais_nova" ]; then fonte="pela última linha 'recordings space' dos registros, mais recente que os arquivos da cópia"
+  else fonte="pela última linha 'recordings space' dos registros (nada foi copiado)"; fi
+  kb="$ocupado_kb"
 fi
 if [ -n "$kb" ] && [ "$kb" -ge $((AVISO_MB * 1024)) ]; then
   avisar "gravações em $((kb / 1024)) MB de $((teto_kb / 1024)) MB (livre $(( (teto_kb - kb) / 1024 )) MB, $(( (kb * 100 + teto_kb / 2) / teto_kb )) % ocupado, $fonte; aviso a partir de ${AVISO_MB} MB): o app apaga as mais antigas ao passar do teto; colete a cada 2 dias de uso ou logo depois de um evento raro"
