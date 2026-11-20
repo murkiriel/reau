@@ -42,12 +42,10 @@ Português (pt-BR): [CHANGELOG.pt-br.md](CHANGELOG.pt-br.md) · Español: [CHANG
 - **The test switches of debug builds** ("Experimental connection", "Experimental video", "Experimental dash") are gone; REau does what it did with all of them off.
 
 ### Fixed
-- **The roundabout arrow on the dash was drawn the other way round** (seen on the bike): in Brazil Android Auto says counter-clockwise and the dash drew it clockwise.
-- **The dash's Wi-Fi is no longer called "stuck" when the phone has already joined it** (not yet seen on the bike).
+- **The roundabout arrow on the dash was drawn the other way round** (the error was seen on the bike; the fix was not yet): in Brazil Android Auto says counter-clockwise and the dash drew it clockwise.
+- **The dash's Wi-Fi is no longer called "stuck" when the phone has already joined it**, and an old network request no longer drops a newer one (not yet seen on the bike).
 - **The video no longer goes above the profile's pace after a joystick tap.**
-- **The window's bitrate warning compares with the real ceiling.**
-- **A rare race when changing the pace while the dash drops could jam the encoder.**
-- **Adopting the dash's network no longer drops a newer request.**
+- **Changing the video pace at the exact moment the dash dropped could leave the video stuck until the projection was turned off.**
 - **More left-hand traffic territories** in the Automatic driving side.
 - **After the dash's Wi-Fi comes back, the picture comes back**, and the dash is tried again in 2 s after a refused connection on a network the phone joined by itself.
 - **The Wi-Fi list is no longer empty while REau is behind another app**, and a weak Wi-Fi is no longer reported as a wrong dash name.

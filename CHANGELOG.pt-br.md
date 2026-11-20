@@ -43,12 +43,10 @@ aparecem).
 - **As chaves de teste das builds de depuração** ("Conexão experimental", "Vídeo experimental", "Painel experimental") saíram; o REau faz o que fazia com todas desligadas.
 
 ### Corrigido
-- **A seta da rotatória no painel era desenhada ao contrário** (visto na moto): no Brasil o Android Auto diz anti-horário e o painel desenhava horário.
-- **O Wi-Fi do painel deixa de ser chamado de "travado" quando o celular já entrou nele** (ainda não visto na moto).
+- **A seta da rotatória no painel era desenhada ao contrário** (o erro foi visto na moto; a correção ainda não): no Brasil o Android Auto diz anti-horário e o painel desenhava horário.
+- **O Wi-Fi do painel deixa de ser chamado de "travado" quando o celular já entrou nele**, e um pedido de rede antigo não derruba mais um mais novo (ainda não visto na moto).
 - **O vídeo não passa mais do ritmo do perfil depois de um toque no joystick.**
-- **O aviso de bitrate da janela compara com o teto real.**
-- **Uma corrida rara ao trocar o ritmo enquanto o painel cai podia prender o codificador.**
-- **A adoção da rede do painel não derruba mais um pedido mais novo.**
+- **Trocar o ritmo do vídeo no exato momento em que o painel caía podia deixar o vídeo preso até desligar a projeção.**
 - **Mais territórios de mão inglesa** no lado da via automático.
 - **Depois que o Wi-Fi do painel volta, a imagem volta**, e o painel é tentado de novo em 2 s depois de uma conexão recusada numa rede em que o celular entrou sozinho.
 - **A lista de Wi-Fi deixa de vir vazia com o REau atrás de outro app**, e um Wi-Fi fraco deixa de ser dado como nome errado do painel.

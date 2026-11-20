@@ -42,12 +42,10 @@ English: [CHANGELOG.md](CHANGELOG.md) · Português (pt-BR): [CHANGELOG.pt-br.md
 - **Los interruptores de prueba de las compilaciones de depuración** ("Conexión experimental", "Video experimental", "Tablero experimental") se fueron; REau hace lo que hacía con todos apagados.
 
 ### Corregido
-- **La flecha de la rotonda en el tablero se dibujaba al revés** (visto en la moto): en Brasil Android Auto dice antihorario y el tablero la dibujaba horaria.
-- **El Wi-Fi del tablero deja de llamarse "trabado" cuando el teléfono ya se unió a él** (aún sin ver en la moto).
+- **La flecha de la rotonda en el tablero se dibujaba al revés** (el error se vio en la moto; la corrección aún no): en Brasil Android Auto dice antihorario y el tablero la dibujaba horaria.
+- **El Wi-Fi del tablero deja de llamarse "trabado" cuando el teléfono ya se unió a él**, y una solicitud de red antigua ya no tumba una más nueva (aún sin ver en la moto).
 - **El video ya no pasa del ritmo del perfil después de un toque del joystick.**
-- **El aviso de bitrate de la ventana compara con el tope real.**
-- **Una carrera rara al cambiar el ritmo mientras el tablero se cae podía atascar el codificador.**
-- **Adoptar la red del tablero ya no tumba una solicitud más nueva.**
+- **Cambiar el ritmo del video justo cuando el tablero se caía podía dejar el video trabado hasta apagar la proyección.**
 - **Más territorios de circulación por la izquierda** en el lado de circulación automático.
 - **Cuando el Wi-Fi del tablero vuelve, la imagen vuelve**, y el tablero se intenta de nuevo en 2 s después de una conexión rechazada en una red a la que el teléfono se unió por su cuenta.
 - **La lista de Wi-Fi deja de venir vacía con REau detrás de otra app**, y un Wi-Fi débil deja de darse por nombre equivocado del tablero.
