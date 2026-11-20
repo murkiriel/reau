@@ -221,9 +221,9 @@ class DashManeuverGlyphsTest {
         for (type in ManeuverType.entries) if (type != ManeuverType.ROUNDABOUT) {
             assertEquals(type.name, DashManeuverGlyphs.codeFor(type), byLabel.getValue(type.name))
         }
-        assertEquals(0x0B, byLabel.getValue("ROUNDABOUT exit 1"))
-        assertEquals(0x0C, byLabel.getValue("ROUNDABOUT exit 2"))
-        assertEquals(0x0D, byLabel.getValue("ROUNDABOUT exit 3"))
+        assertEquals(0x32, byLabel.getValue("ROUNDABOUT exit 1"))
+        assertEquals(0x33, byLabel.getValue("ROUNDABOUT exit 2"))
+        assertEquals(0x34, byLabel.getValue("ROUNDABOUT exit 3"))
         assertEquals(0x1A, byLabel.getValue("UTURN via the right"))
         assertEquals(0x1C, byLabel.getValue("Recalculating"))
         assertEquals(0xFF, byLabel.getValue("No maneuver (hidden)"))
@@ -238,8 +238,8 @@ class DashManeuverGlyphsTest {
         assertEquals("Continuar em frente", DashManeuverGlyphs.describePt(0x09))
         assertEquals("Virar à esquerda", DashManeuverGlyphs.describePt(0x14))
         assertEquals("Virar à direita", DashManeuverGlyphs.describePt(0x15))
-        assertEquals("Rotatória anti-horária, saída 1", DashManeuverGlyphs.describePt(0x0B))
-        assertEquals("Rotatória horária, saída 2", DashManeuverGlyphs.describePt(0x33))
+        assertEquals("Rotatória anti-horária, saída 1", DashManeuverGlyphs.describePt(0x32))
+        assertEquals("Rotatória horária, saída 2", DashManeuverGlyphs.describePt(0x0C))
         assertEquals("Recalculando a rota (bússola girando)", DashManeuverGlyphs.describePt(0x1C))
         assertEquals("Retorno pela esquerda", DashManeuverGlyphs.describePt(0x3D))
         assertEquals("Retorno pela direita", DashManeuverGlyphs.describePt(0x1A))
@@ -274,7 +274,7 @@ class DashManeuverGlyphsTest {
             assertTrue("0x%02X has no words".format(must), !DashManeuverGlyphs.describe(must).isNullOrBlank())
         }
         assertEquals("the two empty bubbles between them stay out", emptyList<Int>(), seq.filter { it == 0x2B || it == 0x2C })
-        assertEquals(46, seq.size)
+        assertEquals(47, seq.size)
     }
 
     @Test

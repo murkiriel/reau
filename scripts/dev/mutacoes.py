@@ -4737,7 +4737,7 @@ MUTATIONS += [
     ("P32M lado: o nome da mão inglesa em português muda", "app/src/main/res/values-pt/strings.xml",
      '<string name="driving_side_left">Mão inglesa</string>', '<string name="driving_side_left">Mão esquerda</string>', ["DrivingSideChoiceTest"]),
     ("P32M lado: a rotatória do formato antigo sem lado ganha direção", MAIN + "aa/AapNavigationStatus.kt",
-     "if (!detail.hasSide() || detail.side == NavigationStatus.NextTurnDetail.Side.UNSPECIFIED) {", "if (false) {", ["AapControlNavigationTest"]),
+     "!detail.hasSide() || detail.side == NavigationStatus.NextTurnDetail.Side.UNSPECIFIED ->", "false ->", ["AapControlNavigationTest"]),
 ]
 
 

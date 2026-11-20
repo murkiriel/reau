@@ -15,6 +15,7 @@
 package com.reau.app.aa
 
 import com.reau.app.aa.proto.NavigationStatus
+import com.reau.app.aa.proto.NavigationStatus.NavigationManeuver.NavigationType
 
 /**
  * Parses the ID_NAV channel. Google Maps speaks the modern messages (NavigationState /
@@ -161,6 +162,18 @@ internal class AapControlNavigation(private val onGuidance: (NavGuidance) -> Uni
     }
 
     /**
+     * The legacy roundabout with an exit: its side is the driving side, so a stated one gives the direction (left: clockwise, right: counterclockwise).
+     * With no side said (absent or UNSPECIFIED) the direction is not said either: the plain "enter" type, which REau draws by the driving side it knows.
+     */
+    private fun legacyRoundabout(detail: NavigationStatus.NextTurnDetail): Int {
+        return when {
+            !detail.hasSide() || detail.side == NavigationStatus.NextTurnDetail.Side.UNSPECIFIED -> NavigationType.ROUNDABOUT_ENTER.number
+            detail.side == NavigationStatus.NextTurnDetail.Side.LEFT -> NavigationType.ROUNDABOUT_ENTER_AND_EXIT_CW.number
+            else -> NavigationType.ROUNDABOUT_ENTER_AND_EXIT_CCW.number
+        }
+    }
+
+    /**
      * Folds the legacy (event, side) pair into the modern NavigationType vocabulary the
      * parcel speaks, so downstream consumers only ever deal with one enum.
      */
@@ -214,16 +227,7 @@ internal class AapControlNavigation(private val onGuidance: (NavGuidance) -> Uni
                 NavigationStatus.NavigationManeuver.NavigationType.ROUNDABOUT_EXIT.number
             // The side is the driving side; when driving on the right (what Waze sends for right-hand traffic),
             // the roundabout turns counterclockwise. Copied from MOTO-HUB it was always clockwise.
-            // With no side said (absent or UNSPECIFIED) the direction is not said either: the plain "enter" type, which REau draws by the driving side it knows.
-            NavigationStatus.NextTurnDetail.NextEvent.ROUNDABOUT_ENTER_AND_EXIT ->
-                if (!detail.hasSide() || detail.side == NavigationStatus.NextTurnDetail.Side.UNSPECIFIED) {
-                    NavigationStatus.NavigationManeuver.NavigationType.ROUNDABOUT_ENTER.number
-                } else {
-                    pick(
-                        NavigationStatus.NavigationManeuver.NavigationType.ROUNDABOUT_ENTER_AND_EXIT_CW,
-                        NavigationStatus.NavigationManeuver.NavigationType.ROUNDABOUT_ENTER_AND_EXIT_CCW,
-                    )
-                }
+            NavigationStatus.NextTurnDetail.NextEvent.ROUNDABOUT_ENTER_AND_EXIT -> legacyRoundabout(detail)
             NavigationStatus.NextTurnDetail.NextEvent.STRAIGHT ->
                 NavigationStatus.NavigationManeuver.NavigationType.STRAIGHT.number
             NavigationStatus.NextTurnDetail.NextEvent.FERRY_BOAT ->

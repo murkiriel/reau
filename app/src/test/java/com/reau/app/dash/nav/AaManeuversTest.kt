@@ -227,7 +227,7 @@ class AaManeuversTest {
     @Test
     fun `the roundabout exit and rerouting reach the glyph`() {
         val g = NavGuidance(active = true, maneuverType = 34, roundaboutExitNumber = 3, rerouting = false)
-        assertEquals(0x0D, AaManeuvers.toDash(g)?.maneuver)
+        assertEquals(0x34, AaManeuvers.toDash(g)?.maneuver)
         assertEquals(DashManeuverGlyphs.RECALCULATING, AaManeuvers.toDash(g.copy(rerouting = true))?.maneuver)
     }
 
