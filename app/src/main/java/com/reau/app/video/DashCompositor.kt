@@ -101,7 +101,11 @@ class DashCompositor(private val log: (String) -> Unit) {
     private var sourceW = 0
     private var sourceH = 0
     private var window = CompositorMath.TexWindow(0f, 0f, 1f, 1f)
-    private var viewport = RectPx(0, 0, DashGlass.FRAME_W, DashGlass.FRAME_H)
+    // The area the picture is composed in: the dash's 526x300 frame, or a debug build's 528x304. [start] says it and [setOutput] takes the output's size; the rows of
+    // [dest] are counted from the top and become the GL viewport (from the bottom) at each draw, 1:1 on the output.
+    private var area = DashConfig.FULL_FRAME
+    private var dest = RectPx(0, 0, DashGlass.FRAME_W, DashGlass.FRAME_H)
+    private val viewport: RectPx get() = CompositorMath.viewport(dest, area.height)
     private var cover = emptyList<RectPx>()
 
     // The blurred background (the setting "Fundo desfocado nas bordas"): the mapping in use, to plan it again when the setting changes,
@@ -158,20 +162,20 @@ class DashCompositor(private val log: (String) -> Unit) {
     private val latchClock = StageClock()
 
     /**
-     * Brings up OpenGL and the input surface for a [sourceW]×[sourceH] source (the frame size asked of Android
-     * Auto). The mapping starts as the whole frame filling the dome ([FrameFit.fillDome]). Returns false if
-     * OpenGL could not be set up; the reason goes to [log].
+     * Auto) composed in [area] (the stream's picture size: the mappings given later are in its pixels). The mapping starts as the whole frame
+     * filling the dome ([FrameFit.fillDome]). Returns false if OpenGL could not be set up; the reason goes to [log].
      */
-    fun start(sourceW: Int, sourceH: Int): Boolean {
+    fun start(sourceW: Int, sourceH: Int, area: DashConfig.FrameSize = DashConfig.FULL_FRAME): Boolean {
         var ok = false
         onGlThread(wait = true) {
             runCatching {
                 gl.start()
                 this.sourceW = sourceW
                 this.sourceH = sourceH
-                val mapping = FrameFit.fillDome(RectPx(0, 0, sourceW, sourceH))
+                this.area = area
+                val mapping = FrameFit.fillDome(RectPx(0, 0, sourceW, sourceH), area)
                 window = CompositorMath.texWindow(mapping.source, sourceW, sourceH)
-                viewport = CompositorMath.viewport(mapping.dest)
+                dest = mapping.dest
                 // A picture arrived from the decoder: latch it at once (it must never wait for the dash's pace).
                 inputSurface = gl.createInput(sourceW, sourceH, handler) {
                     wakeups.incrementAndGet()
@@ -217,11 +221,11 @@ class DashCompositor(private val log: (String) -> Unit) {
     fun setMapping(mapping: FrameFit.Mapping): Boolean {
         var ok = false
         onGlThread(wait = true) {
-            val problems = FrameFit.problems(mapping, sourceW, sourceH)
+            val problems = FrameFit.problems(mapping, sourceW, sourceH, area)
             if (problems.isEmpty()) {
                 window = CompositorMath.texWindow(mapping.source, sourceW, sourceH)
-                viewport = CompositorMath.viewport(mapping.dest)
-                cover = CompositorMath.coverRects(mapping.cover)
+                dest = mapping.dest
+                cover = CompositorMath.coverRects(mapping.cover, area.width, area.height)
                 fitInUse = mapping
                 backdrop = planBackdrop()
                 ok = true
@@ -245,7 +249,7 @@ class DashCompositor(private val log: (String) -> Unit) {
     }
 
     private fun planBackdrop(): CompositorMath.Backdrop? =
-        fitInUse?.let { CompositorMath.backdrop(blurredFill && !gl.backdropFailed, it.source, it.dest, sourceW, sourceH) }
+        fitInUse?.let { CompositorMath.backdrop(blurredFill && !gl.backdropFailed, it.source, it.dest, sourceW, sourceH, area.width, area.height) }
 
     /**
      * Android Auto's picture is now [width]×[height] (a new session at another resolution). The mapping in use is
@@ -267,8 +271,9 @@ class DashCompositor(private val log: (String) -> Unit) {
     }
 
     /**
-     * Points the compositor at an encoder's input surface, [size] of it (526×300, or the picture a debug build chose, 448x256 to 528x304: what is composed
-     * in 526×300 is scaled to it on the way out, [CompositorMath.toOutput]) and starts the clock; a frame goes out at
+     * Points the compositor at an encoder's input surface, [size] of it (526×300, or a debug build's 528×304: the area everything is composed in, drawn 1:1, nothing
+     * scaled; a size other than the one [start] was given takes the area over and the black bands and the blurred background are planned again for it, the
+     * fit staying as it was until the caller gives one made for it) and starts the clock; a frame goes out at
      * once. [onFrameSubmitted] is called with each frame's time right before the frame is posted (the encoder's
      * `frameSubmitted`). Returns only when the switch is done: from then on nothing more is drawn on a previous
      * output, so its encoder can be released. The video clock carries on across outputs. A caller's trailing lambda
@@ -291,6 +296,11 @@ class DashCompositor(private val log: (String) -> Unit) {
             runCatching {
                 dropOutput()
                 gl.attachOutput(encoderSurface, size)
+                if (size != area) {
+                    area = size
+                    fitInUse?.let { cover = CompositorMath.coverRects(it.cover, size.width, size.height) }
+                    backdrop = planBackdrop()
+                }
                 this.onFrameSubmitted = onFrameSubmitted
                 postFailing = false
                 // Due now: the first tick sends a frame without waiting for the idle interval.
@@ -300,7 +310,7 @@ class DashCompositor(private val log: (String) -> Unit) {
                 handler.post(tick)
                 log(
                     "compositor output set: draw ${viewport.w}x${viewport.h} at (${viewport.x},${viewport.y} from the bottom) " +
-                        "of the ${DashGlass.FRAME_W}x${DashGlass.FRAME_H} frame, output ${size.width}x${size.height}, pace $pace",
+                        "of the ${area.width}x${area.height} area, output ${size.width}x${size.height} (1:1), pace $pace",
                 )
             }.onFailure { log("${RideDiagnostics.ERROR}compositor setOutput failed: $it") }
         }

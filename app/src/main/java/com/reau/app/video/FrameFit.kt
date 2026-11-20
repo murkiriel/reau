@@ -1,5 +1,6 @@
 package com.reau.app.video
 
+import com.reau.app.dash.DashConfig
 import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -13,8 +14,13 @@ import kotlin.math.roundToInt
  *
  * Every function takes the CONTENT rectangle of the source: the whole coded frame, or the area Android Auto was
  * told to draw in ([AaMargins.contentRect]). Nothing here stretches: source and destination keep one shape.
+ *
+ * Every function that places the picture on the dash also takes the AREA it is composed in, [DashConfig.FULL_FRAME] (526×300) unless a debug build
+ * composes in [com.reau.app.dash.VideoChoice.MANUAL_FRAME] (528×304): Android Auto's picture fills that area by the same rules, and the round glass
+ * ([DashGlass]) stays where it is (anchored at the top left, like every element drawn over the picture).
  */
 object FrameFit {
+
     /** How far the crop's window may slide, in % of the slack each way (past both edges). */
     const val CENTER_MIN = -100
     const val CENTER_MAX = 200
@@ -44,7 +50,7 @@ object FrameFit {
     /** The zoom's range in %, 100 being the fit as it is: under it the picture shrinks (black around), over it the picture is nearer. */
     val ZOOM = 50..200
 
-    /** [source] in the pixels of Android Auto's frame, [dest] in the pixels of the dash's 526×300 frame. */
+    /** [source] in the pixels of Android Auto's frame, [dest] in the pixels of the composition area (rows counted from the top). */
     /** [pastEdge]: the crop's window was slid past the picture's edge on purpose; only then may [source] leave
      *  Android Auto's frame, and the outside goes black. */
     data class Mapping(val source: RectPx, val dest: RectPx, val pastEdge: Boolean = false, val cover: Cover = Cover.NONE) {
@@ -56,33 +62,34 @@ object FrameFit {
      * The whole content, as large as it can be with all four corners on the glass. It rests on the frame's bottom
      * edge, where the circle is nearly at its widest. For 800×480 that is 370×222 at (78, 78): a scale of 0.4625.
      */
-    fun wholeVisible(content: RectPx): Mapping {
+    fun wholeVisible(content: RectPx, area: DashConfig.FrameSize = DashConfig.FULL_FRAME): Mapping {
         val aspect = content.w.toDouble() / content.h
         val r2 = DashGlass.RADIUS.toDouble() * DashGlass.RADIUS
-        val below = (DashGlass.USABLE_BOTTOM - DashGlass.CENTER_Y).toDouble()
+        val bottom = area.height
+        val below = (bottom - DashGlass.CENTER_Y).toDouble()
         // Even widths only, so the rectangle is centred on the glass to the pixel.
-        var w = DashGlass.DOME_BOX.w
+        var w = area.width
         while (w > 2) {
             val half = w / 2.0
             val above = w / aspect - below // how far above the circle's centre the top edge is
-            val fits = w / aspect <= DashGlass.USABLE_BOTTOM
+            val fits = w / aspect <= bottom
             if (fits && half * half + below * below <= r2 && half * half + above * above <= r2) break
             w -= 2
         }
         val h = (w / aspect).roundToInt().coerceAtLeast(1)
-        return Mapping(content, RectPx(DashGlass.CENTER_X - w / 2, DashGlass.USABLE_BOTTOM - h, w, h))
+        return Mapping(content, RectPx(DashGlass.CENTER_X - w / 2, bottom - h, w, h))
     }
 
     /**
      * The whole content, as large as fits the dash's frame, resting on its bottom edge. The circle cuts its top
      * corners. For 800×480 that is 500×300 at (13, 0): a scale of 0.625, 84% of it on the glass.
      */
-    fun fillDome(content: RectPx): Mapping {
-        val box = DashGlass.DOME_BOX
+    fun fillDome(content: RectPx, area: DashConfig.FrameSize = DashConfig.FULL_FRAME): Mapping {
+        val box = areaBox(area)
         val scale = min(box.w.toDouble() / content.w, box.h.toDouble() / content.h)
         val w = (content.w * scale).roundToInt().coerceIn(1, box.w)
         val h = (content.h * scale).roundToInt().coerceIn(1, box.h)
-        return Mapping(content, RectPx(DashGlass.CENTER_X - w / 2, box.bottom - h, w, h))
+        return Mapping(content, RectPx(box.w / 2 - w / 2, box.bottom - h, w, h))
     }
 
     /**
@@ -93,9 +100,11 @@ object FrameFit {
      * its edges, 50 the middle; from -100 to 200 the window goes past the edge by up
      * to the whole slack, and what falls outside Android Auto's picture reaches the dash black (CompositorGl).
      */
-    fun centerCrop(content: RectPx, scalePercent: Int, centerXPercent: Int = 50, centerYPercent: Int = 50): Mapping {
-        val box = DashGlass.DOME_BOX
-        val (w, h) = cropSize(content, scalePercent)
+    fun centerCrop(
+        content: RectPx, scalePercent: Int, centerXPercent: Int = 50, centerYPercent: Int = 50, area: DashConfig.FrameSize = DashConfig.FULL_FRAME,
+    ): Mapping {
+        val box = areaBox(area)
+        val (w, h) = cropSize(content, scalePercent, area)
         val x = content.x + (content.w - w) * centerXPercent.coerceIn(CENTER_MIN, CENTER_MAX) / 100
         val y = content.y + (content.h - h) * centerYPercent.coerceIn(CENTER_MIN, CENTER_MAX) / 100
         val pastEdge = x < content.x || y < content.y || x + w > content.right || y + h > content.bottom
@@ -103,8 +112,8 @@ object FrameFit {
     }
 
     /** The crop's window at [scalePercent]: the frame's shape, at most the content (see [centerCrop]). */
-    fun cropSize(content: RectPx, scalePercent: Int): Pair<Int, Int> {
-        val box = DashGlass.DOME_BOX
+    fun cropSize(content: RectPx, scalePercent: Int, area: DashConfig.FrameSize = DashConfig.FULL_FRAME): Pair<Int, Int> {
+        val box = areaBox(area)
         val scale = scalePercent.coerceIn(1, 100) / 100.0
         var w = (box.w / scale).roundToInt()
         var h = (box.h / scale).roundToInt()
@@ -121,21 +130,21 @@ object FrameFit {
      * content, [x] across and [y] down (null: centred). It may leave the picture by all of it but a pixel ([cropRange]);
      * what falls outside goes black on the dash.
      */
-    fun cropAt(content: RectPx, scalePercent: Int, x: Int?, y: Int?): Mapping {
-        val (w, h) = cropSize(content, scalePercent)
-        val (rangeX, rangeY) = cropRange(content, scalePercent)
+    fun cropAt(content: RectPx, scalePercent: Int, x: Int?, y: Int?, area: DashConfig.FrameSize = DashConfig.FULL_FRAME): Mapping {
+        val (w, h) = cropSize(content, scalePercent, area)
+        val (rangeX, rangeY) = cropRange(content, scalePercent, area)
         val left = content.x + (x ?: ((content.w - w) / 2)).coerceIn(rangeX)
         val top = content.y + (y ?: ((content.h - h) / 2)).coerceIn(rangeY)
         val pastEdge = left < content.x || top < content.y || left + w > content.right || top + h > content.bottom
-        return Mapping(RectPx(left, top, w, h), DashGlass.DOME_BOX, pastEdge)
+        return Mapping(RectPx(left, top, w, h), areaBox(area), pastEdge)
     }
 
     /**
      * Where the window's left and top edges may go (inside the content): the whole window past
      * either edge but one pixel, which stays on the picture (all of it outside is a black dash, refused by [problems]).
      */
-    fun cropRange(content: RectPx, scalePercent: Int): Pair<IntRange, IntRange> {
-        val (w, h) = cropSize(content, scalePercent)
+    fun cropRange(content: RectPx, scalePercent: Int, area: DashConfig.FrameSize = DashConfig.FULL_FRAME): Pair<IntRange, IntRange> {
+        val (w, h) = cropSize(content, scalePercent, area)
         return -(w - 1)..content.w - 1 to -(h - 1)..content.h - 1
     }
 
@@ -144,10 +153,10 @@ object FrameFit {
      * correct a picture that sits too high or off to one side. The picture stops at
      * the edges of the dash's frame, so a move never makes the mapping invalid; only the destination moves.
      */
-    fun moved(mapping: Mapping, dx: Int, dy: Int): Mapping {
+    fun moved(mapping: Mapping, dx: Int, dy: Int, area: DashConfig.FrameSize = DashConfig.FULL_FRAME): Mapping {
         val d = mapping.dest
-        val x = (d.x + dx).coerceIn(0, (DashGlass.FRAME_W - d.w).coerceAtLeast(0))
-        val y = (d.y + dy).coerceIn(0, (DashGlass.FRAME_H - d.h).coerceAtLeast(0))
+        val x = (d.x + dx).coerceIn(0, (area.width - d.w).coerceAtLeast(0))
+        val y = (d.y + dy).coerceIn(0, (area.height - d.h).coerceAtLeast(0))
         return mapping.copy(dest = d.copy(x = x, y = y))
     }
 
@@ -175,7 +184,7 @@ object FrameFit {
          *  no part of it is. */
         SOURCE_OUTSIDE_FRAME,
 
-        /** The destination rectangle is not inside the dash's 526×300 frame. */
+        /** The destination rectangle is not inside the area the picture is composed in (the dash's 526×300 frame, or a debug build's 528×304). */
         DEST_OUTSIDE_FRAME,
 
         /** A side of either rectangle is under [MIN_SIDE] px. */
@@ -193,13 +202,13 @@ object FrameFit {
     /** Whole-pixel rounding moves a shape by a fraction of a percent; a real stretch is far above this. */
     const val MAX_DISTORTION = 0.02
 
-    /** Checks a mapping (one typed into the settings, say) against a [frameW]×[frameH] Android Auto frame. */
-    fun problems(mapping: Mapping, frameW: Int, frameH: Int): List<Problem> = buildList {
+    /** Checks a mapping (one typed into the settings, say) against a [frameW]×[frameH] Android Auto frame and the composition [area]. */
+    fun problems(mapping: Mapping, frameW: Int, frameH: Int, area: DashConfig.FrameSize = DashConfig.FULL_FRAME): List<Problem> = buildList {
         val s = mapping.source
         val d = mapping.dest
         val sourceOk = if (mapping.pastEdge) s.touches(frameW, frameH) else s.isInside(frameW, frameH)
         if (!sourceOk) add(Problem.SOURCE_OUTSIDE_FRAME)
-        if (!d.isInside(DashGlass.FRAME_W, DashGlass.FRAME_H)) add(Problem.DEST_OUTSIDE_FRAME)
+        if (!d.isInside(area.width, area.height)) add(Problem.DEST_OUTSIDE_FRAME)
         val tooSmall = minOf(s.w, s.h, d.w, d.h) < MIN_SIDE
         if (tooSmall) add(Problem.TOO_SMALL)
         if (!tooSmall && distortion(s, d) > MAX_DISTORTION) add(Problem.DISTORTED)
@@ -218,3 +227,6 @@ private fun RectPx.touches(frameW: Int, frameH: Int): Boolean =
 
 private fun RectPx.isInside(frameW: Int, frameH: Int): Boolean =
     x >= 0 && y >= 0 && w > 0 && h > 0 && right <= frameW && bottom <= frameH
+
+/** The composition [area] as a rectangle at the origin. */
+private fun areaBox(area: DashConfig.FrameSize) = RectPx(0, 0, area.width, area.height)

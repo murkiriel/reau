@@ -89,7 +89,7 @@ private fun AssistantCounters(step: FitAssistant.Step, s: REauSettings, change: 
     val controls = FitAssistant.controls(step, s.navFit.fit)
     val tip = if (FitControl.CROP_SIZE in controls) R.string.fit_assistant_size_tip else R.string.fit_assistant_adjust_tip
     Note(stringResource(tip), "fit_assistant_tip")
-    FitCounters(s.navFit, s.content, controls, { change(s.copy(navFit = it)) }, tags = "fit_assistant_")
+    FitCounters(s.navFit, s.content, controls, { change(s.copy(navFit = it)) }, tags = "fit_assistant_", area = s.frameSize)
 }
 
 /**

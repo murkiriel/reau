@@ -410,6 +410,19 @@ internal class LiveSides(
     @Volatile private var tuned: REauSettings? = setup.settings
     @Volatile private var aaConfig: AaConfig = setup.aaConfig
     @Volatile private var videoSettings: VideoLoop.Settings = setup.video
+
+    /**
+     * The area the stream really runs in when it is not the one the settings ask for: no encoder took a debug build's 528x304 and the loop fell back to the dash's 526x300
+     * ([VideoLoop.frame]). The fits are then made for it, as a release build's are ([fitOf]); null while the stream runs in the area of the settings.
+     */
+    @Volatile private var fallbackArea: com.reau.app.dash.DashConfig.FrameSize? = null
+
+    /** [settings] for the area the stream really runs in ([fallbackArea]): the area decides the fit. */
+    private fun inStreamArea(settings: REauSettings): REauSettings = fallbackArea?.let { settings.copy(videoFrame = it.id) } ?: settings
+
+    /** The fit [settings] ask for [screen], made for the area the stream really runs in. */
+    private fun fitOf(settings: REauSettings, screen: com.reau.app.aa.AaScreen = com.reau.app.aa.AaScreens.watch.screen.value): FrameFit.Mapping =
+        inStreamArea(settings).mappingFor(screen)
     @Volatile private var pendingMapping: FrameFit.Mapping? = null
     private val live = Live()
 
@@ -474,11 +487,11 @@ internal class LiveSides(
         AaLog.phoneNow = { com.reau.app.data.PhoneNow.text() }
         val card = setup.card
         if (card != null) {
-            // The card is drawn at the dash's own size and goes to it pixel for pixel.
-            started = compositor.start(DashGlass.FRAME_W, DashGlass.FRAME_H) && compositor.setMapping(WHOLE_FRAME)
+            // The card is drawn at the dash's own size and goes to it pixel for pixel, at the top left of the stream's area.
+            started = compositor.start(DashGlass.FRAME_W, DashGlass.FRAME_H, setup.video.frame) && compositor.setMapping(WHOLE_FRAME)
             receiver = null
         } else {
-            started = compositor.start(com.reau.app.aa.AaVideo.WIDTH, com.reau.app.aa.AaVideo.HEIGHT)
+            started = compositor.start(com.reau.app.aa.AaVideo.WIDTH, com.reau.app.aa.AaVideo.HEIGHT, setup.video.frame)
             val surface = compositor.inputSurface.takeIf { started }
             setup.mapping?.let {
                 lastFit = it
@@ -605,7 +618,7 @@ internal class LiveSides(
             }
         }
         // The app menu's own fit, as Android Auto changes screen (the first value is the screen now)
-        val follower = FitFollower({ tuned }, ::remap) { RideDiagnostics.log("projection", it) }
+        val follower = FitFollower({ tuned?.let(::inStreamArea) }, ::remap) { RideDiagnostics.log("projection", it) }
         if (setup.card == null) scope.launch { com.reau.app.aa.AaScreens.watch.screen.drop(1).collect { follower.on(it); session.ringFollowsScreen(it) } }
         // The dash's joystick drives Android Auto (keys and the wheel); every button is logged, known or not.
         // Gemini only where its microphone was given (the switch "Gemini pelo joystick").
@@ -1069,11 +1082,11 @@ internal class LiveSides(
         @Suppress("CyclomaticComplexMethod") // one branch per field or case of the format it reads or writes
         fun retune(settings: REauSettings) {
             val before = tuned
-            if (setup.card != null || !started || before == null) return remap(settings.mappingFor(com.reau.app.aa.AaScreens.watch.screen.value))
+            if (setup.card != null || !started || before == null) return remap(fitOf(settings))
             tuned = settings
             val steps = LiveTuning.steps(before, settings)
             if (steps.isNotEmpty()) RideDiagnostics.log("projection", "settings changed while running: ${steps.joinToString()}")
-            if (LiveTuning.Step.REFIT in steps) remap(settings.mappingFor(com.reau.app.aa.AaScreens.watch.screen.value))
+            if (LiveTuning.Step.REFIT in steps) remap(fitOf(settings))
             // A burst of changes opens one session, [SessionSettle.IN_USE_MS] after the last, with its values.
             if (LiveTuning.Step.NEW_ANDROID_AUTO_SESSION in steps) {
                 sessionSettle.offer {
@@ -1118,7 +1131,7 @@ internal class LiveSides(
             val config = LiveTuning.sessionConfig(aaConfig, settings)
             soundHeard.clear()
             aaConfig = config
-            pendingMapping = settings.mappingFor(com.reau.app.aa.AaScreens.watch.screen.value)
+            pendingMapping = fitOf(settings)
             receiver?.reconfigure(config)
         }
 
@@ -1136,6 +1149,22 @@ internal class LiveSides(
             val running = loop ?: return
             running.stop()
             loop = newLoop()
+        }
+
+        /**
+         * A stream started in [used], which is not the area of the settings when no encoder took it (the loop fell back to 526x300): the picture is fitted for the area it
+         * really runs in ([fitOf]), as a release build's is, and again for the settings' area when a later stream is back in it.
+         */
+        fun followFallback(used: com.reau.app.dash.DashConfig.FrameSize) {
+            val fallback = used.takeIf { it != videoSettings.frame }
+            if (fallback != fallbackArea) {
+                fallbackArea = fallback
+                val s = tuned
+                if (s != null && setup.card == null && started) {
+                    RideDiagnostics.log("projection", "the stream runs in ${used.id}: the picture is fitted for it")
+                    remap(fitOf(s))
+                }
+            }
         }
 
         /**
@@ -1157,7 +1186,10 @@ internal class LiveSides(
                 sessionStartedAtMs = dashSessionStartedAtMs,
                 stats = statsFeed,
             )
-            if (fresh.start()) return fresh
+            if (fresh.start()) {
+                followFallback(fresh.frame)
+                return fresh
+            }
             RideDiagnostics.error("projection", "the video loop did not start; the dash session is closed to be tried again")
             session.disconnect()
             return null

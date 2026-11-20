@@ -270,7 +270,7 @@ internal class StreamGovernor(
 
     /** The bitrate the encoder is built for, and the one profile 1 sets while frames keep coming: the rider's ceiling. */
     val activeBitrateBps: Int
-        // A manual stream is held to the ceiling the rider chose: it is not raised for the bits a frame gets (12 fps at 400 kbps would be lifted to 500).
+        // A manual stream is held to the ceiling the rider chose: it is not raised for the bits a frame gets (8 fps at 400 kbps would be lifted).
         get() = if (manual) {
             bitrateCeilingBps.coerceIn(0, DashConfig.MAX_STREAM_BITRATE_BPS)
         } else {

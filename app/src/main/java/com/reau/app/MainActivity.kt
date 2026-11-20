@@ -666,6 +666,6 @@ private fun AndroidAutoFromSettings(settings: REauSettings, save: (REauSettings)
 
 /** The dash's mask on the Android Auto screen follows its switch and the fit saved in the settings. */
 private fun maskOf(settings: REauSettings, save: (REauSettings) -> Unit, screen: com.reau.app.aa.AaScreen) =
-    AaScreenMask(settings.dashMask, settings.mappingFor(screen), com.reau.app.aa.AaVideo.WIDTH, com.reau.app.aa.AaVideo.HEIGHT) {
+    AaScreenMask(settings.dashMask, settings.mappingFor(screen), com.reau.app.aa.AaVideo.WIDTH, com.reau.app.aa.AaVideo.HEIGHT, settings.frameSize) {
         save(settings.copy(dashMask = it))
     }

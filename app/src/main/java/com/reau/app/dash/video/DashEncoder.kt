@@ -15,7 +15,7 @@ import com.reau.app.util.CodecReport
 
 /**
  * MediaCodec H.264 encoder for the dash stream:
- *   526 × 300 (or the picture a debug build chose, [com.reau.app.dash.VideoChoice.FRAMES]), Baseline L4.1, 1-second IDR interval.
+ *   526 × 300 (or a debug build's [com.reau.app.dash.VideoChoice.MANUAL_FRAME], 528 × 304), Baseline L4.1, 1-second IDR interval.
  *
  * Cadence/bitrate are DRIVEN BY THE FRAME LOOP, not fixed here (the stream package's pacing). The
  * dash shows a map well at only **2–4 fps / 200–400 kbps** (the two profiles of [DashConfig]). A map doesn't need video frame rates, and

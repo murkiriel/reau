@@ -32,7 +32,7 @@ object DashConfig {
     /**
      * What a release build runs: profile A is 4 fps at 400 kbps, constant, a keyframe every second. Profile B (the navigation's reduced tier) is
      * half of A's PACE, 2 fps, at the same bitrate ceiling: the choices are pure (plan 32), the bitrate is never halved by a tier or by a still picture.
-     * A debug build chooses the pace, the ceiling and the picture ([VideoChoice]). The encoder is built once for A's pace; B only feeds it fewer
+     * A debug build chooses the pace and the ceiling, in a fixed picture ([VideoChoice]). The encoder is built once for A's pace; B only feeds it fewer
      * frames, so a change of tier never replaces the encoder. [PROFILE_REDUCED_BPS] is only the default of an encoder prepared with no bitrate.
      */
     const val PROFILE_FULL_FPS = 4
@@ -58,7 +58,7 @@ object DashConfig {
 
     /**
      * The dash's frame, 526x300: what everything is composed in (the mask, the ring, the title, the overlays), and what the release build's encoder is
-     * built for. A debug build may ask for another picture ([VideoChoice.FRAMES]); only the encoder's output then has that size, and the compositor
+     * built for. A debug build runs [VideoChoice.MANUAL_FRAME]; only the encoder's output then has that size, and the compositor
      * scales what it composed on the way out.
      */
     val FULL_FRAME = FrameSize(526, 300)

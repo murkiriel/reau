@@ -90,13 +90,12 @@ internal class CompositorGl {
 
     val hasOutput: Boolean get() = windowSurface != EGL14.EGL_NO_SURFACE
 
-    // The size of the output surface (the encoder's). Everything is placed in the dash's 526x300 frame and scaled to this at the last step
-    // ([toOutput]), so a chosen picture size (528x304, or a smaller one) needs nothing else to know it. Only the dash's output has it: the preview, the
-    // web viewers' output and the small copies of the picture are drawn at their own sizes.
+    // The size of the output surface (the encoder's), which is also the area everything is composed in, 1:1: the picture's rectangle, the black bands and the
+    // overlays are all in its pixels, the overlays at the same pixels from the top left as in the dash's own 526x300 frame (nothing is scaled; a debug build's
+    // 528x304 only has 2 columns and 4 rows more, to the right and below). Only the dash's output has it: the preview, the web viewers' output and the
+    // small copies of the picture are drawn at their own sizes.
     private var outputW = DashGlass.FRAME_W
     private var outputH = DashGlass.FRAME_H
-
-    private fun toOutput(r: RectPx) = CompositorMath.toOutput(r, outputW, outputH)
 
     // Full-screen quad (triangle strip): pos.xy + tex.uv interleaved.
     private val quad: FloatBuffer = ByteBuffer
@@ -354,14 +353,9 @@ internal class CompositorGl {
 
     private fun drawQuad(texture: Int, width: Int, height: Int, x: Int, y: Int) {
         if (width == 0 || height == 0) return
-        val w = DashGlass.FRAME_W.toFloat()
-        val h = DashGlass.FRAME_H.toFloat()
-        val left = x / w * 2f - 1f
-        val right = (x + width) / w * 2f - 1f
-        val top = 1f - y / h * 2f
-        val bottom = 1f - (y + height) / h * 2f
+        val q = CompositorMath.overlayQuad(RectPx(x, y, width, height), outputW, outputH)
         overlayQuad.clear()
-        overlayQuad.put(floatArrayOf(left, bottom, 0f, 1f, right, bottom, 1f, 1f, left, top, 0f, 0f, right, top, 1f, 0f))
+        overlayQuad.put(floatArrayOf(q.left, q.bottom, 0f, 1f, q.right, q.bottom, 1f, 1f, q.left, q.top, 0f, 0f, q.right, q.top, 1f, 0f))
         GLES20.glViewport(0, 0, outputW, outputH)
         GLES20.glUseProgram(overlayProgram)
         overlayQuad.position(0)
@@ -509,14 +503,13 @@ internal class CompositorGl {
      * Clears the output to black and, with a [window], draws that part of the latched picture into [viewport]
      * (OpenGL coordinates). Nothing is shown until [post].
      */
-    /** Paints [rects] (GL pixels of the dash's frame) black, over what is drawn: the rider's cover. */
+    /** Paints [rects] (GL pixels of the output) black, over what is drawn: the rider's cover. */
     fun fillBlack(rects: List<RectPx>) {
         if (rects.isEmpty()) return
         GLES20.glEnable(GLES20.GL_SCISSOR_TEST)
         GLES20.glClearColor(0f, 0f, 0f, 1f)
         for (r in rects) {
-            val out = toOutput(r)
-            GLES20.glScissor(out.x, out.y, out.w, out.h)
+            GLES20.glScissor(r.x, r.y, r.w, r.h)
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
         }
         GLES20.glDisable(GLES20.GL_SCISSOR_TEST)
@@ -530,8 +523,7 @@ internal class CompositorGl {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
         if (window == null) return
         if (backdrop != null) drawBackdrop(backdrop)
-        // The smaller pictures are shrunk with the area average (16 taps over a pixel's footprint); the frame's own size keeps the plain fetch, as ever.
-        drawQuad(window, toOutput(viewport), SMALL_OUTPUT_FILTER.takeIf { CompositorMath.needsAreaFilter(outputW, outputH) })
+        drawQuad(window, viewport)
     }
 
     // The blurred background (CompositorMath.backdrop): a small framebuffer with a texture and a program of their own, all made on
@@ -547,6 +539,8 @@ internal class CompositorGl {
 
     private fun drawBackdrop(plan: CompositorMath.Backdrop) {
         if (backdropFailed) return
+        // Another area (the stream fell back to 526x300) is another size of the small copy: it is made again.
+        if (backdropFbo != 0 && backdropSize != plan.small) freeBackdropObjects()
         if (backdropFbo == 0 && !runCatching { createBackdrop(plan.small) }.getOrDefault(false)) {
             GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
             freeBackdropObjects()
@@ -558,8 +552,7 @@ internal class CompositorGl {
         drawQuad(plan.window, plan.small, LOOK_FILTER)
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
         // Second pass: that copy blurred (3x3), a little darker, over the whole frame.
-        val frame = toOutput(plan.frame)
-        GLES20.glViewport(frame.x, frame.y, frame.w, frame.h)
+        GLES20.glViewport(plan.frame.x, plan.frame.y, plan.frame.w, plan.frame.h)
         GLES20.glUseProgram(backdropProgram)
         val position = GLES20.glGetAttribLocation(backdropProgram, "aPosition")
         val texCoord = GLES20.glGetAttribLocation(backdropProgram, "aTexCoord")
@@ -819,9 +812,6 @@ internal class CompositorGl {
 
         /** How the small copy of [look] is reduced: the average of each block, as the picture classifier was trained. */
         private val LOOK_FILTER = ReductionFilter(ReductionFilter.Kernel.BOX)
-
-        /** How the picture is shrunk to an output smaller than the dash's frame ([CompositorMath.needsAreaFilter]): the same area average, on the stream's own size. */
-        private val SMALL_OUTPUT_FILTER = ReductionFilter(ReductionFilter.Kernel.BOX)
 
         const val NS_PER_MS = 1_000_000L
         const val QUAD_STRIDE = 16

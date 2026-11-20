@@ -45,7 +45,7 @@ import java.util.concurrent.TimeUnit
 internal class VideoLoop(
     private val compositor: DashCompositor,
     private val dash: Dash,
-    // A var: a stream whose smaller picture no encoder takes starts again at the full frame ([startAtFullFrame]).
+    // A var: a stream whose picture no encoder takes starts again at the full frame ([startAtFullFrame]).
     private var settings: Settings = Settings(),
     private val thermalStatus: () -> Int = { THERMAL_UNKNOWN },
     private val log: (String) -> Unit = { RideDiagnostics.log("stream", it) },
@@ -109,7 +109,7 @@ internal class VideoLoop(
         val reducedBitrateBps: Int = DashConfig.PROFILE_REDUCED_BPS,
         /** The size the encoder is built for ([com.reau.app.settings.REauSettings.frameSize]): fixed for the whole stream, so another size is another stream. */
         val frame: DashConfig.FrameSize = DashConfig.FULL_FRAME,
-        /** A debug build's three choices are pure ([com.reau.app.settings.REauSettings.manualVideo]): no profile B, no start ramp, no still halving ([StreamGovernor]). */
+        /** A debug build's choices are pure ([com.reau.app.settings.REauSettings.manualVideo]): no profile B, no start ramp, no still halving ([StreamGovernor]). */
         val manual: Boolean = false,
         /** A debug build's switch ([com.reau.app.settings.REauSettings.reserveCapOn]): off, the reserve does not cap the pace or the bitrate ([StreamGovernor]). */
         val reserveCap: Boolean = true,
@@ -143,6 +143,9 @@ internal class VideoLoop(
          */
         fun atFullFrame(): Settings = if (frame == DashConfig.FULL_FRAME) this else copy(frame = DashConfig.FULL_FRAME)
     }
+
+    /** The picture the stream runs in: [Settings.frame], or the dash's 526x300 after the fall back ([startAtFullFrame]), which the owner of the loop reads to compose in it too. */
+    val frame: DashConfig.FrameSize get() = settings.frame
 
     private var encoder: DashEncoder? = null
     private var output: RtpOutput? = null
@@ -444,15 +447,13 @@ internal class VideoLoop(
 
     companion object {
         /**
-         * The three choices as the "video loop start" line says them: pace, ceiling, picture, the guide for that pace and picture
-         * ([VideoChoice.recommendedKbps]) and the load in macroblocks a second ([VideoChoice.loadMbPerSec]), with a note when it is above what the dash
-         * showed it holds ([VideoChoice.SAFE_LOAD_MB_PER_SEC]).
+         * The choices as the "video loop start" line says them: pace, ceiling, picture, the guide for that pace ([VideoChoice.recommendedKbps]) and the
+         * load in macroblocks a second ([VideoChoice.loadMbPerSec]), which stays in the log although the settings no longer warn of it.
          */
         internal fun videoChoiceText(fps: Int, bitrateBps: Int, frame: DashConfig.FrameSize): String {
             val load = VideoChoice.loadMbPerSec(fps, frame)
             return "choice $fps fps / ${bitrateBps / 1000} kbps cap / ${frame.width}x${frame.height} " +
-                "(recommended ${VideoChoice.recommendedKbps(fps, frame)} kbps, load $load MB/s" +
-                (if (VideoChoice.heavy(fps, frame)) ", above the ${VideoChoice.SAFE_LOAD_MB_PER_SEC} MB/s the dash showed it holds" else "") + ")"
+                "(recommended ${VideoChoice.recommendedKbps(fps)} kbps, load $load MB/s)"
         }
 
         /** The WARN line of the fall back to the dash's own frame, with the pace and ceiling that are kept. */

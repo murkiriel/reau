@@ -57,10 +57,14 @@ object DashMask {
     private val RectPx.empty: Boolean get() = w <= 0 || h <= 0
 
     /**
-     * The mask for [mapping] (the settings' fit) with Android Auto's frame [sourceW]×[sourceH] drawn on a
-     * [canvasW]×[canvasH] screen; null with no screen yet or an empty fit.
+     * The mask for [mapping] (the settings' fit, made for the composition [area]) with Android Auto's frame [sourceW]×[sourceH] drawn on a
+     * [canvasW]×[canvasH] screen; null with no screen yet or an empty fit. The glass and the bubble stay at their pixels from the top left in any area.
      */
-    fun of(mapping: FrameFit.Mapping, sourceW: Int, sourceH: Int, canvasW: Int, canvasH: Int): Mask? {
+    @Suppress("LongParameterList") // the fit, the source's size, the screen's size and the area: all four are needed and none belongs with another
+    fun of(
+        mapping: FrameFit.Mapping, sourceW: Int, sourceH: Int, canvasW: Int, canvasH: Int,
+        area: com.reau.app.dash.DashConfig.FrameSize = com.reau.app.dash.DashConfig.FULL_FRAME,
+    ): Mask? {
         val view = CompositorMath.previewViewport(sourceW, sourceH, canvasW, canvasH)
         if (view.empty || mapping.dest.empty) return null // no screen yet, or an empty fit
         val kx = view.w.toFloat() / sourceW // screen pixels per Android Auto pixel
@@ -72,8 +76,8 @@ object DashMask {
         val perDashPixel = sx * kx
         val picture = Box(view.x.toFloat(), view.y.toFloat(), view.right.toFloat(), view.bottom.toFloat())
         val c = mapping.cover
-        val frameW = DashGlass.FRAME_W.toFloat()
-        val frameH = DashGlass.FRAME_H.toFloat()
+        val frameW = area.width.toFloat()
+        val frameH = area.height.toFloat()
         val covers = buildList {
             if (c.top > 0) add(Box(x(0f), y(0f), x(frameW), y(c.top.toFloat())))
             if (c.bottom > 0) add(Box(x(0f), y(frameH - c.bottom), x(frameW), y(frameH)))
@@ -82,7 +86,7 @@ object DashMask {
         }.map { it.meet(picture) }.filter { it.right > it.left && it.bottom > it.top }
         return Mask(
             picture = Box(view.x.toFloat(), view.y.toFloat(), view.right.toFloat(), view.bottom.toFloat()),
-            frame = Box(x(0f), y(0f), x(DashGlass.FRAME_W.toFloat()), y(DashGlass.FRAME_H.toFloat())),
+            frame = Box(x(0f), y(0f), x(frameW), y(frameH)),
             content = Box(x(mapping.dest.x.toFloat()), y(mapping.dest.y.toFloat()), x(mapping.dest.right.toFloat()), y(mapping.dest.bottom.toFloat())),
             glass = Ring(x(DashGlass.CENTER_X.toFloat()), y(DashGlass.CENTER_Y.toFloat()), DashGlass.RADIUS * perDashPixel),
             bubble = Ring(x(BUBBLE_X), y(BUBBLE_Y), BUBBLE_R * perDashPixel),

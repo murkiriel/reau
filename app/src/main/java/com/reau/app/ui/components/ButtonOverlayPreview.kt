@@ -13,7 +13,6 @@ import androidx.compose.ui.graphics.nativeCanvas
 import com.reau.app.ui.AaScreenMask
 import com.reau.app.video.ButtonOverlay
 import com.reau.app.video.ButtonOverlayInk
-import com.reau.app.video.DashGlass
 import com.reau.app.video.DashMask
 import kotlinx.coroutines.delay
 
@@ -32,10 +31,10 @@ fun ButtonOverlayPreview(mask: AaScreenMask, button: ButtonOverlay, modifier: Mo
         }
     }
     Canvas(modifier) {
-        val m = DashMask.of(mask.mapping, mask.sourceW, mask.sourceH, size.width.toInt(), size.height.toInt()) ?: return@Canvas
+        val m = DashMask.of(mask.mapping, mask.sourceW, mask.sourceH, size.width.toInt(), size.height.toInt(), mask.area) ?: return@Canvas
         // Screen pixels per frame pixel; the fit can stretch the picture, so one for each way (the letters take the width's).
-        val scaleX = (m.frame.right - m.frame.left) / DashGlass.FRAME_W
-        val scaleY = (m.frame.bottom - m.frame.top) / DashGlass.FRAME_H
+        val scaleX = (m.frame.right - m.frame.left) / mask.area.width
+        val scaleY = (m.frame.bottom - m.frame.top) / mask.area.height
         drawIntoCanvas {
             ButtonOverlayInk.draw(it.nativeCanvas, text, button.size, m.frame.left + button.x * scaleX, m.frame.top + button.y * scaleY, scaleX)
         }

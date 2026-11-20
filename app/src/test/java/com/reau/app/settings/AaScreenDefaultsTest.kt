@@ -98,7 +98,7 @@ class AaScreenDefaultsTest {
             Regex("""\bcopy\(([a-zA-Z]+) =""").findAll(sources).map { it.groupValues[1] }).filter { it in members }.toSet()
         // Derived, not stored: the fits' rectangles and the helpers; the fits themselves are in the table.
         // The apps' fit is flattened in the settings (fit, crop, place, move): the table covers it whole as "appsFit".
-        val derived = setOf("mapping", "navMapping", "content", "withAppsFit", "copy", "fit", "cropPercent", "cropX", "cropY", "moveX", "moveY")
+        val derived = setOf("mapping", "navMapping", "content", "withAppsFit", "copy", "fit", "cropPercent", "cropX", "cropY", "moveX", "moveY", "frameSize")
         val missing = used - expected.keys - derived
         assertEquals("settings the screen uses and the table does not cover: $missing", emptySet<String>(), missing)
         assertTrue("the guard found only $used", used.size >= 10)

@@ -461,13 +461,10 @@
     <string name="profiles_info">O REau usa dois perfis de vídeo fixos para o painel: o A, com %1$d fps e %2$d kbps, a imagem mais fluida, e o B, a metade disso (%3$d fps e %4$d kbps), mais leve para o Wi-Fi e para o painel. Quem escolhe entre eles são o perfil por manobra e o perfil por velocidade, logo abaixo. Esses valores não se mudam.</string>
     <string name="profiles_bitrate_sub">Perfil A: %1$d kbps. Perfil B: %2$d kbps. Fixo</string>
     <string name="pace_option">%1$d fps</string>
-    <string name="pace_sub">Só na versão de depuração. Escolha livre do ritmo, de 4 a 12 fps, separada do bitrate e da imagem. Na reserva o ritmo é limitado a %1$d fps</string>
+    <string name="pace_sub">Só na versão de depuração. Escolha livre do ritmo, de 4 a 8 fps, separada do bitrate. A imagem é fixa em 528x304. Na reserva o ritmo é limitado a %1$d fps</string>
     <string name="bitrate_cap_title">Teto de bitrate</string>
-    <string name="bitrate_cap_sub">Só na versão de depuração. O máximo que o codificador pode usar, de 400 a 1000 kbps. Recomendado para este ritmo e esta imagem: %1$d kbps. É só um guia, nada é forçado</string>
-    <string name="frame_title">Tamanho da imagem</string>
-    <string name="frame_option">%1$dx%2$d</string>
-    <string name="frame_sub">Só na versão de depuração. Todos os tamanhos são múltiplos de 16. 528x304 é o 526x300 do painel alinhado a 16. O painel estica a imagem pela tela toda, e uma menor alivia o decodificador dele</string>
-    <string name="load_warning">Acima da carga que o painel mostrou aguentar (6 fps na imagem cheia, %2$d MB/s): esta combinação pede %1$d MB/s, e o ícone da reserva pode tremer.</string>
+    <string name="bitrate_cap_sub">Só na versão de depuração. O máximo que o codificador pode usar, de 400 a 1000 kbps. Recomendado para este ritmo: %1$d kbps. É só um guia, nada é forçado</string>
+    <string name="flicker_warning">A %1$d fps o ícone da reserva pode piscar; na reserva o REau limita a %2$d fps (se a chave estiver ligada)</string>
     <string name="reserve_cap_title">Teto de %1$d fps na reserva</string>
     <string name="reserve_cap_sub">Só na versão de depuração. Ligado (padrão): com a moto na reserva o ritmo é limitado a %1$d fps. Desligado: a reserva não limita o ritmo nem o bitrate, para comparar os perfis com o ícone da reserva aceso. O registro diz quando a reserva começa com o teto desligado. Vale na hora, e o vídeo recomeça</string>
     <string name="bitrate_title">Taxa de bits</string>

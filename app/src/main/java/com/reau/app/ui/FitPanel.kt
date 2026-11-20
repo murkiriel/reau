@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.reau.app.R
+import com.reau.app.dash.DashConfig
 import com.reau.app.aa.AaScreen
 import com.reau.app.aa.AaVideo
 import com.reau.app.settings.Fit
@@ -433,8 +434,8 @@ private fun FitSteps(p: FitParams, mapping: FrameFit.Mapping, s: REauSettings, s
             }
         }
     }
-    Card { FitCounters(p, s.content, FitControl.of(p.fit), set) }
-    val problems = FrameFit.problems(mapping, AaVideo.WIDTH, AaVideo.HEIGHT)
+    Card { FitCounters(p, s.content, FitControl.of(p.fit), set, area = s.frameSize) }
+    val problems = FrameFit.problems(mapping, AaVideo.WIDTH, AaVideo.HEIGHT, s.frameSize)
     if (problems.isNotEmpty()) BadFit(problems.map { stringResource(ScreenText.problem(it)) }.joinToString("; "))
     Technical(mapping)
 }
@@ -446,13 +447,16 @@ private fun FitSteps(p: FitParams, mapping: FrameFit.Mapping, s: REauSettings, s
  * with [tags] before each tag.
  */
 @Composable
-internal fun FitCounters(p: FitParams, content: RectPx, controls: List<FitControl>, set: (FitParams) -> Unit, tags: String = "") {
-    val (w, h) = FrameFit.cropSize(content, p.cropPercent)
+internal fun FitCounters(
+    p: FitParams, content: RectPx, controls: List<FitControl>, set: (FitParams) -> Unit, tags: String = "",
+    area: DashConfig.FrameSize = DashConfig.FULL_FRAME,
+) {
+    val (w, h) = FrameFit.cropSize(content, p.cropPercent, area)
     val x = p.cropX ?: ((content.w - w) / 2)
     val y = p.cropY ?: ((content.h - h) / 2)
-    val (rangeX, rangeY) = FrameFit.cropRange(content, p.cropPercent)
+    val (rangeX, rangeY) = FrameFit.cropRange(content, p.cropPercent, area)
     fun sized(percent: Int): FitParams {
-        val (newW, newH) = FrameFit.cropSize(content, percent)
+        val (newW, newH) = FrameFit.cropSize(content, percent, area)
         return p.copy(cropPercent = percent, cropX = p.cropX?.let { it + (w - newW) / 2 }, cropY = p.cropY?.let { it + (h - newH) / 2 })
     }
     controls.forEachIndexed { index, control ->

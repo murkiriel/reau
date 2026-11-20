@@ -157,7 +157,7 @@ class FitAssistantTest {
     fun `the card changes the settings in two places only, the navigation fit's counters and the mask at the start`() {
         val changes = Regex("""change\(([^)]*)""").findAll(card).map { it.groupValues[1] }.toList()
         assertEquals(listOf("it", "s.copy(navFit = it"), changes)
-        assertTrue(card.contains("FitCounters(s.navFit, s.content, controls, { change(s.copy(navFit = it)) }, tags = \"fit_assistant_\")"))
+        assertTrue(card.contains("FitCounters(s.navFit, s.content, controls, { change(s.copy(navFit = it)) }, tags = \"fit_assistant_\", area = s.frameSize)"))
         assertTrue(card.contains("{ FitAssistant.started(s).let { if (it != s) change(it) } }"))
         assertTrue("the counters are the ones of the step", card.contains("val controls = FitAssistant.controls(step, s.navFit.fit)"))
         for (direct in listOf("FineStepper(", "cropX =", "cropY =", "cropPercent =", "moveX =", "moveY =", "zoom =", "density =", "FrameFit.")) {
@@ -167,7 +167,7 @@ class FitAssistantTest {
 
     @Test
     fun `the tab and the assistant draw the same counters`() {
-        assertTrue(panel.contains("Card { FitCounters(p, s.content, FitControl.of(p.fit), set) }"))
+        assertTrue(panel.contains("Card { FitCounters(p, s.content, FitControl.of(p.fit), set, area = s.frameSize) }"))
         assertEquals("the counters are written once", 1, Regex("""fun FitCounters\(""").findAll(panel).count())
         for (tag in listOf("crop", "crop_center_x", "crop_center_y", "move_x", "move_y")) {
             assertTrue(tag, panel.contains("\"\${tags}$tag\""))

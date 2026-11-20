@@ -37,16 +37,15 @@ class SettingsStore(private val prefs: SharedPreferences) {
     }
 
     /**
-     * The three choices of the video as stored (pace, ceiling, picture). Once the new keys are saved they are the only ones read, so a later change is
+     * The two choices of the video as stored (pace, ceiling). The old `video_frame` key (the picture, a choice until 20/11/2026) is never read: the picture is fixed. Once the new keys are saved they are the only ones read, so a later change is
      * never undone by an older key still lying in the file. A phone that never saved them takes the choice from what it replaced: the profile id
      * (`video_profile`, [VideoChoice.fromLegacyProfile]), else the pace alone (`video_pace_fps`, as the first profile of that pace), else the experiment
      * "6/3 fps" on as the profile "6"; none of them is [default].
      */
     private fun storedVideo(default: VideoChoice.Choice): VideoChoice.Choice = when {
-        prefs.contains(KEY_VIDEO_FRAME) -> VideoChoice.Choice(
+        prefs.contains(KEY_VIDEO_FPS) -> VideoChoice.Choice(
             prefs.getInt(KEY_VIDEO_FPS, default.fps),
             prefs.getInt(KEY_VIDEO_CAP, default.capKbps * KBPS) / KBPS,
-            VideoChoice.offeredFrame(prefs.getString(KEY_VIDEO_FRAME, null)) ?: default.frame,
         )
         prefs.contains(KEY_VIDEO_PROFILE) -> VideoChoice.fromLegacyProfile(prefs.getString(KEY_VIDEO_PROFILE, null)) ?: VideoChoice.fromLegacyPace(0)
         prefs.contains(KEY_VIDEO_PACE) -> VideoChoice.fromLegacyPace(prefs.getInt(KEY_VIDEO_PACE, 0))
@@ -185,7 +184,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
     @Suppress("LongMethod") // one line per setting, in the order of the class
     private fun loadAllButThePlaces(): REauSettings {
         val defaults = REauSettings()
-        val video = storedVideo(VideoChoice.Choice(defaults.fpsCeiling, defaults.streamBitrateBps / KBPS, defaults.frameSize))
+        val video = storedVideo(VideoChoice.Choice(defaults.fpsCeiling, defaults.streamBitrateBps / KBPS))
         return REauSettings(
             density = prefs.getInt(KEY_DENSITY, defaults.density),
             marginW = prefs.getInt(KEY_MARGIN_W, defaults.marginW),
@@ -201,7 +200,6 @@ class SettingsStore(private val prefs: SharedPreferences) {
             navFit = ownFit(NAV_KEYS, defaults.navFit),
             fpsCeiling = video.fps,
             streamBitrateBps = video.capKbps * KBPS,
-            videoFrame = video.frame.id,
             bitrateMode = enumOr(prefs.getString(KEY_BITRATE_MODE, null), defaults.bitrateMode),
             keyframeSec = prefs.getInt(KEY_KEYFRAME, defaults.keyframeSec),
             clockSlowPercent = prefs.getInt(KEY_CLOCK, defaults.clockSlowPercent),
@@ -398,7 +396,6 @@ class SettingsStore(private val prefs: SharedPreferences) {
             putBoolean(KEY_EXPERIMENT_ENCODER_LOW_LATENCY, s.experimentEncoderLowLatency)
             putInt(KEY_VIDEO_FPS, s.fpsCeiling)
             putInt(KEY_VIDEO_CAP, s.streamBitrateBps)
-            putString(KEY_VIDEO_FRAME, s.videoFrame)
             putBoolean(KEY_RESERVE_CAP, s.reserveCapOn)
             putBoolean(KEY_EXPERIMENT_MOTORCYCLE, s.experimentMotorcycle)
         }
@@ -533,7 +530,6 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val KEY_VIDEO_PROFILE = "video_profile"
         private const val KEY_VIDEO_FPS = "video_fps"
         private const val KEY_VIDEO_CAP = "video_cap_bps"
-        private const val KEY_VIDEO_FRAME = "video_frame"
         private const val KEY_RESERVE_CAP = "reserve_cap"
 
         /** The key of the pace alone that the profile ids replaced; only read, to migrate (plan 32). */

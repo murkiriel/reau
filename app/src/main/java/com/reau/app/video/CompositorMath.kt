@@ -60,38 +60,28 @@ object CompositorMath {
     fun lookPollMs(listening: Boolean, hasImage: Boolean): Long = if (listening && hasImage) LOOK_POLL_MS else LOOK_IDLE_POLL_MS
 
     /**
-     * The black bands of [cover] as rectangles of the dash's frame in GL pixels (the origin at the bottom left), empty bands left out.
+     * The black bands of [cover] as rectangles of the [w]×[h] composition area in GL pixels (the origin at the bottom left), empty bands left out.
      */
-    fun coverRects(cover: FrameFit.Cover): List<RectPx> = buildList {
-        val w = DashGlass.FRAME_W
-        val h = DashGlass.FRAME_H
+    fun coverRects(cover: FrameFit.Cover, w: Int = DashGlass.FRAME_W, h: Int = DashGlass.FRAME_H): List<RectPx> = buildList {
         if (cover.top > 0) add(RectPx(0, h - cover.top, w, cover.top))
         if (cover.bottom > 0) add(RectPx(0, 0, w, cover.bottom))
         if (cover.left > 0) add(RectPx(0, 0, cover.left, h))
         if (cover.right > 0) add(RectPx(w - cover.right, 0, cover.right, h))
     }
 
-    /**
-     * [r], a rectangle in the pixels of the dash's 526×300 frame (GL pixels, from the bottom), as it falls on an output [outW]×[outH] that the dash
-     * stretches over its whole screen: each EDGE is scaled and rounded, so neighbouring rectangles still meet and a rectangle is never a pixel off
-     * on one side only. On an output of the frame's own size it is [r] itself; on a larger one (528x304) it is stretched a little, on a smaller one shrunk.
-     * This is the one place where the chosen picture size comes in: everything is placed in the frame and scaled here, on the way to the encoder's surface.
-     */
-    fun toOutput(r: RectPx, outW: Int, outH: Int): RectPx {
-        fun edge(v: Int, out: Int, frame: Int) = Math.floorDiv(v.toLong() * out + frame / 2, frame.toLong()).toInt()
-        val left = edge(r.x, outW, DashGlass.FRAME_W)
-        val right = edge(r.x + r.w, outW, DashGlass.FRAME_W)
-        val bottom = edge(r.y, outH, DashGlass.FRAME_H)
-        val top = edge(r.y + r.h, outH, DashGlass.FRAME_H)
-        return RectPx(left, bottom, right - left, top - bottom)
-    }
+    /** The edges of an overlay on a [areaW]×[areaH] output in OpenGL's -1..1 coordinates (y up). */
+    data class Quad(val left: Float, val right: Float, val top: Float, val bottom: Float)
 
     /**
-     * Whether an output [outW]×[outH] is smaller than the dash's frame on a side: the stream of a smaller picture (480x272 and the others of
-     * [com.reau.app.dash.VideoChoice.FRAMES] under 526x300). Android Auto's 800×480 is then shrunk 0.56 to 0.64 times, which one bilinear fetch per pixel (the graphics chip's two-by-two
-     * average) turns into jagged text and lines, so only these outputs take the area filter ([CompositorGl.draw]); the frame's own size and the larger 528x304 are drawn as always.
+     * An overlay [box] (pixels from the top left of the output, its size the overlay's) on a [areaW]×[areaH] output (1:1: the pixel is the output's own, so a
+     * debug build's 528×304 keeps every overlay at the pixel it has in the dash's 526×300 frame).
      */
-    fun needsAreaFilter(outW: Int, outH: Int): Boolean = outW < DashGlass.FRAME_W || outH < DashGlass.FRAME_H
+    fun overlayQuad(box: RectPx, areaW: Int, areaH: Int): Quad = Quad(
+        left = box.x.toFloat() / areaW * 2f - 1f,
+        right = box.right.toFloat() / areaW * 2f - 1f,
+        top = 1f - box.y.toFloat() / areaH * 2f,
+        bottom = 1f - box.bottom.toFloat() / areaH * 2f,
+    )
 
     /** The blurred background is drawn on a copy of the frame this many times smaller on each side. */
     const val BACKDROP_DIVISOR = 4
@@ -100,19 +90,19 @@ object CompositorMath {
     const val BACKDROP_KEEP = 0.92f
 
     /**
-     * Whether a picture drawn in [dest] (rows counted from the top) leaves some of the dash's frame bare: the border that is black
+     * Whether a picture drawn in [dest] (rows counted from the top) leaves some of the [frameW]×[frameH] composition area bare: the border that is black
      * without the blurred background.
      */
-    fun leavesBorder(dest: RectPx): Boolean =
-        dest.x > 0 || dest.y > 0 || dest.right < DashGlass.FRAME_W || dest.bottom < DashGlass.FRAME_H
+    fun leavesBorder(dest: RectPx, frameW: Int = DashGlass.FRAME_W, frameH: Int = DashGlass.FRAME_H): Boolean =
+        dest.x > 0 || dest.y > 0 || dest.right < frameW || dest.bottom < frameH
 
     /**
      * The part of [source] the blurred background is made from: the largest one of the frame's own shape, in the middle of [source] (the
      * background fills the whole frame, so it is taken without stretching the picture).
      */
-    fun backdropSource(source: RectPx): RectPx {
-        val frameW = DashGlass.FRAME_W.toLong()
-        val frameH = DashGlass.FRAME_H.toLong()
+    fun backdropSource(source: RectPx, areaW: Int = DashGlass.FRAME_W, areaH: Int = DashGlass.FRAME_H): RectPx {
+        val frameW = areaW.toLong()
+        val frameH = areaH.toLong()
         return if (source.w * frameH >= source.h * frameW) {
             val w = (source.h * frameW / frameH).toInt().coerceIn(1, source.w)
             RectPx(source.x + (source.w - w) / 2, source.y, w, source.h)
@@ -134,14 +124,17 @@ object CompositorMath {
      * for none: with the setting off ([enabled] false), or with the picture covering the whole frame there is no border to fill and
      * nothing is drawn, nothing created.
      */
-    @Suppress("ComplexCondition") // the four ways to draw nothing: the setting off, no border, no picture wide or high
-    fun backdrop(enabled: Boolean, source: RectPx, dest: RectPx, sourceW: Int, sourceH: Int): Backdrop? {
-        if (!enabled || !leavesBorder(dest) || sourceW <= 0 || sourceH <= 0) return null
+    @Suppress("ComplexCondition", "LongParameterList") // the four ways to draw nothing: the setting off, no border, no picture wide or high
+    fun backdrop(
+        enabled: Boolean, source: RectPx, dest: RectPx, sourceW: Int, sourceH: Int,
+        areaW: Int = DashGlass.FRAME_W, areaH: Int = DashGlass.FRAME_H,
+    ): Backdrop? {
+        if (!enabled || !leavesBorder(dest, areaW, areaH) || sourceW <= 0 || sourceH <= 0) return null
         val d = BACKDROP_DIVISOR
         return Backdrop(
-            window = texWindow(backdropSource(source), sourceW, sourceH),
-            small = RectPx(0, 0, (DashGlass.FRAME_W + d - 1) / d, (DashGlass.FRAME_H + d - 1) / d),
-            frame = RectPx(0, 0, DashGlass.FRAME_W, DashGlass.FRAME_H),
+            window = texWindow(backdropSource(source, areaW, areaH), sourceW, sourceH),
+            small = RectPx(0, 0, (areaW + d - 1) / d, (areaH + d - 1) / d),
+            frame = RectPx(0, 0, areaW, areaH),
             keep = BACKDROP_KEEP,
         )
     }

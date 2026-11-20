@@ -462,13 +462,10 @@
     <string name="profiles_info">REau usa dos perfiles de video fijos para el tablero: el A, con %1$d fps y %2$d kbps, la imagen más fluida, y el B, la mitad (%3$d fps y %4$d kbps), más liviano para el Wi-Fi y el tablero. Entre ellos eligen el perfil por maniobra y el perfil por velocidad, justo debajo. Estos valores no se pueden cambiar.</string>
     <string name="profiles_bitrate_sub">Perfil A: %1$d kbps. Perfil B: %2$d kbps. Fijo</string>
     <string name="pace_option">%1$d fps</string>
-    <string name="pace_sub">Solo en la versión de depuración. Elección libre del ritmo, de 4 a 12 fps, aparte del bitrate y de la imagen. En la reserva el ritmo se limita a %1$d fps</string>
+    <string name="pace_sub">Solo en la versión de depuración. Elección libre del ritmo, de 4 a 8 fps, aparte del bitrate. La imagen es fija en 528x304. En la reserva el ritmo se limita a %1$d fps</string>
     <string name="bitrate_cap_title">Tope de bitrate</string>
-    <string name="bitrate_cap_sub">Solo en la versión de depuración. Lo máximo que el codificador puede usar, de 400 a 1000 kbps. Recomendado para este ritmo y esta imagen: %1$d kbps. Es solo una guía, no se fuerza nada</string>
-    <string name="frame_title">Tamaño de la imagen</string>
-    <string name="frame_option">%1$dx%2$d</string>
-    <string name="frame_sub">Solo en la versión de depuración. Todos los tamaños son múltiplos de 16. 528x304 es el 526x300 del tablero alineado a 16. El tablero estira la imagen por toda la pantalla, y una más pequeña alivia a su decodificador</string>
-    <string name="load_warning">Por encima de la carga que el tablero mostró aguantar (6 fps en la imagen completa, %2$d MB/s): esta combinación pide %1$d MB/s, y el icono de la reserva puede temblar.</string>
+    <string name="bitrate_cap_sub">Solo en la versión de depuración. Lo máximo que el codificador puede usar, de 400 a 1000 kbps. Recomendado para este ritmo: %1$d kbps. Es solo una guía, no se fuerza nada</string>
+    <string name="flicker_warning">A %1$d fps el icono de la reserva puede parpadear; en la reserva REau limita el ritmo a %2$d fps (si el interruptor está activado)</string>
     <string name="reserve_cap_title">Tope de %1$d fps en la reserva</string>
     <string name="reserve_cap_sub">Solo en la versión de depuración. Activado (por defecto): con la moto en la reserva el ritmo se limita a %1$d fps. Desactivado: la reserva no limita el ritmo ni el bitrate, para comparar los perfiles con el icono de la reserva encendido. El registro dice cuándo empieza la reserva con el tope desactivado. Vale al instante, y el video empieza de nuevo</string>
     <string name="bitrate_title">Bitrate</string>

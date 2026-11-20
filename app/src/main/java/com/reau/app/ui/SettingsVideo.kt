@@ -81,9 +81,9 @@ internal fun ProfileDetailsRow(s: REauSettings, change: (REauSettings) -> Unit) 
 
 /**
  * The stream's values (REauSettings.sanitized). A release build only shows them, locked: 4 fps, 400 kbps, the two profiles A and B. A debug build has the
- * three choices, independent of each other (plan 32): the pace ([VideoChoice.FPS_OPTIONS]), the bitrate ceiling (a slider, 400 to 1000 kbps by 100, with the
- * guide for the pace and picture beside it) and the picture size ([VideoChoice.FRAMES]), then the warning of a heavy mix and the reserve's switch. Nothing is forced
- * by the guide or the warning. The navigation profiles below choose between A and B in a release build only.
+ * two choices, independent of each other (plan 32): the pace ([VideoChoice.FPS_OPTIONS]) with the warning of 8 fps beside it, the bitrate ceiling (a slider,
+ * 400 to 1000 kbps by 100, with the guide for the pace beside it), then the reserve's switch. The picture is fixed ([VideoChoice.MANUAL_FRAME]), so it has no row.
+ * Nothing is forced by the guide or the warning. The navigation profiles below choose between A and B in a release build only.
  */
 @Composable
 internal fun StreamProfileRows(s: REauSettings, change: (REauSettings) -> Unit) {
@@ -101,13 +101,7 @@ internal fun StreamProfileRows(s: REauSettings, change: (REauSettings) -> Unit) 
             { stringResource(R.string.bitrate_value, it) }, { change(s.copy(streamBitrateBps = it * KBPS)) }, "bitrate",
             sub = stringResource(R.string.bitrate_cap_sub, s.recommendedKbps), now = true,
         )
-        SegmentedRow(
-            stringResource(R.string.frame_title),
-            VideoChoice.FRAMES.map { stringResource(R.string.frame_option, it.width, it.height) to "frame_${it.id}" },
-            VideoChoice.FRAMES.indexOfFirst { it == s.frameSize }.coerceAtLeast(0), { change(s.copy(videoFrame = VideoChoice.FRAMES[it].id)) },
-            sub = stringResource(R.string.frame_sub), now = true, tag = "frame",
-        )
-        if (s.heavyLoad) HeavyLoadWarning(VideoChoice.loadMbPerSec(s.fpsCeiling, s.frameSize))
+        if (s.reserveIconMayFlicker) FlickerWarning()
         // A debug build's switch to compare the choices in the reserve: the dash's reserve icon animates only there, where the cap would take every pace to 6 fps.
         SwitchRow(
             stringResource(R.string.reserve_cap_title, DashConfig.RESERVE_CAP_FPS), s.reserveCapOn, { change(s.copy(reserveCapOn = it)) }, "reserve_cap",
@@ -131,12 +125,12 @@ internal fun StreamProfileRows(s: REauSettings, change: (REauSettings) -> Unit) 
     LockedRow(stringResource(R.string.keyframe_title), "${s.keyframeSec} s", "keyframe")
 }
 
-/** The warning of a mix above the load the dash showed it holds: only a line, the mix is the rider's to keep (tag `load_warning`). */
+/** The warning of a pace at which the dash's reserve icon may flicker (8 fps): only a line, the pace is the rider's to keep (tag `flicker_warning`). */
 @Composable
-private fun HeavyLoadWarning(loadMbPerSec: Int) {
+private fun FlickerWarning() {
     Text(
-        stringResource(R.string.load_warning, loadMbPerSec, VideoChoice.SAFE_LOAD_MB_PER_SEC),
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp).testTag("load_warning"),
+        stringResource(R.string.flicker_warning, VideoChoice.FPS_OPTIONS.last(), DashConfig.RESERVE_CAP_FPS),
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp).testTag("flicker_warning"),
         color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
     )
 }

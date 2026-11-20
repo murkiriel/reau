@@ -15,15 +15,14 @@ import org.junit.Test
 import java.io.File
 
 /**
- * The three choices of the stream ([REauSettings.fpsCeiling], [REauSettings.streamBitrateBps], [REauSettings.videoFrame], plan 32): what [REauSettings.sanitized] makes of them in a debug
- * build and in a release, how the store keeps them and reads the profile id, the pace and the experiment they replaced, and how they reach the ride log, the live tuning, the video loop and the
- * settings screen. The values themselves are VideoChoiceTest's; what the governor does with them is PaceGovernorTest's.
+ * The two choices of the stream ([REauSettings.fpsCeiling], [REauSettings.streamBitrateBps], plan 32) and its fixed picture ([REauSettings.videoFrame], no choice since 20/11/2026): what
+ * [REauSettings.sanitized] makes of them in a debug build and in a release, how the store keeps them and reads the profile id, the pace and the experiment they replaced (and ignores the old
+ * picture key), and how they reach the ride log, the live tuning, the video loop and the settings screen. The values themselves are VideoChoiceTest's; what the governor does with them is PaceGovernorTest's.
  */
 class VideoChoiceStoreTest {
     private val full = FrameSize(528, 304)
-    private val medium = FrameSize(448, 256)
 
-    private fun mix(fps: Int, kbps: Int, frame: FrameSize) = REauSettings(fpsCeiling = fps, streamBitrateBps = kbps * 1000, videoFrame = frame.id)
+    private fun mix(fps: Int, kbps: Int) = REauSettings(fpsCeiling = fps, streamBitrateBps = kbps * 1000)
 
     // ---- the defaults and sanitized
 
@@ -37,29 +36,32 @@ class VideoChoiceStoreTest {
     }
 
     @Test
-    fun `in a debug build every mix of the three is kept as chosen, and nothing else moves`() {
-        for (fps in VideoChoice.FPS_OPTIONS) for (kbps in VideoChoice.CAP_OPTIONS_KBPS) for (f in VideoChoice.FRAMES) {
-            val s = mix(fps, kbps, f).sanitized(debugBuild = true)
-            assertEquals(listOf(fps, kbps * 1000, f.id), listOf(s.fpsCeiling, s.streamBitrateBps, s.videoFrame))
-            assertEquals(f, s.frameSize)
+    fun `in a debug build every mix of the two is kept as chosen, in the fixed picture, and nothing else moves`() {
+        for (fps in VideoChoice.FPS_OPTIONS) for (kbps in VideoChoice.CAP_OPTIONS_KBPS) {
+            val s = mix(fps, kbps).sanitized(debugBuild = true)
+            assertEquals(listOf(fps, kbps * 1000, "528x304"), listOf(s.fpsCeiling, s.streamBitrateBps, s.videoFrame))
+            assertEquals(full, s.frameSize)
             assertEquals(kbps * 1000, s.effectiveStreamBitrateBps)
-            assertEquals("nothing else moves", REauSettings().sanitized(true), s.copy(fpsCeiling = 6, streamBitrateBps = 400_000, videoFrame = "528x304"))
+            assertEquals("nothing else moves", REauSettings().sanitized(true), s.copy(fpsCeiling = 6, streamBitrateBps = 400_000))
         }
     }
 
     @Test
     fun `in a debug build a value outside the offer is brought into it`() {
-        assertEquals(4, mix(0, 400, full).sanitized(true).fpsCeiling)
-        assertEquals(4, mix(2, 400, full).sanitized(true).fpsCeiling)
-        assertEquals(6, mix(7, 400, full).sanitized(true).fpsCeiling)
-        assertEquals(12, mix(30, 400, full).sanitized(true).fpsCeiling)
+        assertEquals(4, mix(0, 400).sanitized(true).fpsCeiling)
+        assertEquals(4, mix(2, 400).sanitized(true).fpsCeiling)
+        assertEquals(6, mix(7, 400).sanitized(true).fpsCeiling)
+        assertEquals("10 fps, gone, is 8", 8, mix(10, 400).sanitized(true).fpsCeiling)
+        assertEquals("12 fps, gone, is 8", 8, mix(12, 400).sanitized(true).fpsCeiling)
+        assertEquals(8, mix(30, 400).sanitized(true).fpsCeiling)
         assertEquals(400_000, REauSettings(streamBitrateBps = 200_000).sanitized(true).streamBitrateBps)
         assertEquals(1_000_000, REauSettings(streamBitrateBps = 1_024_000).sanitized(true).streamBitrateBps)
         assertEquals(500_000, REauSettings(streamBitrateBps = 450_000).sanitized(true).streamBitrateBps)
-        for (bad in listOf("", "368x208", "526x300", "abc", "528x305")) {
-            val s = REauSettings(videoFrame = bad).sanitized(true)
-            assertEquals("picture '$bad'", full, s.frameSize)
-            assertEquals(VideoChoice.DEFAULT_FRAME.id, s.videoFrame)
+        // the picture is no choice: whatever it holds, a debug build runs 528x304
+        for (other in listOf("", "368x208", "526x300", "512x288", "448x256", "abc", "528x305")) {
+            val s = REauSettings(videoFrame = other).sanitized(true)
+            assertEquals("picture '$other'", full, s.frameSize)
+            assertEquals(VideoChoice.MANUAL_FRAME.id, s.videoFrame)
         }
     }
 
@@ -68,8 +70,8 @@ class VideoChoiceStoreTest {
         val expected = REauSettings().sanitized(debugBuild = false)
         assertEquals(listOf(4, 400_000, "526x300"), listOf(expected.fpsCeiling, expected.streamBitrateBps, expected.videoFrame))
         assertEquals(DashConfig.FULL_FRAME, expected.frameSize)
-        for (fps in VideoChoice.FPS_OPTIONS) for (f in VideoChoice.FRAMES) for (kbps in listOf(400, 600, 1000)) {
-            assertEquals("$fps $kbps ${f.id}", expected, mix(fps, kbps, f).sanitized(debugBuild = false))
+        for (fps in VideoChoice.FPS_OPTIONS) for (kbps in listOf(400, 600, 1000)) for (picture in listOf("528x304", "526x300", "448x256")) {
+            assertEquals("$fps $kbps $picture", expected, mix(fps, kbps).copy(videoFrame = picture).sanitized(debugBuild = false))
         }
         assertEquals(400_000, expected.effectiveStreamBitrateBps)
     }
@@ -86,15 +88,13 @@ class VideoChoiceStoreTest {
     // ---- the guide and the warning on the settings
 
     @Test
-    fun `the settings carry the guide and the warning of the mix they hold`() {
-        assertEquals(400, mix(6, 400, full).recommendedKbps)
-        assertEquals(600, mix(8, 400, full).recommendedKbps)
-        assertEquals(800, mix(12, 400, full).recommendedKbps)
-        assertEquals(400, mix(8, 400, medium).recommendedKbps)
-        assertTrue(mix(8, 600, full).heavyLoad)
-        assertTrue(mix(12, 800, full).heavyLoad)
-        assertFalse(mix(6, 400, full).heavyLoad)
-        assertFalse(mix(8, 600, medium).heavyLoad)
+    fun `the settings carry the guide and the warning of the pace they hold`() {
+        assertEquals(400, mix(4, 400).recommendedKbps)
+        assertEquals(400, mix(6, 400).recommendedKbps)
+        assertEquals(600, mix(8, 400).recommendedKbps)
+        assertTrue(mix(8, 600).reserveIconMayFlicker)
+        assertFalse(mix(6, 400).reserveIconMayFlicker)
+        assertFalse(mix(4, 400).reserveIconMayFlicker)
     }
 
     // ---- the switch of the reserve's cap
@@ -128,18 +128,18 @@ class VideoChoiceStoreTest {
     // ---- the store
 
     @Test
-    fun `the three choices are stored in keys of their own and read back`() {
+    fun `the two choices are stored in keys of their own and read back, and the picture is not stored`() {
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
         val store = SettingsStore(prefs)
-        val s = mix(10, 800, FrameSize(480, 272))
+        val s = mix(8, 800)
         store.save(s)
-        assertEquals(10, prefs.getInt("video_fps", 0))
+        assertEquals(8, prefs.getInt("video_fps", 0))
         assertEquals(800_000, prefs.getInt("video_cap_bps", 0))
-        assertEquals("480x272", prefs.getString("video_frame", null))
+        assertFalse("the picture is fixed, so it is not written", prefs.contains("video_frame"))
         // the store sanitizes with the build it runs in
         assertEquals(s.sanitized(), store.load())
-        for (fps in VideoChoice.FPS_OPTIONS) for (f in VideoChoice.FRAMES) {
-            val m = mix(fps, 500, f)
+        for (fps in VideoChoice.FPS_OPTIONS) {
+            val m = mix(fps, 500)
             store.save(m)
             assertEquals(m.sanitized(), store.load())
         }
@@ -160,11 +160,11 @@ class VideoChoiceStoreTest {
         SettingsStore(prefs).load().let { listOf(it.fpsCeiling, it.streamBitrateBps / 1000, it.videoFrame) }
 
     @Test
-    fun `each profile id of the first build becomes the three choices`() {
+    fun `each profile id of the first build becomes the two choices, in the fixed picture`() {
         if (!com.reau.app.BuildConfig.DEBUG) return
         val wanted = mapOf(
             "4" to listOf(4, 400, "528x304"), "6" to listOf(6, 400, "528x304"), "8" to listOf(8, 600, "528x304"),
-            "8m" to listOf(8, 600, "448x256"), "12" to listOf(12, 800, "448x256"),
+            "8m" to listOf(8, 600, "528x304"), "12" to listOf(8, 800, "528x304"),
         )
         for ((id, three) in wanted) {
             val prefs = stored { it.putString("video_profile", id).apply() }
@@ -182,6 +182,22 @@ class VideoChoiceStoreTest {
     }
 
     @Test
+    fun `a stored picture is ignored and a stored 10 or 12 fps reads as 8`() {
+        if (!com.reau.app.BuildConfig.DEBUG) return
+        for (picture in listOf("448x256", "512x288", "526x300", "368x208", "")) {
+            val prefs = stored { it.putInt("video_fps", 6).putInt("video_cap_bps", 500_000).putString("video_frame", picture).apply() }
+            assertEquals("picture '$picture'", listOf(6, 500, "528x304"), mixOf(prefs))
+        }
+        for (gone in listOf(10, 12)) {
+            val prefs = stored { it.putInt("video_fps", gone).putInt("video_cap_bps", 700_000).putString("video_frame", "480x272").apply() }
+            assertEquals("$gone fps", listOf(8, 700, "528x304"), mixOf(prefs))
+        }
+        for (kept in VideoChoice.FPS_OPTIONS) {
+            assertEquals("$kept fps", listOf(kept, 400, "528x304"), mixOf(stored { it.putInt("video_fps", kept).putInt("video_cap_bps", 400_000).apply() }))
+        }
+    }
+
+    @Test
     fun `a phone that stored the experiment on reads 6, off or never stored reads the defaults`() {
         if (!com.reau.app.BuildConfig.DEBUG) return
         assertEquals(listOf(6, 400, "528x304"), mixOf(stored { it.putBoolean("experiment_fps63", true).apply() }))
@@ -193,7 +209,7 @@ class VideoChoiceStoreTest {
     fun `a phone that stored the pace alone reads the first profile of that pace`() {
         if (!com.reau.app.BuildConfig.DEBUG) return
         for ((pace, three) in listOf(
-            4 to listOf(4, 400, "528x304"), 6 to listOf(6, 400, "528x304"), 8 to listOf(8, 600, "528x304"), 12 to listOf(12, 800, "448x256"),
+            4 to listOf(4, 400, "528x304"), 6 to listOf(6, 400, "528x304"), 8 to listOf(8, 600, "528x304"), 12 to listOf(8, 800, "528x304"),
             5 to listOf(4, 400, "528x304"), 0 to listOf(4, 400, "528x304"),
         )) {
             assertEquals("pace $pace", three, mixOf(stored { it.putInt("video_pace_fps", pace).apply() }))
@@ -207,10 +223,10 @@ class VideoChoiceStoreTest {
         if (!com.reau.app.BuildConfig.DEBUG) return
         val prefs = stored { it.putString("video_profile", "12").putBoolean("experiment_fps63", true).putInt("video_pace_fps", 12).apply() }
         val store = SettingsStore(prefs)
-        assertEquals(listOf(12, 800, "448x256"), mixOf(prefs))
-        store.save(store.load().copy(fpsCeiling = 10, streamBitrateBps = 500_000, videoFrame = "512x288"))
-        assertEquals("the rider's choice and the old keys do not undo it", listOf(10, 500, "512x288"), mixOf(prefs))
-        store.save(mix(4, 400, full))
+        assertEquals(listOf(8, 800, "528x304"), mixOf(prefs))
+        store.save(store.load().copy(fpsCeiling = 6, streamBitrateBps = 500_000))
+        assertEquals("the rider's choice and the old keys do not undo it", listOf(6, 500, "528x304"), mixOf(prefs))
+        store.save(mix(4, 400))
         assertEquals(listOf(4, 400, "528x304"), mixOf(prefs))
     }
 
@@ -219,8 +235,8 @@ class VideoChoiceStoreTest {
         if (!com.reau.app.BuildConfig.DEBUG) return
         val prefs = stored { it.putInt("fps_ceiling", 8).putInt("stream_bitrate", 900_000).apply() }
         assertEquals("only the new keys and the migrated ones count", listOf(6, 400, "528x304"), mixOf(prefs))
-        SettingsStore(prefs).save(mix(10, 700, full))
-        assertEquals(8, prefs.getInt("fps_ceiling", 0))
+        SettingsStore(prefs).save(mix(6, 700))
+        assertEquals("a pace of 6 was saved, and the old key still says 8", 8, prefs.getInt("fps_ceiling", 0))
         assertEquals(900_000, prefs.getInt("stream_bitrate", 0))
         val store = File("src/main/java/com/reau/app/settings/SettingsStore.kt").readText()
         assertFalse(store.contains("KEY_FPS,") || store.contains("KEY_BITRATE,"))
@@ -231,35 +247,34 @@ class VideoChoiceStoreTest {
     @Test
     fun `none of it is an experimental switch, so the start guard has nothing to say about it`() {
         assertTrue(REauSettings::class.java.declaredFields.none { it.name == "experimentFpsSixThree" || it.name == "videoProfileId" })
-        assertEquals(emptyList<String>(), ExperimentsGuard.experimentsOn(mix(8, 600, medium)))
-        assertEquals(mix(8, 600, medium), ExperimentsGuard.allOff(mix(8, 600, medium)))
+        assertEquals(emptyList<String>(), ExperimentsGuard.experimentsOn(mix(8, 600)))
+        assertEquals(mix(8, 600), ExperimentsGuard.allOff(mix(8, 600)))
     }
 
     @Test
-    fun `the ride log says the three choices in the settings line, and a change of them is told`() {
+    fun `the ride log says the choices in the settings line, and a change of them is told`() {
         val line = SettingsInUse.line(REauSettings().sanitized(true))
         assertTrue(line, "fpsCeiling=6" in line && "streamBitrateBps=400000" in line && "videoFrame=528x304" in line)
-        assertNull(SettingsInUse.experimentsLine(mix(8, 600, medium)))
-        assertEquals(listOf("videoFrame: 528x304 -> 448x256"), REauSettings().changesTo(REauSettings(videoFrame = "448x256")))
+        assertNull(SettingsInUse.experimentsLine(mix(8, 600)))
+        assertEquals(listOf("videoFrame: 528x304 -> 526x300"), REauSettings().changesTo(REauSettings(videoFrame = "526x300")))
     }
 
     @Test
-    fun `a change of the pace, of the ceiling or of the picture starts the stream again, and nothing else does`() {
-        val base = mix(6, 400, full).sanitized(true)
-        assertEquals(setOf(LiveTuning.Step.NEW_STREAM), LiveTuning.steps(base, mix(8, 400, full).sanitized(true)))
-        assertEquals(setOf(LiveTuning.Step.NEW_STREAM), LiveTuning.steps(base, mix(6, 500, full).sanitized(true)))
-        assertEquals(setOf(LiveTuning.Step.NEW_STREAM), LiveTuning.steps(base, mix(6, 400, medium).sanitized(true)))
-        assertEquals(setOf(LiveTuning.Step.NEW_STREAM), LiveTuning.steps(base, mix(12, 1000, FrameSize(496, 288)).sanitized(true)))
-        assertEquals(emptySet<LiveTuning.Step>(), LiveTuning.steps(base, mix(6, 400, full).sanitized(true)))
+    fun `a change of the pace or of the ceiling starts the stream again, and nothing else does`() {
+        val base = mix(6, 400).sanitized(true)
+        assertEquals(setOf(LiveTuning.Step.NEW_STREAM), LiveTuning.steps(base, mix(8, 400).sanitized(true)))
+        assertEquals(setOf(LiveTuning.Step.NEW_STREAM), LiveTuning.steps(base, mix(6, 500).sanitized(true)))
+        assertEquals(setOf(LiveTuning.Step.NEW_STREAM), LiveTuning.steps(base, mix(8, 1000).sanitized(true)))
+        assertEquals(emptySet<LiveTuning.Step>(), LiveTuning.steps(base, mix(6, 400).sanitized(true)))
         assertEquals(setOf(LiveTuning.Step.NEW_STREAM), LiveTuning.steps(base, base.copy(reserveCapOn = false)))
     }
 
     @Test
     fun `it reaches the video loop as chosen in a debug build, and in a release as the usual 4 fps, 400 and 526x300`() {
         val loop = VideoLoop.Settings()
-        val s = loop.withRider(mix(10, 700, FrameSize(464, 272)).sanitized(true))
-        assertEquals(listOf(10, 700_000, FrameSize(464, 272), 6), listOf(s.ceilingFps, s.bitrateBps, s.frame, s.lightScreenFps))
-        val release = loop.withRider(mix(8, 900, medium).sanitized(false))
+        val s = loop.withRider(mix(8, 700).sanitized(true))
+        assertEquals(listOf(8, 700_000, FrameSize(528, 304), 6), listOf(s.ceilingFps, s.bitrateBps, s.frame, s.lightScreenFps))
+        val release = loop.withRider(mix(8, 900).sanitized(false))
         assertEquals(listOf(4, 400_000, 200_000, DashConfig.FULL_FRAME), listOf(release.ceilingFps, release.bitrateBps, release.reducedBitrateBps, release.frame))
     }
 
@@ -279,7 +294,7 @@ class VideoChoiceStoreTest {
     // ---- the settings screen
 
     @Test
-    fun `the video rows have the pace, the ceiling slider with its guide and the picture in a debug build, then the warning and the reserve's switch`() {
+    fun `the video rows have the pace with its warning, the ceiling slider with its guide, and the reserve's switch in a debug build, with no picture row`() {
         val video = File("src/main/java/com/reau/app/ui/SettingsVideo.kt").readText()
         val rows = video.substringAfter("fun StreamProfileRows").substringBefore("fun NavProfileRows")
         val debug = rows.substringBefore("} else {\n        LockedRow(")
@@ -290,10 +305,10 @@ class VideoChoiceStoreTest {
         assertTrue(debug.contains("VideoChoice.CAP_MIN_KBPS, VideoChoice.CAP_MAX_KBPS, VideoChoice.CAP_STEP_KBPS"))
         assertTrue(debug.contains("{ change(s.copy(streamBitrateBps = it * KBPS)) }, \"bitrate\""))
         assertTrue("the guide is told next to the slider", debug.contains("stringResource(R.string.bitrate_cap_sub, s.recommendedKbps)"))
-        assertTrue(debug.contains("VideoChoice.FRAMES.map { stringResource(R.string.frame_option, it.width, it.height) to \"frame_\${it.id}\" }"))
-        assertTrue(debug.contains("{ change(s.copy(videoFrame = VideoChoice.FRAMES[it].id)) }"))
-        assertTrue("the warning is only shown for a heavy mix", debug.contains("if (s.heavyLoad) HeavyLoadWarning(VideoChoice.loadMbPerSec(s.fpsCeiling, s.frameSize))"))
-        assertTrue("order: pace, ceiling, picture, warning, switch", listOf("tag = \"fps\"", "\"bitrate\"", "tag = \"frame\"", "HeavyLoadWarning(", "\"reserve_cap\"").map { debug.indexOf(it) }.let { it == it.sorted() && it.all { i -> i >= 0 } })
+        assertFalse("the picture is fixed: no chooser, no key", debug.contains("FRAMES") || debug.contains("videoFrame") || debug.contains("\"frame\""))
+        assertTrue("the warning is only shown at the pace that flickers the reserve icon", debug.contains("if (s.reserveIconMayFlicker) FlickerWarning()"))
+        assertTrue("and says the pace that flickers, then the reserve's", video.contains("stringResource(R.string.flicker_warning, VideoChoice.FPS_OPTIONS.last(), DashConfig.RESERVE_CAP_FPS)"))
+        assertTrue("order: pace, ceiling, warning, switch", listOf("tag = \"fps\"", "\"bitrate\"", "FlickerWarning()", "\"reserve_cap\"").map { debug.indexOf(it) }.let { it == it.sorted() && it.all { i -> i >= 0 } })
         assertTrue(debug.contains("s.reserveCapOn, { change(s.copy(reserveCapOn = it)) }, \"reserve_cap\","))
     }
 
@@ -314,7 +329,7 @@ class VideoChoiceStoreTest {
         val video = File("src/main/java/com/reau/app/ui/SettingsVideo.kt").readText()
         val rows = video.substringAfter("fun StreamProfileRows").substringBefore("fun NavProfileRows")
         val release = rows.substringAfter("} else {\n        LockedRow(")
-        assertFalse("no slider, no picture chooser, no switch", release.contains("SliderRow") || release.contains("\"frame\"") || release.contains("reserve_cap"))
+        assertFalse("no slider, no warning, no switch", release.contains("SliderRow") || release.contains("reserveIconMayFlicker") || release.contains("reserve_cap"))
         assertTrue(release.contains("R.string.profiles_fps_sub, s.fpsCeiling, s.fpsCeiling / 2"))
         assertTrue(release.contains("R.string.profiles_info, s.fpsCeiling, s.streamBitrateBps / KBPS, s.fpsCeiling / 2, s.streamBitrateBps / 2 / KBPS"))
         assertTrue(release.contains("R.string.profiles_bitrate_sub, s.streamBitrateBps / KBPS, s.streamBitrateBps / 2 / KBPS"))
@@ -328,14 +343,14 @@ class VideoChoiceStoreTest {
             assertEquals("%1\$d fps", text("pace_option"))
             assertTrue("$folder pace_sub", "%1\$d" in text("pace_sub"))
             assertTrue("$folder bitrate_cap_sub", "%1\$d" in text("bitrate_cap_sub") && "400" in text("bitrate_cap_sub") && "1000" in text("bitrate_cap_sub"))
-            assertEquals("%1\$dx%2\$d", text("frame_option"))
-            assertTrue("$folder frame_sub", "528x304" in text("frame_sub"))
-            val warn = text("load_warning")
-            assertTrue("$folder load_warning", "%1\$d" in warn && "%2\$d" in warn)
+            assertTrue("$folder pace_sub says the picture is fixed", "528x304" in text("pace_sub"))
+            val warn = text("flicker_warning")
+            assertTrue("$folder flicker_warning", "%1\$d" in warn && "%2\$d" in warn)
+            for (gone in listOf("frame_title", "frame_option", "frame_sub", "load_warning")) assertFalse("$folder still has $gone", xml.contains("name=\"$gone\""))
             assertTrue("$folder title", "%1\$d" in text("reserve_cap_title") && "%1\$d" in text("reserve_cap_sub"))
             assertFalse("$folder still has the strings of the profiles with a picture", xml.contains("pace_option_picture") || xml.contains("pace_small_sub"))
             assertFalse("$folder still has the experiment", xml.contains("exp_fps63"))
-            for (name in listOf("bitrate_cap_title", "frame_title")) text(name)
+            text("bitrate_cap_title")
         }
         val experiments = File("src/main/java/com/reau/app/ui/SettingsExperimental.kt").readText()
         assertFalse("the 6/3 experiment's row is gone", experiments.contains("fps63") || experiments.contains("experimentFpsSixThree"))
