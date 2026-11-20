@@ -231,6 +231,40 @@ class DashWifiManagerTest {
         }
     }
 
+    private fun field(owner: Any, name: String) = owner.javaClass.getDeclaredField(name).apply { isAccessible = true }
+
+    /**
+     * 19/11/2026, 01:26: Android let the first request go ("unavailable") 1.8 s after it went out, while the phone had joined the dash's Wi-Fi by
+     * itself 0.5 s before, and REau declared a stuck dash. Now the network that is up is adopted: no refusal, the state is connected, and no
+     * request is left open. The emulator's Wi-Fi stands for the dash network the phone joined by itself; the request of a name that is not there
+     * stands for the request Android let go, and its callback is told "unavailable" by hand. Then a socket refused on that network (EPERM) takes the
+     * way it always took: the network is dropped and asked for again, never adopted twice.
+     */
+    @Test
+    fun aRequestLetGoWithTheDashNetworkAlreadyUpAdoptsItAndALaterEpermAsksAgain() {
+        withTheEmulatorWifiAsTheDash { ssid ->
+            val dash = DashWifiManager(context, scope).also { manager = it }
+            dash.connect("RE_NONEXISTENT_TEST_SSID", "12345678")
+            await("a request out", 5_000) { dash.state.value.status == WifiConnStatus.REQUESTING }
+            // From here the name asked for is the emulator's, as the dash's is once it is learned.
+            field(dash, "pendingSsid").set(dash, ssid)
+            val ended = field(dash, "networkCallback").get(dash) as android.net.ConnectivityManager.NetworkCallback
+            ended.onUnavailable()
+
+            assertEquals(WifiConnStatus.CONNECTED, dash.state.value.status)
+            assertNull("no refusal", dash.state.value.error)
+            val adopted = checkNotNull(dash.network)
+            assertNotEquals("the request that ended is not the callback in hand any more", ended, field(dash, "networkCallback").get(dash))
+
+            dash.bindResult(adopted, refused = true)
+            assertEquals("asked for again after the refusal", WifiConnStatus.REQUESTING, dash.state.value.status)
+            assertNotEquals("the refused network is not taken again", adopted, dash.network)
+
+            dash.disconnect()
+            assertLetGo(dash, "after the release")
+        }
+    }
+
     private companion object {
         /** Added to the pause before a new request when a test waits to see that nothing happens: a few looks of the watch over a loss (every 2 s). */
         const val SETTLE_MS = 4_000L

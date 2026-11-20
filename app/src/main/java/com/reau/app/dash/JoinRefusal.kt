@@ -65,17 +65,40 @@ internal object JoinRules {
         }
 
     /**
-     * Log only: a note for the end of the "unavailable (initial connect)" line when the verdict is [Refusal.DASH_STUCK] but the phone has the dash's
-     * Wi-Fi up at that very moment (ride of 19/11/2026, 01:26: the radio had just been turned on, the phone joined the dash on its own 0.5 s before
-     * Android let the request go, and the verdict said "stuck" 1.8 s into a join that had worked). The verdict and what the rider is told do not
-     * change; the log only says the stuck diagnosis is doubtful. Empty for any other case.
+     * What the dash's request that Android let go (`NetworkCallback.onUnavailable`) comes to:
+     * - [RetryMidSession]: the dash had worked in this projection and went away; the request is made again, as always.
+     * - [AdoptExisting]: a first connection, but the phone **already has the dash's network up** (it joined by itself: a suggestion or a
+     *   saved network). Ride of 19/11/2026, 01:26: the radio had just been turned on, the phone joined the dash 0.5 s before Android let REau's
+     *   request go, and the quick refusal was called "the dash is stuck" 1.8 s into a join that had worked. The network is adopted by the same
+     *   path as any network the phone joined by itself, and no refusal is declared.
+     * - [Refused]: no network up; the verdict [JoinRules.refusal] gives, as it always did.
      */
-    internal fun stuckDoubt(refusal: Refusal, dashNetworkUpNow: Boolean): String =
-        if (refusal == Refusal.DASH_STUCK && dashNetworkUpNow) {
-            " (doubtful: the phone has the dash's Wi-Fi up right now, joined on its own; probably not a stuck dash)"
-        } else {
-            ""
-        }
+    sealed class Unavailable {
+        object RetryMidSession : Unavailable()
+        object AdoptExisting : Unavailable()
+        data class Refused(val refusal: Refusal) : Unavailable()
+    }
+
+    /**
+     * The decision of the "unavailable" callback. [dashNetworkUp] (is the dash's network up in the phone now) and [seenInScan] are asked only when
+     * the answer needs them: not at all in a reconnection, and the scan only when there is no network up to adopt. A dash network that is up is
+     * adopted whatever the scan says and however quick the refusal was; a reconnection ([everConnected]) never adopts here (its next request
+     * finds the network by itself, [DashWifiManager]).
+     */
+    internal fun onUnavailable(
+        everConnected: Boolean,
+        wantConnected: Boolean,
+        dashNetworkUp: () -> Boolean,
+        seenInScan: () -> Boolean?,
+        tookMs: Long,
+        timeoutMs: Int,
+        joinedBefore: Boolean,
+        earlyInARow: Int,
+    ): Unavailable = when {
+        shouldRetryOnUnavailable(everConnected, wantConnected) -> Unavailable.RetryMidSession
+        dashNetworkUp() -> Unavailable.AdoptExisting
+        else -> Unavailable.Refused(refusal(seenInScan(), tookMs, timeoutMs, joinedBefore, earlyInARow))
+    }
 
     /** The quick refusals in a row, this one included; a request that ran its wait out starts the count over. */
     internal fun earlyInARow(previous: Int, tookMs: Long, timeoutMs: Int): Int =

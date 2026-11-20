@@ -71,21 +71,82 @@ class DashStuckTest {
         assertFalse(JoinRules.reconnectDue(wantConnected = false, scheduledAt = 7, latestRequest = 7))
     }
 
-    /** 19/11/2026, 01:26: the phone joined the dash on its own 0.5 s before Android let the request go; the 1.8 s wait was called "stuck". */
+    // ── The phone already has the dash's network up when Android lets the request go (19/11/2026, 01:26) ──
+
+    private val adopt = JoinRules.Unavailable.AdoptExisting
+
+    private fun unavailable(
+        everConnected: Boolean = false,
+        wantConnected: Boolean = true,
+        up: Boolean,
+        seen: Boolean? = true,
+        tookMs: Long = 1_798,
+        joinedBefore: Boolean = true,
+        earlyInARow: Int = 1,
+    ) = JoinRules.onUnavailable(everConnected, wantConnected, { up }, { seen }, tookMs, timeout, joinedBefore, earlyInARow)
+
     @Test
-    fun `a stuck verdict with the dash's network up at that moment is flagged as doubtful in the log, other verdicts are not`() {
-        val doubt = JoinRules.stuckDoubt(Refusal.DASH_STUCK, dashNetworkUpNow = true)
-        assertTrue(doubt, doubt.contains("doubtful") && doubt.contains("probably not a stuck dash"))
-        assertEquals("", JoinRules.stuckDoubt(Refusal.DASH_STUCK, dashNetworkUpNow = false))
-        for (other in Refusal.values().filter { it != Refusal.DASH_STUCK }) {
-            assertEquals(other.name, "", JoinRules.stuckDoubt(other, dashNetworkUpNow = true))
-        }
+    fun `a quick refusal with the dash's network already up is adopted, not called a stuck dash`() {
+        assertEquals(adopt, unavailable(up = true))
+        // The same refusal with no network up is the stuck dash it was taken for, as before.
+        assertEquals(JoinRules.Unavailable.Refused(Refusal.DASH_STUCK), unavailable(up = false))
     }
 
     @Test
-    fun `the initial-connect line carries the doubt of a stuck verdict when the dash's network is up`() {
+    fun `a slow refusal with the dash's network already up is adopted too`() {
+        assertEquals(adopt, unavailable(up = true, tookMs = 29_000))
+        assertEquals(JoinRules.Unavailable.Refused(Refusal.SEEN_NOT_JOINED), unavailable(up = false, tookMs = 29_000))
+    }
+
+    @Test
+    fun `with no network up the verdicts are the ones they always were`() {
+        assertEquals(JoinRules.Unavailable.Refused(Refusal.NOT_FOUND), unavailable(up = false, seen = false, joinedBefore = false))
+        assertEquals(JoinRules.Unavailable.Refused(Refusal.GONE_AFTER_JOIN), unavailable(up = false, seen = false, joinedBefore = true))
+        assertEquals(JoinRules.Unavailable.Refused(Refusal.UNKNOWN), unavailable(up = false, seen = null, tookMs = 29_000, joinedBefore = false))
+        assertEquals(JoinRules.Unavailable.Refused(Refusal.DASH_STUCK), unavailable(up = false, joinedBefore = false, earlyInARow = 3))
+    }
+
+    @Test
+    fun `a network that is up is adopted even when the scan does not list the dash`() {
+        assertEquals(adopt, unavailable(up = true, seen = false, joinedBefore = false))
+    }
+
+    @Test
+    fun `in a reconnection nothing is adopted here, the request is made again as always`() {
+        assertEquals(JoinRules.Unavailable.RetryMidSession, unavailable(everConnected = true, up = true))
+        assertEquals(JoinRules.Unavailable.RetryMidSession, unavailable(everConnected = true, up = false))
+    }
+
+    @Test
+    fun `the network and the scan are asked only when the answer needs them`() {
+        var asked = ""
+        JoinRules.onUnavailable(true, true, { asked += "n"; true }, { asked += "s"; true }, 100, timeout, true, 1)
+        assertEquals("a reconnection asks neither", "", asked)
+        JoinRules.onUnavailable(false, true, { asked += "n"; true }, { asked += "s"; true }, 100, timeout, true, 1)
+        assertEquals("a network that is up needs no scan", "n", asked)
+        asked = ""
+        JoinRules.onUnavailable(false, true, { asked += "n"; false }, { asked += "s"; true }, 100, timeout, true, 1)
+        assertEquals("ns", asked)
+    }
+
+    /**
+     * Text of the source: what the callback does with each answer. The adoption is one step under the request lock that lets the request that
+     * ended go for good, takes the network by the path of every network the phone joined by itself, says so in the log, and leaves the
+     * refusal as it was when nothing could be taken.
+     */
+    @Test
+    fun `the callback adopts the network under the lock, lets the request go and leaves the refusal when it cannot`() {
         val manager = java.io.File("src/main/java/com/reau/app/dash/DashWifiManager.kt").readText()
-        val line = manager.substringAfter("(initial connect) — giving up").substringBefore("_state.value")
-        assertTrue(line, "JoinRules.stuckDoubt(refusal, refusal == Refusal.DASH_STUCK && findAlreadyConnectedDashNetwork() != null)" in line)
+        val callback = manager.substringAfter("override fun onUnavailable()").substringBefore("override fun onLosing(")
+        assertTrue(callback, "if (outcome == JoinRules.Unavailable.AdoptExisting && adoptTheNetworkThePhoneJoined(this, tookMs, early)) return" in callback)
+        assertTrue(callback, "dashNetworkUp = { findAlreadyConnectedDashNetwork() != null }" in callback)
+        assertTrue("the refusal stays for an adoption that did not hold", "?: refusal(seenInScan, tookMs, requestTimeoutMs, joinedOnce, quickRefusals)" in callback)
+        val adoption = manager.substringAfter("private fun adoptTheNetworkThePhoneJoined(").substringBefore("private fun askForTheNetwork")
+        assertTrue(adoption, "synchronized(requestLock)" in adoption)
+        assertTrue("a stale request or a switch-off adopts nothing", "if (!wantConnected || networkCallback !== dead) return false" in adoption)
+        assertTrue("the request that ended is let go", "cm.unregisterNetworkCallback(dead)" in adoption)
+        assertTrue(adoption.indexOf("networkCallback = null") in 0 until adoption.indexOf("useAlreadyConnectedNetwork()"))
+        assertTrue(adoption, "dash network already up (joined by the phone itself): adopting it instead of a refusal" in adoption)
+        assertTrue("the same path as any network the phone joined by itself", "val taken = useAlreadyConnectedNetwork()" in adoption)
     }
 }

@@ -4607,7 +4607,7 @@ MUTATIONS += [
      'if (before.videoPace != settings.videoPace) RideDiagnostics.log("stream", settings.videoPace.logLine())', "", ["VideoPaceSettingsTest"]),
 ]
 
-# Plano 32 (20/11/2026, triviais do app): as linhas de registro que enganavam (P32V): o fim normal da gravação do vídeo, o "painel travado" duvidoso e o
+# Plano 32 (20/11/2026, triviais do app): as linhas de registro que enganavam (P32V): o fim normal da gravação do vídeo, o "painel travado" que era a rede do painel já de pé e o
 # "o ponto de acesso reiniciou" quando o celular saltou para outro ponto de acesso de mesmo nome (comparado só na memória, o endereço nunca é escrito).
 MUTATIONS += [
     ("P32V gravação: o fim normal da sessão diz que a gravação parou cedo", MAIN + "stream/H264Recorder.kt",
@@ -4618,12 +4618,28 @@ MUTATIONS += [
      "        recorder?.close()\n        recorder = null", "        recorder?.close(early = true)\n        recorder = null", ["PictureSizeTest"]),
     ("P32V gravação: o leitor deixa de ler o fim normal da gravação", "scripts/registro/gravacoes.py",
      "(?:ended with the session|stopped early|part", "(?:stopped early|part", ["registro/test_gravacoes.py"]),
-    ("P32V painel travado: a dúvida vale para qualquer veredito", MAIN + "dash/JoinRefusal.kt",
-     "if (refusal == Refusal.DASH_STUCK && dashNetworkUpNow) {", "if (dashNetworkUpNow) {", ["DashStuckTest"]),
-    ("P32V painel travado: o veredito de travado nunca é marcado como duvidoso", MAIN + "dash/JoinRefusal.kt",
-     "if (refusal == Refusal.DASH_STUCK && dashNetworkUpNow) {", "if (false) {", ["DashStuckTest"]),
-    ("P32V painel travado: a linha da recusa não leva a dúvida", MAIN + "dash/DashWifiManager.kt",
-     "JoinRules.stuckDoubt(refusal, refusal == Refusal.DASH_STUCK && findAlreadyConnectedDashNetwork() != null),", '"",', ["DashStuckTest"]),
+    ("P32V painel travado: adota a rede sem checar se ela está de pé", MAIN + "dash/JoinRefusal.kt",
+     "        dashNetworkUp() -> Unavailable.AdoptExisting\n", "        true -> Unavailable.AdoptExisting\n", ["DashStuckTest"]),
+    ("P32V painel travado: nunca adota a rede que está de pé", MAIN + "dash/JoinRefusal.kt",
+     "        dashNetworkUp() -> Unavailable.AdoptExisting\n", "        false -> Unavailable.AdoptExisting\n", ["DashStuckTest"]),
+    ("P32V painel travado: adota também na reconexão", MAIN + "dash/JoinRefusal.kt",
+     "        shouldRetryOnUnavailable(everConnected, wantConnected) -> Unavailable.RetryMidSession\n        dashNetworkUp() -> Unavailable.AdoptExisting\n",
+     "        dashNetworkUp() -> Unavailable.AdoptExisting\n        shouldRetryOnUnavailable(everConnected, wantConnected) -> Unavailable.RetryMidSession\n", ["DashStuckTest"]),
+    ("P32V painel travado: a varredura é lida antes de saber se há rede de pé", MAIN + "dash/JoinRefusal.kt",
+     "        else -> Unavailable.Refused(refusal(seenInScan(), tookMs, timeoutMs, joinedBefore, earlyInARow))",
+     "        else -> Unavailable.Refused(refusal(seenInScan().also { dashNetworkUp() }, tookMs, timeoutMs, joinedBefore, earlyInARow))", ["DashStuckTest"]),
+    ("P32V painel travado: o pedido que acabou não é solto ao adotar", MAIN + "dash/DashWifiManager.kt",
+     "            runCatching { cm.unregisterNetworkCallback(dead) }\n", "", ["DashStuckTest"]),
+    ("P32V painel travado: o pedido que já não é o em curso também adota", MAIN + "dash/DashWifiManager.kt",
+     "if (!wantConnected || networkCallback !== dead) return false", "if (!wantConnected) return false", ["DashStuckTest"]),
+    ("P32V painel travado: a adoção não passa pelo caminho da rede que o celular uniu", MAIN + "dash/DashWifiManager.kt",
+     "            val taken = useAlreadyConnectedNetwork()\n", "            val taken = true\n", ["DashStuckTest"]),
+    ("P32V painel travado: a adoção que não se sustenta deixa de dar a recusa", MAIN + "dash/DashWifiManager.kt",
+     "if (outcome == JoinRules.Unavailable.AdoptExisting && adoptTheNetworkThePhoneJoined(this, tookMs, early)) return",
+     "if (outcome == JoinRules.Unavailable.AdoptExisting) return", ["DashStuckTest"]),
+    ("P32V painel travado: a adoção não diz nada no registro", MAIN + "dash/DashWifiManager.kt",
+     "dash network already up (joined by the phone itself): adopting it instead of a refusal; ",
+     "dash network up; ", ["DashStuckTest"]),
     ("P32V ponto de acesso: outro ponto de acesso da mesma rede ainda é dito reinício", MAIN + "dash/LinkLoss.kt",
      'false -> "another access point with the same name, not a restart"', 'false -> "its access point restarted"', ["LinkLossTest", "NetNotesTest"]),
     ("P32V ponto de acesso: sem o endereço a linha afirma só o reinício", MAIN + "dash/LinkLoss.kt",
