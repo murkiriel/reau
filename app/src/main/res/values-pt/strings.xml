@@ -937,6 +937,8 @@
     <string name="tips_title">Dicas</string>
     <string name="tip_waze_zoom_title">Desative o zoom automático do Waze</string>
     <string name="tip_waze_zoom_text">Recomendamos desligar o zoom automático nas configurações do Waze. Ele deixa o vídeo mais pesado para o painel, e a tela do painel é pequena demais para o volume de informações que o zoom automático mostra.</string>
+    <string name="tip_gemini_swap_title">Sem intercomunicador? Troque o Gemini</string>
+    <string name="tip_gemini_swap_text">O Gemini conversa por voz e precisa de um intercomunicador no capacete. Se você não tem um, troque na tela Joystick do painel (Controle de mídia, botão “Pra baixo”) a ação do Gemini por “Alternar mapa e música”: um toque leva do mapa para o app de música e de volta.</string>
     <string name="tip_video_fps_title">Por que o vídeo não passa de 6 fps</string>
     <string name="tip_video_fps_text">O painel aceita mais quadros por segundo, mas o mesmo processador que mostra o vídeo também desenha a tela e atende os botões. Nos testes na moto, a 8 fps o ícone da reserva passou a piscar e a 12 fps o painel começou a ignorar os botões. A 6 fps tudo funciona sem falhas, por isso o REau não passa disso.</string>
 </resources>

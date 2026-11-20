@@ -50,9 +50,11 @@ class TipsScreenTest {
     }
 
     @Test
-    fun theVideoPaceTipIsRightAfterTheWazeOne() {
+    fun theVideoPaceTipIsRightAfterTheGeminiOne() {
         compose.setContent { TipsScreen(onBack = {}) }
-        assertEquals(listOf("waze_zoom", "video_fps"), Tips.ALL.map { it.tag })
+        assertEquals(listOf("waze_zoom", "gemini_swap", "video_fps"), Tips.ALL.map { it.tag })
+        compose.onNodeWithTag("tip_gemini_swap_title").performScrollTo().assertIsDisplayed().assertTextEquals(context.getString(R.string.tip_gemini_swap_title))
+        compose.onNodeWithTag("tip_gemini_swap_text").assertIsDisplayed().assertTextEquals(context.getString(R.string.tip_gemini_swap_text))
         compose.onNodeWithTag("tip_video_fps_title").performScrollTo().assertIsDisplayed().assertTextEquals(context.getString(R.string.tip_video_fps_title))
         compose.onNodeWithTag("tip_video_fps_text").assertIsDisplayed().assertTextEquals(context.getString(R.string.tip_video_fps_text))
     }

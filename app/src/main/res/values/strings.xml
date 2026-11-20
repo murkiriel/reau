@@ -948,6 +948,8 @@
     <string name="tips_title">Tips</string>
     <string name="tip_waze_zoom_title">Turn off Waze\'s automatic zoom</string>
     <string name="tip_waze_zoom_text">We recommend turning off automatic zoom in the Waze settings. It makes the video heavier for the dash, and the dash screen is too small for the amount of information that automatic zoom shows.</string>
+    <string name="tip_gemini_swap_title">Not using an intercom? Swap Gemini</string>
+    <string name="tip_gemini_swap_text">Gemini talks by voice and needs an intercom in the helmet. If you do not have one, on the Dash joystick screen (Media control, the Down button) you can swap the Gemini action for “Switch map and music”: one tap takes you from the map to the music app and back.</string>
     <string name="tip_video_fps_title">Why the video stays at 6 fps</string>
     <string name="tip_video_fps_text">The dash accepts more frames per second, but the same processor that shows the video also draws the screen and handles the buttons. In tests on the bike, at 8 fps the reserve icon started to flicker, and at 12 fps the dash began to ignore the buttons. At 6 fps everything works without glitches, so REau does not go above it.</string>
 </resources>

@@ -4143,11 +4143,11 @@ MUTATIONS = [
     ("P32A Alterna: o eco da ação de troca tem o rótulo do mapa", MAIN + "dash/ActionEcho.kt",
      "Action.SWAP_MAP_MUSIC -> SWAP_MAP_MUSIC", "Action.SWAP_MAP_MUSIC -> SWAP_TO_MAP", ["SwapMapMusicActionTest", "SwapMapMusicTest", "JoystickEchoTest"]),
     ("P32A Alterna: o nome da ação em português perde a música", "app/src/main/res/values-pt/strings.xml",
-     "Alternar mapa e música", "Alternar mapa", ["SwapMapMusicActionTest"]),
+     'swap_map_music">Alternar mapa e música', 'swap_map_music">Alternar mapa', ["SwapMapMusicActionTest"]),
     ("P32A Alterna: o nome da ação em inglês diz outra coisa", "app/src/main/res/values/strings.xml",
-     "Switch map and music", "Open map and music", ["SwapMapMusicActionTest"]),
+     'swap_map_music">Switch map and music', 'swap_map_music">Open map and music', ["SwapMapMusicActionTest"]),
     ("P32A Alterna: o nome da ação em espanhol perde a música", "app/src/main/res/values-es/strings.xml",
-     "Alternar mapa y música", "Alternar mapa", ["SwapMapMusicActionTest"]),
+     'swap_map_music">Alternar mapa y música', 'swap_map_music">Alternar mapa', ["SwapMapMusicActionTest"]),
     ("P32A Alterna: o eco do destino música em inglês diz outra coisa", "app/src/main/res/values/strings.xml",
      '<string name="echo_swap_to_music">Music</string>', '<string name="echo_swap_to_music">Songs</string>', ["SwapMapMusicActionTest"]),
     ("P32A Alterna: o eco do destino mapa em português diz outra coisa", "app/src/main/res/values-pt/strings.xml",
@@ -4787,6 +4787,16 @@ MUTATIONS += [
      '"OPEN_NAVIGATION" to Action.SWAP_MAP_MUSIC)', '"OPEN_NAVIGATION" to Action.SWAP_MAP_MUSIC, "FOCUS_RIGHT" to Action.WHEEL_NEXT)', ["JoystickKeysActionsTest"]),
     ("P32S Sem foco: o foco para cima gravado vira confirmar", MAIN + "aa/JoystickBindings.kt",
      '"OPEN_NAVIGATION" to Action.SWAP_MAP_MUSIC)', '"OPEN_NAVIGATION" to Action.SWAP_MAP_MUSIC, "FOCUS_UP" to Action.CONFIRM)', ["JoystickKeysActionsTest"]),
+    # Leva 32 (20/11/2026): a dica "Sem intercomunicador? Troque o Gemini" é a segunda da página de Dicas.
+    ("P32S Dica do Gemini: a dica fica fora da lista", MAIN + "ui/TipsScreen.kt",
+     '        Tip("gemini_swap", R.string.tip_gemini_swap_title, R.string.tip_gemini_swap_text, R.drawable.ic_ms_gamepad),\n', "", ["TipsTest"]),
+    ("P32S Dica do Gemini: a dica fica depois da do vídeo", MAIN + "ui/TipsScreen.kt",
+     '        Tip("gemini_swap", R.string.tip_gemini_swap_title, R.string.tip_gemini_swap_text, R.drawable.ic_ms_gamepad),\n'
+     '        Tip("video_fps", R.string.tip_video_fps_title, R.string.tip_video_fps_text, R.drawable.ic_ms_speed),\n',
+     '        Tip("video_fps", R.string.tip_video_fps_title, R.string.tip_video_fps_text, R.drawable.ic_ms_speed),\n'
+     '        Tip("gemini_swap", R.string.tip_gemini_swap_title, R.string.tip_gemini_swap_text, R.drawable.ic_ms_gamepad),\n', ["TipsTest"]),
+    ("P32S Dica do Gemini: o texto em português aponta o botão errado", "app/src/main/res/values-pt/strings.xml",
+     "(Controle de mídia, botão “Pra baixo”)", "(Controle de mídia, botão “Pra cima”)", ["TipsTest"]),
 ]
 
 

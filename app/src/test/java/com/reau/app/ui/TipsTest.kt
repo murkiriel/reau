@@ -63,13 +63,46 @@ class TipsTest {
     }
 
     @Test
-    fun `the second tip is the one about the video not going past 6 fps, right after the Waze one`() {
-        assertEquals(listOf("waze_zoom", "video_fps"), Tips.ALL.map { it.tag })
-        val tip = Tips.ALL[1]
+    fun `the third tip is the one about the video not going past 6 fps, right after the Gemini one`() {
+        assertEquals(listOf("waze_zoom", "gemini_swap", "video_fps"), Tips.ALL.map { it.tag })
+        val tip = Tips.ALL[2]
         assertEquals(R.string.tip_video_fps_title, tip.title)
         assertEquals(R.string.tip_video_fps_text, tip.text)
         assertTrue("the list names it", screen.contains("Tip(\"video_fps\", R.string.tip_video_fps_title, R.string.tip_video_fps_text"))
-        assertTrue("after the Waze one", screen.indexOf("Tip(\"waze_zoom\"") in 0 until screen.indexOf("Tip(\"video_fps\""))
+        assertTrue("after the Gemini one", screen.indexOf("Tip(\"gemini_swap\"") in 0 until screen.indexOf("Tip(\"video_fps\""))
+    }
+
+    @Test
+    fun `the second tip is the Gemini swap, between the Waze one and the video one`() {
+        assertEquals(listOf("waze_zoom", "gemini_swap"), Tips.ALL.map { it.tag }.take(2))
+        val tip = Tips.ALL[1]
+        assertEquals(R.string.tip_gemini_swap_title, tip.title)
+        assertEquals(R.string.tip_gemini_swap_text, tip.text)
+        assertTrue("the list names it", screen.contains("Tip(\"gemini_swap\", R.string.tip_gemini_swap_title, R.string.tip_gemini_swap_text"))
+        assertTrue("after the Waze one", screen.indexOf("Tip(\"waze_zoom\"") in 0 until screen.indexOf("Tip(\"gemini_swap\""))
+    }
+
+    @Test
+    fun `the Gemini tip says what was asked in the three languages, and points at the screen, the mode and the button`() {
+        assertEquals("Sem intercomunicador? Troque o Gemini", text("values-pt", "tip_gemini_swap_title"))
+        assertEquals(
+            "O Gemini conversa por voz e precisa de um intercomunicador no capacete. Se você não tem um, troque na tela Joystick do painel " +
+                "(Controle de mídia, botão “Pra baixo”) a ação do Gemini por “Alternar mapa e música”: um toque leva do mapa para o app de música e de volta.",
+            text("values-pt", "tip_gemini_swap_text"),
+        )
+        // The names it points at are the ones the joystick screen shows, in each language.
+        for ((folder, title) in mapOf("values" to "Dash joystick", "values-pt" to "Joystick do painel", "values-es" to "Joystick del tablero")) {
+            val body = text(folder, "tip_gemini_swap_text")!!
+            assertEquals(title, text(folder, "joystick_title"))
+            assertTrue("$folder: $body", body.contains(title))
+            for (name in listOf("joystick_mode_media", "joystick_control_down", "joystick_action_swap_map_music")) {
+                assertTrue("$folder: the tip names ${text(folder, name)}", body.contains(text(folder, name)!!))
+            }
+            assertTrue(body, body.contains("Gemini"))
+        }
+        assertEquals("Not using an intercom? Swap Gemini", text("values", "tip_gemini_swap_title"))
+        assertTrue(text("values-es", "tip_gemini_swap_text")!!.contains("tablero"))
+        assertTrue(text("values-es", "tip_gemini_swap_title")!!.contains("Gemini"))
     }
 
     @Test
