@@ -518,7 +518,7 @@ internal class StreamGovernor(
             if (w.frames > 0) w.bytes / w.frames else 0L,
             w.source, w.drawn, w.repeated, perFrame(w.composeNs, w.drawn + w.repeated), perFrame(w.encodeNs, w.frames), w.late,
             com.reau.app.video.TickWait.text(w.tickWaits), judged, if (w.thermalOk) "OK" else "HOT", w.link.text(), keyframeSec,
-            w.keyframes, w.keyBytesMax, w.keyPacketsMax, syncSummary(), fullFps, windowVerdict(judged, target, sentFps, kbps, w.thermalOk),
+            w.keyframes, w.keyBytesMax, w.keyPacketsMax, syncSummary(), fullFps, windowVerdict(judged, target, sentFps, kbps, w.thermalOk, activeBitrateBps),
         ) + StageReport.text(w.compose.stats(), w.encode.stats(), w.look.stats(), w.latch.stats(), w.wakeups, elapsedMs)
         // The line is all a window gives: nothing it measured moves the pace or the keyframe interval, so it asks for no new encoder.
         return listOf(Action.Log(line))
@@ -540,7 +540,7 @@ internal class StreamGovernor(
         const val DELIVERY_RATIO = 0.95
 
         /**
-         * Headroom over [DashConfig.MAX_STREAM_BITRATE_BPS] before a window counts as over budget: the encoder's 5 s
+         * Headroom over the bitrate ceiling in force ([activeBitrateBps]: 400 kbps in the app) before a window counts as over budget: the encoder's 5 s
          * average wobbles a few percent around its target.
          */
         const val BITRATE_TOLERANCE = 1.10
@@ -556,7 +556,7 @@ internal class StreamGovernor(
          *   picture was still, the dash had not confirmed the first frame, or the compositor made less than
          *   [DELIVERY_RATIO] of [target].
          * - `short: sent 3.1`: a full window where fewer frames went out than [DELIVERY_RATIO] of [target]; with
-         *   `kbps N` when the encoder put out more than [BITRATE_TOLERANCE] of the bitrate ceiling and `thermal` when the
+         *   `kbps N` when the encoder put out more than [BITRATE_TOLERANCE] of the bitrate ceiling in force ([ceilingBps]) and `thermal` when the
          *   phone was hot, each alone or together (`short: sent 3.1, kbps 1200, thermal`).
          * - `ok`: a full window with none of the three.
          *
@@ -566,10 +566,11 @@ internal class StreamGovernor(
          * sent more than the new pace asks and is `ok`. `short` always means the encoder gave out fewer frames than the
          * compositor made in that same window.
          */
-        internal fun windowVerdict(judged: Boolean, target: Int, sentFps: Double, kbps: Double, thermalOk: Boolean): String {
+        internal fun windowVerdict(judged: Boolean, target: Int, sentFps: Double, kbps: Double, thermalOk: Boolean, ceilingBps: Int): String {
             if (!judged) return "not judged"
             val delivered = sentFps >= target * DELIVERY_RATIO
-            val withinBitrate = kbps <= DashConfig.MAX_STREAM_BITRATE_BPS / KILO * BITRATE_TOLERANCE
+            // Against the ceiling the stream really runs at (400 kbps), not the 1024 kbps the settings once allowed: 600 kbps is 50 % over, not ok.
+            val withinBitrate = kbps <= ceilingBps / KILO * BITRATE_TOLERANCE
             val why = buildList {
                 if (!delivered) add(String.format(Locale.US, "sent %.1f", sentFps))
                 if (!withinBitrate) add(String.format(Locale.US, "kbps %.0f", kbps))

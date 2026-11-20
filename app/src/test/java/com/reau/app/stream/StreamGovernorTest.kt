@@ -281,8 +281,21 @@ class StreamGovernorTest {
         assertTrue(over, "kbps=1200" in over && "auto=16fps [short: kbps 1200]" in over)
         val within = g.window(composed = 80, bytes = 700_000).windowLines().single() // 1120 kbps: inside the 10 % of headroom
         assertTrue(within, "auto=16fps [ok]" in within)
-        assertEquals("short: sent 3.1, kbps 1200, thermal", StreamGovernor.windowVerdict(judged = true, target = 4, sentFps = 3.1, kbps = 1200.0, thermalOk = false))
-        assertEquals("a window that is not full is not judged, whatever else it shows", "not judged", StreamGovernor.windowVerdict(false, 4, 0.0, 9_999.0, thermalOk = false))
+        assertEquals("short: sent 3.1, kbps 1200, thermal", StreamGovernor.windowVerdict(judged = true, target = 4, sentFps = 3.1, kbps = 1200.0, thermalOk = false, ceilingBps = 1_024_000))
+        assertEquals("a window that is not full is not judged, whatever else it shows", "not judged", StreamGovernor.windowVerdict(false, 4, 0.0, 9_999.0, thermalOk = false, ceilingBps = 400_000))
+    }
+
+    @Test
+    fun `the verdict reads the bitrate against the ceiling in force, 400 kbps in the app, not against 1024`() {
+        fun verdict(kbps: Double, ceilingBps: Int) = StreamGovernor.windowVerdict(judged = true, target = 6, sentFps = 6.0, kbps = kbps, thermalOk = true, ceilingBps = ceilingBps)
+        assertEquals("600 kbps over a 400 ceiling is 50 % over", "short: kbps 600", verdict(600.0, 400_000))
+        assertEquals("the 10 % of headroom: 440 is still ok", "ok", verdict(440.0, 400_000))
+        assertEquals("a hair over it is not", "short: kbps 441", verdict(441.0, 400_000))
+        assertEquals("the same 600 kbps under a 1024 ceiling is ok", "ok", verdict(600.0, 1_024_000))
+        // The line of a window of the governor itself says it too: the ceiling is the one the governor runs at.
+        val g = started(fullFps = 6, bitrateCeilingBps = 400_000)
+        val over = g.window(composed = 30, bytes = 375_000).windowLines().single() // 600 kbps in a 5 s window
+        assertTrue(over, "kbps=600" in over && "[short: kbps 600]" in over.substringAfter("auto=6fps "))
     }
 
     /**
