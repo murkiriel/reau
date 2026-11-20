@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Debug builds only (src/debug): the texts of the tools at the end of Ajustes > Depuração. A release never carries them. -->
+<!-- Debug builds only (src/debug): the texts of the tools at the end of Settings > Debug. A release never carries them. -->
 <resources>
     <string name="debug_warn_title">Test the warnings</string>
     <string name="debug_warn_sub">Each button fires the real notification. Check the sound, the vibration with the screen off and in the pocket, and the channel.</string>

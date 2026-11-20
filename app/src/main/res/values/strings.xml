@@ -188,8 +188,6 @@
     <string name="joystick_action_focus_left">Focus left</string>
     <string name="joystick_action_focus_right">Focus right</string>
     <string name="joystick_ghost_side">This side sometimes fires together with the center.</string>
-    <!-- The instrument cluster display experiment -->
-    <!-- The dash's bubble with no route, and the joystick in its map mode -->
     <string name="permissions_title">Permissions</string>
     <string name="permissions_intro">What leaves the phone goes to the dash, to your network only with the network server on, and to the internet only for weather and updates (more in \"REau and your data\").</string>
     <string name="permissions_open_app_settings">Open REau’s permissions in Android</string>
@@ -402,7 +400,7 @@
     <string name="group_card">Wallpaper</string>
     <string name="group_aa_head_unit">Android Auto</string>
     <string name="announce_motorcycle_title">Announce as a motorcycle</string>
-    <string name="announce_motorcycle_sub">Android Auto treats the REau head unit as a motorcycle, not a car. The first time, it sees it as a new vehicle and may ask for the permissions on the phone again; the microphone used may become the phone’s own. Counts from the next time you turn on</string>
+    <string name="announce_motorcycle_sub">Android Auto treats the REau head unit as a motorcycle, not a car. The first time, it sees it as a new vehicle and may ask for the permissions on the phone again; the microphone used may become the phone’s own. Applies from the next time you turn on</string>
     <string name="pairing_known_title">Known dash</string>
     <string name="pairing_known_info">This is the dash whose full Wi-Fi name REau already knows, which it needs to connect. \"Forget\" deletes that name, everything the dash has reported (the bike data below) and the network suggested to Android; after that, REau looks for the dash again (with REau open, the name shows up on its own) or you type the full name. Use it when you change motorcycle or dash.</string>
     <string name="pairing_unknown_title">No known dash</string>
@@ -425,7 +423,7 @@
     <string name="theme_auto_short">By the sun</string>
     <string name="music_title">Now playing</string>
     <string name="music_sub">Title, album and artist on the dash</string>
-    <string name="dash_music">Shows the song’s title, album and artist on the dash’s music card, on by default; a change counts from the next time you turn on. The data comes from Android Auto, so no notification or contacts access is asked. The card only shows if a media-mode joystick button has previous song, play/pause or next song, which the standard page lacks: add one on the Joystick page.</string>
+    <string name="dash_music">Shows the song’s title, album and artist on the dash’s music card, on by default; a change applies from the next time you turn on. The data comes from Android Auto, so no notification or contacts access is asked. The card only shows if a media-mode joystick button has previous song, play/pause or next song, which the standard page lacks: add one on the Joystick page.</string>
     <string name="caller_title">Who’s calling</string>
     <string name="caller_sub">Caller’s name (or number) on the dash</string>
     <string name="joystick_nav_title">Dash joystick</string>

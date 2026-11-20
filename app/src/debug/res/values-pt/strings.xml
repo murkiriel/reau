@@ -12,7 +12,7 @@
     <string name="debug_fault_decoder">Travar o decodificador</string>
     <string name="debug_fault_keyframe">Pedir um quadro completo</string>
     <string name="debug_fault_decoder_what">Travar o decodificador: o vigia o reinicia em 3 s.</string>
-    <string name="debug_fault_keyframe_what">Pedir um quadro completo: pede um keyframe ao Android Auto.</string>
+    <string name="debug_fault_keyframe_what">Pedir um quadro completo: pede um quadro-chave ao Android Auto.</string>
     <string name="debug_arrow_title">Testar as setas do painel</string>
     <string name="debug_arrow_sub_off">Só com o painel conectado. Inicie a projeção e espere o painel. Percorra as setas de manobra e fotografe o painel com a moto parada; Parar devolve a seta real.</string>
     <string name="debug_arrow_sub_idle">Só com o painel conectado. Percorra as setas de manobra e fotografe o painel com a moto parada; Parar devolve a seta real.</string>

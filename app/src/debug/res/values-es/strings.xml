@@ -12,7 +12,7 @@
     <string name="debug_fault_decoder">Bloquear el decodificador</string>
     <string name="debug_fault_keyframe">Pedir un cuadro completo</string>
     <string name="debug_fault_decoder_what">Bloquear el decodificador: el vigilante lo reinicia en 3 s.</string>
-    <string name="debug_fault_keyframe_what">Pedir un cuadro completo: pide un keyframe a Android Auto.</string>
+    <string name="debug_fault_keyframe_what">Pedir un cuadro completo: pide un cuadro clave a Android Auto.</string>
     <string name="debug_arrow_title">Probar las flechas del tablero</string>
     <string name="debug_arrow_sub_off">Solo con el tablero conectado. Inicia la proyección y espera al tablero. Recorre las flechas de maniobra y fotografía el tablero con la moto parada; Parar devuelve la flecha real.</string>
     <string name="debug_arrow_sub_idle">Solo con el tablero conectado. Recorre las flechas de maniobra y fotografía el tablero con la moto parada; Parar devuelve la flecha real.</string>

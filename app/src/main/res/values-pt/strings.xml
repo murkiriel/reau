@@ -188,8 +188,6 @@
     <string name="joystick_action_focus_left">Foco para a esquerda</string>
     <string name="joystick_action_focus_right">Foco para a direita</string>
     <string name="joystick_ghost_side">Este lado às vezes dispara junto do centro.</string>
-    <!-- The instrument cluster display experiment -->
-    <!-- The dash's bubble with no route, and the joystick in its map mode -->
     <string name="permissions_title">Permissões</string>
     <string name="permissions_intro">O que sai do celular vai ao painel, à sua rede só com o servidor de rede e à internet só para clima e atualização (veja \"O REau e os seus dados\").</string>
     <string name="permissions_open_app_settings">Abrir as permissões do REau no Android</string>

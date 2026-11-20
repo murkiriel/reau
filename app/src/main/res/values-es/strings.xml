@@ -21,19 +21,19 @@
     <string name="notif_title_dash_lost">Tablero perdido</string>
     <string name="notif_text_dash_lost">La conexión con el tablero se cayó. REau vuelve sola; si pasa de un minuto con la moto encendida, apágala y enciéndela con la llave</string>
     <string name="notif_alert_channel_name">Avisos del tablero</string>
-    <string name="notif_alert_channel_desc">Avisa con sonido y vibración cuando el tablero o el celular necesita algo de ti, como apagar y encender el contacto, o que el celular esté demasiado caliente</string>
+    <string name="notif_alert_channel_desc">Avisa con sonido y vibración cuando el tablero o el teléfono necesita algo de ti, como apagar y encender el contacto, o que el teléfono esté demasiado caliente</string>
     <string name="notif_update_channel_name">Actualizaciones</string>
     <string name="notif_update_channel_desc">Avisa, sin ruido, de que hay una versión más nueva de REau publicada</string>
     <string name="notif_update_title">REau %1$s disponible</string>
     <string name="notif_update_text">Toca para ver la página de la versión. No se descarga ni se instala nada.</string>
     <string name="notif_title_dash_stuck">El Wi-Fi del tablero se trabó</string>
     <string name="notif_text_dash_stuck">El tablero está encendido pero no acepta la conexión. Apaga y vuelve a encender el contacto de la moto; REau se reconecta sola</string>
-    <string name="notif_title_phone_hot">El celular está caliente</string>
-    <string name="notif_text_phone_hot">El celular está caliente (%1$d °C). Sácalo del sol o del bolsillo cerrado, o desconecta el cargador, para que no reduzca el rendimiento</string>
+    <string name="notif_title_phone_hot">El teléfono está caliente</string>
+    <string name="notif_text_phone_hot">El teléfono está caliente (%1$d °C). Sácalo del sol o del bolsillo cerrado, o desconecta el cargador, para que no reduzca el rendimiento</string>
     <string name="notif_title_wifi_off">Wi-Fi del teléfono apagado</string>
     <string name="notif_text_wifi_off">Wi-Fi del teléfono apagado: enciende el Wi-Fi para conectar al tablero</string>
     <string name="notif_title_bind_refused">Android rechaza la red del tablero</string>
-    <string name="notif_text_bind_refused">Android rechazó el Wi-Fi del tablero varias veces seguidas. Apaga cualquier VPN y el cambio automático entre Wi-Fi y datos móviles; si sigue, apaga y enciende el Wi-Fi del celular. REau sigue intentando</string>
+    <string name="notif_text_bind_refused">Android rechazó el Wi-Fi del tablero varias veces seguidas. Apaga cualquier VPN y el cambio automático entre Wi-Fi y datos móviles; si sigue, apaga y enciende el Wi-Fi del teléfono. REau sigue intentando</string>
     <string name="notif_title_no_dash_stopped">Proyección apagada</string>
     <plurals name="notif_text_no_dash_stopped">
         <item quantity="one">El tablero no apareció durante %1$d minuto, así que REau se detuvo. Vuelve a encender la proyección cuando enciendas la moto</item>
@@ -179,7 +179,7 @@
     <string name="joystick_action_previous_song">Canción anterior</string>
     <string name="joystick_action_volume_up">Subir volumen</string>
     <string name="joystick_action_volume_down">Bajar volumen</string>
-    <string name="joystick_action_assistant">Gemini (activar el interruptor)</string>
+    <string name="joystick_action_assistant">Gemini (con el interruptor activado)</string>
     <string name="joystick_action_zoom_in">Acercar</string>
     <string name="joystick_action_zoom_out">Alejar</string>
     <string name="joystick_action_swap_map_music">Alternar mapa y música</string>
@@ -188,8 +188,6 @@
     <string name="joystick_action_focus_left">Foco a la izquierda</string>
     <string name="joystick_action_focus_right">Foco a la derecha</string>
     <string name="joystick_ghost_side">Este lado a veces se dispara junto con el centro.</string>
-    <!-- The instrument cluster display experiment -->
-    <!-- The dash's bubble with no route, and the joystick in its map mode -->
     <string name="permissions_title">Permisos</string>
     <string name="permissions_intro">Lo que sale del teléfono va al tablero, a tu red solo con el servidor de red y a internet solo para el clima y las actualizaciones (mira \"REau y tus datos\").</string>
     <string name="permissions_open_app_settings">Abrir los permisos de REau en Android</string>
@@ -351,9 +349,9 @@
     <string name="warn_location_title">La ubicación está apagada en el teléfono</string>
     <string name="warn_location">Con la Ubicación de Android apagada, el teléfono no devuelve la búsqueda de redes Wi-Fi, así que REau no puede ver la red del tablero y puede tardar más en unirse a ella; la tarjeta de GPS del anillo de información y el tema según el sol tampoco funcionan. Activa la Ubicación en los ajustes rápidos de Android.</string>
     <string name="warn_alerts_muted_title">Los avisos del tablero están en silencio</string>
-    <string name="warn_alerts_muted">Android reproduce el canal “Avisos del tablero” sin sonido ni vibración, así que un tablero trabado, una red rechazada o un celular caliente no se oirían. Abre sus ajustes y dale sonido.</string>
+    <string name="warn_alerts_muted">Android reproduce el canal “Avisos del tablero” sin sonido ni vibración, así que un tablero trabado, una red rechazada o un teléfono caliente no se oirían. Abre sus ajustes y dale sonido.</string>
     <string name="warn_alerts_blocked_title">Los avisos del tablero están bloqueados</string>
-    <string name="warn_alerts_blocked">Android bloquea los avisos de REau (todas las notificaciones, o el canal “Avisos del tablero”), así que un tablero trabado, una red rechazada o un celular caliente no se avisarían. Abre los ajustes y permítelos.</string>
+    <string name="warn_alerts_blocked">Android bloquea los avisos de REau (todas las notificaciones, o el canal “Avisos del tablero”), así que un tablero trabado, una red rechazada o un teléfono caliente no se avisarían. Abre los ajustes y permítelos.</string>
     <string name="warn_vpn_title">Una VPN frena a REau</string>
     <string name="warn_vpn">Con REau dentro de la VPN, Android no le deja usar el Wi-Fi del tablero. En la app de la VPN, deja a REau fuera (\"split tunneling\") y reconecta la VPN por completo.</string>
     <string name="warn_taken_title">Tablero en uso</string>
@@ -391,7 +389,7 @@
     <string name="group_card">Fondo</string>
     <string name="group_aa_head_unit">Android Auto</string>
     <string name="announce_motorcycle_title">Anunciar como moto</string>
-    <string name="announce_motorcycle_sub">Android Auto pasa a tratar la central de REau como una moto, y no como un carro. La primera vez la ve como un vehículo nuevo y puede pedir de nuevo los permisos en el celular; el micrófono puede pasar a ser el del celular. Vale desde el próximo encendido</string>
+    <string name="announce_motorcycle_sub">Android Auto pasa a tratar la central de REau como una moto, y no como un carro. La primera vez la ve como un vehículo nuevo y puede pedir de nuevo los permisos en el teléfono; el micrófono puede pasar a ser el del teléfono. Se aplica la próxima vez que enciendas</string>
     <string name="pairing_known_title">Tablero conocido</string>
     <string name="pairing_known_info">Este es el tablero cuyo nombre completo de Wi-Fi REau ya conoce y que necesita para conectarse. \"Olvidar\" borra ese nombre, todo lo que el tablero ha reportado (los datos de la moto de abajo) y la red sugerida a Android; después, REau vuelve a buscar el tablero (con REau abierta, el nombre aparece solo) o tú escribes el nombre completo. Úsalo cuando cambies de moto o de tablero.</string>
     <string name="pairing_unknown_title">Ningún tablero conocido</string>
@@ -414,7 +412,7 @@
     <string name="theme_auto_short">Según el sol</string>
     <string name="music_title">Reproduciendo ahora</string>
     <string name="music_sub">Título, álbum y artista en el tablero</string>
-    <string name="dash_music">Muestra el título, el álbum y el artista de la canción en la tarjeta de música del tablero, activado por defecto; un cambio cuenta desde la próxima vez que enciendas. Los datos vienen de Android Auto, así que no se pide acceso a las notificaciones ni a los contactos. La tarjeta solo aparece si un botón del modo multimedia del joystick tiene canción anterior, reproducir/pausar o canción siguiente, lo que el joystick estándar no tiene: pon uno en la página del joystick.</string>
+    <string name="dash_music">Muestra el título, el álbum y el artista de la canción en la tarjeta de música del tablero, activado por defecto; un cambio se aplica la próxima vez que enciendas. Los datos vienen de Android Auto, así que no se pide acceso a las notificaciones ni a los contactos. La tarjeta solo aparece si un botón del modo multimedia del joystick tiene canción anterior, reproducir/pausar o canción siguiente, lo que el joystick estándar no tiene: pon uno en la página del joystick.</string>
     <string name="caller_title">Quién llama</string>
     <string name="caller_sub">Nombre (o número) de quien llama, en el tablero</string>
     <string name="joystick_nav_title">Joystick del tablero</string>
@@ -425,7 +423,7 @@
     <string name="video_fixed_line">Video: perfil A %1$d fps, perfil B %2$d fps, %3$d kbps, %4$s</string>
     <string name="bitrate_mode_title">Modo de bitrate</string>
     <string name="bitrate_cbr">Constante</string>
-    <string name="keyframe_title">Fotograma clave</string>
+    <string name="keyframe_title">Cuadro clave</string>
     <string name="profiles_on">Activado</string>
     <string name="profile_a_title">Perfil A</string>
     <string name="profile_a_sub">La imagen más fluida</string>
@@ -901,7 +899,7 @@
     <string name="action_wifi_on">Encender el Wi-Fi</string>
     <string name="spoken_alerts_title">Avisos hablados en el auricular</string>
     <string name="spoken_alerts_sub">Dice los avisos importantes en el auricular del casco</string>
-    <string name="spoken_alerts">Dice los avisos importantes con la voz de Android, en el auricular del casco, como la voz de la navegación: el tablero que se fue o se trabó y volvió, el celular caliente y el Wi-Fi del teléfono apagado. Baja la música un instante mientras habla y nunca repite la misma frase en menos de un minuto. Viene apagado; las notificaciones aparecen de todos modos, y la voz depende del motor de voz del teléfono y de las voces instaladas.</string>
+    <string name="spoken_alerts">Dice los avisos importantes con la voz de Android, en el auricular del casco, como la voz de la navegación: el tablero que se fue o se trabó y volvió, el teléfono caliente y el Wi-Fi del teléfono apagado. Baja la música un instante mientras habla y nunca repite la misma frase en menos de un minuto. Viene apagado; las notificaciones aparecen de todos modos, y la voz depende del motor de voz del teléfono y de las voces instaladas.</string>
     <string name="voice_dash_gone">Tablero desconectado. Apaga y enciende la moto.</string>
     <string name="voice_dash_back">Tablero de vuelta.</string>
     <string name="voice_phone_hot">Celular caliente. Sácalo del sol o del bolsillo cerrado.</string>
