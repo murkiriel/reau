@@ -198,7 +198,7 @@ class SmallPictureTest {
         assertTrue("the log line says the output", compositor.contains("output \${size.width}x\${size.height}"))
         val gl = source("video/CompositorGl.kt")
         assertTrue(gl.contains("outputW = size.width\n        outputH = size.height"))
-        assertTrue("the picture", gl.contains("drawQuad(window, toOutput(viewport))"))
+        assertTrue("the picture", gl.contains("drawQuad(window, toOutput(viewport), SMALL_OUTPUT_FILTER.takeIf"))
         assertTrue("the rider's cover", gl.contains("val out = toOutput(r)\n            GLES20.glScissor(out.x, out.y, out.w, out.h)"))
         assertTrue("the blurred background", gl.contains("val frame = toOutput(plan.frame)\n        GLES20.glViewport(frame.x, frame.y, frame.w, frame.h)"))
         assertEquals("the overlays, the ring, the legend and the clear cover the whole output", 2, Regex("""glViewport\(0, 0, outputW, outputH\)""").findAll(gl).count())
