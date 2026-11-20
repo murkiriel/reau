@@ -29,7 +29,7 @@ import com.reau.app.ui.components.RoundIcon
 import com.reau.app.ui.components.hairline
 
 /** One tip for the rider: a [tag] (the card's `tip_<tag>`), its [title] and [text], and an [icon] when it has one. */
-class Tip(val tag: String, @StringRes val title: Int, @StringRes val text: Int, @DrawableRes val icon: Int? = null)
+class Tip(val tag: String, @param:StringRes val title: Int, @param:StringRes val text: Int, @param:DrawableRes val icon: Int? = null)
 
 /** The tips, declared in one place: the next one is one more line here and its two texts in each language. */
 object Tips {
