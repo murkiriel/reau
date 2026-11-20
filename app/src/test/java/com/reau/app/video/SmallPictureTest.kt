@@ -19,7 +19,7 @@ import java.io.File
 class SmallPictureTest {
     private fun source(path: String) = File("src/main/java/com/reau/app/$path").readText()
 
-    private fun at(pace: Int) = REauSettings(videoPaceFps = pace).sanitized(debugBuild = true)
+    private fun at(id: String) = REauSettings(videoProfileId = id).sanitized(debugBuild = true)
 
     // ---- the size by profile
 
@@ -36,25 +36,40 @@ class SmallPictureTest {
     }
 
     @Test
-    fun `only the 12 fps profile has the small picture, both A and B, and every other profile the full frame`() {
-        for (p in DashConfig.STREAM_PROFILES) {
-            val wanted = if (p.fullFps == 12) DashConfig.REDUCED_FRAME else DashConfig.FULL_FRAME
-            assertEquals("profile of ${p.fullFps} fps", wanted, p.frame)
-            assertEquals("the settings say the same", wanted, at(p.fullFps).frameSize)
-        }
-        assertEquals("a value outside the table reads as the default", DashConfig.FULL_FRAME, DashConfig.streamProfile(10).frame)
+    fun `the medium frame is 448x256, 28x16 macroblocks, of nearly the shape of the full one`() {
+        assertEquals(listOf(448, 256), listOf(DashConfig.MEDIUM_FRAME.width, DashConfig.MEDIUM_FRAME.height))
+        assertEquals(listOf(28, 16), listOf(DashConfig.MEDIUM_FRAME.width / 16, DashConfig.MEDIUM_FRAME.height / 16))
+        assertEquals(0, DashConfig.MEDIUM_FRAME.width % 16)
+        assertEquals(0, DashConfig.MEDIUM_FRAME.height % 16)
+        val full = DashConfig.FULL_FRAME.width.toDouble() / DashConfig.FULL_FRAME.height
+        assertEquals(full, DashConfig.MEDIUM_FRAME.width.toDouble() / DashConfig.MEDIUM_FRAME.height, 0.02)
+        assertTrue("it sits between the two others", DashConfig.REDUCED_FRAME.width < DashConfig.MEDIUM_FRAME.width && DashConfig.MEDIUM_FRAME.width < DashConfig.FULL_FRAME.width)
     }
 
     @Test
-    fun `the picture follows the ceiling the stream is made with, not the pace that was asked for`() {
-        // the settings screen and the stream read the ceiling (fpsCeiling); a pace asked for and not applied (a release build) must not change the picture
-        assertEquals(DashConfig.FULL_FRAME, REauSettings(videoPaceFps = 12, fpsCeiling = 4).frameSize)
-        assertEquals(DashConfig.REDUCED_FRAME, REauSettings(videoPaceFps = 4, fpsCeiling = 12).frameSize)
+    fun `the 12 fps profile has the small picture and the 8m the medium one, A and B alike, and every other profile the full frame`() {
+        val wanted = mapOf("4" to DashConfig.FULL_FRAME, "6" to DashConfig.FULL_FRAME, "8" to DashConfig.FULL_FRAME, "8m" to DashConfig.MEDIUM_FRAME, "12" to DashConfig.REDUCED_FRAME)
+        assertEquals(wanted.keys.toList(), DashConfig.PROFILE_IDS)
+        for (p in DashConfig.STREAM_PROFILES) {
+            assertEquals("profile ${p.id}", wanted[p.id], p.frame)
+            assertEquals("the settings say the same", wanted[p.id], at(p.id).frameSize)
+        }
+        assertEquals("an id outside the table reads as the default", DashConfig.FULL_FRAME, DashConfig.profileById("10").frame)
+        assertEquals("the two 8 fps differ in the picture only", DashConfig.profileById("8").copy(id = "8m", frame = DashConfig.MEDIUM_FRAME), DashConfig.profileById("8m"))
+    }
+
+    @Test
+    fun `the picture follows the profile that was chosen, not the pace the stream runs at`() {
+        // the settings screen and the stream read the profile by its id; two profiles share the pace 8, so the pace cannot tell the picture
+        assertEquals(DashConfig.FULL_FRAME, REauSettings(videoProfileId = "4", fpsCeiling = 12).frameSize)
+        assertEquals(DashConfig.REDUCED_FRAME, REauSettings(videoProfileId = "12", fpsCeiling = 4).frameSize)
+        assertEquals(DashConfig.MEDIUM_FRAME, REauSettings(videoProfileId = "8m", fpsCeiling = 8).frameSize)
+        assertEquals(DashConfig.FULL_FRAME, REauSettings(videoProfileId = "8", fpsCeiling = 8).frameSize)
     }
 
     @Test
     fun `in a release build the picture is always the full frame, whatever was stored`() {
-        for (pace in listOf(4, 6, 8, 12)) assertEquals("pace $pace", DashConfig.FULL_FRAME, REauSettings(videoPaceFps = pace).sanitized(debugBuild = false).frameSize)
+        for (id in DashConfig.PROFILE_IDS) assertEquals("profile $id", DashConfig.FULL_FRAME, REauSettings(videoProfileId = id).sanitized(debugBuild = false).frameSize)
         assertEquals(DashConfig.FULL_FRAME, REauSettings().sanitized(true).frameSize)
     }
 
@@ -62,39 +77,63 @@ class SmallPictureTest {
     fun `the video loop gets the picture of the rider's profile`() {
         val loop = VideoLoop.Settings()
         assertEquals(DashConfig.FULL_FRAME, loop.frame)
-        assertEquals(DashConfig.FULL_FRAME, loop.withRider(at(8)).frame)
-        assertEquals(DashConfig.REDUCED_FRAME, loop.withRider(at(12)).frame)
-        assertEquals(DashConfig.FULL_FRAME, loop.withRider(REauSettings(videoPaceFps = 12).sanitized(debugBuild = false)).frame)
+        assertEquals("4", loop.profileId)
+        assertEquals(DashConfig.FULL_FRAME, loop.withRider(at("8")).frame)
+        assertEquals(DashConfig.MEDIUM_FRAME, loop.withRider(at("8m")).frame)
+        assertEquals(DashConfig.REDUCED_FRAME, loop.withRider(at("12")).frame)
+        assertEquals(DashConfig.FULL_FRAME, loop.withRider(REauSettings(videoProfileId = "12").sanitized(debugBuild = false)).frame)
+    }
+
+    @Test
+    fun `the video loop gets the id of the rider's profile, for the log`() {
+        val loop = VideoLoop.Settings()
+        for (id in DashConfig.PROFILE_IDS) assertEquals(id, loop.withRider(at(id)).profileId)
+        assertEquals("a release build runs the default", "4", loop.withRider(REauSettings(videoProfileId = "8m").sanitized(debugBuild = false)).profileId)
     }
 
     // ---- the fall back when no encoder takes the small picture
 
     @Test
     fun `without an encoder for the small picture the stream is the 8 fps profile at the full frame`() {
-        val small = VideoLoop.Settings().withRider(at(12))
+        val small = VideoLoop.Settings().withRider(at("12"))
         val back = small.atFullFrame()
         assertEquals(listOf(8, 600_000, 300_000), listOf(back.ceilingFps, back.bitrateBps, back.reducedBitrateBps))
         assertEquals(DashConfig.FULL_FRAME, back.frame)
-        assertEquals("nothing else of the settings moves", small.copy(ceilingFps = 8, bitrateBps = 600_000, reducedBitrateBps = 300_000, frame = DashConfig.FULL_FRAME), back)
-        assertEquals("what the 8 fps profile is for the rider", VideoLoop.Settings().withRider(at(8)), back)
+        assertEquals("8", back.profileId)
+        assertEquals(
+            "nothing else of the settings moves",
+            small.copy(ceilingFps = 8, bitrateBps = 600_000, reducedBitrateBps = 300_000, frame = DashConfig.FULL_FRAME, profileId = "8"), back,
+        )
+        assertEquals("what the 8 fps profile is for the rider", VideoLoop.Settings().withRider(at("8")), back)
+    }
+
+    @Test
+    fun `without an encoder for the medium picture the stream is the same 8 fps at the full frame`() {
+        val medium = VideoLoop.Settings().withRider(at("8m"))
+        val back = medium.atFullFrame()
+        assertEquals(listOf(8, 600_000, 300_000), listOf(back.ceilingFps, back.bitrateBps, back.reducedBitrateBps))
+        assertEquals(listOf(DashConfig.FULL_FRAME, "8"), listOf(back.frame, back.profileId))
+        assertEquals("only the picture and the id moved", medium.copy(frame = DashConfig.FULL_FRAME, profileId = "8"), back)
+        assertEquals(VideoLoop.Settings().withRider(at("8")), back)
     }
 
     @Test
     fun `the fall back keeps a bitrate the rider has asked lower, and never raises it`() {
-        val adaptive = VideoLoop.Settings().withRider(REauSettings(videoPaceFps = 12, experimentAdaptiveBitrate = true).sanitized(true))
+        val adaptive = VideoLoop.Settings().withRider(REauSettings(videoProfileId = "12", experimentAdaptiveBitrate = true).sanitized(true))
         assertEquals(200_000, adaptive.bitrateBps)
         assertEquals(200_000, adaptive.atFullFrame().bitrateBps)
         assertEquals(DashConfig.streamProfile(8).frame, DashConfig.FULL_FRAME)
-        assertEquals(8, DashConfig.FULL_FRAME_FALLBACK_FPS)
+        assertEquals("8", DashConfig.FALLBACK_PROFILE_ID)
+        assertEquals(8, DashConfig.profileById(DashConfig.FALLBACK_PROFILE_ID).fullFps)
     }
 
     @Test
     fun `a stream that is already at the full frame has nothing to fall back to`() {
-        for (pace in listOf(4, 6, 8)) {
-            val s = VideoLoop.Settings().withRider(at(pace))
-            assertSame("pace $pace", s, s.atFullFrame())
+        for (id in listOf("4", "6", "8")) {
+            val s = VideoLoop.Settings().withRider(at(id))
+            assertSame("profile $id", s, s.atFullFrame())
         }
-        val back = VideoLoop.Settings().withRider(at(12)).atFullFrame()
+        val back = VideoLoop.Settings().withRider(at("12")).atFullFrame()
         assertSame("and the fall back is done once", back, back.atFullFrame())
     }
 
@@ -106,7 +145,8 @@ class SmallPictureTest {
         assertTrue("nothing to try at the full frame already", fall.contains("if (fallback == requested) return false"))
         assertTrue("the next start takes the settings of the fall back", fall.indexOf("settings = fallback") in 0 until fall.indexOf("return start()"))
         assertTrue("it says what happened, as a warning", fall.contains("\${RideDiagnostics.WARN}no encoder took the \${requested.frame.width}x\${requested.frame.height} picture \""))
-        assertTrue(fall.contains("back to \${fallback.frame.width}x\${fallback.frame.height} at \${fallback.ceilingFps} fps"))
+        assertTrue("and which profiles", fall.contains("of the profile \${requested.profileId} (\${requested.ceilingFps} fps): back to the profile \${fallback.profileId}, "))
+        assertTrue(fall.contains("\"\${fallback.frame.width}x\${fallback.frame.height} at \${fallback.ceilingFps} fps"))
         assertTrue("the recorder of the failed try is closed", fall.contains("recorder?.close()"))
     }
 
@@ -118,9 +158,9 @@ class SmallPictureTest {
     }
 
     @Test
-    fun `the start line of the video loop says the picture`() {
+    fun `the start line of the video loop says the profile and the picture`() {
         val loop = source("stream/VideoLoop.kt")
-        assertTrue(loop.contains("\"picture \${settings.frame.width}x\${settings.frame.height}, keyframe \${g.keyframeSec}s fixed\""))
+        assertTrue(loop.contains("\"profile \${settings.profileId}, picture \${settings.frame.width}x\${settings.frame.height}, keyframe \${g.keyframeSec}s fixed\""))
     }
 
     // ---- the encoder, the output and the loop know the size
@@ -132,6 +172,7 @@ class SmallPictureTest {
         assertTrue("the first output", loop.contains("compositor.setOutput(checkNotNull(fresh.inputSurface), settings.frame, onFrameSubmitted = fresh::frameSubmitted)"))
         assertTrue("a rebuilt encoder's", loop.contains("compositor.swapOutputThen(checkNotNull(fresh.inputSurface), settings.frame, onFrameSubmitted = fresh::frameSubmitted,"))
         assertTrue("the first start gets the picture of the rider", loop.contains("frame = rider.frameSize,"))
+        assertTrue("and the id of the profile", loop.contains("profileId = rider.streamProfile.id,"))
         assertEquals("the picture is set where the stream is made and nowhere else", 1, Regex("""settings = fallback""").findAll(loop).count())
     }
 
@@ -207,6 +248,32 @@ class SmallPictureTest {
     @Test
     fun `the arithmetic is not the other output`() {
         assertNotEquals(CompositorMath.toOutput(RectPx(0, 0, 526, 300), 368, 208), CompositorMath.toOutput(RectPx(0, 0, 526, 300), 526, 300))
+    }
+
+    // ---- the area filter on the smaller outputs
+
+    @Test
+    fun `only an output smaller than the frame on a side takes the area filter`() {
+        assertFalse("the frame's own size is drawn as always", CompositorMath.needsAreaFilter(DashGlass.FRAME_W, DashGlass.FRAME_H))
+        assertTrue(CompositorMath.needsAreaFilter(DashConfig.REDUCED_FRAME.width, DashConfig.REDUCED_FRAME.height))
+        assertTrue(CompositorMath.needsAreaFilter(DashConfig.MEDIUM_FRAME.width, DashConfig.MEDIUM_FRAME.height))
+        assertTrue("one side is enough", CompositorMath.needsAreaFilter(DashGlass.FRAME_W, DashGlass.FRAME_H - 1))
+        assertTrue("one side is enough", CompositorMath.needsAreaFilter(DashGlass.FRAME_W - 1, DashGlass.FRAME_H))
+        assertFalse(CompositorMath.needsAreaFilter(DashGlass.FRAME_W + 16, DashGlass.FRAME_H + 16))
+        for (p in DashConfig.STREAM_PROFILES) {
+            assertEquals("profile ${p.id}", p.frame != DashConfig.FULL_FRAME, CompositorMath.needsAreaFilter(p.frame.width, p.frame.height))
+        }
+    }
+
+    @Test
+    fun `the picture of the dash is shrunk with the area average on a smaller output, and the plain fetch of the frame is left as it was`() {
+        val gl = source("video/CompositorGl.kt")
+        assertTrue(gl.contains("drawQuad(window, toOutput(viewport), SMALL_OUTPUT_FILTER.takeIf { CompositorMath.needsAreaFilter(outputW, outputH) })"))
+        assertTrue("the filter is the box of 4x4 taps", gl.contains("private val SMALL_OUTPUT_FILTER = ReductionFilter(ReductionFilter.Kernel.BOX)"))
+        // a null filter is the stream's own ([ReductionFilter.CURRENT]): the full frame's path does not change
+        assertTrue(gl.contains("val variant = (filter ?: reductionFilter).takeUnless { it.isCurrent }"))
+        assertTrue("and the default of the stream is still the plain one", gl.contains("var reductionFilter: ReductionFilter = ReductionFilter.CURRENT"))
+        assertEquals("the area filter is asked for in one place only, besides the small copies", 1, Regex("""SMALL_OUTPUT_FILTER\.takeIf""").findAll(gl).count())
     }
 
     // ---- the live tuning

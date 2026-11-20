@@ -86,6 +86,13 @@ object CompositorMath {
         return RectPx(left, bottom, right - left, top - bottom)
     }
 
+    /**
+     * Whether an output [outW]×[outH] is smaller than the dash's frame on a side: the stream of a smaller picture (the 12 fps profile's, the medium one
+     * of the 8 fps). Android Auto's 800×480 is then shrunk 0.44 to 0.53 times, which one bilinear fetch per pixel (the graphics chip's two-by-two
+     * average) turns into jagged text and lines, so only these outputs take the area filter ([CompositorGl.draw]); the frame's own size is drawn as always.
+     */
+    fun needsAreaFilter(outW: Int, outH: Int): Boolean = outW < DashGlass.FRAME_W || outH < DashGlass.FRAME_H
+
     /** The blurred background is drawn on a copy of the frame this many times smaller on each side. */
     const val BACKDROP_DIVISOR = 4
 

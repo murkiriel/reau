@@ -530,7 +530,8 @@ internal class CompositorGl {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
         if (window == null) return
         if (backdrop != null) drawBackdrop(backdrop)
-        drawQuad(window, toOutput(viewport))
+        // The smaller pictures are shrunk with the area average (16 taps over a pixel's footprint); the frame's own size keeps the plain fetch, as ever.
+        drawQuad(window, toOutput(viewport), SMALL_OUTPUT_FILTER.takeIf { CompositorMath.needsAreaFilter(outputW, outputH) })
     }
 
     // The blurred background (CompositorMath.backdrop): a small framebuffer with a texture and a program of their own, all made on
@@ -818,6 +819,9 @@ internal class CompositorGl {
 
         /** How the small copy of [look] is reduced: the average of each block, as the picture classifier was trained. */
         private val LOOK_FILTER = ReductionFilter(ReductionFilter.Kernel.BOX)
+
+        /** How the picture is shrunk to an output smaller than the dash's frame ([CompositorMath.needsAreaFilter]): the same area average, on the stream's own size. */
+        private val SMALL_OUTPUT_FILTER = ReductionFilter(ReductionFilter.Kernel.BOX)
 
         const val NS_PER_MS = 1_000_000L
         const val QUAD_STRIDE = 16

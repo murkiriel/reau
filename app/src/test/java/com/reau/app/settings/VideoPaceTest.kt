@@ -13,33 +13,41 @@ import org.junit.Test
 import java.io.File
 
 /**
- * The pace of profile A ([REauSettings.videoPaceFps], plan 32): the table of profiles ([DashConfig.STREAM_PROFILES]), what [REauSettings.sanitized] makes of it in a debug build
- * and in a release, how the store keeps it and reads the experiment it replaced, and how it reaches the ride log, the live tuning, the video loop and the settings screen.
+ * The profile of the stream ([REauSettings.videoProfileId], plan 32): the table of profiles ([DashConfig.STREAM_PROFILES]), what [REauSettings.sanitized] makes of it in a debug build
+ * and in a release, how the store keeps it by id and reads the pace and the experiment it replaced, and how it reaches the ride log, the live tuning, the video loop and the settings screen.
  * What the governor does with it is PaceGovernorTest's.
  */
 class VideoPaceTest {
-    private fun at(pace: Int) = REauSettings(videoPaceFps = pace)
+    private fun at(id: String) = REauSettings(videoProfileId = id)
 
     // ---- the table
 
     @Test
-    fun `the table is 4 fps at 400 kbps, 6 at 400, 8 at 600 and 12 at 800, and B is the exact half of both`() {
+    fun `the table is 4 fps at 400 kbps, 6 at 400, 8 at 600 twice and 12 at 800, and B is the exact half of both`() {
         assertEquals(
-            listOf(listOf(4, 400_000, 2, 200_000), listOf(6, 400_000, 3, 200_000), listOf(8, 600_000, 4, 300_000), listOf(12, 800_000, 6, 400_000)),
-            DashConfig.STREAM_PROFILES.map { listOf(it.fullFps, it.fullBps, it.reducedFps, it.reducedBps) },
+            listOf(
+                listOf("4", 4, 400_000, 2, 200_000), listOf("6", 6, 400_000, 3, 200_000), listOf("8", 8, 600_000, 4, 300_000),
+                listOf("8m", 8, 600_000, 4, 300_000), listOf("12", 12, 800_000, 6, 400_000),
+            ),
+            DashConfig.STREAM_PROFILES.map { listOf(it.id, it.fullFps, it.fullBps, it.reducedFps, it.reducedBps) },
         )
-        assertEquals(listOf(4, 6, 8, 12), DashConfig.PACE_CHOICES)
+        assertEquals(listOf("4", "6", "8", "8m", "12"), DashConfig.PROFILE_IDS)
+        assertEquals("the ids are never repeated", DashConfig.PROFILE_IDS.size, DashConfig.PROFILE_IDS.toSet().size)
         assertTrue("800 kbps is under the ceiling of every bitrate", DashConfig.STREAM_PROFILES.all { it.fullBps <= DashConfig.MAX_STREAM_BITRATE_BPS })
-        assertEquals("the first is the default and the release's", DashConfig.DEFAULT_STREAM_FPS, DashConfig.STREAM_PROFILES.first().fullFps)
+        assertEquals("the first is the default and the release's", DashConfig.DEFAULT_PROFILE_ID, DashConfig.STREAM_PROFILES.first().id)
+        assertEquals(DashConfig.DEFAULT_STREAM_FPS, DashConfig.STREAM_PROFILES.first().fullFps)
         assertEquals(listOf(DashConfig.PROFILE_FULL_FPS, DashConfig.PROFILE_FULL_BPS), DashConfig.STREAM_PROFILES.first().let { listOf(it.fullFps, it.fullBps) })
     }
 
     @Test
-    fun `a pace the table does not have reads as the default`() {
+    fun `a pace or an id the table does not have reads as the default, and a pace with two profiles reads as the first`() {
         assertEquals(DashConfig.STREAM_PROFILES.first(), DashConfig.streamProfile(5))
         assertEquals(DashConfig.STREAM_PROFILES.first(), DashConfig.streamProfile(0))
-        assertEquals(DashConfig.StreamProfile(8, 600_000), DashConfig.streamProfile(8))
-        assertEquals(DashConfig.StreamProfile(12, 800_000, smallPicture = true), DashConfig.streamProfile(12))
+        assertEquals(DashConfig.StreamProfile("8", 8, 600_000), DashConfig.streamProfile(8))
+        assertEquals(DashConfig.StreamProfile("12", 12, 800_000, DashConfig.REDUCED_FRAME), DashConfig.streamProfile(12))
+        assertEquals(DashConfig.StreamProfile("8m", 8, 600_000, DashConfig.MEDIUM_FRAME), DashConfig.profileById("8m"))
+        for (bad in listOf("", "5", "8M", "m8", "12 ", "x")) assertEquals("id '$bad'", DashConfig.STREAM_PROFILES.first(), DashConfig.profileById(bad))
+        assertEquals(DashConfig.STREAM_PROFILES.first(), DashConfig.profileById(null))
     }
 
     @Test
@@ -53,7 +61,7 @@ class VideoPaceTest {
 
     @Test
     fun `it is 4 by default, and then the profiles are 4 and 2 fps at 400 and 200 kbps as always`() {
-        assertEquals(4, REauSettings().videoPaceFps)
+        assertEquals("4", REauSettings().videoProfileId)
         assertEquals(4, VideoLoop.Settings().let { DashConfig.streamProfile(it.ceilingFps.coerceAtMost(4)).fullFps })
         for (debug in listOf(true, false)) {
             val s = REauSettings().sanitized(debug)
@@ -62,34 +70,35 @@ class VideoPaceTest {
     }
 
     @Test
-    fun `in a debug build 4, 6, 8 and 12 are taken, with the ceiling, the bitrate and B from the table`() {
+    fun `in a debug build every profile of the table is taken, with the ceiling, the bitrate and B from the table`() {
         for (p in DashConfig.STREAM_PROFILES) {
-            val s = at(p.fullFps).sanitized(debugBuild = true)
-            assertEquals(p.fullFps, s.videoPaceFps)
+            val s = at(p.id).sanitized(debugBuild = true)
+            assertEquals(p.id, s.videoProfileId)
+            assertEquals(p, s.streamProfile)
             assertEquals(listOf(p.fullFps, p.fullBps, p.reducedFps, p.reducedBps), listOf(s.fpsCeiling, s.streamBitrateBps, s.profileReducedFps, s.profileReducedBps))
             assertEquals(p.fullBps, s.effectiveStreamBitrateBps)
             assertEquals(BitrateMode.CBR, s.bitrateMode)
             assertEquals(DashConfig.PROFILE_KEYFRAME_SEC, s.keyframeSec)
-            assertEquals("nothing else moves", REauSettings().sanitized(true), s.copy(videoPaceFps = 4, fpsCeiling = 4, streamBitrateBps = 400_000))
+            assertEquals("nothing else moves", REauSettings().sanitized(true), s.copy(videoProfileId = "4", fpsCeiling = 4, streamBitrateBps = 400_000))
         }
     }
 
     @Test
-    fun `in a debug build any other value reads as 4`() {
-        for (bad in listOf(0, 1, 2, 3, 5, 7, 9, 10, 11, 13, 16, 30, -6, Int.MAX_VALUE)) {
+    fun `in a debug build any other id reads as 4`() {
+        for (bad in listOf("", "0", "2", "5", "10", "16", "30", "-6", "8M", "m8", "8 ", "twelve")) {
             val s = at(bad).sanitized(debugBuild = true)
-            assertEquals("pace $bad", listOf(4, 4, 400_000), listOf(s.videoPaceFps, s.fpsCeiling, s.streamBitrateBps))
+            assertEquals("profile '$bad'", listOf("4", 4, 400_000), listOf(s.videoProfileId, s.fpsCeiling, s.streamBitrateBps))
         }
     }
 
     @Test
     fun `in a release build it is always 4, whatever was stored`() {
-        for (pace in listOf(4, 6, 8, 12)) {
-            val s = at(pace).sanitized(debugBuild = false)
-            assertEquals("pace $pace", listOf(4, 4, 2, 400_000, 200_000), listOf(s.videoPaceFps, s.fpsCeiling, s.profileReducedFps, s.streamBitrateBps, s.profileReducedBps))
+        for (id in DashConfig.PROFILE_IDS) {
+            val s = at(id).sanitized(debugBuild = false)
+            assertEquals("profile $id", listOf("4", 4, 2, 400_000, 200_000), listOf(s.videoProfileId, s.fpsCeiling, s.profileReducedFps, s.streamBitrateBps, s.profileReducedBps))
             assertEquals(REauSettings().sanitized(false), s)
         }
-        assertEquals("a ceiling of 8 stored by a debug build does not survive in a release", 4, at(4).copy(fpsCeiling = 8).sanitized(false).fpsCeiling)
+        assertEquals("a ceiling of 8 stored by a debug build does not survive in a release", 4, at("4").copy(fpsCeiling = 8).sanitized(false).fpsCeiling)
     }
 
     // ---- the store
@@ -97,36 +106,55 @@ class VideoPaceTest {
     @Test
     fun `it is stored and read back on its own`() {
         val store = SettingsStore(KeystoreBackedPrefsTest.FakePrefs())
-        assertEquals(4, store.load().videoPaceFps)
-        store.save(at(8))
-        // the store sanitizes with the build it runs in: 8 in a debug build, 4 in a release
-        assertEquals(if (com.reau.app.BuildConfig.DEBUG) 8 else 4, store.load().videoPaceFps)
-        assertEquals(at(8).sanitized(), store.load())
-        store.save(at(6))
-        assertEquals(at(6).sanitized(), store.load())
+        assertEquals("4", store.load().videoProfileId)
+        store.save(at("8m"))
+        // the store sanitizes with the build it runs in: "8m" in a debug build, "4" in a release
+        assertEquals(if (com.reau.app.BuildConfig.DEBUG) "8m" else "4", store.load().videoProfileId)
+        assertEquals(at("8m").sanitized(), store.load())
+        for (id in DashConfig.PROFILE_IDS) {
+            store.save(at(id))
+            assertEquals(at(id).sanitized(), store.load())
+        }
         store.save(REauSettings())
-        assertEquals(4, store.load().videoPaceFps)
+        assertEquals("4", store.load().videoProfileId)
         assertEquals(4, store.load().fpsCeiling)
     }
 
     @Test
     fun `a phone that stored the experiment on reads 6, off or never stored reads 4`() {
         val on = KeystoreBackedPrefsTest.FakePrefs().also { it.edit().putBoolean("experiment_fps63", true).apply() }
-        assertEquals(at(6).sanitized(), SettingsStore(on).load())
+        assertEquals(at("6").sanitized(), SettingsStore(on).load())
         val off = KeystoreBackedPrefsTest.FakePrefs().also { it.edit().putBoolean("experiment_fps63", false).apply() }
-        assertEquals(4, SettingsStore(off).load().videoPaceFps)
+        assertEquals("4", SettingsStore(off).load().videoProfileId)
         val none = KeystoreBackedPrefsTest.FakePrefs().also { it.edit().putInt("density", 200).apply() }
-        assertEquals(4, SettingsStore(none).load().videoPaceFps)
+        assertEquals("4", SettingsStore(none).load().videoProfileId)
     }
 
     @Test
-    fun `once the pace is saved the old experiment key is not read again`() {
-        val prefs = KeystoreBackedPrefsTest.FakePrefs().also { it.edit().putBoolean("experiment_fps63", true).apply() }
+    fun `a phone that stored the pace alone reads the first profile of that pace, so 8 is the full frame`() {
+        for ((pace, id) in listOf(4 to "4", 6 to "6", 8 to "8", 12 to "12", 5 to "4", 0 to "4", 30 to "4")) {
+            val prefs = KeystoreBackedPrefsTest.FakePrefs().also { it.edit().putInt("video_pace_fps", pace).apply() }
+            assertEquals("pace $pace", at(id).sanitized(), SettingsStore(prefs).load())
+        }
+        val both = KeystoreBackedPrefsTest.FakePrefs().also { it.edit().putInt("video_pace_fps", 8).putBoolean("experiment_fps63", true).apply() }
+        assertEquals("the pace is newer than the experiment", at("8").sanitized(), SettingsStore(both).load())
+    }
+
+    @Test
+    fun `once the profile is saved the older keys are not read again`() {
+        val prefs = KeystoreBackedPrefsTest.FakePrefs().also { it.edit().putBoolean("experiment_fps63", true).putInt("video_pace_fps", 12).apply() }
         val store = SettingsStore(prefs)
-        store.save(store.load().copy(videoPaceFps = 4))
-        assertEquals("the rider went back to 4 and the old key does not undo it", 4, SettingsStore(prefs).load().videoPaceFps)
-        store.save(at(8))
-        assertEquals(at(8).sanitized(), SettingsStore(prefs).load())
+        store.save(store.load().copy(videoProfileId = "4"))
+        assertEquals("the rider went back to 4 and the old keys do not undo it", "4", SettingsStore(prefs).load().videoProfileId)
+        store.save(at("8m"))
+        assertEquals(at("8m").sanitized(), SettingsStore(prefs).load())
+    }
+
+    @Test
+    fun `the profile is stored by its id, in a key of its own`() {
+        val prefs = KeystoreBackedPrefsTest.FakePrefs()
+        SettingsStore(prefs).save(at("8m"))
+        assertEquals("8m", prefs.getString("video_profile", null))
     }
 
     // ---- the guard, the ride log, the live tuning, the video loop
@@ -134,26 +162,28 @@ class VideoPaceTest {
     @Test
     fun `it is no experimental switch, so the start guard has nothing to say about it`() {
         assertTrue(REauSettings::class.java.declaredFields.none { it.name == "experimentFpsSixThree" })
-        assertEquals(emptyList<String>(), ExperimentsGuard.experimentsOn(at(8)))
-        assertEquals(at(8), ExperimentsGuard.allOff(at(8)))
+        assertEquals(emptyList<String>(), ExperimentsGuard.experimentsOn(at("8m")))
+        assertEquals(at("8m"), ExperimentsGuard.allOff(at("8m")))
     }
 
     @Test
     fun `the ride log says it in the settings line, and a change of it is told`() {
-        assertTrue("videoPaceFps=4" in SettingsInUse.line(REauSettings()))
-        assertTrue("videoPaceFps=8" in SettingsInUse.line(at(8)))
-        assertTrue("the ceiling it sets is in the line too", "fpsCeiling=8" in SettingsInUse.line(at(8).sanitized(true)))
-        assertNull(SettingsInUse.experimentsLine(at(8)))
-        assertEquals(listOf("videoPaceFps: 4 -> 8"), REauSettings().changesTo(at(8)))
+        assertTrue("videoProfileId=4" in SettingsInUse.line(REauSettings()))
+        assertTrue("videoProfileId=8m" in SettingsInUse.line(at("8m")))
+        assertTrue("the ceiling it sets is in the line too", "fpsCeiling=8" in SettingsInUse.line(at("8m").sanitized(true)))
+        assertNull(SettingsInUse.experimentsLine(at("8m")))
+        assertEquals(listOf("videoProfileId: 4 -> 8m"), REauSettings().changesTo(at("8m")))
     }
 
     @Test
-    fun `a change of it starts the stream again, since the pace is what changes, the one to or from 12 fps too`() {
-        assertEquals(setOf(LiveTuning.Step.NEW_STREAM), LiveTuning.steps(REauSettings().sanitized(true), at(8).sanitized(true)))
-        assertEquals(setOf(LiveTuning.Step.NEW_STREAM), LiveTuning.steps(at(8).sanitized(true), at(12).sanitized(true)))
-        assertEquals(setOf(LiveTuning.Step.NEW_STREAM), LiveTuning.steps(at(12).sanitized(true), at(6).sanitized(true)))
-        assertEquals(setOf(LiveTuning.Step.NEW_STREAM), LiveTuning.steps(at(6).sanitized(true), at(8).sanitized(true)))
-        assertEquals(emptySet<LiveTuning.Step>(), LiveTuning.steps(at(8).sanitized(true), at(8).sanitized(true)))
+    fun `a change of it starts the stream again, the one to or from 12 fps and between the two 8 fps too`() {
+        assertEquals(setOf(LiveTuning.Step.NEW_STREAM), LiveTuning.steps(REauSettings().sanitized(true), at("8").sanitized(true)))
+        assertEquals(setOf(LiveTuning.Step.NEW_STREAM), LiveTuning.steps(at("8").sanitized(true), at("12").sanitized(true)))
+        assertEquals(setOf(LiveTuning.Step.NEW_STREAM), LiveTuning.steps(at("12").sanitized(true), at("6").sanitized(true)))
+        assertEquals(setOf(LiveTuning.Step.NEW_STREAM), LiveTuning.steps(at("6").sanitized(true), at("8").sanitized(true)))
+        assertEquals("same pace and bitrate, another picture", setOf(LiveTuning.Step.NEW_STREAM), LiveTuning.steps(at("8").sanitized(true), at("8m").sanitized(true)))
+        assertEquals(emptySet<LiveTuning.Step>(), LiveTuning.steps(at("8").sanitized(true), at("8").sanitized(true)))
+        assertEquals(emptySet<LiveTuning.Step>(), LiveTuning.steps(at("8m").sanitized(true), at("8m").sanitized(true)))
     }
 
     @Test
@@ -161,12 +191,14 @@ class VideoPaceTest {
         val loop = VideoLoop.Settings()
         val off = loop.withRider(REauSettings().sanitized(true))
         assertEquals(listOf(4, 400_000, 200_000), listOf(off.ceilingFps, off.bitrateBps, off.reducedBitrateBps))
-        val s = loop.withRider(at(8).sanitized(true))
+        val s = loop.withRider(at("8").sanitized(true))
         assertEquals(listOf(8, 600_000, 300_000, 6), listOf(s.ceilingFps, s.bitrateBps, s.reducedBitrateBps, s.lightScreenFps))
         assertEquals(false, s.colorMatrix)
-        val release = loop.withRider(at(8).sanitized(false))
+        val release = loop.withRider(at("8").sanitized(false))
         assertEquals(listOf(4, 400_000, 200_000), listOf(release.ceilingFps, release.bitrateBps, release.reducedBitrateBps))
-        val small = loop.withRider(at(12).sanitized(true))
+        val medium = loop.withRider(at("8m").sanitized(true))
+        assertEquals(listOf(8, 600_000, 300_000), listOf(medium.ceilingFps, medium.bitrateBps, medium.reducedBitrateBps))
+        val small = loop.withRider(at("12").sanitized(true))
         assertEquals(listOf(12, 800_000, 400_000), listOf(small.ceilingFps, small.bitrateBps, small.reducedBitrateBps))
     }
 
@@ -182,12 +214,15 @@ class VideoPaceTest {
     // ---- the settings screen
 
     @Test
-    fun `the profile rows pick the pace in a debug build and show it locked in a release, with the bitrates of the table`() {
+    fun `the profile rows pick the profile by id in a debug build and show it locked in a release, with the bitrates of the table`() {
         val video = File("src/main/java/com/reau/app/ui/SettingsVideo.kt").readText()
         val rows = video.substringAfter("fun StreamProfileRows").substringBefore("fun NavProfileRows")
         assertTrue("the chooser is a debug build's", rows.contains("if (com.reau.app.BuildConfig.DEBUG) {"))
-        assertTrue(rows.contains("DashConfig.PACE_CHOICES.map { stringResource(R.string.pace_option, it) to \"pace_\$it\" }"))
-        assertTrue(rows.contains("change(s.copy(videoPaceFps = DashConfig.PACE_CHOICES[it]))"))
+        assertTrue(rows.contains("DashConfig.STREAM_PROFILES.map { p ->"))
+        assertTrue(rows.contains("name to \"pace_\${p.id}\""))
+        assertTrue(rows.contains("DashConfig.PROFILE_IDS.indexOf(s.streamProfile.id), { change(s.copy(videoProfileId = DashConfig.PROFILE_IDS[it])) }"))
+        assertTrue("only a profile with a smaller picture says its size", rows.contains("val name = if (p.frame == DashConfig.FULL_FRAME) {\n                    stringResource(R.string.pace_option, p.fullFps)\n                } else {"))
+        assertTrue("a profile with a smaller picture says its size", rows.contains("stringResource(R.string.pace_option_picture, p.fullFps, p.frame.width, p.frame.height)"))
         assertTrue(rows.contains("stringResource(R.string.profiles_fps_sub, s.fpsCeiling, s.profileReducedFps)"))
         assertTrue(rows.contains("R.string.profiles_info, s.fpsCeiling, s.streamBitrateBps / 1000,"))
         assertTrue(rows.contains("s.profileReducedFps, s.profileReducedBps / 1000,"))
@@ -203,6 +238,7 @@ class VideoPaceTest {
             assertFalse("$folder still has the experiment", xml.contains("exp_fps63"))
             fun text(name: String) = Regex("""<string name="$name">(.*?)</string>""").find(xml)?.groupValues?.get(1) ?: error("no $name in $folder")
             assertEquals("%1\$d fps", text("pace_option"))
+            assertEquals("%1\$d fps, %2\$dx%3\$d", text("pace_option_picture"))
             val sub = text("pace_sub")
             assertTrue("$folder: $sub", "%1\$d" in sub && "%2\$d" in sub && "%3\$d" in sub)
             val small = text("pace_small_sub")

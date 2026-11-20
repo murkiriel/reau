@@ -460,6 +460,7 @@
     <string name="profiles_info">REau usa dos perfiles de video fijos para el tablero: el A, con %1$d fps y %2$d kbps, la imagen más fluida, y el B, la mitad (%3$d fps y %4$d kbps), más liviano para el Wi-Fi y el tablero. Entre ellos eligen el perfil por maniobra y el perfil por velocidad, justo debajo. Estos valores no se pueden cambiar.</string>
     <string name="profiles_bitrate_sub">Perfil A: %1$d kbps. Perfil B: %2$d kbps. Fijo</string>
     <string name="pace_option">%1$d fps</string>
+    <string name="pace_option_picture">%1$d fps, %2$dx%3$d</string>
     <string name="pace_sub">Perfil A: %1$d fps. Perfil B: %2$d fps, la mitad exacta. Solo en la versión de depuración. En la reserva el ritmo se limita a %3$d fps</string>
     <string name="pace_small_sub">Perfil A: %1$d fps. Perfil B: %2$d fps, la mitad exacta. La imagen es más pequeña (%4$dx%5$d) y el tablero la estira por toda la pantalla, lo que alivia a su decodificador. Solo en la versión de depuración. En la reserva el ritmo se limita a %3$d fps</string>
     <string name="bitrate_title">Bitrate</string>

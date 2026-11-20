@@ -272,21 +272,22 @@ data class REauSettings(
     /** Experimental: a Qualcomm encoder of the dash (`c2.qti.` or `OMX.qcom.`) is also asked for the maker's low-latency key, so it does not hold frames ([com.reau.app.dash.video.VendorLowLatency]); a codec that refuses is asked again without it. Off, or with any other encoder, the format is as always. */
     val experimentEncoderLowLatency: Boolean = false,
     /**
-     * The pace of profile A in fps, a debug build's choice (a release build always runs [DashConfig.PROFILE_FULL_FPS], [sanitized]): one of
-     * [DashConfig.PACE_CHOICES], 4, 6, 8 or 12; the table [DashConfig.STREAM_PROFILES] gives its bitrate and profile B's, the exact half of both.
-     * It replaced the experiment "video at 6 fps (3 in the reduced profile)": the stored experiment on is read as 6 ([SettingsStore]).
+     * The id of the stream's profile, a debug build's choice (a release build always runs [DashConfig.DEFAULT_PROFILE_ID], [sanitized]): one of
+     * [DashConfig.PROFILE_IDS], "4", "6", "8", "8m" or "12"; the table [DashConfig.STREAM_PROFILES] gives its pace, picture and bitrate, and profile B's,
+     * the exact half of both. It is stored by id because two profiles share the pace 8. It replaced the pace alone (stored as `video_pace_fps`, read as
+     * the first profile of that pace) and, before it, the experiment "video at 6 fps (3 in the reduced profile)": the stored experiment on is read as "6" ([SettingsStore]).
      */
-    val videoPaceFps: Int = DashConfig.DEFAULT_STREAM_FPS,
+    val videoProfileId: String = DashConfig.DEFAULT_PROFILE_ID,
     /**
      * Experimental, a debug build's only (a release build always has it off, [sanitized]): the head unit tells Android Auto it is a MOTORCYCLE, under a vehicle id of its
      * own ([com.reau.app.aa.ServiceDiscoveryResponse.VEHICLE_ID_MOTORCYCLE]), see [aaConfig]. It counts from the next Android Auto session. Off, the announcement is the one it always was.
      */
     val experimentMotorcycle: Boolean = false,
 ) {
-    /** Profile A and B of the pace in use ([fpsCeiling] is the table's pace after [sanitized]). */
-    val streamProfile: DashConfig.StreamProfile get() = DashConfig.streamProfile(fpsCeiling)
+    /** Profile A and B of the profile in use ([videoProfileId] is a table's id after [sanitized]; [fpsCeiling] and [streamBitrateBps] are its pace and bitrate then). */
+    val streamProfile: DashConfig.StreamProfile get() = DashConfig.profileById(videoProfileId)
 
-    /** The size the stream's encoder is built for: the dash's frame, or the smaller picture of the 12 fps profile ([DashConfig.StreamProfile.frame]). */
+    /** The size the stream's encoder is built for: the dash's frame, or the smaller picture of the profile in use ([DashConfig.StreamProfile.frame]). */
     val frameSize: DashConfig.FrameSize get() = streamProfile.frame
 
     /** The reduced profile's pace: the exact half of profile A's ([DashConfig.StreamProfile.reducedFps]). */
@@ -431,19 +432,19 @@ data class REauSettings(
      * the dash's video are kept only when [debugBuild] is true (the recordings are kept as stored in both builds). Four more are fixed, the stream's
      * rate ceiling, bitrate, bitrate mode and keyframe: profile 1 is 4 fps / 400 kbps / constant / 1 s and profile 2,
      * its half, 2 fps / 200 kbps (the navigation profiles choose between them, [DashConfig.PROFILE_FULL_FPS]; in a debug build the rider's
-     * [videoPaceFps] picks 4, 6, 8 or 12 fps from [DashConfig.STREAM_PROFILES], any other value reads as 4, and a release build is always 4), and the
+     * [videoProfileId] picks a profile of [DashConfig.STREAM_PROFILES] (4, 6, 8, 8 in the medium picture, 12), any other value reads as "4", and a release build is always "4"), and the
      * maneuver data and the two navigation profiles (by maneuver, by speed) are always on, the pessimistic one winning when they disagree
      * ([navProfileMode]).
      */
     fun sanitized(debugBuild: Boolean = com.reau.app.BuildConfig.DEBUG): REauSettings {
-        // The pace is a debug build's choice: a release build is fixed at the default, and a value outside the table reads as the default.
-        val pace = videoPaceFps.takeIf { debugBuild && it in DashConfig.PACE_CHOICES } ?: DashConfig.DEFAULT_STREAM_FPS
-        val profile = DashConfig.streamProfile(pace)
+        // The profile is a debug build's choice: a release build is fixed at the default, and an id outside the table reads as the default.
+        val profileId = videoProfileId.takeIf { debugBuild && it in DashConfig.PROFILE_IDS } ?: DashConfig.DEFAULT_PROFILE_ID
+        val profile = DashConfig.profileById(profileId)
         val framed = copy(
             // The two texts over the dash's video are a debug build's: a value left on by one build must not draw in the other.
             statsOverlay = statsOverlay && debugBuild,
             buttonOverlay = buttonOverlay && debugBuild,
-            videoPaceFps = pace,
+            videoProfileId = profileId,
             // The motorcycle announcement is a debug build's experiment: a value left on by one build must not count in the other.
             experimentMotorcycle = experimentMotorcycle && debugBuild,
             clockSlowPercent = 0,

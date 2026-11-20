@@ -108,6 +108,8 @@ internal class VideoLoop(
         val reducedBitrateBps: Int = DashConfig.PROFILE_REDUCED_BPS,
         /** The size the encoder is built for ([com.reau.app.settings.REauSettings.frameSize]): fixed for the whole stream, so another size is another stream. */
         val frame: DashConfig.FrameSize = DashConfig.FULL_FRAME,
+        /** The id of the profile of the table the stream is made from ([com.reau.app.settings.REauSettings.videoProfileId]), for the log. */
+        val profileId: String = DashConfig.DEFAULT_PROFILE_ID,
     ) {
         /**
          * These settings with what the rider's own settings decide of the stream: the rate ceiling and clock, the bitrate (the experimental
@@ -128,21 +130,24 @@ internal class VideoLoop(
             encoderLowLatency = rider.experimentEncoderLowLatency,
             reducedBitrateBps = rider.profileReducedBps,
             frame = rider.frameSize,
+            profileId = rider.streamProfile.id,
         )
 
         /**
          * These settings at the full frame, for when no encoder of the phone takes the smaller picture: the pace and bitrates of the
-         * [DashConfig.FULL_FRAME_FALLBACK_FPS] profile (a bitrate the rider asked lower, the experimental 200 kbps target, is kept) and the 526×300 picture,
-         * so the dash is never left without an image. A stream already at the full frame is returned as it is.
+         * [DashConfig.FALLBACK_PROFILE_ID] profile (a bitrate the rider asked lower, the experimental 200 kbps target, is kept) and the 526×300 picture,
+         * so the dash is never left without an image: for the 12 fps profile that is 8 fps, for the 8 fps one in the medium picture the same pace on the
+         * full frame. A stream already at the full frame is returned as it is.
          */
         fun atFullFrame(): Settings {
             if (frame == DashConfig.FULL_FRAME) return this
-            val fallback = DashConfig.streamProfile(DashConfig.FULL_FRAME_FALLBACK_FPS)
+            val fallback = DashConfig.profileById(DashConfig.FALLBACK_PROFILE_ID)
             return copy(
                 ceilingFps = fallback.fullFps,
                 bitrateBps = minOf(bitrateBps, fallback.fullBps),
                 reducedBitrateBps = fallback.reducedBps,
                 frame = fallback.frame,
+                profileId = fallback.id,
             )
         }
     }
@@ -213,7 +218,7 @@ internal class VideoLoop(
         muteWatch = EncoderMuteWatch.whenOn(settings.encoderMuteWatch)
         log(
             "video loop start: ${g.fps} fps (ceiling $ceiling, ${g.profilesText}), " +
-                "picture ${settings.frame.width}x${settings.frame.height}, keyframe ${g.keyframeSec}s fixed" +
+                "profile ${settings.profileId}, picture ${settings.frame.width}x${settings.frame.height}, keyframe ${g.keyframeSec}s fixed" +
                 " (encoder asked ${DashEncoder.iFrameIntervalText(g.encoderKeyframeSec, g.encoderFps)}, pace up to ${g.gopFps} fps)" +
                 ", ${g.activeBitrateBps / 1000} kbps (${settings.bitrateBps / 1000} chosen) ${settings.bitrateMode ?: "default"}, " +
                 "clock ${settings.clockSlowPercent}% slow" +
@@ -233,9 +238,9 @@ internal class VideoLoop(
     }
 
     /**
-     * No encoder of the phone could be prepared. With the smaller picture of the 12 fps profile that may be the picture's fault (a size no encoder takes),
-     * so the stream starts again at the full frame and the pace and bitrate of the 8 fps profile ([Settings.atFullFrame]), with a line in the log that
-     * says so; the dash must not be left without an image. At the full frame already there is nothing more to try: false, as before.
+     * No encoder of the phone could be prepared. With a smaller picture (the 12 fps profile's or the medium one of the 8 fps) that may be the picture's
+     * fault (a size no encoder takes), so the stream starts again at the full frame and the pace and bitrate of the profile "8" ([Settings.atFullFrame]),
+     * with a line in the log that says so; the dash must not be left without an image. At the full frame already there is nothing more to try: false, as before.
      */
     private fun startAtFullFrame(recorder: H264Recorder?): Boolean {
         val requested = settings
@@ -245,8 +250,8 @@ internal class VideoLoop(
         settings = fallback
         log(
             "${RideDiagnostics.WARN}no encoder took the ${requested.frame.width}x${requested.frame.height} picture " +
-                "of the ${requested.ceilingFps} fps profile: " +
-                "back to ${fallback.frame.width}x${fallback.frame.height} at ${fallback.ceilingFps} fps, ${fallback.bitrateBps / 1000} kbps",
+                "of the profile ${requested.profileId} (${requested.ceilingFps} fps): back to the profile ${fallback.profileId}, " +
+                "${fallback.frame.width}x${fallback.frame.height} at ${fallback.ceilingFps} fps, ${fallback.bitrateBps / 1000} kbps",
         )
         return start()
     }

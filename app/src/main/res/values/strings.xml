@@ -471,6 +471,7 @@
     <string name="profiles_info">REau uses two fixed video profiles for the dash: A, %1$d fps and %2$d kbps, the smoother picture, and B, half of that (%3$d fps and %4$d kbps), lighter on the Wi-Fi and the dash. The maneuver profile and the speed profile, just below, choose between them. These values can’t be changed.</string>
     <string name="profiles_bitrate_sub">Profile A: %1$d kbps. Profile B: %2$d kbps. Fixed</string>
     <string name="pace_option">%1$d fps</string>
+    <string name="pace_option_picture">%1$d fps, %2$dx%3$d</string>
     <string name="pace_sub">Profile A: %1$d fps. Profile B: %2$d fps, the exact half. Debug build only. In the reserve the pace is capped at %3$d fps</string>
     <string name="pace_small_sub">Profile A: %1$d fps. Profile B: %2$d fps, the exact half. The picture is smaller (%4$dx%5$d) and the dash stretches it over its whole screen, which is easier on its decoder. Debug build only. In the reserve the pace is capped at %3$d fps</string>
     <string name="bitrate_title">Bitrate</string>

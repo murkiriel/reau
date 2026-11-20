@@ -78,19 +78,28 @@ internal fun ProfileDetailsRow(s: REauSettings, change: (REauSettings) -> Unit) 
 
 /**
  * The stream's four values (REauSettings.sanitized): two profiles, nothing else. A release build only shows them, locked at 4 fps; a debug build
- * picks profile A's pace (4, 6, 8 or 12 fps, [DashConfig.STREAM_PROFILES]) and the bitrates follow the table, B being the exact half of A. The
+ * picks the profile (4, 6, 8, 8 in the medium picture or 12 fps, [DashConfig.STREAM_PROFILES]) and the bitrates follow the table, B being the exact half of A. The
  * navigation profiles below choose between A and B.
  */
 @Composable
 internal fun StreamProfileRows(s: REauSettings, change: (REauSettings) -> Unit) {
     if (com.reau.app.BuildConfig.DEBUG) {
         SegmentedRow(
-            stringResource(R.string.fps_title), DashConfig.PACE_CHOICES.map { stringResource(R.string.pace_option, it) to "pace_$it" },
-            DashConfig.PACE_CHOICES.indexOf(s.fpsCeiling), { change(s.copy(videoPaceFps = DashConfig.PACE_CHOICES[it])) },
+            stringResource(R.string.fps_title),
+            // A profile with a smaller picture says its size in its name: two of them share 8 fps.
+            DashConfig.STREAM_PROFILES.map { p ->
+                val name = if (p.frame == DashConfig.FULL_FRAME) {
+                    stringResource(R.string.pace_option, p.fullFps)
+                } else {
+                    stringResource(R.string.pace_option_picture, p.fullFps, p.frame.width, p.frame.height)
+                }
+                name to "pace_${p.id}"
+            },
+            DashConfig.PROFILE_IDS.indexOf(s.streamProfile.id), { change(s.copy(videoProfileId = DashConfig.PROFILE_IDS[it])) },
             sub = if (s.frameSize == DashConfig.FULL_FRAME) {
                 stringResource(R.string.pace_sub, s.fpsCeiling, s.profileReducedFps, DashConfig.RESERVE_CAP_FPS)
             } else {
-                // The 12 fps profile: the picture is smaller and the dash stretches it, which the rider is told next to the pace.
+                // A profile with a smaller picture (12 fps, or 8 fps in the medium one): the dash stretches it, which the rider is told next to the pace.
                 stringResource(R.string.pace_small_sub, s.fpsCeiling, s.profileReducedFps, DashConfig.RESERVE_CAP_FPS, s.frameSize.width, s.frameSize.height)
             },
             now = true, tag = "fps",
