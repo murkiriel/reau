@@ -348,7 +348,7 @@ class DashWifiManager(
             when (outcome) {
                 JoinRules.Adoption.ADOPTED -> Unit
                 JoinRules.Adoption.STALE -> com.reau.app.data.RideDiagnostics.log(
-                    "wifi", "unavailable of a request that is no longer the one in force (switched off or a newer one is out): nothing adopted, nothing given up",
+                    "wifi", "unavailable of a request that is no longer the one in force (switched off or a newer one is out): nothing adopted or given up",
                 )
                 JoinRules.Adoption.GONE -> com.reau.app.data.RideDiagnostics.warn(
                     "wifi", "the dash network that was up went before it could be adopted: the refusal stands as it always did",
