@@ -115,7 +115,7 @@
     <!-- The settings screen (ui/SettingsScreen). -->
     <string name="settings_title">Ajustes</string>
     <string name="action_back">Atrás</string>
-    <string name="applies_next_time">Con la proyección encendida, los ajustes marcados con EN VIVO se aplican de inmediato, y también el interruptor del Clima, la página del joystick, la pantalla del servidor de red y la Pantalla de Android Auto. La densidad también, pero reinicia Android Auto y la imagen se queda quieta unos segundos. Todos los demás se aplican la próxima vez que enciendas.</string>
+    <string name="applies_next_time">Con la proyección encendida, los ajustes marcados con EN VIVO se aplican de inmediato, y también el interruptor del Clima, la página del joystick, la pantalla del servidor de red y la Pantalla de Android Auto. El DPI también, pero reinicia Android Auto y la imagen se queda quieta unos segundos. Todos los demás se aplican la próxima vez que enciendas.</string>
     <string name="section_fit">Ajuste al domo</string>
     <string name="fit_crop">Recorte centrado</string>
     <string name="label_crop">Tamaño del recorte</string>
@@ -143,7 +143,7 @@
     <string name="dash_err_ssid_not_found">No se encontró cerca el Wi-Fi del tablero \'%1$s\' — revisa que esté encendido y al alcance</string>
     <string name="dash_err_auth_failed">El Wi-Fi del tablero \'%1$s\' está al alcance, pero Android no terminó de unirse a él (el teléfono puede tardar en unirse con la pantalla apagada, puede que se haya rechazado el aviso de Android o que la contraseña sea incorrecta). REau lo intenta de nuevo sola</string>
     <string name="dash_err_not_found_or_password">No se pudo conectar a \'%1$s\' — red no encontrada o contraseña incorrecta</string>
-    <string name="dash_err_dash_stuck">El Wi-Fi del tablero \'%1$s\' rechaza la conexión. Si la contraseña sigue siendo la de fábrica del panel, el tablero se congeló: apaga la moto con la llave, espera unos 30 segundos y vuelve a encenderla; REau sigue intentando sola</string>
+    <string name="dash_err_dash_stuck">El Wi-Fi del tablero \'%1$s\' rechaza la conexión. Si la contraseña sigue siendo la de fábrica del tablero, el tablero se congeló: apaga la moto con la llave, espera unos 30 segundos y vuelve a encenderla; REau sigue intentando sola</string>
     <string name="dash_err_wifi_lost">Se perdió el Wi-Fi del tablero — reconectando…</string>
     <string name="dash_err_link_lost">Se perdió la conexión — reconectando…</string>
     <!-- The joystick page -->
@@ -215,7 +215,7 @@
     <string name="perm_location_title">Ubicación (aproximada y precisa)</string>
     <string name="perm_location_why">Deja que REau halle el tablero en el Wi-Fi tras otra app; con \"Usar la ubicación\", la posición redondeada a 11 km para sol y clima, y el rumbo GPS del anillo.</string>
     <string name="perm_internet_title">Abrir conexiones de red</string>
-    <string name="perm_internet_why">Android la exige para cualquier conexión, pero REau solo usa internet para el clima opcional (Open-Meteo) y, cuando lo tocas, para la búsqueda de actualizaciones (GitHub).</string>
+    <string name="perm_internet_why">Android la exige para cualquier conexión, pero REau solo usa internet para el clima opcional (Open-Meteo) y para la búsqueda de actualizaciones (GitHub), al tocar o una vez al día.</string>
     <string name="perm_network_state_title">Ver las redes</string>
     <string name="perm_network_state_why">Saber si el Wi-Fi del tablero está conectado y notar cuándo se cae, para reconectar.</string>
     <string name="perm_wifi_state_title">Ver el Wi-Fi</string>
@@ -432,11 +432,11 @@
     <string name="profile_b_title">Perfil B</string>
     <string name="profile_b_sub">Más liviano para el Wi-Fi y para el tablero</string>
     <string name="driving_side_title">Lado de circulación</string>
-    <string name="driving_side_sub">Automático usa el país de la red móvil.</string>
+    <string name="driving_side_sub">Automático usa el país de la red móvil o de la SIM.</string>
     <string name="driving_side_auto">Automático</string>
     <string name="driving_side_right">Derecha</string>
     <string name="driving_side_left">Izquierda</string>
-    <string name="driving_side_info">Automático usa el país de la red móvil, y no lee nada cuando eliges el lado tú mismo. El lado solo cambia las flechas que Android Auto no define, como la rotonda sin dirección o el retorno. Elegirlo a mano sirve para probar o para cuando no hay red.</string>
+    <string name="driving_side_info">Automático usa el país de la red móvil (o, a falta de ella, el de la SIM) y no lee nada cuando eliges el lado tú mismo. El lado solo cambia las flechas que Android Auto no define, como la rotonda sin dirección o el retorno. Elegirlo a mano sirve para probar o para cuando no hay red ni SIM.</string>
     <string name="video_pace_title">Ritmo del video</string>
     <string name="video_pace_sub">REau: 6 fps en el A y 3 en el B. Original: 4 y 2, más liviano.</string>
     <string name="video_pace_reau">REau</string>
@@ -627,7 +627,7 @@
     <string name="technical_label">Técnico</string>
     <string name="fit_reset">Restablecer al valor por defecto</string>
     <string name="fit_reset_title">¿Restablecer al valor por defecto?</string>
-    <string name="fit_reset_text">Esto borra tu ajuste de encaje, recorte, zoom y márgenes de la pestaña %1$s y vuelve a los valores de fábrica. La densidad no cambia. No se puede deshacer.</string>
+    <string name="fit_reset_text">Esto borra tu ajuste de encaje, recorte, zoom y márgenes de la pestaña %1$s y vuelve a los valores de fábrica. El DPI no cambia. No se puede deshacer.</string>
     <string name="fit_assistant_open">Asistente de ajuste</string>
     <string name="fit_assistant_step">Paso %1$d de %2$d</string>
     <string name="fit_assistant_start_text">En teléfonos distintos Android Auto puede dibujar la flecha de la maniobra y la velocidad en otro lugar. Con la proyección encendida, abre Waze o Maps en Android Auto y empieza una ruta. En la imagen de arriba, la parte clara es lo que llega al cristal del tablero. Empezar enciende la Máscara, si está apagada.</string>
@@ -691,7 +691,7 @@
     <string name="permissions_count">%1$d/%2$d</string>
 
     <!-- The redesign's "O REau e os seus dados". -->
-    <string name="about_summary_internet">Usa internet solo para el clima (en el tablero o en el anillo de información), cuando se concede la ubicación, y para buscar una versión nueva cuando lo tocas.</string>
+    <string name="about_summary_internet">Usa internet solo para el clima (en el tablero o en el anillo de información), cuando se concede la ubicación, y para buscar una versión nueva, al tocar o una vez al día.</string>
     <string name="about_summary_dash">Envía datos solo al tablero de tu moto (y, si activas el servidor de red, a tu red local).</string>
     <string name="about_summary_log">El registro se queda en el teléfono, sin tu ubicación.</string>
     <string name="about_open_all">Expandir todo</string>
@@ -947,5 +947,5 @@
     <string name="tip_waze_zoom_title">Desactiva el zoom automático de Waze</string>
     <string name="tip_waze_zoom_text">Recomendamos desactivar el zoom automático en los ajustes de Waze. Hace que el video sea más pesado para el tablero, y la pantalla del tablero es demasiado pequeña para la cantidad de información que muestra el zoom automático.</string>
     <string name="tip_video_fps_title">Por qué el video no pasa de 6 fps</string>
-    <string name="tip_video_fps_text">El tablero acepta más cuadros por segundo, pero el mismo procesador que muestra el video también dibuja la pantalla y atiende los botones. En las pruebas en la moto, a 8 fps el icono de la reserva empezó a parpadear y a 12 fps el tablero empezó a ignorar los botones. A 6 fps todo funciona sin fallas, por eso REau no pasa de ahí.</string>
+    <string name="tip_video_fps_text">El tablero acepta más cuadros por segundo, pero el mismo procesador que muestra el video también dibuja la pantalla y atiende los botones. En las pruebas en la moto, a 8 fps el ícono de la reserva empezó a parpadear y a 12 fps el tablero empezó a ignorar los botones. A 6 fps todo funciona sin fallas, por eso REau no pasa de ahí.</string>
 </resources>

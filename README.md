@@ -15,7 +15,7 @@ draws in Android Auto.
 Navigation app ──▶ the phone's Android Auto ──(H.264 video over 127.0.0.1)──▶ REau
                                                                               │ decodes, crops, scales down
                                                                               ▼
-                                                           526×300 encoder ──RTP──▶ motorcycle dash
+                                                           528×304 encoder ──RTP──▶ motorcycle dash
 ```
 
 REau presents itself to Android Auto as a car's head unit, using the head unit server that Android Auto itself offers

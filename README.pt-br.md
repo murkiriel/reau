@@ -15,7 +15,7 @@ painel, com a tela do celular apagada. O REau não desenha mapa nenhum: repete n
 App de navegação ──▶ Android Auto do celular ──(vídeo H.264 por 127.0.0.1)──▶ REau
                                                                               │ decodifica, recorta, reduz
                                                                               ▼
-                                                       codificador 526×300 ──RTP──▶ painel da moto
+                                                       codificador 528×304 ──RTP──▶ painel da moto
 ```
 
 O REau se apresenta ao Android Auto como a central de um carro, usando o servidor da unidade principal que o

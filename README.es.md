@@ -15,7 +15,7 @@ dibuja en Android Auto.
 App de navegación ──▶ el Android Auto del teléfono ──(video H.264 por 127.0.0.1)──▶ REau
                                                                                     │ decodifica, recorta, reduce
                                                                                     ▼
-                                                                 codificador 526×300 ──RTP──▶ tablero de la moto
+                                                                 codificador 528×304 ──RTP──▶ tablero de la moto
 ```
 
 REau se presenta a Android Auto como la unidad principal de un coche, usando el servidor de unidad principal que el propio
