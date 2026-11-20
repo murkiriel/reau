@@ -259,7 +259,7 @@
     <string name="about_data_kept_title">What REau remembers about the dash</string>
     <string name="about_data_kept">The dash’s Wi-Fi name and password and what it reported, encrypted with a key kept by Android, and the rounded position and last weather, if they exist, in the app’s folder.</string>
     <string name="about_data_control_title">What you control</string>
-    <string name="about_data_control">Turn off the log and delete logs and recordings in Settings → Debug, and turn off the music and caller cards in Settings → On the dash.</string>
+    <string name="about_data_control">Turn off the log and delete logs and recordings in Settings → Debug, and pick the driving side in On the dash: only Automatic reads the network’s country, never sending or logging it.</string>
     <string name="about_data_reach_title">What’s out of REau’s reach</string>
     <string name="about_data_reach">What reaches Android Auto belongs to it: your voice in Gemini and Waze routes follow Google’s and Waze’s rules, not REau’s.</string>
     <string name="action_open_credits">Credits</string>

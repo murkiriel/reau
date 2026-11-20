@@ -51,7 +51,7 @@ class DrivingSideChoiceTest {
         val expected = mapOf(
             "values-pt" to listOf("Lado da via", "Automático", "Mão direita", "Mão inglesa"),
             "values" to listOf("Driving side", "Automatic", "Right-hand", "Left-hand"),
-            "values-es" to listOf("Lado de circulación", "Automático", "Por la derecha", "Por la izquierda"),
+            "values-es" to listOf("Lado de circulación", "Automático", "Derecha", "Izquierda"),
         )
         for ((folder, want) in expected) {
             val got = listOf("driving_side_title", "driving_side_auto", "driving_side_right", "driving_side_left").map { text(folder, it) }
