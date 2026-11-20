@@ -350,7 +350,9 @@ internal class LiveSides(
     }
     // The album's picture for the dash's music card (behind its switch), converted once per picture.
     private val albumArt = com.reau.app.dash.AlbumArt()
-    private var loop: VideoLoop? = null
+
+    // The running video loop, behind the rule of who may put one there: a new pace comes from another thread than the panel's session (LoopSlot).
+    private val loops = LoopSlot<VideoLoop> { it.stop() }
     private val appContext = context.applicationContext
 
     // The bike's speed for the stream's log, from Android Auto's route.
@@ -882,13 +884,11 @@ internal class LiveSides(
             return
         }
         session.startStreaming()
-        loop = live.newLoop()
+        // Any loop left over is stopped before the new one is built (the slot never holds two).
+        loops.start { live.newLoop() }
     }
 
-    override fun stopVideo() {
-        loop?.stop()
-        loop = null
-    }
+    override fun stopVideo() = loops.stop()
 
     /** Every second, the pictures and bytes Android Auto sent the phone in it: the "app" numbers of the stats text. */
     private suspend fun kotlinx.coroutines.CoroutineScope.watchAppVideo() {
@@ -1098,9 +1098,8 @@ internal class LiveSides(
         /** The pace: the stream to the dash starts again with it (a keyframe first), the dash staying connected. */
         fun newStream(settings: REauSettings) {
             videoSettings = videoSettings.withRider(settings)
-            val running = loop ?: return
-            running.stop()
-            loop = newLoop()
+            // Only while a loop runs (the panel is there and streaming): a panel that dropped just now is not given a loop again, and a loop built while it dropped is stopped.
+            loops.replace { newLoop() }
         }
 
         /**

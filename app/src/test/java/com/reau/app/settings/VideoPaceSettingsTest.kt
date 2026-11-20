@@ -122,7 +122,7 @@ class VideoPaceSettingsTest {
         assertTrue(branch, branch.contains("newStream(settings)"))
         val stream = sides.substringAfter("fun newStream(settings: REauSettings) {").substringBefore("fun followFallback")
         assertTrue(stream, stream.contains("videoSettings = videoSettings.withRider(settings)"))
-        assertTrue("the same session: only the stream's loop is replaced", stream.contains("running.stop()") && stream.contains("loop = newLoop()"))
+        assertTrue("the same session: only the stream's loop is replaced", stream.contains("loops.replace { newLoop() }"))
         assertFalse(stream, stream.contains("reconfigure") || stream.contains("newAndroidAutoSession"))
     }
 
