@@ -101,6 +101,74 @@ class VideoPaceTest {
         assertEquals("a ceiling of 8 stored by a debug build does not survive in a release", 4, at("4").copy(fpsCeiling = 8).sanitized(false).fpsCeiling)
     }
 
+    // ---- the switch of the reserve's cap
+
+    @Test
+    fun `the cap in the reserve is on by default, and a debug build may turn it off`() {
+        assertTrue(REauSettings().reserveCapOn)
+        assertTrue(REauSettings().sanitized(true).reserveCapOn)
+        assertFalse(REauSettings(reserveCapOn = false).sanitized(debugBuild = true).reserveCapOn)
+        assertEquals("nothing else moves", REauSettings().sanitized(true), REauSettings(reserveCapOn = false).sanitized(true).copy(reserveCapOn = true))
+    }
+
+    @Test
+    fun `a release build always has the cap on, whatever a debug build left stored`() {
+        assertTrue(REauSettings(reserveCapOn = false).sanitized(debugBuild = false).reserveCapOn)
+        assertEquals(REauSettings().sanitized(false), REauSettings(reserveCapOn = false).sanitized(debugBuild = false))
+    }
+
+    @Test
+    fun `the switch is stored in a key of its own, on when never stored`() {
+        val prefs = KeystoreBackedPrefsTest.FakePrefs()
+        val store = SettingsStore(prefs)
+        assertTrue(store.load().reserveCapOn)
+        store.save(REauSettings(reserveCapOn = false))
+        assertEquals(false, prefs.getBoolean("reserve_cap", true))
+        assertEquals(!com.reau.app.BuildConfig.DEBUG, store.load().reserveCapOn)
+        store.save(REauSettings(reserveCapOn = true))
+        assertTrue(store.load().reserveCapOn)
+    }
+
+    @Test
+    fun `the ride log says the switch, and a change of it starts the stream again and reaches the loop`() {
+        assertTrue("reserveCapOn=true" in SettingsInUse.line(REauSettings()))
+        assertTrue("reserveCapOn=false" in SettingsInUse.line(REauSettings(reserveCapOn = false)))
+        assertEquals(listOf("reserveCapOn: true -> false"), REauSettings().changesTo(REauSettings(reserveCapOn = false)))
+        assertNull(SettingsInUse.experimentsLine(REauSettings(reserveCapOn = false)))
+        assertEquals(setOf(LiveTuning.Step.NEW_STREAM), LiveTuning.steps(REauSettings().sanitized(true), REauSettings(reserveCapOn = false).sanitized(true)))
+        assertEquals(emptySet<LiveTuning.Step>(), LiveTuning.steps(REauSettings().sanitized(true), REauSettings().sanitized(true)))
+        assertTrue(VideoLoop.Settings().reserveCap)
+        assertTrue(VideoLoop.Settings().withRider(REauSettings().sanitized(true)).reserveCap)
+        assertFalse(VideoLoop.Settings().withRider(REauSettings(reserveCapOn = false).sanitized(true)).reserveCap)
+        assertTrue("and in a release it is on", VideoLoop.Settings().withRider(REauSettings(reserveCapOn = false).sanitized(false)).reserveCap)
+        val fallen = VideoLoop.Settings().withRider(REauSettings(videoProfileId = "12", reserveCapOn = false).sanitized(true)).atFullFrame()
+        assertEquals("the fall back is made", "8", fallen.profileId)
+        assertFalse("and it keeps the switch", fallen.reserveCap)
+    }
+
+    @Test
+    fun `the loop hands the switch to the governor it builds, and the screen shows it only in a debug build, near the profile chooser`() {
+        val loop = File("src/main/java/com/reau/app/stream/VideoLoop.kt").readText()
+        assertTrue(loop.contains("reserveCapOn = settings.reserveCap,"))
+        assertTrue(loop.contains("reserveCap = rider.reserveCapOn,"))
+        val video = File("src/main/java/com/reau/app/ui/SettingsVideo.kt").readText()
+        val rows = video.substringAfter("fun StreamProfileRows").substringBefore("fun NavProfileRows")
+        val debug = rows.substringBefore("} else {\n        LockedRow(")
+        assertTrue("in the debug branch, after the chooser", debug.indexOf("tag = \"fps\"") in 0 until debug.indexOf("\"reserve_cap\""))
+        assertTrue(debug.contains("s.reserveCapOn, { change(s.copy(reserveCapOn = it)) }, \"reserve_cap\","))
+        assertFalse("not in the release's rows", rows.substringAfter("} else {\n        LockedRow(").contains("reserve_cap"))
+    }
+
+    @Test
+    fun `the switch has its title and line in the three languages, with the pace of the cap as the argument`() {
+        for (folder in listOf("values", "values-pt", "values-es")) {
+            val xml = File("src/main/res/$folder/strings.xml").readText()
+            fun text(name: String) = Regex("""<string name="$name">(.*?)</string>""").find(xml)?.groupValues?.get(1) ?: error("no $name in $folder")
+            assertTrue("$folder title", "%1\$d" in text("reserve_cap_title"))
+            assertTrue("$folder line", "%1\$d" in text("reserve_cap_sub"))
+        }
+    }
+
     // ---- the store
 
     @Test

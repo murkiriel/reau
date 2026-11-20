@@ -273,6 +273,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             experimentWakeAa = prefs.getBoolean(KEY_EXPERIMENT_WAKE_AA, defaults.experimentWakeAa),
             experimentEncoderLowLatency = prefs.getBoolean(KEY_EXPERIMENT_ENCODER_LOW_LATENCY, defaults.experimentEncoderLowLatency),
             videoProfileId = storedVideoProfile(defaults.videoProfileId),
+            reserveCapOn = prefs.getBoolean(KEY_RESERVE_CAP, defaults.reserveCapOn),
             experimentMotorcycle = prefs.getBoolean(KEY_EXPERIMENT_MOTORCYCLE, defaults.experimentMotorcycle),
         ).sanitized()
     }
@@ -391,6 +392,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             putBoolean(KEY_EXPERIMENT_WAKE_AA, s.experimentWakeAa)
             putBoolean(KEY_EXPERIMENT_ENCODER_LOW_LATENCY, s.experimentEncoderLowLatency)
             putString(KEY_VIDEO_PROFILE, s.videoProfileId)
+            putBoolean(KEY_RESERVE_CAP, s.reserveCapOn)
             putBoolean(KEY_EXPERIMENT_MOTORCYCLE, s.experimentMotorcycle)
         }
     }
@@ -521,6 +523,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
         /** The profile the old experiment meant: its full profile at 6 fps. */
         private const val MIGRATED_EXPERIMENT_PROFILE = "6"
         private const val KEY_VIDEO_PROFILE = "video_profile"
+        private const val KEY_RESERVE_CAP = "reserve_cap"
 
         /** The key of the pace alone that the profile ids replaced; only read, to migrate (plan 32). */
         private const val KEY_VIDEO_PACE = "video_pace_fps"

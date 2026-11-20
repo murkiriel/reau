@@ -110,6 +110,8 @@ internal class VideoLoop(
         val frame: DashConfig.FrameSize = DashConfig.FULL_FRAME,
         /** The id of the profile of the table the stream is made from ([com.reau.app.settings.REauSettings.videoProfileId]), for the log. */
         val profileId: String = DashConfig.DEFAULT_PROFILE_ID,
+        /** A debug build's switch ([com.reau.app.settings.REauSettings.reserveCapOn]): off, the reserve does not cap the pace or the bitrate ([StreamGovernor]). */
+        val reserveCap: Boolean = true,
     ) {
         /**
          * These settings with what the rider's own settings decide of the stream: the rate ceiling and clock, the bitrate (the experimental
@@ -131,6 +133,7 @@ internal class VideoLoop(
             reducedBitrateBps = rider.profileReducedBps,
             frame = rider.frameSize,
             profileId = rider.streamProfile.id,
+            reserveCap = rider.reserveCapOn,
         )
 
         /**
@@ -187,7 +190,7 @@ internal class VideoLoop(
         if (thermalCapped(ceiling, settings.ceilingFps)) logThermal(status)
         val g = StreamGovernor(
             ceiling, settings.clockSlowPercent, settings.windowMs, settings.bitrateBps, settings.keyframeSec,
-            reducedBitrateBps = settings.reducedBitrateBps, lightScreenFps = settings.lightScreenFps,
+            reducedBitrateBps = settings.reducedBitrateBps, lightScreenFps = settings.lightScreenFps, reserveCapOn = settings.reserveCap,
         )
         val rec = recordInto(settings.recordDir, settings.recordFrames)?.let {
             H264Recorder(it, settings.recordFrames, H264Recorder.nameFor(System.currentTimeMillis()), settings.recordRolling, log)

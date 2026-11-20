@@ -279,6 +279,12 @@ data class REauSettings(
      */
     val videoProfileId: String = DashConfig.DEFAULT_PROFILE_ID,
     /**
+     * A debug build's switch "cap at 6 fps in the reserve" (D117, [DashConfig.RESERVE_CAP_FPS]); on by default. Off, the reserve limits neither the pace nor the bitrate, and the
+     * ride log only says when the reserve begins and ends: the reserve icon of the dash animates only with the bike in the reserve, where the cap drops every profile to 6 fps,
+     * so without this switch the profiles could never be compared at their own pace there. A release build always has it on ([sanitized]).
+     */
+    val reserveCapOn: Boolean = true,
+    /**
      * Experimental, a debug build's only (a release build always has it off, [sanitized]): the head unit tells Android Auto it is a MOTORCYCLE, under a vehicle id of its
      * own ([com.reau.app.aa.ServiceDiscoveryResponse.VEHICLE_ID_MOTORCYCLE]), see [aaConfig]. It counts from the next Android Auto session. Off, the announcement is the one it always was.
      */
@@ -445,6 +451,8 @@ data class REauSettings(
             statsOverlay = statsOverlay && debugBuild,
             buttonOverlay = buttonOverlay && debugBuild,
             videoProfileId = profileId,
+            // The cap is on in a release build whatever a debug build left stored.
+            reserveCapOn = reserveCapOn || !debugBuild,
             // The motorcycle announcement is a debug build's experiment: a value left on by one build must not count in the other.
             experimentMotorcycle = experimentMotorcycle && debugBuild,
             clockSlowPercent = 0,

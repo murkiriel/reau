@@ -474,6 +474,8 @@
     <string name="pace_option_picture">%1$d fps, %2$dx%3$d</string>
     <string name="pace_sub">Profile A: %1$d fps. Profile B: %2$d fps, the exact half. Debug build only. In the reserve the pace is capped at %3$d fps</string>
     <string name="pace_small_sub">Profile A: %1$d fps. Profile B: %2$d fps, the exact half. The picture is smaller (%4$dx%5$d) and the dash stretches it over its whole screen, which is easier on its decoder. Debug build only. In the reserve the pace is capped at %3$d fps</string>
+    <string name="reserve_cap_title">Cap at %1$d fps in the reserve</string>
+    <string name="reserve_cap_sub">Debug build only. On (the default): with the bike in the reserve the pace is capped at %1$d fps. Off: the reserve limits neither the pace nor the bitrate, to compare the profiles with the reserve icon lit. The ride log says when the reserve begins with the cap off. Counts at once, the video starts again</string>
     <string name="bitrate_title">Bitrate</string>
     <string name="bitrate_value">%1$d kbps</string>
     <string name="bitrate_mode_title">Bitrate mode</string>

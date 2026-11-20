@@ -50,6 +50,11 @@ internal class StreamGovernor(
     private val reducedBitrateBps: Int = DashConfig.PROFILE_REDUCED_BPS,
     /** The pace on a light screen of Android Auto ([LightScreen]); 0: off, the pace is always the profile's. */
     private val lightScreenFps: Int = 0,
+    /**
+     * The reserve's ceiling is on (D117): the default, and always in a release build. A debug build's switch turns it off to compare the profiles at their own pace in the
+     * reserve: the governor then never caps ([reserveOn] stays false) and only says in the log when the reserve begins and ends.
+     */
+    private val reserveCapOn: Boolean = true,
 ) {
     /** What happened since the previous poll ([dashAcks] is the dash's running total). */
     data class Poll(
@@ -188,6 +193,9 @@ internal class StreamGovernor(
     /** The reserve's ceiling is on ([Poll.lowFuel] as of the last poll); it moves the pace and the live bitrate only, like a tier, never the encoder. */
     private var reserveOn = false
 
+    /** The reserve was on at the last poll with the cap switched off: only to tell it once on the way in and once on the way out. */
+    private var reserveSeenUncapped = false
+
     /** What the stream is at now, for [PaceBitrateLog]: the light screens, profile B, profile A held under the reserve's ceiling, or profile A. */
     private fun paceKind(): PaceBitrateLog.Kind = when {
         lightOn -> PaceBitrateLog.Kind.LIGHT
@@ -294,6 +302,7 @@ internal class StreamGovernor(
         pace = null
         bitrateBps = 0
         reserveOn = false
+        reserveSeenUncapped = false
         paceLog.start(nowMs)
         lastPictureAtMs = null
         window = null
@@ -412,11 +421,25 @@ internal class StreamGovernor(
      * it is. The pace and the live bitrate follow in this same poll ([paceChange], [bitrateChange]); the encoder is never asked to be rebuilt.
      */
     private fun updateReserve(p: Poll): Action? {
+        if (!reserveCapOn) return reserveWithoutCap(p)
         if (p.lowFuel == reserveOn) return null
         val was = fps
         reserveOn = p.lowFuel
         return Action.Log(
             if (reserveOn) "reserve: pace capped at ${DashConfig.RESERVE_CAP_FPS} fps (was $was)" else "reserve: pace cap lifted (was $was, now $fps fps)",
+        )
+    }
+
+    /** The debug switch has the ceiling off: nothing is capped, but the reserve is told in the log, so a test made in it is on record. */
+    private fun reserveWithoutCap(p: Poll): Action? {
+        if (p.lowFuel == reserveSeenUncapped) return null
+        reserveSeenUncapped = p.lowFuel
+        return Action.Log(
+            if (p.lowFuel) {
+                "reserve: cap off by the debug switch (pace stays $fps fps)"
+            } else {
+                "reserve: over (the cap was off by the debug switch, pace stays $fps fps)"
+            },
         )
     }
 

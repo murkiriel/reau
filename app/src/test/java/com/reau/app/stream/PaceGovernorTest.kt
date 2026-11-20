@@ -16,11 +16,11 @@ import org.junit.Test
 class PaceGovernorTest {
     private var nowMs = 0L
 
-    private fun governor(pace: Int, lightScreenFps: Int = DashConfig.LIGHT_SCREEN_FPS): StreamGovernor {
+    private fun governor(pace: Int, lightScreenFps: Int = DashConfig.LIGHT_SCREEN_FPS, reserveCap: Boolean = true): StreamGovernor {
         val profile = DashConfig.streamProfile(pace)
         return StreamGovernor(
             profile.fullFps, bitrateCeilingBps = profile.fullBps, keyframeSec = DashConfig.PROFILE_KEYFRAME_SEC,
-            reducedBitrateBps = profile.reducedBps, lightScreenFps = lightScreenFps,
+            reducedBitrateBps = profile.reducedBps, lightScreenFps = lightScreenFps, reserveCapOn = reserveCap,
         )
     }
 
@@ -47,7 +47,7 @@ class PaceGovernorTest {
     )
 
     /** A started governor, one picture in, then 10 s of the maneuver profile far from the maneuver: the next change of tier is not held back. */
-    private fun started(pace: Int, lightScreenFps: Int = DashConfig.LIGHT_SCREEN_FPS): StreamGovernor = governor(pace, lightScreenFps).also {
+    private fun started(pace: Int, lightScreenFps: Int = DashConfig.LIGHT_SCREEN_FPS, reserveCap: Boolean = true): StreamGovernor = governor(pace, lightScreenFps, reserveCap).also {
         it.start(nowMs)
         it.poll(1)
         repeat(41) { _ -> it.poll(1, maneuverSample(distance = 1200)) }
@@ -241,6 +241,60 @@ class PaceGovernorTest {
         val back = (1..41).flatMap { _ -> g.full(lowFuel = false) }
         assertEquals(12, g.fps)
         assertTrue("got $back", Action.SetBitrate(800_000) in back)
+    }
+
+    // ---- the debug switch that turns the reserve's ceiling off
+
+    @Test
+    fun `with the cap switched off the reserve changes neither the pace nor the bitrate nor the encoder, and says so once`() {
+        for (pace in listOf(8, 12)) {
+            val g = started(pace, reserveCap = false)
+            val bitrate = DashConfig.streamProfile(pace).fullBps
+            val entered = g.poll(lowFuel = true)
+            assertEquals("pace $pace stays", pace, g.fps)
+            assertEquals(pace, g.profileFps)
+            assertEquals(listOf("reserve: cap off by the debug switch (pace stays $pace fps)"), entered.reserveLogs())
+            assertTrue("pace $pace: got $entered", entered.none { it is Action.SetPace || it is Action.SetBitrate || it is Action.Rebuild })
+            assertEquals(listOf(pace, bitrate), listOf(g.encoderFps, g.activeBitrateBps))
+            val inside = (1..40).flatMap { _ -> g.poll(lowFuel = true) }
+            assertTrue(inside.reserveLogs().toString(), inside.reserveLogs().isEmpty())
+            assertTrue("no change of bitrate inside the reserve: got ${inside.filterIsInstance<Action.SetBitrate>()}", inside.none { it is Action.SetBitrate || it is Action.SetPace })
+            assertEquals(pace, g.fps)
+            val left = g.poll(lowFuel = false)
+            assertEquals(listOf("reserve: over (the cap was off by the debug switch, pace stays $pace fps)"), left.reserveLogs())
+            assertEquals(pace, g.fps)
+            assertTrue((1..40).flatMap { _ -> g.poll(lowFuel = false) }.reserveLogs().isEmpty())
+        }
+    }
+
+    @Test
+    fun `with the cap switched off profile B and the light screens keep their own pace in the reserve`() {
+        val g = started(8, reserveCap = false)
+        g.poll(lowFuel = true)
+        val reduced = g.reduce(lowFuel = true)
+        assertEquals("B of 8 stays 4, not the 3 of the capped reserve", 4, g.fps)
+        assertTrue("got $reduced", Action.SetBitrate(300_000) in reduced)
+        val fast = started(4, lightScreenFps = 10, reserveCap = false)
+        fast.poll(lowFuel = true, light = true)
+        assertEquals("the light screens are not held at 6", 10, fast.fps)
+    }
+
+    @Test
+    fun `the cap switched off is not told again at every poll, and a stream that starts again tells it again`() {
+        val g = started(8, reserveCap = false)
+        assertEquals(1, g.poll(lowFuel = true).reserveLogs().size)
+        assertTrue(g.poll(lowFuel = true).reserveLogs().isEmpty())
+        g.start(nowMs)
+        assertEquals("a new stream says it again", 1, g.poll(lowFuel = true).reserveLogs().size)
+    }
+
+    @Test
+    fun `with the cap switched off and no reserve nothing is said, and the cap on says its own lines and never the switch's`() {
+        val off = started(8, reserveCap = false)
+        assertTrue((1..40).flatMap { _ -> off.poll(lowFuel = false) }.reserveLogs().isEmpty())
+        val on = started(8)
+        assertEquals(listOf("reserve: pace capped at 6 fps (was 8)"), on.poll(lowFuel = true).reserveLogs())
+        assertEquals(6, on.fps)
     }
 
     @Test

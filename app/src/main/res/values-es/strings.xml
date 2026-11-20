@@ -463,6 +463,8 @@
     <string name="pace_option_picture">%1$d fps, %2$dx%3$d</string>
     <string name="pace_sub">Perfil A: %1$d fps. Perfil B: %2$d fps, la mitad exacta. Solo en la versión de depuración. En la reserva el ritmo se limita a %3$d fps</string>
     <string name="pace_small_sub">Perfil A: %1$d fps. Perfil B: %2$d fps, la mitad exacta. La imagen es más pequeña (%4$dx%5$d) y el tablero la estira por toda la pantalla, lo que alivia a su decodificador. Solo en la versión de depuración. En la reserva el ritmo se limita a %3$d fps</string>
+    <string name="reserve_cap_title">Tope de %1$d fps en la reserva</string>
+    <string name="reserve_cap_sub">Solo en la versión de depuración. Activado (por defecto): con la moto en la reserva el ritmo se limita a %1$d fps. Desactivado: la reserva no limita el ritmo ni el bitrate, para comparar los perfiles con el icono de la reserva encendido. El registro dice cuándo empieza la reserva con el tope desactivado. Vale al instante, y el video empieza de nuevo</string>
     <string name="bitrate_title">Bitrate</string>
     <string name="bitrate_value">%1$d kbps</string>
     <string name="bitrate_mode_title">Modo de bitrate</string>

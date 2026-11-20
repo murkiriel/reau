@@ -28,6 +28,7 @@ import com.reau.app.ui.components.Info
 import com.reau.app.ui.components.LockedRow
 import com.reau.app.ui.components.MsIcon
 import com.reau.app.ui.components.SegmentedRow
+import com.reau.app.ui.components.SwitchRow
 import com.reau.app.ui.components.hairline
 import com.reau.app.ui.theme.REauSpace
 
@@ -103,6 +104,11 @@ internal fun StreamProfileRows(s: REauSettings, change: (REauSettings) -> Unit) 
                 stringResource(R.string.pace_small_sub, s.fpsCeiling, s.profileReducedFps, DashConfig.RESERVE_CAP_FPS, s.frameSize.width, s.frameSize.height)
             },
             now = true, tag = "fps",
+        )
+        // A debug build's switch to compare the profiles in the reserve: the dash's reserve icon animates only there, where the cap would take every profile to 6 fps.
+        SwitchRow(
+            stringResource(R.string.reserve_cap_title, DashConfig.RESERVE_CAP_FPS), s.reserveCapOn, { change(s.copy(reserveCapOn = it)) }, "reserve_cap",
+            sub = stringResource(R.string.reserve_cap_sub, DashConfig.RESERVE_CAP_FPS), now = true,
         )
     } else {
         LockedRow(

@@ -90,9 +90,11 @@ object LiveTuning {
     /**
      * What a stream to the dash is made with. [frameSize] is the encoder's picture: it is fixed for the whole stream (a change of size needs a
      * new encoder, SPS and PPS and a clean keyframe, never in the middle of one), so a pace with another picture is a new stream like any other.
+     * [reserveCapOn] is the governor's, made with the stream: switching it starts the video again, as the other debug choices of the stream do.
      */
     private val REauSettings.stream get() = listOf(
         fpsCeiling, frameSize, clockSlowPercent, effectiveStreamBitrateBps, bitrateMode, keyframeSec, experimentRtpPacing, experimentAdaptiveBitrate,
         experimentEncoderWatch,
+        reserveCapOn,
     )
 }
