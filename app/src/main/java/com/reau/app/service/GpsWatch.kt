@@ -14,9 +14,9 @@ import android.os.SystemClock
 import com.reau.app.weather.GpsReading
 
 /**
- * The GPS for the dash's info ring and for the experimental speed profile: the satellites in the fix ([GnssStatus]) and the last fix (its
- * error, heading and speed), listened to only while one of the two [GpsOwner]s wants them (each asks with [want], and the switch, the card, the
- * route or the permission going away lets its ask go; the GPS goes off with the last). Needs the precise location
+ * The GPS for the dash's info ring: the satellites in the fix ([GnssStatus]) and the last fix (its
+ * error, heading and speed), listened to only while a [GpsOwner] wants them (it asks with [want], and the card or the
+ * permission going away lets its ask go; the GPS goes off with the last). Needs the precise location
  * permission the app already declares and the rider's "Usar a localização" on; with the phone's screen off it also needs the foreground
  * service to carry the location type ([ForegroundTypes]), which it does when those two are given at the start. Nothing is stored or sent.
  */

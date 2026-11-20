@@ -36,12 +36,8 @@ data class AaConfig(
     val audio: Boolean = false,
     val protocolMinor: Int = Messages.MINOR_DEFAULT,
     val versionRequests: Int = VERSION_REQUESTS,
-    /** Experimental: protocol 6.0 is asked first ([ProtocolAsk]); [protocolMinor] is the version to go back to. */
-    val protocolSix: Boolean = false,
-    /** Experimental: Android Auto is woken before a dial that may find it frozen by Android ([AaWake]). */
-    val wakeBeforeDial: Boolean = false,
     /**
-     * Experimental, a debug build's only: the head unit tells Android Auto it is a MOTORCYCLE ([ServiceDiscoveryResponse.VEHICLE_TYPE_MOTORCYCLE]) with a
+     * The head unit tells Android Auto it is a MOTORCYCLE ([ServiceDiscoveryResponse.VEHICLE_TYPE_MOTORCYCLE]) with a
      * vehicle id of its own ([ServiceDiscoveryResponse.VEHICLE_ID_MOTORCYCLE]). Like the rest of this class it is told once, when a session begins.
      */
     val motorcycle: Boolean = false,

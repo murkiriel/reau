@@ -67,10 +67,6 @@ class DashSession(
     private val readings: DashReadingSink? = null,
     /** The session's waits; a test shortens them (27/10/2026 review: the fake-dash tests took 86 s on the real ones). */
     private val timing: Timing = Timing(),
-    /** The experimental switch of the bind retries ([BindRetry]), read at each try to open the sockets; off, a refused bind goes straight to [onBindResult]. */
-    private val bindRetry: () -> Boolean = { false },
-    /** The experimental switch of the tolerant silence watch ([RxQuiet]), read at each turn of the watch: off, [Timing.rxWatchdogMs] of silence end the session. */
-    private val tolerantRx: () -> Boolean = { false },
 ) {
     /**
      * The waits of a session: [keyPatienceMs] for the dash's key before the greeting goes again, [rxWatchdogMs] of silence before the
@@ -80,11 +76,6 @@ class DashSession(
         val keyPatienceMs: Long = KEY_PATIENCE_MS,
         val rxWatchdogMs: Long = RX_WATCHDOG_MS,
         val watchdogTickMs: Long = WATCHDOG_TICK_MS,
-        /** The wait between two tries of a refused bind ([BindRetry.PAUSE_MS]). */
-        val bindRetryPauseMs: Long = BindRetry.PAUSE_MS,
-        /** With the tolerant watch: the silence that ends the session, and the one that is only noted in the log ([RxQuiet]). */
-        val rxGiveUpMs: Long = RxQuiet.GIVE_UP_MS,
-        val rxNoteMs: Long = RxQuiet.NOTE_MS,
         /** The video failing at every send for longer than this is a loss of the link ([RtpStall]). */
         val rtpStallMs: Long = RtpStall.LIMIT_MS,
     )
@@ -187,9 +178,6 @@ class DashSession(
      * network drops it and asks for another. Called before the failure of a refusal is reported.
      */
     var onBindResult: ((network: android.net.Network?, refused: Boolean) -> Unit)? = null
-
-    /** The dash spoke again after a silence the tolerant watch noted (the milliseconds it lasted): the video is asked for a keyframe. */
-    var onRxBack: ((silentMs: Long) -> Unit)? = null
 
     private var notices0904 = 0
     private var notices0906 = 0
@@ -915,37 +903,13 @@ class DashSession(
     }
 
     /**
-     * [socketFactory]'s socket. With the experimental switch on ([bindRetry]), a bind to [network] that Android refuses (EPERM) is tried again on
-     * the same network, [BindRetry.MAX_RETRIES] times with [BindRetry.PAUSE_MS] between, before the refusal is let through to the caller (and so to
-     * [onBindResult], which lets the network go). The wait is the coroutine's own (it holds no thread, and the session runs on the IO threads, never
-     * the main one); a session that was replaced meanwhile stops waiting. Each try builds the sockets from the start: a refused one closed what it had opened.
-     */
-    @Suppress("TooGenericExceptionCaught") // only a refused bind is retried; anything else is thrown again as it was
-    private suspend fun socketWithBindRetries(mine: Int, network: android.net.Network?): DashSocket {
-        var retries = 0
-        while (true) {
-            try {
-                return socketFactory(network).also {
-                    if (retries > 0) com.reau.app.data.RideDiagnostics.log("wifi", BindRetry.workedLine(network, retries))
-                }
-            } catch (e: Exception) {
-                val refusal = NetworkBlock.isBindRefusal(e)
-                if (!BindRetry.again(bindRetry(), refusal, retries) || !isCurrent(mine)) throw e
-                retries++
-                com.reau.app.data.RideDiagnostics.warn("wifi", BindRetry.retryLine(network, retries, timing.bindRetryPauseMs))
-                delay(timing.bindRetryPauseMs)
-            }
-        }
-    }
-
-    /**
      * The session's sockets, with the receive loop, the status heartbeat and the stats line started on them; null
      * after a failure already said through [fail] (the ports in use), or for a session connect() has replaced
      * meanwhile, whose sockets are closed again at once.
      */
     private suspend fun openSockets(mine: Int, ssid: String, network: android.net.Network?): DashSocket? {
         val sock = try {
-            socketWithBindRetries(mine, network)
+            socketFactory(network)
         } catch (e: java.net.BindException) {
             fail("Port ${DashSocket.RX_PORT}/${DashSocket.CTRL_PORT} in use (${e.message})", mine)
             null
@@ -1340,7 +1304,6 @@ class DashSession(
         heartbeatJob = scope.launch(Dispatchers.IO) {
             var n = 0
             val sentSinceRx = HeartbeatsSinceRx()
-            val quiet = RxQuiet()
             while (isActive) {
                 val status = phoneStatusProvider()
                 runCatching { sock.send(DashCommands.heartbeat(weather = weatherProvider(), status = status, call = callNow())) }
@@ -1359,11 +1322,8 @@ class DashSession(
                 // RX watchdog: once the dash has spoken at all (rxSilenceFails), a long silence means it
                 // dropped (out of range / off). UDP gives no error, so detect it here and fail the
                 // session instead of streaming into the void while the UI still says "connected".
-                val tolerant = tolerantRx()
                 val heartbeatsSinceRx = sentSinceRx.tick(lastRxMs)
-                noteQuiet(quiet, tolerant, heartbeatsSinceRx)
-                val silenceLimit = if (tolerant) timing.rxGiveUpMs else timing.rxWatchdogMs
-                if (rxSilenceFails(_state.value, lastRxMs, MonotonicClock.nowMs(), silenceLimit, heartbeatsSinceRx)) {
+                if (rxSilenceFails(_state.value, lastRxMs, MonotonicClock.nowMs(), timing.rxWatchdogMs, heartbeatsSinceRx)) {
                     val silent = (MonotonicClock.nowMs() - lastRxMs) / 1000
                     Log.w(TAG, "RX watchdog: no dash packets for ${silent}s — link lost")
                     com.reau.app.data.RideDiagnostics.error("error", "RX watchdog: dash silent ${silent}s → link lost")
@@ -1423,18 +1383,6 @@ class DashSession(
         com.reau.app.data.ProjectionSummary.current.watchdog("dash-rtp")
         fail(RtpStall.FAILURE, mine)
         return true
-    }
-
-    /** The tolerant watch ([RxQuiet]), when its switch is on: a silence noted in the log, and the dash's return from one passed on to [onRxBack]. */
-    private fun noteQuiet(quiet: RxQuiet, tolerant: Boolean, heartbeatsSinceRx: Int) {
-        if (!tolerant) return quiet.reset()
-        val verdict = quiet.look(MonotonicClock.nowMs(), lastRxMs, _state.value == DashState.STREAMING, heartbeatsSinceRx, timing.rxNoteMs) ?: return
-        if (verdict.kind == RxQuiet.Kind.QUIET) {
-            com.reau.app.data.RideDiagnostics.warn("dash", RxQuiet.quietLine(verdict.ms))
-        } else {
-            com.reau.app.data.RideDiagnostics.log("dash", RxQuiet.backLine(verdict.ms))
-            onRxBack?.invoke(verdict.ms)
-        }
     }
 
     /**

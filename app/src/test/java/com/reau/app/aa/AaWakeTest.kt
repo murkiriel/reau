@@ -1,7 +1,6 @@
 package com.reau.app.aa
 
 import com.reau.app.data.KeystoreBackedPrefsTest
-import com.reau.app.settings.REauSettings
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -17,9 +16,9 @@ import java.net.Socket
 import java.util.Collections
 
 /**
- * Waking Android Auto before dialling it (experimental switch): the window of the last end of a session (more than 8 s and less than 45 min), the
- * order wake, wait, dial, once for each reason in a projection, the instant of the end kept across processes, and the switch. The dial is a real
- * connection to a fake head unit server on the loopback.
+ * Waking Android Auto before dialling it (always on since 20/11/2026, no switch): the window of the last end of a session (more than 8 s and less
+ * than 45 min), the order wake, wait, dial, once for each reason in a projection, the instant of the end kept across processes, and the one case
+ * where it is not made (an Android Auto that dials in). The dial is a real connection to a fake head unit server on the loopback.
  */
 class AaWakeTest {
     private val events: MutableList<String> = Collections.synchronizedList(mutableListOf())
@@ -121,7 +120,7 @@ class AaWakeTest {
     }
 
     @Test
-    fun `with the switch off there is no wake, inside the window or after a mute negotiation`() {
+    fun `where it is not enabled (an Android Auto that dials in) there is no wake, inside the window or after a mute negotiation`() {
         enabled = false
         val now = 10_000_000L
         val waking = gate()
@@ -132,7 +131,7 @@ class AaWakeTest {
     }
 
     @Test
-    fun `the switch is read at each dial, not once`() {
+    fun `whether it is enabled is read at each dial, not once`() {
         val now = 10_000_000L
         enabled = false
         val waking = gate()
@@ -140,7 +139,7 @@ class AaWakeTest {
         dial(waking, now, endedAtMs = null)
         enabled = true
         dial(waking, now, endedAtMs = null)
-        assertEquals("switched on after the first dial: the wake after the mute one is still due", listOf("dial", "wake", "pause 700", "dial"), steps())
+        assertEquals("enabled after the first dial: the wake after the mute one is still due", listOf("dial", "wake", "pause 700", "dial"), steps())
     }
 
     // ── a negotiation that got no answer ───────────────────────────────────────────────────────────────────
@@ -292,48 +291,25 @@ class AaWakeTest {
     // ── what the receiver and the settings are wired to ────────────────────────────────────────────────────
 
     @Test
-    fun `the switch is off by default and is the one the Android Auto configuration reads`() {
-        assertFalse(REauSettings().experimentWakeAa)
-        assertFalse(REauSettings().aaConfig.wakeBeforeDial)
-        assertTrue(REauSettings(experimentWakeAa = true).aaConfig.wakeBeforeDial)
-    }
-
-    @Test
-    fun `the switch is stored on its own, known by the start guard, said in the log and restarts nothing`() {
-        val store = com.reau.app.settings.SettingsStore(KeystoreBackedPrefsTest.FakePrefs())
-        assertFalse(store.load().experimentWakeAa)
-        store.save(REauSettings(experimentWakeAa = true))
-        assertTrue(store.load().experimentWakeAa)
-        assertEquals(REauSettings(experimentWakeAa = true), store.load())
-        val on = REauSettings(experimentWakeAa = true)
-        assertEquals(listOf("experimentWakeAa"), com.reau.app.settings.ExperimentsGuard.experimentsOn(on))
-        assertEquals(REauSettings(), com.reau.app.settings.ExperimentsGuard.allOff(on))
-        assertTrue("experimentWakeAa=true" in com.reau.app.settings.SettingsInUse.line(on))
-        assertTrue(com.reau.app.settings.SettingsInUse.experimentsLine(on)!!, "Android Auto woken" in com.reau.app.settings.SettingsInUse.experimentsLine(on)!!)
-        assertEquals(listOf("experimentWakeAa: false -> true"), REauSettings().changesTo(on))
-        assertEquals(emptySet<com.reau.app.service.LiveTuning.Step>(), com.reau.app.service.LiveTuning.steps(REauSettings(), on))
-        assertTrue("sanitized keeps it", REauSettings(experimentWakeAa = true).sanitized(debugBuild = false).experimentWakeAa)
-    }
-
-    @Test
-    fun `the row has its title and line in the three languages, and the line says Experimental`() {
+    fun `there is no switch for it - not in the Android Auto configuration, not in the settings, not stored, not on the screen`() {
+        assertTrue(AaConfig::class.java.declaredFields.none { "wake" in it.name.lowercase() })
+        assertTrue(com.reau.app.settings.REauSettings::class.java.declaredFields.none { "wake" in it.name.lowercase() })
+        val store = File("src/main/java/com/reau/app/settings/SettingsStore.kt").readText()
+        assertFalse(store.contains("wake_aa") || store.contains("WAKE_AA"))
+        assertFalse(File("src/main/java/com/reau/app/ui").walkTopDown().any { it.isFile && it.readText().contains("exp_wake_aa") })
         for (folder in listOf("values", "values-pt", "values-es")) {
-            val xml = File("src/main/res/$folder/strings.xml").readText()
-            assertTrue("$folder title", xml.contains("<string name=\"exp_wake_aa_title\">"))
-            val sub = Regex("""<string name="exp_wake_aa_sub">(.*?)</string>""").find(xml)?.groupValues?.get(1)
-            assertTrue("$folder line", sub != null && "Experimental" in sub && "700" in sub)
+            assertFalse(folder, File("src/main/res/$folder/strings.xml").readText().contains("exp_wake_aa"))
         }
-        val screen = File("src/main/java/com/reau/app/ui/SettingsExperimental.kt").readText()
-        assertTrue(screen.contains("s.experimentWakeAa, { change(s.copy(experimentWakeAa = it)) }, \"exp_wake_aa\""))
     }
 
     @Test
-    fun `the receiver wakes through the gate right before each dial, behind the switch, and keeps the end of an answered session`() {
+    fun `the receiver wakes through the gate right before each dial, whatever the settings, and keeps the end of an answered session`() {
         val receiver = File("src/main/java/com/reau/app/aa/AaReceiver.kt").readText()
         val dialing = receiver.indexOf("waking.dialing({ SystemClock.elapsedRealtime() }, { AaRestartGap.lastEndedAtMs }) { nextSocket(mine, tries = refused.count) }")
         assertTrue("the dial is made inside the gate", dialing > 0)
         assertTrue("the first wait after a stop comes before the gate", receiver.indexOf("waitAfterTheLastStop()\n") in 1 until dialing)
-        assertTrue(receiver.contains("enabled = { config.wakeBeforeDial && callIn == null }"))
+        assertTrue("only the Android Auto that dials in is left alone", receiver.contains("enabled = { callIn == null }"))
+        assertFalse(receiver.contains("wakeBeforeDial"))
         assertTrue("a negotiation that got no answer is told to the gate", receiver.contains("if (result == Handshake.MUTE) waking.muteNegotiation()"))
         assertTrue("an answered session leaves its end", receiver.contains("if (answered) AaRestartGap.sessionEnded(context, SystemClock.elapsedRealtime(), System.currentTimeMillis())"))
         assertTrue(receiver.contains("return Handshake.failed(transport.versionAnswered)"))

@@ -229,60 +229,17 @@ data class REauSettings(
      */
     val webAudio: WebAudioMode = WebAudioMode.PHONE,
     /**
-     * The first four experimental switches of the connection ("Conexão experimental" in Settings; the later ones have their own words below), all off by default and none of them touched by
-     * [sanitized]: with them off the app does exactly what it did before them. Each is logged with the settings in use ([SettingsInUse]).
-     * [experimentRtpPacing]: the video's RTP packets leave a little apart ([com.reau.app.stream.RtpPacing]) instead of in a burst.
-     * [experimentDebugDscp]: a debug build marks the dash's sockets for Wi-Fi priority too (a release always does, [com.reau.app.dash.DashSocket.priorityMarks]).
-     * [experimentAdaptiveBitrate]: the normal stream asks for 200 kbps and follows what the encoder really puts out ([com.reau.app.stream.BitrateAdapter]).
-     * [experimentWifiBind]: when Android refuses to bind a socket to the dash's network (EPERM), a few more tries on the same network before it is let go
-     * ([com.reau.app.dash.BindRetry]). It used to carry a Wi-Fi lock for low latency too; that part changed nothing on Android 14 and later and is gone (the Wi-Fi lock is the app's own
-     * "high performance" one, as without the switch), the stored choice stays.
-     */
-    val experimentRtpPacing: Boolean = false,
-    val experimentDebugDscp: Boolean = false,
-    val experimentAdaptiveBitrate: Boolean = false,
-    val experimentWifiBind: Boolean = false,
-    /**
-     * The guard of the start: if the app's process ends within 10 s of a projection started with experimental switches on, the next opening switches them off
-     * ([ExperimentsGuard]). On by default (the owner's decision of 11/11/2026): it acts only when another experimental switch is on, so with none nothing changes. Whoever
-     * stored a choice keeps it; [sanitized] leaves it alone.
-     */
-    val experimentStartGuard: Boolean = true,
-    /** Experimental: an encoder that takes frames in and gives none out for 3 s, without failing, is rebuilt ([com.reau.app.stream.EncoderMuteWatch]). Off, only an encoder that fails is. */
-    val experimentEncoderWatch: Boolean = false,
-    /** Experimental: when a keyframe is asked of Android Auto, the video focus is given back 400 ms after it was taken, not 100 ms ([com.reau.app.aa.FocusGap]). */
-    val experimentFocusGap: Boolean = false,
-    /** Experimental: the projection remembers whether it was night at its last look, so that dawn and dusk each have their own threshold as the theme's rule says ([com.reau.app.service.DayNight.Memory]). Off, every look starts as day, as always. */
-    val experimentNightMemory: Boolean = false,
-    /** Experimental: the weather the dash's heartbeat carries goes away after 30 minutes without a new fetch, not after 3 hours ([com.reau.app.weather.WeatherKeeper.FRESH_MS]). The heartbeat has room for a temperature and an icon, not for an age. Off, 3 hours as always. */
-    val experimentWeatherAge: Boolean = false,
-    /** Experimental: the battery's temperature also lowers the stream's frame ceiling, from 44 C ([com.reau.app.stream.HeatCeiling]), for a phone whose thermal status never moves. Off, only Android's thermal status does, as always. */
-    val experimentHeatCeiling: Boolean = false,
-    /** Experimental: during a route, with [useLocation] and [speedFpsProfile] on, the GPS is switched on ([com.reau.app.service.SpeedGps], a battery cost) and the speed profile reads the speed of its fix ([com.reau.app.stream.ProfileSpeed]); with no fix, or no route, the route's own estimate, as always. */
-    val experimentGpsSpeed: Boolean = false,
-    /** Experimental: a short "inactive" of Android Auto's navigation status during a route is shown as a recalculation for up to 8 seconds ([com.reau.app.service.RecalcHold]). Off, it clears the route's card at once, as always. */
-    val experimentRecalcInactive: Boolean = false,
-    /** Experimental: the dash's encoder is asked for BT.601 colours, limited range, SDR transfer ([com.reau.app.dash.video.ColorMatrix]); a codec that refuses is asked again as before. Off, no colour keys, as always. */
-    val experimentColorMatrix: Boolean = false,
-    /** Experimental: the handshake with Android Auto asks protocol 6.0 first ([com.reau.app.aa.ProtocolAsk]); a refusal or a failed handshake goes back to 1.7 for the rest of the process. Off, 1.7 as always. */
-    val experimentProtocolSix: Boolean = false,
-    /** Experimental: a tolerant watch of the dash's silence (12 s only in the log, 60 s ends the session, a keyframe when it speaks again) and the control packets 12 ms apart ([com.reau.app.dash.RxQuiet]). Off, 4 s of silence end the session and the packets go as they come. */
-    val experimentTolerantRx: Boolean = false,
-    /** Experimental: before the first dial of a projection, and once after a negotiation that got no answer, Android Auto is woken by opening its settings, and the dial waits 700 ms ([com.reau.app.aa.AaWake]). Off, it is dialled as always. */
-    val experimentWakeAa: Boolean = false,
-    /** Experimental: a Qualcomm encoder of the dash (`c2.qti.` or `OMX.qcom.`) is also asked for the maker's low-latency key, so it does not hold frames ([com.reau.app.dash.video.VendorLowLatency]); a codec that refuses is asked again without it. Off, or with any other encoder, the format is as always. */
-    val experimentEncoderLowLatency: Boolean = false,
-    /**
      * The picture size of the stream, by its id: no choice and not stored (the old `video_frame` key is ignored), [sanitized] sets it to [DashConfig.VIDEO_FRAME] (528x304) in every build.
      * It is the AREA the fit is made for ([mapping]) and the video is composed in, 1:1. Kept as a field so that the fall back to 526x300 when no encoder takes 528x304
      * ([com.reau.app.service.LiveSides]) can say so, and the log lists it.
      */
     val videoFrame: String = DashConfig.VIDEO_FRAME.id,
     /**
-     * Experimental, a debug build's only (a release build always has it off, [sanitized]): the head unit tells Android Auto it is a MOTORCYCLE, under a vehicle id of its
-     * own ([com.reau.app.aa.ServiceDiscoveryResponse.VEHICLE_ID_MOTORCYCLE]), see [aaConfig]. It counts from the next Android Auto session. Off, the announcement is the one it always was.
+     * "Anunciar como moto", in every build and on by default (20/11/2026; it was a debug build's experiment before): the head unit tells Android Auto it is a MOTORCYCLE,
+     * under a vehicle id of its own ([com.reau.app.aa.ServiceDiscoveryResponse.VEHICLE_ID_MOTORCYCLE]), see [aaConfig]. It counts from the next Android Auto session.
+     * Off, the announcement is the one it always was (a car).
      */
-    val experimentMotorcycle: Boolean = false,
+    val announceMotorcycle: Boolean = true,
     /**
      * Once a day, with the internet on, REau asks GitHub (the same single request as the "Check now" button, [com.reau.app.update.ReleaseCheck]) whether a newer version is
      * published, and posts one notification per version ([com.reau.app.update.UpdateNotice]). Nothing is downloaded or installed. On by default; off cancels the daily job.
@@ -292,12 +249,6 @@ data class REauSettings(
     /** The size the stream's encoder is built for: [videoFrame] after [sanitized] (528x304; the dash's own 526x300 only after the fall back, when no encoder takes 528x304). */
     val frameSize: DashConfig.FrameSize
         get() = if (videoFrame == DashConfig.VIDEO_FRAME.id) DashConfig.VIDEO_FRAME else DashConfig.FULL_FRAME
-
-    /**
-     * The bitrate the stream is built for and asked for: the chosen ceiling ([streamBitrateBps]) or, with
-     * [experimentAdaptiveBitrate], [DashConfig.EXPERIMENT_TARGET_BPS]. [sanitized] fixes [streamBitrateBps]; this is where the experiment lowers it.
-     */
-    val effectiveStreamBitrateBps: Int get() = if (experimentAdaptiveBitrate) DashConfig.EXPERIMENT_TARGET_BPS else streamBitrateBps
 
     /** The stats text as the compositor takes it: never on a release build, whatever a phone saved (its switch is a debug build's only). */
     val overlay: StatsOverlay get() = StatsOverlay(statsOverlay && com.reau.app.BuildConfig.DEBUG, statsX, statsY, statsSize)
@@ -354,9 +305,7 @@ data class REauSettings(
         density, AaMargins(marginW, marginH), navigation = maneuverData, touch = phoneTouch, audio = audioSinks,
         media = dashMusic, phone = dashCaller,
         protocolMinor = if (aaNewProtocol) com.reau.app.aa.Messages.MINOR_NEWER else com.reau.app.aa.Messages.MINOR_DEFAULT,
-        protocolSix = experimentProtocolSix,
-        wakeBeforeDial = experimentWakeAa,
-        motorcycle = experimentMotorcycle,
+        motorcycle = announceMotorcycle,
     )
 
     /**
@@ -440,8 +389,6 @@ data class REauSettings(
             statsOverlay = statsOverlay && debugBuild,
             buttonOverlay = buttonOverlay && debugBuild,
             videoFrame = DashConfig.VIDEO_FRAME.id,
-            // The motorcycle announcement is a debug build's experiment: a value left on by one build must not count in the other.
-            experimentMotorcycle = experimentMotorcycle && debugBuild,
             clockSlowPercent = 0,
             phoneTouch = true,
             density = density.coerceIn(DENSITY),

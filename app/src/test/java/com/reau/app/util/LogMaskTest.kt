@@ -226,7 +226,7 @@ class LogMaskTest {
     fun `the share button's path asks the paired dash's name and the export masks by default`() {
         val source = File("src/main/java/com/reau/app/util/DiagnosticsExport.kt").readText()
         assertTrue(source.contains("DashPairing.open(context).ssid"))
-        assertTrue(source.contains("ExportExtras(reportHeader(app, read.getOrNull(), readable = read.isSuccess), listOf(dashName))"))
+        assertTrue(source.contains("ExportExtras(reportHeader(app), listOf(dashName))"))
         assertTrue("masking is on unless a caller turns it off", source.contains("mask: Boolean = true"))
         assertTrue("the zip of the share goes through zipDirs with the names", source.contains("zipDirs(sources, part, header, maskNames = extras.maskNames)"))
     }

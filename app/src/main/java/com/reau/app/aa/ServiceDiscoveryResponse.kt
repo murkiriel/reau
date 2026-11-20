@@ -73,7 +73,7 @@ class ServiceDiscoveryResponse(config: AaConfig) :
         private const val SOFTWARE_BUILD = "1"
 
         /**
-         * The experiment "Android Auto in motorcycle mode" (debug builds, [AaConfig.motorcycle]): a vehicle id of its own, because Android Auto remembers the
+         * "Announce as a motorcycle" ([AaConfig.motorcycle]): a vehicle id of its own, because Android Auto remembers the
          * vehicle type by the head unit's identity, so the new type only counts under an id it has not seen. Told in the top-level vehicle_id (5) too.
          */
         const val VEHICLE_ID_MOTORCYCLE = "reau-moto-1"
@@ -129,7 +129,7 @@ class ServiceDiscoveryResponse(config: AaConfig) :
         }.build()
 
         /**
-         * The head unit info of the motorcycle experiment, in the numbering of Android Auto's own copy of the message, which is the only reader (this
+         * The head unit info of the motorcycle announcement, in the numbering of Android Auto's own copy of the message, which is the only reader (this
          * app's [Common.HeadUnitInfo] numbers the same eight strings in another order and has no vehicle type; the generated classes are not touched).
          * So each Kotlin field below is chosen by the NUMBER it puts on the wire, not by its name:
          *

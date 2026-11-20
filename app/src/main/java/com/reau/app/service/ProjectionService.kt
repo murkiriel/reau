@@ -21,7 +21,6 @@ import com.reau.app.data.ProjectionSummary
 import com.reau.app.data.RideSummary
 import com.reau.app.data.ExitHistory
 import com.reau.app.data.RideDiagnostics
-import com.reau.app.settings.ExperimentsGuard
 import com.reau.app.settings.REauSettings
 import com.reau.app.settings.SettingsInUse
 import com.reau.app.util.DiagnosticsExport
@@ -533,8 +532,6 @@ class ProjectionService : Service() {
             RideDiagnostics.start("projection")
             val inUse = SettingsStore.open(this@ProjectionService).load().sanitized()
             RideDiagnostics.log("settings", SettingsInUse.line(inUse))
-            SettingsInUse.experimentsLine(inUse)?.let { RideDiagnostics.log("settings", it) }
-            watchTheStart(inUse)
             marks.reset()
             // A new summary for this projection, written when it is switched off.
             ProjectionSummary.current = RideSummary().apply { start(SystemClock.elapsedRealtime(), batteryPct = null) }
@@ -578,23 +575,8 @@ class ProjectionService : Service() {
             lookAtTheDevice()
         }
 
-        // The mark this projection's start left for the guard, null when it left none; the worker only.
-        private var guardToken: String? = null
-
-        /** The experimental guard of the start ([ExperimentsGuard]): with it on and experiments on, a mark is left until the projection has run 10 s. */
-        private fun watchTheStart(inUse: REauSettings) {
-            val mark = ExperimentsGuard.mark(filesDir)
-            val token = ExperimentsGuard.projectionStarted(inUse, mark, System.currentTimeMillis()) ?: return
-            guardToken = token
-            log("projection: ${ExperimentsGuard.watchingLine(ExperimentsGuard.experimentsOn(inUse))}")
-            schedule(ExperimentsGuard.SETTLE_MS) { ExperimentsGuard.settled(mark, token) }
-        }
-
         override fun release() {
             publish { started.value = null }
-            // Switched off by the rider: whatever the start did, the app did not die of it.
-            ExperimentsGuard.settled(ExperimentsGuard.mark(filesDir), guardToken)
-            guardToken = null
             // The browser switch goes off with the projection and stays off until the rider turns it on again.
             // Not when a start came after this stop: that run is the rider's now (it turned the switch off itself when it began).
             runCatching {

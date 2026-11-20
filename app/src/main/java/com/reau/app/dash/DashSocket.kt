@@ -1,7 +1,6 @@
 // Every control packet in and out, and every failed or held-back send, is counted in [stats]; with the detailed log
 // on, each one goes to it ([DashDump], the route card's text and the key exchange left out). The control and video
-// sockets carry a DSCP mark ([TOS_CONTROL], [TOS_VIDEO]) in a release build; a debug build leaves them unmarked unless the experimental
-// switch "Marcar a prioridade na debug" is on ([priorityMarks]).
+// sockets carry a DSCP mark ([TOS_CONTROL], [TOS_VIDEO]) in every build (a debug build left them unmarked until 20/11/2026).
 package com.reau.app.dash
 
 import android.util.Log
@@ -40,10 +39,6 @@ class DashSocket(
     // passes these two) is byte-for-byte unaffected; see DashSocketTest's golden checks.
     private val ctrlDest: InetSocketAddress = InetSocketAddress(InetAddress.getByName(BROADCAST), CTRL_PORT),
     private val rtpDest: InetSocketAddress = InetSocketAddress(InetAddress.getByName(DASH_IP), RTP_PORT),
-    // The experimental switch (REauSettings.experimentDebugDscp): a debug build marks the sockets too. Off, the marking is the build's own, as always.
-    private val markInDebug: Boolean = false,
-    // The experimental switch (REauSettings.experimentTolerantRx): the control packets leave this many milliseconds apart ([ControlGap]). 0: they leave as they come, as always.
-    controlGapMs: Long = 0L,
 ) : AutoCloseable {
     companion object {
         const val DASH_IP    = "192.168.1.1"
@@ -51,7 +46,6 @@ class DashSocket(
         const val CTRL_PORT  = 2000
         const val RX_PORT    = 2002
         const val RTP_PORT   = 5000
-        private const val NS_PER_MS = 1_000_000L
         private const val BUF             = 65535
         private const val RECV_TIMEOUT_MS = 500
         private const val TAG             = "DashSocket"
@@ -70,16 +64,6 @@ class DashSocket(
         // mark sends everything as before.
         internal const val TOS_CONTROL = 48 shl 2
         internal const val TOS_VIDEO = 34 shl 2
-
-        /**
-         * The marks of the control and video sockets, or null for none: a debug build sends the dash's sockets unmarked (the owner's phone,
-         * 28/10/2026, to tell whether the dash's Wi-Fi restarts with them) unless [markInDebug], the experimental switch, is on, and a release
-         * always marks them.
-         */
-        internal fun priorityMarks(
-            debugBuild: Boolean = com.reau.app.BuildConfig.DEBUG,
-            markInDebug: Boolean = false,
-        ): Pair<Int, Int>? = if (debugBuild && !markInDebug) null else TOS_CONTROL to TOS_VIDEO
 
         /** Marks [socket] with [tos]; false (and the socket as it was) where the system refuses. */
         internal fun mark(socket: DatagramSocket, tos: Int): Boolean =
@@ -100,7 +84,6 @@ class DashSocket(
     private val rtpSocket: DatagramSocket
 
     private val seq = AtomicInteger(0)
-    private val controlGap = ControlGap(controlGapMs)
 
     /** Where every control packet in and out is counted; null counts nothing. */
     @Volatile var stats: DashStats? = null
@@ -143,11 +126,7 @@ class DashSocket(
                 network?.bindSocket(it)
             }
             rtp = DatagramSocket().also { network?.bindSocket(it) }
-            val marks = priorityMarks(markInDebug = markInDebug)
-            val marked = marks?.let { (control, video) ->
-                "control CS6=${mark(tx, control)} video AF41=${mark(rtp, video)}" +
-                    if (com.reau.app.BuildConfig.DEBUG) " (debug build, by the experimental switch)" else ""
-            } ?: "none (debug build: no priority marking)"
+            val marked = "control CS6=${mark(tx, TOS_CONTROL)} video AF41=${mark(rtp, TOS_VIDEO)}"
             Log.i(TAG, "Sockets open — TX :$CTRL_PORT→${ctrlDest.address.hostAddress}:${ctrlDest.port}, " +
                 "RX :$RX_PORT, RTP→${rtpDest.address.hostAddress}:${rtpDest.port}, DSCP $marked")
             com.reau.app.data.RideDiagnostics.log("dash", "sockets marked for Wi-Fi priority: $marked")
@@ -185,7 +164,6 @@ class DashSocket(
         }
         // Every PROBE_EVERY-th call of a suppressed link falls through and actually hits the socket, so a
         // recovered link is detected on its own instead of staying suppressed forever.
-        waitForTheGap()
         val pkt = K1GPacket.patchSeq(data, seq.getAndIncrement())
         // UDP fire-and-forget: a dropped/unreachable link (ENETUNREACH, EBADF) must never
         // crash the app — the session will fail and reconnect.
@@ -195,17 +173,6 @@ class DashSocket(
         } catch (e: Exception) {
             sendFailed(e)
             null
-        }
-    }
-
-    /** With the experimental gap ([ControlGap]) set, holds the packet until the one before it has had its time on the wire; with none set it returns at once. */
-    private fun waitForTheGap() {
-        val ns = controlGap.waitNs(System.nanoTime())
-        if (ns <= 0L) return
-        try {
-            Thread.sleep(ns / NS_PER_MS, (ns % NS_PER_MS).toInt())
-        } catch (e: InterruptedException) {
-            Thread.currentThread().interrupt()
         }
     }
 

@@ -12,14 +12,14 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 /**
- * The experiment "Android Auto in motorcycle mode" ([AaConfig.motorcycle]), on the wire. The bytes of the service discovery response are read here with a
+ * "Announce as a motorcycle" ([AaConfig.motorcycle]; a setting on by default since 20/11/2026), on the wire. The bytes of the service discovery response are read here with a
  * minimal reader of the protobuf wire format, NOT with the generated classes: the head unit info of this app numbers its eight strings in another order than
  * Android Auto's own copy of the message (which is the only reader), and has no vehicle type, so only the numbers on the wire say what Android Auto reads.
  *
  * Android Auto's numbering of the head unit info: 1 make, 2 model, 3 year, 4 vehicle_id, 5 head_unit_make, 6 head_unit_model, 7 head_unit_software_build,
  * 8 head_unit_software_version, 9 vehicle_type (0 not said, 1 car, 2 truck, 3 motorcycle).
  *
- * Off, the response is byte for byte the one of before the experiment: ServiceDiscoveryNavigationTest holds that response against the golden bytes of the
+ * Off, the response is byte for byte the one of before the announcement: ServiceDiscoveryNavigationTest holds that response against the golden bytes of the
  * original; here the head unit info is read again field by field, and the whole message is compared with the one of the default configuration.
  */
 class MotorcycleAnnouncementTest {
@@ -62,7 +62,7 @@ class MotorcycleAnnouncementTest {
     private val version = com.reau.app.BuildConfig.VERSION_NAME
 
     @Test
-    fun `it is off by default`() {
+    fun `the configuration says car by default (the setting turns the announcement on)`() {
         assertFalse(AaConfig().motorcycle)
         assertFalse(AaConfig(navigation = true, audio = true, media = true, phone = true).motorcycle)
     }
@@ -122,13 +122,13 @@ class MotorcycleAnnouncementTest {
     }
 
     @Test
-    fun `the vehicle id of the experiment is new and fixed, not the one of the car announcement`() {
+    fun `the vehicle id of the motorcycle is new and fixed, not the one of the car announcement`() {
         assertEquals("reau-moto-1", ServiceDiscoveryResponse.VEHICLE_ID_MOTORCYCLE)
         assertEquals(3L, ServiceDiscoveryResponse.VEHICLE_TYPE_MOTORCYCLE)
         assertEquals("reau", ServiceDiscoveryResponse.vehicleIdOf(AaConfig()))
         assertEquals("reau-moto-1", ServiceDiscoveryResponse.vehicleIdOf(moto))
         assertNotEquals(ServiceDiscoveryResponse.vehicleIdOf(AaConfig()), ServiceDiscoveryResponse.vehicleIdOf(moto))
-        // two responses of the experiment are the same bytes: the identity does not change from one session to the next
+        // two responses of the motorcycle are the same bytes: the identity does not change from one session to the next
         assertArrayEquals(ServiceDiscoveryResponse(moto).data, ServiceDiscoveryResponse(moto).data)
     }
 
@@ -141,11 +141,12 @@ class MotorcycleAnnouncementTest {
     }
 
     @Test
-    fun `the log says it, only for the experiment, with the vehicle id`() {
+    fun `the log says it, only when announced as a motorcycle, with the vehicle id and no word of experiment`() {
         assertNull(DiscoveryLog.announcedLine(AaConfig()))
         val line = DiscoveryLog.announcedLine(moto)!!
         assertTrue(line, "MOTORCYCLE" in line && "vehicle_type 3" in line && "vehicle_id reau-moto-1" in line)
         assertTrue(line, line.startsWith("Service Discovery Response"))
+        assertFalse(line, "experiment" in line)
     }
 
     @Test

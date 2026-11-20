@@ -57,7 +57,7 @@ import kotlinx.coroutines.launch
 
 /**
  * The settings: the "NA HORA" strip, the groups of every day (the dash, Waze's map, what the dash shows, the joystick,
- * Android Auto, the card), "Depuração" folded, and the credits at the end. Each switch's long text of before is whole
+ * the card, Android Auto), "Depuração" folded, and the credits at the end. Each switch's long text of before is whole
  * behind its (i); the titles and lines are short.
  */
 @Composable
@@ -86,9 +86,7 @@ fun SettingsScreen(
                     JoystickGroup(settings, change, onOpenJoystick)
                     VideoProfilesGroup(settings)
                     CardGroup(settings, change, actions.onPickCardImage)
-                    ConnectionExperimentsGroup(settings, change)
-                    VideoExperimentsGroup(settings, change)
-                    DashExperimentsGroup(settings, change)
+                    AndroidAutoGroup(settings, change)
                     DebugGroup(settings, change, actions, say)
                     UpdateGroup(settings, change)
                 }

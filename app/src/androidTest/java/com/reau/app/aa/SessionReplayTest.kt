@@ -121,7 +121,7 @@ class SessionReplayTest {
         val (liveReader, _) = surface()
         receiver = AaReceiver(
             context, config, liveReader.surface, { states += it },
-            AaReceiver.Options(port, recording = AaReceiver.Recording(folder)),
+            AaReceiver.Options(port, recording = AaReceiver.Recording(folder), wake = {}),
         ).also { it.start() }
         await("the live session") { states.lastOrNull() == AaLinkState.ACTIVE }
         val got = play(livePeer)
@@ -144,7 +144,7 @@ class SessionReplayTest {
         val (liveReader, livePicture) = surface()
         receiver = AaReceiver(
             context, config, liveReader.surface, { states += it },
-            AaReceiver.Options(port, recording = AaReceiver.Recording(folder)),
+            AaReceiver.Options(port, recording = AaReceiver.Recording(folder), wake = {}),
         ).also { it.start() }
         await("the live session") { states.lastOrNull() == AaLinkState.ACTIVE }
 
@@ -197,7 +197,7 @@ class SessionReplayTest {
         val port = ServerSocket(0).use { it.localPort }
         val peer = FakeAndroidAutoPeer(listenOn = port).also { closeables += it }
         val (reader, _) = surface()
-        receiver = AaReceiver(context, config, reader.surface, { states += it }, AaReceiver.Options(port)).also { it.start() }
+        receiver = AaReceiver(context, config, reader.surface, { states += it }, AaReceiver.Options(port, wake = {})).also { it.start() }
         await("the session") { states.lastOrNull() == AaLinkState.ACTIVE }
 
         play(peer)
@@ -215,7 +215,7 @@ class SessionReplayTest {
         val (reader, _) = surface()
         // The app's recording is a ring: two files of half the limit. A ping is 14 bytes in the file, after 13 of header: three fit in the
         // 60 of a half, the fourth rolls it over into the older file and begins a new one.
-        val options = AaReceiver.Options(port, recording = AaReceiver.Recording(folder, maxBytes = 120))
+        val options = AaReceiver.Options(port, recording = AaReceiver.Recording(folder, maxBytes = 120), wake = {})
         receiver = AaReceiver(context, config, reader.surface, { states += it }, options).also { it.start() }
         await("the session") { states.lastOrNull() == AaLinkState.ACTIVE }
 
@@ -242,7 +242,7 @@ class SessionReplayTest {
         val (reader, _) = surface()
         receiver = AaReceiver(
             context, config, reader.surface, { states += it },
-            AaReceiver.Options(port, AaReceiver.Timing(redialMs = 200, afterDropMs = 100), AaReceiver.Recording(folder)),
+            AaReceiver.Options(port, AaReceiver.Timing(redialMs = 200, afterDropMs = 100), AaReceiver.Recording(folder), wake = {}),
         ).also { it.start() }
         await("the first session") { states.lastOrNull() == AaLinkState.ACTIVE }
         first.send(Channel.ID_CTR, Control.ControlMsgType.MESSAGE_PING_REQUEST_VALUE, Control.PingRequest.newBuilder().setTimestamp(1).build().toByteArray())

@@ -5,7 +5,6 @@ import com.reau.app.data.RideDiagnostics
 import com.reau.app.dash.BitrateMode
 import com.reau.app.dash.DashConfig
 import com.reau.app.dash.video.DashEncoder
-import com.reau.app.dash.video.PendingFrames
 import com.reau.app.settings.REauSettings
 import com.reau.app.util.CodecErrors
 import com.reau.app.util.StageStats
@@ -90,36 +89,20 @@ internal class VideoLoop(
         val recordRolling: Boolean = false,
         /** The pace on a light screen of Android Auto ([LightScreen]); 0: off. */
         val lightScreenFps: Int = 0,
-        /** Experimental ([com.reau.app.settings.REauSettings.experimentRtpPacing]): the RTP packets leave spaced out ([RtpPacing]). Off, they leave as they are made. */
-        val rtpPacing: Boolean = false,
-        /** Experimental ([com.reau.app.settings.REauSettings.experimentAdaptiveBitrate]): the bitrate follows what the encoder really puts out ([BitrateAdapter]). */
-        val adaptiveBitrate: Boolean = false,
-        /** Experimental ([com.reau.app.settings.REauSettings.experimentEncoderWatch]): an encoder gone mute without failing is rebuilt ([EncoderMuteWatch]). */
-        val encoderMuteWatch: Boolean = false,
-        /** Experimental ([com.reau.app.settings.REauSettings.experimentColorMatrix]): the encoder is asked for BT.601, limited range, SDR ([com.reau.app.dash.video.ColorMatrix]). */
-        val colorMatrix: Boolean = false,
-        /** Experimental ([com.reau.app.settings.REauSettings.experimentEncoderLowLatency]): a Qualcomm encoder is also asked for the maker's low-latency key ([com.reau.app.dash.video.VendorLowLatency]). */
-        val encoderLowLatency: Boolean = false,
         /** The size the encoder is built for ([com.reau.app.settings.REauSettings.frameSize]): fixed for the whole stream, so another size is another stream. */
         val frame: DashConfig.FrameSize = DashConfig.FULL_FRAME,
     ) {
         /**
-         * These settings with what the rider's own settings decide of the stream: the rate ceiling and clock, the bitrate (the experimental
-         * adaptive one asks for its own target, [REauSettings.effectiveStreamBitrateBps]), its mode and keyframe interval, the light-screen pace and
-         * the experimental switches. What a projection starts with and what a new stream takes up, the same.
+         * These settings with what the rider's own settings decide of the stream: the rate ceiling and clock, the bitrate, its mode and keyframe
+         * interval and the light-screen pace. What a projection starts with and what a new stream takes up, the same.
          */
         fun withRider(rider: REauSettings): Settings = copy(
             ceilingFps = rider.fpsCeiling,
             clockSlowPercent = rider.clockSlowPercent,
-            bitrateBps = rider.effectiveStreamBitrateBps,
+            bitrateBps = rider.streamBitrateBps,
             bitrateMode = rider.bitrateMode,
             keyframeSec = rider.keyframeSec,
             lightScreenFps = REauSettings.lightScreenFps(),
-            rtpPacing = rider.experimentRtpPacing,
-            adaptiveBitrate = rider.experimentAdaptiveBitrate,
-            encoderMuteWatch = rider.experimentEncoderWatch,
-            colorMatrix = rider.experimentColorMatrix,
-            encoderLowLatency = rider.experimentEncoderLowLatency,
             frame = rider.frameSize,
         )
 
@@ -142,13 +125,6 @@ internal class VideoLoop(
     private var failedPolls = 0
     private var lastThermal = 0
     private var lastWithheldAskMs: Long? = null
-
-    // The experimental live adjustment of the bitrate; null (the default) leaves the bitrate to the governor alone.
-    private var adapter: BitrateAdapter? = null
-    private var pacing: RtpPacing? = null
-
-    // The experimental watch for an encoder gone mute; null (the default): only an encoder that fails is rebuilt.
-    private var muteWatch: EncoderMuteWatch? = null
 
     // Set by [start] for the encoder it builds, taken by [buildEncoder]: the rebuilt ones do not tell the ride log what the phone offers again.
     private var reportCodecsOfNextEncoder = false
@@ -173,12 +149,9 @@ internal class VideoLoop(
         val rec = recordInto(settings.recordDir, settings.recordFrames)?.let {
             H264Recorder(it, settings.recordFrames, H264Recorder.nameFor(System.currentTimeMillis()), settings.recordRolling, log)
         }
-        val pacing = RtpPacing.whenOn(settings.rtpPacing)
-        this.pacing = pacing
         val out = RtpOutput(
             tap = rec?.let { it::write },
             onKeyframe = dash::keyframeSent,
-            pacing = pacing,
             sendRtp = { packet ->
                 dash.sendRtp(packet)
                 // Cheap when no touch is being followed (a flag): the line of a touch is written when its first packet goes out.
@@ -195,17 +168,12 @@ internal class VideoLoop(
         recorder = rec
         encoder = fresh
         governor = g
-        adapter = BitrateAdapter.whenOn(settings.adaptiveBitrate)
-        muteWatch = EncoderMuteWatch.whenOn(settings.encoderMuteWatch)
         log(
             "video loop start: ${g.fps} fps (ceiling $ceiling, ${g.profilesText}), " +
                 "${videoChoiceText(settings.ceilingFps, settings.bitrateBps, settings.frame)}, keyframe ${g.keyframeSec}s fixed" +
                 " (encoder asked ${DashEncoder.iFrameIntervalText(g.encoderKeyframeSec, g.encoderFps)}, pace up to ${g.gopFps} fps)" +
                 ", ${g.activeBitrateBps / 1000} kbps (${settings.bitrateBps / 1000} chosen) ${settings.bitrateMode ?: "default"}, " +
-                "clock ${settings.clockSlowPercent}% slow" +
-                (if (settings.rtpPacing) ", RTP packets spaced out (experiment)" else "") +
-                (if (settings.adaptiveBitrate) ", bitrate follows the encoder's real output (experiment)" else "") +
-                (if (settings.encoderMuteWatch) ", a mute encoder is rebuilt (experiment)" else ""),
+                "clock ${settings.clockSlowPercent}% slow",
         )
         stats?.panelStarted()
         stats?.stream(settings.bitrateMode, g.keyframeSec, fixed = true)
@@ -262,10 +230,6 @@ internal class VideoLoop(
         compositor.clearOutput { stopping?.release() }
         recorder?.close()
         recorder = null
-        pacing?.let { log("RTP pacing (experiment): ${it.waitedNs / NS_PER_MS} ms waited in all, the packet cap reached ${it.capHits} times") }
-        pacing = null
-        adapter = null
-        muteWatch = null
         log("video loop stop (${output?.heldBack ?: 0} frames held back before a keyframe, ${output?.idrWithheld ?: 0} keyframes withheld for lack of SPS/PPS)")
         output = null
     }
@@ -286,9 +250,7 @@ internal class VideoLoop(
                 rebuild(g.rebuildAction())
             }
             val timed = encoded.getOrNull()
-            if (timed != null) watchForAMuteEncoder(g, timed, SystemClock.elapsedRealtime())
             val counts = out.takeCounts()
-            adaptBitrate(counts.bytes)
             askAgainForWithheldKeyframe(out, g, SystemClock.elapsedRealtime())
             com.reau.app.data.ProjectionSummary.current.frames(counts.frames, SystemClock.elapsedRealtime())
             val status = thermalStatus()
@@ -328,32 +290,6 @@ internal class VideoLoop(
     }
 
     /**
-     * The experiment ([EncoderMuteWatch]): the encoder took [timed]'s frames in and gave its frames out since the last poll. Frames in and none
-     * out for long enough, with no error, and the encoder is rebuilt as a failing one is. Nothing happens with the switch off.
-     */
-    private fun watchForAMuteEncoder(g: StreamGovernor, timed: PendingFrames.Stats, nowMs: Long) {
-        val watch = muteWatch ?: return
-        // Debug builds only can hide the frames out (FaultInjection.ENCODER_MUTE): the watch then sees an encoder that gives nothing out.
-        val verdict = watch.onPoll(nowMs, timed.submitted, if (com.reau.app.devtools.FaultInjection.muteEncoderOutput()) 0 else timed.frames)
-        if (verdict == EncoderMuteWatch.Verdict.FINE) return
-        com.reau.app.devtools.FaultInjection.encoderVerdictGiven()
-        log("${RideDiagnostics.WARN}${EncoderMuteWatch.line(verdict, watch.lastWaitFrames, watch.rebuilds)}")
-        if (verdict == EncoderMuteWatch.Verdict.REBUILD) rebuild(g.rebuildAction())
-    }
-
-    /**
-     * The experiment: [bytes] came out since the last poll. When the window of [BitrateAdapter] says the encoder put out too much or too little
-     * for the target, the new bitrate is asked of the running encoder (a live parameter, never a rebuild) and the line says what was measured.
-     */
-    private fun adaptBitrate(bytes: Long) {
-        val adjust = adapter ?: return
-        val now = SystemClock.elapsedRealtime()
-        val wanted = adjust.onOutput(now, bytes) ?: return
-        encoder?.requestBitrate(wanted)
-        log("bitrate adjusted to $wanted (the encoder put out ${adjust.lastRealBps}, the target is ${adjust.target})")
-    }
-
-    /**
      * A keyframe the output withheld (no SPS/PPS before it) leaves the dash without a picture until the encoder's next one: ask for it now,
      * at most once per [DashLogic.WITHHELD_ASK_EVERY_MS]. The flag is taken at every poll, asked for or not, so one withheld keyframe never
      * waits in it for a later poll to pass as a new one.
@@ -380,7 +316,6 @@ internal class VideoLoop(
                     log("pace: a tick every ${action.pace.activeMs} ms, a repeat every ${action.pace.idleMs} ms")
                 }
                 is StreamGovernor.Action.SetBitrate -> {
-                    adapter?.setTarget(action.bps)
                     encoder?.requestBitrate(action.bps)
                     log("bitrate=${action.bps}")
                 }
@@ -403,7 +338,6 @@ internal class VideoLoop(
         val old = encoder
         out.switchTo(fresh)
         encoder = fresh
-        adapter?.setTarget(wanted.bitrateBps)
         // The old encoder goes on the GL thread, after the new surface is attached and the old one let go (see clearOutput).
         compositor.swapOutputThen(checkNotNull(fresh.inputSurface), settings.frame, onFrameSubmitted = fresh::frameSubmitted, after = { old?.release() })
         stats?.stream(settings.bitrateMode, wanted.keyframeSec, fixed = true)
@@ -423,8 +357,7 @@ internal class VideoLoop(
         // What the phone offers and what the codec accepted go to the ride log once for a stream: the first encoder tells it, a rebuilt one does not.
         created.reportCodecs = reportCodecsOfNextEncoder
         reportCodecsOfNextEncoder = false
-        created.vendorLowLatency = settings.encoderLowLatency
-        if (created.prepare(fps, bitrateBps, encoderKeyframeSec, settings.bitrateMode, colorMatrix = settings.colorMatrix)) return created
+        if (created.prepare(fps, bitrateBps, encoderKeyframeSec, settings.bitrateMode)) return created
         log("${RideDiagnostics.ERROR}encoder prepare failed: ${created.lastPrepareError}")
         return null
     }
@@ -472,7 +405,6 @@ internal class VideoLoop(
             lightScreenFps > 0 && thermalStatus < THERMAL_MODERATE && runCatching { lightScreenNow() }.getOrDefault(false)
 
         private const val POLL_MS = 250L
-        private const val NS_PER_MS = 1_000_000L
 
         /** Polls in a row with the encoder's output failing before it is rebuilt (8 × 250 ms = 2 s). */
         private const val REBUILD_AFTER_FAILED_POLLS = 8

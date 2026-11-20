@@ -1,6 +1,5 @@
 package com.reau.app.aa
 
-import com.reau.app.settings.REauSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -9,22 +8,13 @@ import org.junit.Test
 import java.io.File
 
 /**
- * The experimental longer gap of the focus cycle that asks Android Auto for a keyframe, and the measure of what a cycle bought. Off (the
- * default) the gap is the 100 ms REau always used and the cycle's own line is word for word what it was.
+ * The measure of what a focus cycle bought (the keyframe that follows it), and the gap of the cycle: 100 ms, as REau always used. A longer gap
+ * (400 ms) was tried behind a switch until 20/11/2026 and is gone.
  */
 class FocusGapTest {
     @Test
-    fun `the switch is off by default, and off the gap is the 100 ms of always`() {
-        assertFalse(REauSettings().experimentFocusGap)
-        assertEquals(100L, FocusGap.ms(on = false))
+    fun `the gap of the focus cycle is the 100 ms REau always used`() {
         assertEquals(100L, FocusGap.DEFAULT_MS)
-        assertEquals("the cycle's line gets no new word", "", FocusGap.words(100L))
-    }
-
-    @Test
-    fun `on, the gap is 400 ms and the cycle's line says it`() {
-        assertEquals(400L, FocusGap.ms(on = true))
-        assertEquals(" (experiment: the focus comes back after 400 ms, not 100)", FocusGap.words(400L))
     }
 
     @Test
@@ -62,20 +52,17 @@ class FocusGapTest {
     }
 
     @Test
-    fun `the transport asks the gap at each cycle and uses it for the focus given back, and the keyframes reach the measure`() {
+    fun `the transport uses the gap for the focus given back, with the cycle's line as it always was, and the keyframes reach the measure`() {
         val transport = File("src/main/java/com/reau/app/aa/AapTransport.kt").readText()
         val cycle = transport.substringAfter("private fun cycleVideoFocus()").substringBefore("internal fun keyframeArrived()")
-        assertTrue(cycle.contains("val gapMs = focusGapMs()"))
+        assertTrue(cycle.contains("val gapMs = FocusGap.DEFAULT_MS"))
         assertTrue(cycle.contains("}, gapMs)"))
-        assertTrue(cycle.contains("\"AapTransport: Requesting recovery keyframe via focus cycle.\${FocusGap.words(gapMs)}\""))
-        assertTrue("with nothing given, the transport uses the usual gap", transport.contains("private val focusGapMs: () -> Long = { FocusGap.DEFAULT_MS },"))
+        assertTrue(cycle.contains("\"AapTransport: Requesting recovery keyframe via focus cycle.\""))
+        assertFalse("no switch is read for it", transport.contains("focusGapMs"))
         assertFalse("the fixed 100 ms is gone from the transport", transport.contains("FOCUS_GAIN_DELAY_MS"))
         val receiver = File("src/main/java/com/reau/app/aa/AaReceiver.kt").readText()
-        assertTrue(receiver.contains("versionRequests = config.versionRequests, focusGapMs = focusGapMs,"))
         assertTrue(receiver.contains("stats.onKeyframe = transport::keyframeArrived"))
-        assertTrue("with no option given, the receiver uses the usual gap", receiver.contains("val focusGapMs: () -> Long = { FocusGap.DEFAULT_MS },"))
-        val live = File("src/main/java/com/reau/app/service/LiveSides.kt").readText()
-        assertTrue(live.contains("focusGapMs = { com.reau.app.aa.FocusGap.ms(SettingsStore.open(context).load().experimentFocusGap) },"))
+        assertFalse(receiver.contains("focusGapMs"))
     }
 
     @Test

@@ -14,9 +14,8 @@ import android.os.PowerManager
  * while the phone is joined to an access point, the screen is on and the app is in front. It is what `dumpsys wifi` shows (type 4).
  * So on Android 14 and later no Wi-Fi lock of the app acts with the phone in a pocket, screen off; what the lock adds there is not verified.
  *
- * The mode is that one with or without the experimental switch of the bind retries: an earlier version of the switch also asked for "low latency"
- * itself, which on Android 14 and later is the lock the system already gives, and on Android 10 to 13 is a lock that acts only with the screen on
- * and the app in front. That part is gone from the switch ([com.reau.app.settings.REauSettings.experimentWifiBind] keeps the bind retries).
+ * An earlier version of an experimental switch also asked for "low latency" itself, which on Android 14 and later is the lock the system already
+ * gives, and on Android 10 to 13 is a lock that acts only with the screen on and the app in front. That part is gone, and so is the switch.
  */
 internal class ProjectionLocks(private val context: Context) {
     private var wakeLock: PowerManager.WakeLock? = null

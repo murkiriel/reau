@@ -82,7 +82,7 @@ class AaReceiverTest {
     private val patient = AaReceiver.Timing(redialMs = 200, afterDropMs = 1_500)
 
     private fun receiverOn(port: Int, timing: AaReceiver.Timing = quick, config: AaConfig = this.config) =
-        AaReceiver(context, config, reader.surface, { states += it }, AaReceiver.Options(port, timing)).also { receiver = it }
+        AaReceiver(context, config, reader.surface, { states += it }, AaReceiver.Options(port, timing, wake = {})).also { receiver = it }
 
     private fun peerOn(port: Int, script: FakeAndroidAutoPeer.Script = FakeAndroidAutoPeer.Script()) =
         FakeAndroidAutoPeer(script, listenOn = port).also { peers += it }
@@ -288,7 +288,7 @@ class AaReceiverTest {
     fun withAndroidAutoListeningOn5277TheSessionBecomesActiveAndAnswers() {
         val peer = peerOn(5277)
         // No port given: the receiver's own default.
-        val r = AaReceiver(context, config, reader.surface, { states += it }).also { receiver = it }
+        val r = AaReceiver(context, config, reader.surface, { states += it }, AaReceiver.Options(wake = {})).also { receiver = it }
 
         r.start()
         awaitState(AaLinkState.ACTIVE)
@@ -344,7 +344,7 @@ class AaReceiverTest {
         val busy = java.util.concurrent.atomic.AtomicLong(5_000)
         val port = freePort()
         val peer = peerOn(port)
-        AaReceiver(context, config, reader.surface, { states += it }, AaReceiver.Options(port, quick, downstreamBusyMs = { busy.get() }))
+        AaReceiver(context, config, reader.surface, { states += it }, AaReceiver.Options(port, quick, downstreamBusyMs = { busy.get() }, wake = {}))
             .also { receiver = it }.start()
         awaitState(AaLinkState.ACTIVE)
 
@@ -397,7 +397,7 @@ class AaReceiverTest {
         }
         val port = freePort()
         val peer = peerOn(port)
-        AaReceiver(context, config, reader.surface, { states += it }, AaReceiver.Options(port, quick, voice = { voice }))
+        AaReceiver(context, config, reader.surface, { states += it }, AaReceiver.Options(port, quick, voice = { voice }, wake = {}))
             .also { receiver = it }.start()
         awaitState(AaLinkState.ACTIVE)
 
@@ -592,7 +592,7 @@ class AaReceiverTest {
         peerOn(port, FakeAndroidAutoPeer.Script(answerByeAfterMs = 0))
         val swallowing = AaReceiver.Options(
             port, AaReceiver.Timing(redialMs = 200, afterDropMs = LONG_AFTER_DROP_MS),
-            onNavigation = { if (it == NavGuidance.INACTIVE) runCatching { Thread.sleep(SWALLOW_MS) } },
+            onNavigation = { if (it == NavGuidance.INACTIVE) runCatching { Thread.sleep(SWALLOW_MS) } }, wake = {},
         )
         val r = AaReceiver(context, config, reader.surface, { states += it }, swallowing).also { receiver = it }
         r.start()
@@ -694,7 +694,7 @@ class AaReceiverTest {
         await("the version line '$line'") { log.any { line in it } }
     }
 
-    // ── waking Android Auto before a dial (the experimental switch; AaWake) ────────────────────────────────
+    // ── waking Android Auto before a dial (always on; AaWake) ────────────────────────────────
 
     /** Accepts every connection and says nothing, like [MuteServer], writing each accepted connection into [events] (the receiver's wake writes there too). */
     private class RecordingMuteServer(private val events: MutableList<String>) : java.io.Closeable {
@@ -713,10 +713,9 @@ class AaReceiverTest {
     }
 
     private val events = CopyOnWriteArrayList<String>()
-    private val wakeConfig = config.copy(wakeBeforeDial = true)
     private val fastWake = AaReceiver.Timing(redialMs = 200, afterDropMs = 100, wakeWaitMs = 50)
 
-    private fun wakingReceiverOn(port: Int, config: AaConfig = wakeConfig) =
+    private fun wakingReceiverOn(port: Int, config: AaConfig = this.config) =
         AaReceiver(context, config, reader.surface, { states += it }, AaReceiver.Options(port, fastWake, wake = { events += "wake" })).also { receiver = it }
 
     @Test

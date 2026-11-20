@@ -75,7 +75,7 @@ class ManeuverEndToEndTest {
                 ctx, report,
                 LiveSides.Setup(
                     aaConfig = AaConfig(navigation = navigation),
-                    aaOptions = AaReceiver.Options(aaPort, AaReceiver.Timing(redialMs = 300, afterDropMs = 200)),
+                    aaOptions = AaReceiver.Options(aaPort, AaReceiver.Timing(redialMs = 300, afterDropMs = 200), wake = {}),
                     dashSocket = { DashSocket(null, ctrlDest = dash.ctrlDest, rtpDest = dash.rtpDest) },
                     linkUp = { _, _ -> loopbackLinkUp },
                 ),

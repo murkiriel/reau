@@ -108,20 +108,17 @@ class DashEncoder(
 
         /** What [prepare] was asked for, which the format is made from. */
         internal class Ask(
-            val fpsHint: Int, val bitrateBps: Int, val iFrameIntervalSec: Int, val colorMatrix: Boolean,
-            /** The experimental switch of the maker's low-latency key; it is set in the format only for a Qualcomm encoder ([VendorLowLatency.asked]). */
-            val vendorLowLatency: Boolean = false,
+            val fpsHint: Int, val bitrateBps: Int, val iFrameIntervalSec: Int,
             /** The size of the picture the encoder is built for. */
             val frame: DashConfig.FrameSize = DashConfig.FULL_FRAME,
         )
 
         /** One format of the ladder of [startNamed], before it is made: [buildFormat] makes it, and a test can read it without Android. */
-        internal class FormatSpec(val lowLatency: Boolean, val bitrateMode: Int?, val color: Boolean = false, val vendorLowLatency: Boolean = false)
+        internal class FormatSpec(val lowLatency: Boolean, val bitrateMode: Int?)
 
-        internal fun buildFormat(ask: Ask, spec: FormatSpec): MediaFormat =
-            buildFormat(ask, spec.lowLatency, spec.bitrateMode, spec.color, spec.vendorLowLatency)
+        internal fun buildFormat(ask: Ask, spec: FormatSpec): MediaFormat = buildFormat(ask, spec.lowLatency, spec.bitrateMode)
 
-        internal fun buildFormat(ask: Ask, lowLatency: Boolean, rate: Int? = null, color: Boolean = false, vendor: Boolean = false): MediaFormat =
+        internal fun buildFormat(ask: Ask, lowLatency: Boolean, rate: Int? = null): MediaFormat =
             MediaFormat.createVideoFormat(MIME, ask.frame.width, ask.frame.height).apply {
                 setInteger(MediaFormat.KEY_COLOR_FORMAT,
                     MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
@@ -134,48 +131,21 @@ class DashEncoder(
                 setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, REPEAT_AFTER_US)
                 if (lowLatency) lowLatencyKeys(android.os.Build.VERSION.SDK_INT, ask.fpsHint).forEach { (k, v) -> setInteger(k, v) }
                 if (rate != null) setInteger(MediaFormat.KEY_BITRATE_MODE, rate)
-                ColorMatrix.keysFor(color).forEach { (k, v) -> setInteger(k, v) }
-                VendorLowLatency.keysFor(vendor).forEach { (k, v) -> setInteger(k, v) }
             }
 
         /**
-         * One encoder [name] started: with the experimental colour keys first when [Ask.colorMatrix] (a codec that refuses them is asked as it always was), then,
-         * as ever, with the realtime keys; a vendor encoder that rejects those outright must not cost the rider the stream: retry once without them, then once
-         * more without the bitrate mode. With [Ask.vendorLowLatency] and a Qualcomm [name] ([VendorLowLatency.asked]) the maker's low-latency key rides in the
-         * first format of each way; a codec that refuses is asked again with the realtime keys alone, before they too are dropped. [start] gets each format
-         * as a [FormatSpec] and the line of the log that says what it is.
+         * One encoder [name] started with the realtime keys; a vendor encoder that rejects those outright must not cost the rider the stream: retry once
+         * without them, then once more without the bitrate mode. [start] gets each format as a [FormatSpec] and the line of the log that says what it is.
          */
         internal fun <T> startNamed(
-            name: String?, ask: Ask, rate: RateMode, detail: String, start: (String?, FormatSpec, String) -> T,
-        ): Result<T> {
-            val vendor = VendorLowLatency.asked(ask.vendorLowLatency, name)
-            val vendorTag = VendorLowLatency.tag(ask.vendorLowLatency, name)
-            fun asBefore() = runCatching {
-                start(name, FormatSpec(lowLatency = true, rate.constant, vendorLowLatency = vendor), "$detail lowLatency=on$vendorTag")
+            name: String?, rate: RateMode, detail: String, start: (String?, FormatSpec, String) -> T,
+        ): Result<T> = runCatching { start(name, FormatSpec(lowLatency = true, rate.constant), "$detail lowLatency=on") }
+            .recoverCatching { e ->
+                start(name, FormatSpec(lowLatency = false, rate.constant), "$detail lowLatency=fallback (${e.javaClass.simpleName})")
+            }.recoverCatching { e ->
+                if (rate.constant == null) throw e
+                start(name, FormatSpec(lowLatency = false, null), "$detail lowLatency=fallback bitrateMode=fallback (${e.javaClass.simpleName})")
             }
-                .recoverCatching { e ->
-                    if (!vendor) throw e
-                    start(name, FormatSpec(lowLatency = true, rate.constant), "$detail lowLatency=on ${VendorLowLatency.FALLBACK} (${e.javaClass.simpleName})")
-                }.recoverCatching { e ->
-                    start(name, FormatSpec(lowLatency = false, rate.constant), "$detail lowLatency=fallback (${e.javaClass.simpleName})")
-                }.recoverCatching { e ->
-                    if (rate.constant == null) throw e
-                    start(name, FormatSpec(lowLatency = false, null), "$detail lowLatency=fallback bitrateMode=fallback (${e.javaClass.simpleName})")
-                }
-            return ColorMatrix.attempt(
-                on = ask.colorMatrix,
-                withColor = {
-                    runCatching {
-                        start(
-                            name, FormatSpec(lowLatency = true, rate.constant, color = true, vendorLowLatency = vendor),
-                            "$detail lowLatency=on color=${ColorMatrix.ASKED}$vendorTag",
-                        )
-                    }
-                },
-                asBefore = ::asBefore,
-                refused = { com.reau.app.data.RideDiagnostics.warn("stream", ColorMatrix.refusedLine(name, CodecErrors.describe(it, name))) },
-            )
-        }
 
         private fun constantOf(mode: BitrateMode): Int = when (mode) {
             BitrateMode.CBR -> MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR
@@ -201,12 +171,6 @@ class DashEncoder(
      * ones it rebuilds. Set before [prepare]. Diagnostics only.
      */
     var reportCodecs = true
-
-    /**
-     * The experimental switch of the maker's low-latency key ([VendorLowLatency], [com.reau.app.settings.REauSettings.experimentEncoderLowLatency]): asked
-     * only of a Qualcomm encoder, and dropped again if the codec refuses. Set before [prepare]. Off, the format is as it always was.
-     */
-    var vendorLowLatency = false
 
     /** Set on a failed [prepare] — the caller logs this to RideDiagnostics (the on-disk ride log
      * pulled after the fact) since a live logcat isn't available once a rider is out on the road. */
@@ -244,9 +208,8 @@ class DashEncoder(
         bitrateBps: Int = BITRATE,
         iFrameIntervalSec: Int = 1,
         bitrateMode: BitrateMode? = null,
-        colorMatrix: Boolean = false,
     ): Boolean {
-        val ask = Ask(fpsHint, bitrateBps, iFrameIntervalSec, colorMatrix, vendorLowLatency, frame)
+        val ask = Ask(fpsHint, bitrateBps, iFrameIntervalSec, frame)
         // Every AVC encoder that can take the size and Baseline, hardware first (a software fallback runs the CPU hot, which
         // is exactly what this whole project exists to avoid); the system's own pick is the last try.
         val names: List<String?> = encoderNames() + null
@@ -255,7 +218,7 @@ class DashEncoder(
             val rate = rateMode(bitrateMode) { mode -> modeOffered(name, mode) }
             val detail = "size=${frame.width}x${frame.height} fpsHint=$fpsHint bitrateBps=$bitrateBps profile=baseline " +
                 "iFrameIntervalSec=${iFrameIntervalText(iFrameIntervalSec, fpsHint)} repeatAfterUs=$REPEAT_AFTER_US bitrateMode=${rate.label}"
-            val started = startNamed(name, ask, rate, detail) { n, spec, d -> startCodec(n, buildFormat(ask, spec), d) }
+            val started = startNamed(name, rate, detail) { n, spec, d -> startCodec(n, buildFormat(ask, spec), d) }
             started.onSuccess { c ->
                 lastPrepareError = null
                 codec = c

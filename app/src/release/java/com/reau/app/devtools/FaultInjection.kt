@@ -9,9 +9,5 @@ object FaultInjection {
 
     fun decoderRestarted() = Unit
 
-    fun muteEncoderOutput(): Boolean = false
-
-    fun encoderVerdictGiven() = Unit
-
     fun takeFocusCycle(): Boolean = false
 }

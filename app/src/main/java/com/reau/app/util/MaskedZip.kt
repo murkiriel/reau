@@ -11,7 +11,7 @@ import java.util.zip.ZipOutputStream
  * [LogMask] and the recordings (binary) going as they are.
  */
 internal object MaskedZip {
-    /** The first entry of an exported zip: what the app was and which connection experiments were on when it was exported. */
+    /** The first entry of an exported zip: what the app was when it was exported. */
     const val HEADER_ENTRY = "report-header.txt"
 
     /** A file of the zip: its entry name, and whether it is a text log that goes through [LogMask] (only the top folder's files, when masking is on). */

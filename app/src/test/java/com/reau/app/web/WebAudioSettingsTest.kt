@@ -103,8 +103,8 @@ class WebAudioSettingsTest {
 
     @Test
     fun `the log line of the settings in use says the mode`() {
-        // The four experimental switches of the connection come after the mode.
-        assertTrue(SettingsInUse.line(REauSettings()).contains(" webView=false webTouch=false webAudio=PHONE experimentRtpPacing="))
-        assertTrue(SettingsInUse.line(REauSettings(webView = true, webAudio = WebAudioMode.BOTH)).contains(" webAudio=BOTH experimentRtpPacing="))
+        // The picture and the reserve's cap come after the mode.
+        assertTrue(SettingsInUse.line(REauSettings()).contains(" webView=false webTouch=false webAudio=PHONE videoFrame="))
+        assertTrue(SettingsInUse.line(REauSettings(webView = true, webAudio = WebAudioMode.BOTH)).contains(" webAudio=BOTH videoFrame="))
     }
 }

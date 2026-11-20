@@ -69,7 +69,7 @@ class FocusEndToEndTest {
                 ctx, report,
                 LiveSides.Setup(
                     aaConfig = AaConfig(touch = true),
-                    aaOptions = AaReceiver.Options(aaPort, AaReceiver.Timing(redialMs = 300, afterDropMs = 200)),
+                    aaOptions = AaReceiver.Options(aaPort, AaReceiver.Timing(redialMs = 300, afterDropMs = 200), wake = {}),
                     dashSocket = { DashSocket(null, ctrlDest = dash.ctrlDest, rtpDest = dash.rtpDest) },
                     linkUp = { _, _ -> loopbackLinkUp },
                     // The joystick page of the test is the plain one (the sides send the wheel to Android Auto); the owner's page zooms on the map instead.

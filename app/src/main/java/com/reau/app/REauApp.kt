@@ -27,11 +27,6 @@ class REauApp : Application() {
             room?.lines()?.forEach { RideDiagnostics.log("diag", it) }
         }
         RideDiagnostics.init(this)
-        // The experimental guard of the start: with it on, a process that ended right after a start made with experiments leaves them off.
-        // Before the settings are read, so that this run and the screens see them as they are now. Off (the default), nothing is done.
-        val guardLine = runCatching {
-            com.reau.app.settings.ExperimentsGuard.atProcessStart(SettingsStore.open(this), com.reau.app.settings.ExperimentsGuard.mark(filesDir))
-        }.getOrNull()
         val settings = SettingsStore.open(this).load()
         // The log as the rider left it (on by default; off, nothing is written).
         RideDiagnostics.enabled = settings.rideLog
@@ -43,8 +38,6 @@ class REauApp : Application() {
         RideDiagnostics.startProcess("app")
         // What the rider had set when the app started (the projection says it again with each start).
         RideDiagnostics.log("settings", com.reau.app.settings.SettingsInUse.line(settings.sanitized()))
-        com.reau.app.settings.SettingsInUse.experimentsLine(settings)?.let { RideDiagnostics.log("settings", it) }
-        guardLine?.let { RideDiagnostics.warn("settings", it) }
         // The app's own logcat to diag/logcat-*.txt while it lives.
         OwnLogcat.start(this)
         // The phone's events (screen, doze, saver, charger, networks, background) to the log.

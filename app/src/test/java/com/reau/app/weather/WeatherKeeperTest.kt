@@ -39,41 +39,29 @@ class WeatherKeeperTest {
     }
 
     @Test
-    fun `with the switch off the weather stays usable until three hours, as always, however old`() {
+    fun `the weather stays usable until three hours, however old, and the switch of 30 minutes is gone`() {
         val fetched = snapshot(now(61))
         val at = fun(ageMs: Long) = 1_000L + ageMs
-        assertEquals(DashCommands.Weather(24, 3), WeatherKeeper.forDash(fetched, at(WeatherKeeper.FRESH_MS + 1), freshOnly = false))
-        assertEquals(DashCommands.Weather(24, 3), WeatherKeeper.forDash(fetched, at(2 * 60 * 60_000L), freshOnly = false))
-        assertEquals(DashCommands.Weather(24, 3), WeatherKeeper.forDash(fetched, at(WeatherKeeper.USABLE_MS), freshOnly = false))
-        assertNull(WeatherKeeper.forDash(fetched, at(WeatherKeeper.USABLE_MS + 1), freshOnly = false))
+        assertEquals(DashCommands.Weather(24, 3), WeatherKeeper.forDash(fetched, at(31 * 60_000L)))
+        assertEquals(DashCommands.Weather(24, 3), WeatherKeeper.forDash(fetched, at(2 * 60 * 60_000L)))
+        assertEquals(DashCommands.Weather(24, 3), WeatherKeeper.forDash(fetched, at(WeatherKeeper.USABLE_MS)))
+        assertNull(WeatherKeeper.forDash(fetched, at(WeatherKeeper.USABLE_MS + 1)))
+        assertEquals(3 * 60 * 60_000L, WeatherKeeper.USABLE_MS)
     }
 
     @Test
-    fun `with the switch on the weather leaves the dash after half an hour`() {
-        val fetched = snapshot(now(61))
-        assertEquals(30 * 60_000L, WeatherKeeper.FRESH_MS)
-        assertEquals(DashCommands.Weather(24, 3), WeatherKeeper.forDash(fetched, 1_000L, freshOnly = true))
-        assertEquals(DashCommands.Weather(24, 3), WeatherKeeper.forDash(fetched, 1_000L + WeatherKeeper.FRESH_MS, freshOnly = true))
-        assertNull(WeatherKeeper.forDash(fetched, 1_000L + WeatherKeeper.FRESH_MS + 1, freshOnly = true))
-        assertNull(WeatherKeeper.forDash(fetched, 1_000L + 2 * 60 * 60_000L, freshOnly = true))
+    fun `a current reading with no temperature, or none at all, is no weather at any age`() {
+        assertNull(WeatherKeeper.forDash(snapshot(now(61, Double.NaN)), 2_000L))
+        assertNull(WeatherKeeper.forDash(null, 2_000L))
     }
 
     @Test
-    fun `the switch does not change what the weather says, only for how long`() {
-        for (freshOnly in listOf(false, true)) {
-            assertEquals(DashCommands.Weather(24, 3), WeatherKeeper.forDash(snapshot(now(61)), 2_000L, freshOnly = freshOnly))
-            assertNull(WeatherKeeper.forDash(snapshot(now(61, Double.NaN)), 2_000L, freshOnly = freshOnly))
-            assertNull(WeatherKeeper.forDash(null, 2_000L, freshOnly = freshOnly))
-        }
-    }
-
-    @Test
-    fun `the heartbeat and the weather screen read the switch from the live settings`() {
+    fun `the heartbeat and the weather screen ask for the weather with no switch`() {
         val live = java.io.File("src/main/java/com/reau/app/service/LiveSides.kt").readText()
-        assertTrue(live.contains("setup.weather(tuned?.experimentWeatherAge == true)"))
-        assertTrue(live.contains("WeatherKeeper.forDash(freshOnly = freshOnly)"))
+        assertTrue(live.contains("setup.weather()"))
+        assertTrue(live.contains("WeatherKeeper.forDash() }"))
         val screen = java.io.File("src/main/java/com/reau/app/ui/WeatherScreen.kt").readText()
-        assertTrue(screen.contains("WeatherKeeper.forDash(freshOnly = SettingsStore.open(context).load().experimentWeatherAge)"))
+        assertTrue(screen.contains("val sent = WeatherKeeper.forDash()"))
     }
 
     @Test

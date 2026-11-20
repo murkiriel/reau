@@ -27,21 +27,12 @@ class DashSocketDscpTest {
     }
 
     @Test
-    fun `a debug build sends the dash sockets unmarked and a release marks them, control CS6 and video AF41`() {
-        assertEquals(null, DashSocket.priorityMarks(debugBuild = true))
-        assertEquals(DashSocket.TOS_CONTROL to DashSocket.TOS_VIDEO, DashSocket.priorityMarks(debugBuild = false))
-        assertEquals("the build the tests run decides the default", DashSocket.priorityMarks(com.reau.app.BuildConfig.DEBUG), DashSocket.priorityMarks())
-    }
-
-    @Test
-    fun `the experimental switch makes a debug build mark too, with the same values, and changes nothing in a release`() {
-        val marks = DashSocket.TOS_CONTROL to DashSocket.TOS_VIDEO
-        assertEquals(marks, DashSocket.priorityMarks(debugBuild = true, markInDebug = true))
-        assertEquals(null, DashSocket.priorityMarks(debugBuild = true, markInDebug = false))
-        assertEquals(marks, DashSocket.priorityMarks(debugBuild = false, markInDebug = true))
-        assertEquals(marks, DashSocket.priorityMarks(debugBuild = false, markInDebug = false))
-        assertEquals(192, marks.first)
-        assertEquals(136, marks.second)
+    fun `the marks are control CS6 and video AF41, the same in a debug build and in a release (there is no switch and no build test any more)`() {
+        assertEquals(192, DashSocket.TOS_CONTROL)
+        assertEquals(136, DashSocket.TOS_VIDEO)
+        val source = java.io.File("src/main/java/com/reau/app/dash/DashSocket.kt").readText()
+        assertTrue("no build test decides the marking", !source.contains("priorityMarks") && !source.contains("markInDebug"))
+        assertTrue(source.contains("val marked = \"control CS6=\${mark(tx, TOS_CONTROL)} video AF41=\${mark(rtp, TOS_VIDEO)}\""))
     }
 
     @Test
@@ -78,12 +69,12 @@ class DashSocketDscpTest {
         assertEquals(false, DashSocket.mark(socket, DashSocket.TOS_CONTROL))
     }
 
-    /** The ride log's line of the marking of the sockets, as a [DashSocket] with [markInDebug] writes it when it opens (the tests run the debug build). */
-    private fun markingLine(markInDebug: Boolean): String {
+    /** The ride log's line of the marking of the sockets, as a [DashSocket] writes it when it opens (the tests run the debug build). */
+    private fun markingLine(): String {
         val logFile = java.nio.file.Files.createTempFile("dash-socket-marks", ".log").toFile()
         com.reau.app.data.RideDiagnostics.testOnlySetFile(logFile)
         try {
-            DashSocket(markInDebug = markInDebug).close()
+            DashSocket().close()
             val deadline = System.currentTimeMillis() + 10_000
             while (System.currentTimeMillis() < deadline && "sockets marked" !in logFile.readText()) Thread.sleep(20)
             return logFile.readLines().single { "sockets marked for Wi-Fi priority" in it }
@@ -94,15 +85,10 @@ class DashSocketDscpTest {
     }
 
     @Test
-    fun `a socket opened with the experimental switch on marks itself in a debug build and says so in the log`() {
+    fun `a socket opened in a debug build marks itself like a release, and says so in the log`() {
         assertTrue(com.reau.app.BuildConfig.DEBUG)
-        val line = markingLine(markInDebug = true)
-        assertTrue(line, "control CS6=true video AF41=true (debug build, by the experimental switch)" in line)
-    }
-
-    @Test
-    fun `a socket opened with the switch off sends unmarked in a debug build and says so in the log`() {
-        val line = markingLine(markInDebug = false)
-        assertTrue(line, "none (debug build: no priority marking)" in line)
+        val line = markingLine()
+        assertTrue(line, line.endsWith("control CS6=true video AF41=true"))
+        assertTrue(line, "debug" !in line && "experimental" !in line && "none" !in line)
     }
 }

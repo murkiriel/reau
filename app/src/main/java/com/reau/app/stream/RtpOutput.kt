@@ -21,11 +21,6 @@ internal class RtpOutput(
     private val tap: ((ByteArray, Boolean, Long) -> Unit)? = null,
     /** Told after each keyframe went out: its bytes and how many RTP packets it took (for the line written when the dash goes quiet). */
     private val onKeyframe: ((bytes: Int, packets: Int) -> Unit)? = null,
-    /**
-     * The experimental spacing of the packets ([RtpPacing]); null, the default, sends them as they are made. It waits on the thread that calls
-     * [onEncoded] (the encoder's output thread), between two sends.
-     */
-    private val pacing: RtpPacing? = null,
     private val sendRtp: (ByteArray) -> Unit,
 ) {
 
@@ -42,13 +37,7 @@ internal class RtpOutput(
 
     private val packetizer = RtpPacketizer { packet ->
         packetsMade++
-        if (pacing == null) {
-            sendRtp(packet)
-        } else {
-            pacing.before()
-            sendRtp(packet)
-            pacing.after()
-        }
+        sendRtp(packet)
     }
 
     // All NALs of one frame share the time that frame was stamped with, however late the encoder hands it back.
@@ -100,7 +89,6 @@ internal class RtpOutput(
     fun onEncoded(from: Any, annexB: ByteArray, isKey: Boolean, ptsMs: Long) {
         if (from !== encoder || !gate.admit(annexB, isKey)) return
         framePtsMs = ptsMs
-        pacing?.frameStart()
         val withheldBefore = nalProcessor.withheldIdr
         val packetsBefore = packetsMade
         nalProcessor.process(annexB)

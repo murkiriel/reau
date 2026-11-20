@@ -21,7 +21,6 @@ import com.reau.app.phone.CallState
 import com.reau.app.aa.AaCommand
 import com.reau.app.aa.NavGuidance
 import com.reau.app.card.CardPainter
-import com.reau.app.dash.ControlGap
 import com.reau.app.dash.DashPairing
 import com.reau.app.dash.DashPorts
 import com.reau.app.dash.DashReadings
@@ -107,7 +106,7 @@ internal class LiveSides(
         /** The phone's own state for the dash's heartbeat (behind the switch "Mandar o estado do celular ao painel"). */
         val phoneStatus: () -> com.reau.app.dash.protocol.DashCommands.PhoneStatus? = { null },
         /** The weather for the dash's heartbeat (behind "Clima no painel"), and the refresh of it; none in a test. */
-        val weather: (freshOnly: Boolean) -> com.reau.app.dash.protocol.DashCommands.Weather? = { null },
+        val weather: () -> com.reau.app.dash.protocol.DashCommands.Weather? = { null },
         val refreshWeather: suspend () -> Unit = {},
         /** Where what the dash says is kept for the screen "Dados da moto"; null in a test. */
         val readings: com.reau.app.dash.DashReadingSink? = null,
@@ -164,11 +163,7 @@ internal class LiveSides(
                 val voice: (() -> VoiceSource)? = { PhoneVoice(context) { RideDiagnostics.log("aa", it) } }
                     .takeIf { settings.gemini }
                 return Setup(
-                    // The experiment is read at each connection, so a switch changed while the projection runs counts from the next one.
-                    dashSocket = {
-                        val now = SettingsStore.open(context).load()
-                        DashSocket(it, markInDebug = now.experimentDebugDscp, controlGapMs = if (now.experimentTolerantRx) ControlGap.GAP_MS else 0L)
-                    },
+                    dashSocket = { DashSocket(it) },
                     aaConfig = settings.aaConfig,
                     aaOptions = AaReceiver.Options(
                         // Android Auto 17.3 or older: it dials in, asked by a broadcast. With a newer one the receiver dials the
@@ -179,8 +174,7 @@ internal class LiveSides(
                             null
                         },
                         recording = recording,
-                        // The focus gap (an experiment) is read at each keyframe request: a switch changed while the projection runs counts from the next.
-                        voice = voice, focusGapMs = { com.reau.app.aa.FocusGap.ms(SettingsStore.open(context).load().experimentFocusGap) },
+                        voice = voice,
                         // Only the first projection of this process: the exit Android keeps stays the newest until the
                         // next one, and a clean Desligar and Ligar a minute later was taken for a fresh install again.
                         quickUnresponsive = com.reau.app.aa.FirstOfProcess.projection.take() &&
@@ -203,7 +197,7 @@ internal class LiveSides(
                     volume = com.reau.app.phone.PhoneVolume(com.reau.app.phone.AudioVolume(context)),
                     settings = settings,
                     phoneStatus = PhoneStatusReader(context)::read,
-                    weather = { freshOnly -> com.reau.app.weather.WeatherKeeper.forDash(freshOnly = freshOnly) },
+                    weather = { com.reau.app.weather.WeatherKeeper.forDash() },
                     infoRing = { rotation ->
                         val now = SettingsStore.open(context).load()
                         InfoRingFeed.frame(context, rotation, now.useLocation, night = isNightNow(context, now), options = now.infoRingOptions)
@@ -218,10 +212,7 @@ internal class LiveSides(
 
             /** Day or night as the rider's map theme says: the place learned on the screen with "Usar a localização" on, else the time zone. */
             private fun isNightNow(context: Context, settings: REauSettings): Boolean =
-                nightMemory.isNightNow(settings.experimentNightMemory, settings.mapTheme, SunPlace.saved(context, settings.useLocation))
-
-            // What the last look said, for the experimental switch (DayNight.Memory); with the switch off it is never read.
-            private val nightMemory = DayNight.Memory()
+                DayNight.isNightNow(settings.mapTheme, SunPlace.saved(context, settings.useLocation))
 
             private fun phoneThermalStatus(context: Context): Int =
                 runCatching { context.getSystemService(PowerManager::class.java).currentThermalStatus }.getOrDefault(VideoLoop.THERMAL_UNKNOWN)
@@ -334,12 +325,8 @@ internal class LiveSides(
         phoneStatusProvider = {
             if (tuned?.dashPhoneStatus == true) setup.phoneStatus()?.let { PhoneStatusReader.withLocationRule(it, tuned?.useLocation == true) } else null
         },
-        weatherProvider = { if (tuned?.dashWeather == true) setup.weather(tuned?.experimentWeatherAge == true) else null },
+        weatherProvider = { if (tuned?.dashWeather == true) setup.weather() else null },
         readings = setup.readings,
-        // The experiment is read at each try, from the live settings ([tuned]): a switch changed while the projection runs counts from the next one.
-        bindRetry = { tuned?.experimentWifiBind == true },
-        // The tolerant silence watch (an experiment) is read at each turn of the watch, from the live settings.
-        tolerantRx = { tuned?.experimentTolerantRx == true },
     )
     // The listener of the dash's sighting is this one's own, so the release gives back only what this instance took (a next one may hold it by then).
     private val sightingListener: () -> Unit = { report(ProjectionEvent.DashSighted) }
@@ -358,8 +345,6 @@ internal class LiveSides(
         up.onWifiRadio(radioListener)
         up.onFirstJoin { report(ProjectionEvent.DashFirstJoin(it)) }
         session.onBindResult = { network, refused -> up.onBindResult?.invoke(network, refused) }
-        // The dash spoke again after a silence the tolerant watch noted: the keyframes sent meanwhile may have been missed, so one is asked.
-        session.onRxBack = { silentMs -> loop?.restartStream("the dash spoke again after ${silentMs / 1000} s of silence") }
     }
     // The album's picture for the dash's music card (behind its switch), converted once per picture.
     private val albumArt = com.reau.app.dash.AlbumArt()
@@ -499,19 +484,7 @@ internal class LiveSides(
                 navSpeed.onGuidance(it, android.os.SystemClock.elapsedRealtime())
                 session.showGuidance(it, noNetwork = noNetwork.without(), imperial = navImperial())
             }
-            // With the experimental switch a short "inactive" of the route shows as a recalculation (RecalcHold); off, each guidance goes straight to [show].
-            val recalc = RecalcHold(
-                on = { tuned?.experimentRecalcInactive == true }, deliver = show,
-                schedule = { delayMs, action ->
-                    val job = scope.launch {
-                        delay(delayMs)
-                        action()
-                    }
-                    ({ job.cancel() })
-                },
-                clockMs = { android.os.SystemClock.elapsedRealtime() }, log = { RideDiagnostics.log("dash", it) },
-            )
-            val guidance: (com.reau.app.aa.NavGuidance) -> Unit = recalc::offer
+            val guidance: (com.reau.app.aa.NavGuidance) -> Unit = show
             var options = if (setup.aaConfig.navigation) setup.aaOptions.copy(onNavigation = guidance) else setup.aaOptions
             // Behind their switches: the song and the ringing call go to the dash's own cards.
             if (setup.aaConfig.media) {
@@ -976,8 +949,6 @@ internal class LiveSides(
                 "button" to { com.reau.app.video.ButtonOverlay.latest = null },
                 // The info ring's GPS (a process-wide listener at 1 Hz): the ring's loop dies with the scope in its delay and never stops it
                 // (26/10/2026 review: the GPS stayed on after Desligar until the process died).
-                "speed gps" to { speedGps.stop() },
-                // Then every owner of the GPS lets go: the ring's and the speed profile's.
                 "gps" to { GpsWatch.stop() },
                 "preview" to { PhonePreview.detach(previewTarget) },
                 "touch" to { PhonePreview.detachTouch(touchTarget) },
@@ -999,11 +970,8 @@ internal class LiveSides(
     }
 
 
-    // The thermal status the video loop's ceiling follows: Android's, or with the experimental switch also the battery's heat (HeatCeiling).
-    private val heat = com.reau.app.stream.HeatCeiling { RideDiagnostics.log("heat", it) }
-    private val thermalStatus: () -> Int = {
-        heat.status(setup.thermalStatus(), tuned?.experimentHeatCeiling == true, com.reau.app.data.PhoneNow.batteryTempNow())
-    }
+    // The thermal status the video loop's ceiling follows: Android's own (the battery's heat as a second source was tried behind a switch and never acted).
+    private val thermalStatus: () -> Int = { setup.thermalStatus() }
 
     /** The bike's speed (from the route) and Wi-Fi now, for the stream's 5 s line. */
     private val linkSample: () -> com.reau.app.stream.LinkSample = {
@@ -1011,35 +979,17 @@ internal class LiveSides(
         com.reau.app.stream.LinkSample(navSpeed.kmhAt(android.os.SystemClock.elapsedRealtime()), wifi?.dbm, wifi?.mbps)
     }
 
-    // The speed the speed profile reads: the route's, or with the experimental switch the GPS fix's, the GPS being asked during the route (ProfileSpeed, SpeedGps).
-    private val profileSpeed = com.reau.app.stream.ProfileSpeed { RideDiagnostics.log("stream", it) }
-
-    // The experimental switch has the GPS asked during a route (SpeedGps), alongside the info ring's own ask; released with the projection.
-    private val speedGps = SpeedGps(ask = { GpsWatch.want(appContext, GpsOwner.SPEED, it) }, log = { RideDiagnostics.log("stream", it) })
-
     /** The maneuver distance and the route's own speed now, for [com.reau.app.stream.StreamGovernor]'s
      *  live override — both null together without an active route (same feed as [linkSample]'s speed). */
     private val navSample: () -> com.reau.app.stream.StreamGovernor.NavSample = {
         val s = tuned
         val g = guidanceNow
-        val routeNow = g.active && g.distanceToManeuverMeters >= 0
-        // The switch has the GPS asked during a route, with the rider's location on and the speed profile on (SpeedGps); read below.
-        speedGps.step(
-            nowMs = android.os.SystemClock.elapsedRealtime(), key = s?.experimentGpsSpeed == true, useLocation = s?.useLocation == true,
-            speedProfile = s?.speedFpsProfile == true, routeActive = routeNow,
-            permitted = appContext.checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) ==
-                android.content.pm.PackageManager.PERMISSION_GRANTED,
-        )
-        // The GPS is read only when the rider's location is on as well.
-        val gpsSpeed = s?.experimentGpsSpeed == true && s.useLocation
         com.reau.app.stream.StreamGovernor.NavSample(
             maneuverProfileEnabled = s?.maneuverFpsProfile == true,
             speedProfileEnabled = s?.speedFpsProfile == true,
             distanceToManeuverMeters = g.distanceToManeuverMeters.takeIf { g.active && it >= 0 },
-            speedKmh = profileSpeed.kmh(
-                on = gpsSpeed, routeActive = g.active && g.distanceToManeuverMeters >= 0, gpsMps = if (gpsSpeed) GpsWatch.read()?.speedMps else null,
-                routeKmh = navSpeed.kmhAt(android.os.SystemClock.elapsedRealtime()), gpsAsked = speedGps.isAsking,
-            ),
+            // The route's own estimate (the GPS speed as a source was tried behind a switch and never ran with a route).
+            speedKmh = navSpeed.kmhAt(android.os.SystemClock.elapsedRealtime()),
             mode = s?.navProfileMode ?: com.reau.app.dash.NavProfileMode.PESSIMISTA,
         )
     }

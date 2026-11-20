@@ -7,7 +7,6 @@ import com.reau.app.service.LiveTuning
 import com.reau.app.stream.VideoLoop
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -33,7 +32,7 @@ class FixedVideoStoreTest {
             assertEquals(DashConfig.VIDEO_FRAME, s.frameSize)
             assertEquals(BitrateMode.CBR, s.bitrateMode)
             assertEquals(DashConfig.PROFILE_KEYFRAME_SEC, s.keyframeSec)
-            assertEquals(400_000, s.effectiveStreamBitrateBps)
+            assertEquals(400_000, s.streamBitrateBps)
         }
         assertEquals("the settings' own defaults are the fixed ones, so no build differs", fixed, mixOf(REauSettings()))
     }
@@ -101,9 +100,8 @@ class FixedVideoStoreTest {
     // ---- the guard, the ride log, the live tuning, the video loop
 
     @Test
-    fun `none of it is an experimental switch, so the start guard has nothing to say about it`() {
+    fun `none of it is an experimental switch`() {
         assertTrue(REauSettings::class.java.declaredFields.none { it.name == "reserveCapOn" || it.name == "experimentFpsSixThree" || it.name == "videoProfileId" })
-        assertEquals(emptyList<String>(), ExperimentsGuard.experimentsOn(REauSettings()))
     }
 
     @Test
@@ -111,15 +109,13 @@ class FixedVideoStoreTest {
         val line = SettingsInUse.line(REauSettings().sanitized(true))
         assertTrue(line, "fpsCeiling=6" in line && "streamBitrateBps=400000" in line && "videoFrame=528x304" in line)
         assertFalse(line, "reserveCapOn" in line)
-        assertNull(SettingsInUse.experimentsLine(REauSettings()))
         assertEquals(listOf("videoFrame: 528x304 -> 526x300"), REauSettings().changesTo(REauSettings(videoFrame = "526x300")))
     }
 
     @Test
-    fun `a stored change of pace or ceiling changes nothing, so it starts no stream, and the experiment of the lower bitrate still does`() {
+    fun `a stored change of pace or ceiling changes nothing, so it starts no stream`() {
         val base = REauSettings().sanitized(true)
         assertEquals(emptySet<LiveTuning.Step>(), LiveTuning.steps(base, REauSettings(fpsCeiling = 8, streamBitrateBps = 900_000).sanitized(true)))
-        assertEquals(setOf(LiveTuning.Step.NEW_STREAM), LiveTuning.steps(base, base.copy(experimentAdaptiveBitrate = true)))
     }
 
     @Test

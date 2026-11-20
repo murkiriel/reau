@@ -47,9 +47,9 @@ class FaultInjectionAbsenceInReleaseTest {
         assertFalse("a stub that holds state: $code", "var " in code || "val " in code || "Set<" in code || "RideDiagnostics" in code)
         assertFalse("a stub that can arm", "fun arm" in code || "fun armedNow" in code || "fun reset" in code)
         assertTrue(code, "fun swallowDecoderOutput(): Boolean = false" in code)
-        assertTrue(code, "fun muteEncoderOutput(): Boolean = false" in code)
         assertTrue(code, "fun takeFocusCycle(): Boolean = false" in code)
-        assertTrue(code, "fun decoderRestarted() = Unit" in code && "fun encoderVerdictGiven() = Unit" in code)
+        assertTrue(code, "fun decoderRestarted() = Unit" in code)
+        assertFalse("the encoder mute went with its watch", "muteEncoderOutput" in code || "encoderVerdictGiven" in code)
     }
 
     @Test
@@ -72,13 +72,13 @@ class FaultInjectionAbsenceInReleaseTest {
 
     @Test
     fun `the main source asks the faults and never arms them`() {
-        val allowed = setOf("swallowDecoderOutput", "decoderRestarted", "muteEncoderOutput", "encoderVerdictGiven", "takeFocusCycle")
+        val allowed = setOf("swallowDecoderOutput", "decoderRestarted", "takeFocusCycle")
         val used = mainSources().flatMap { f ->
             Regex("""FaultInjection\.(\w+)\(""").findAll(f.readText()).map { it.groupValues[1] to f.name }.toList()
         }.filterNot { (member, _) -> member == "Fault" && false }
         val notAllowed = used.filter { (member, _) -> member !in allowed }
         assertEquals("main arms or lists a fault: $notAllowed", emptyList<Pair<String, String>>(), notAllowed)
-        assertEquals("the five places that ask (VideoDecoder 2, VideoLoop 2, AapTransport 1)", 5, used.size)
+        assertEquals("the three places that ask (VideoDecoder 2, AapTransport 1)", 3, used.size)
     }
 
     @Test
@@ -94,7 +94,7 @@ class FaultInjectionAbsenceInReleaseTest {
         for (f in mainSources()) {
             val body = f.readText()
             for (tag in debugTags) assertFalse("${f.name} has \"$tag\"", "\"$tag\"" in body)
-            assertFalse("${f.name} arms a fault", "Fault.DECODER_STALL" in body || "Fault.ENCODER_MUTE" in body || "Fault.FOCUS_CYCLE" in body)
+            assertFalse("${f.name} arms a fault", "Fault.DECODER_STALL" in body || "Fault.FOCUS_CYCLE" in body)
             assertFalse("${f.name} fires a notice for the trigger", "debug trigger fired" in body || "fault injection armed" in body)
         }
     }

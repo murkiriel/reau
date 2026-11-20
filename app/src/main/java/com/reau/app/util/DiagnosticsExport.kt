@@ -45,7 +45,7 @@ object DiagnosticsExport {
         return count
     }
 
-    /** The first entry of an exported zip: what the app was and which connection experiments were on when it was exported. */
+    /** The first entry of an exported zip: what the app was when it was exported. */
     internal const val HEADER_ENTRY = MaskedZip.HEADER_ENTRY
 
     /**
@@ -139,12 +139,9 @@ object DiagnosticsExport {
             listOf("" to sourceDir)
         }
         val app = "app ${com.reau.app.BuildConfig.VERSION_NAME} (${com.reau.app.BuildConfig.VERSION_CODE}, ${com.reau.app.BuildConfig.GIT_COMMIT})"
-        val read = runCatching {
-            com.reau.app.settings.SettingsInUse.experimentsLine(com.reau.app.settings.SettingsStore.open(context).load())
-        }
         // The paired dash's own Wi-Fi name is hidden wherever it stands, even if it does not start the way a dash's does.
         val dashName = runCatching { com.reau.app.dash.DashPairing.open(context).ssid }.getOrNull().orEmpty()
-        val extras = ExportExtras(reportHeader(app, read.getOrNull(), readable = read.isSuccess), listOf(dashName))
+        val extras = ExportExtras(reportHeader(app), listOf(dashName))
         return export(sources, dir, extras = extras)
     }
 
@@ -175,11 +172,7 @@ object DiagnosticsExport {
 }
 
 /**
- * The text of [DiagnosticsExport.HEADER_ENTRY]: the app, then the line of the connection experiments that are on ([experimentsLine], the one the logs
- * carry as `connection experiments ON: …`) or the word that none is. Written at the top so that whoever opens the zip reads it before
- * any log; each ride's own line is in its log, this is what is set at the moment of the export.
+ * The text of [DiagnosticsExport.HEADER_ENTRY]: the app. Written at the top so that whoever opens the zip reads it before any log; each ride's own
+ * settings are the `settings` lines inside the logs.
  */
-internal fun reportHeader(appLine: String, experimentsLine: String?, readable: Boolean = true): String =
-    "REau diagnostics report\n$appLine\n" +
-        (if (!readable) "connection experiments: unknown (the settings could not be read)" else experimentsLine ?: "connection experiments: none on") +
-        "\n(set at the moment of the export; each ride's own are the `settings` lines inside the logs)\n"
+internal fun reportHeader(appLine: String): String = "REau diagnostics report\n$appLine\n"

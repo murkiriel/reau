@@ -240,24 +240,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             webView = prefs.getBoolean(KEY_WEB_VIEW, defaults.webView),
             webTouch = prefs.getBoolean(KEY_WEB_TOUCH, defaults.webTouch),
             webAudio = WebAudioMode.entries.firstOrNull { it.name == prefs.getString(KEY_WEB_AUDIO, null) } ?: defaults.webAudio,
-            experimentRtpPacing = prefs.getBoolean(KEY_EXPERIMENT_RTP_PACING, defaults.experimentRtpPacing),
-            experimentDebugDscp = prefs.getBoolean(KEY_EXPERIMENT_DEBUG_DSCP, defaults.experimentDebugDscp),
-            experimentAdaptiveBitrate = prefs.getBoolean(KEY_EXPERIMENT_ADAPTIVE_BITRATE, defaults.experimentAdaptiveBitrate),
-            experimentWifiBind = prefs.getBoolean(KEY_EXPERIMENT_WIFI_BIND, defaults.experimentWifiBind),
-            experimentStartGuard = prefs.getBoolean(KEY_EXPERIMENT_START_GUARD, defaults.experimentStartGuard),
-            experimentEncoderWatch = prefs.getBoolean(KEY_EXPERIMENT_ENCODER_WATCH, defaults.experimentEncoderWatch),
-            experimentFocusGap = prefs.getBoolean(KEY_EXPERIMENT_FOCUS_GAP, defaults.experimentFocusGap),
-            experimentNightMemory = prefs.getBoolean(KEY_EXPERIMENT_NIGHT_MEMORY, defaults.experimentNightMemory),
-            experimentWeatherAge = prefs.getBoolean(KEY_EXPERIMENT_WEATHER_AGE, defaults.experimentWeatherAge),
-            experimentHeatCeiling = prefs.getBoolean(KEY_EXPERIMENT_HEAT_CEILING, defaults.experimentHeatCeiling),
-            experimentGpsSpeed = prefs.getBoolean(KEY_EXPERIMENT_GPS_SPEED, defaults.experimentGpsSpeed),
-            experimentRecalcInactive = prefs.getBoolean(KEY_EXPERIMENT_RECALC_INACTIVE, defaults.experimentRecalcInactive),
-            experimentColorMatrix = prefs.getBoolean(KEY_EXPERIMENT_COLOR_MATRIX, defaults.experimentColorMatrix),
-            experimentProtocolSix = prefs.getBoolean(KEY_EXPERIMENT_PROTOCOL_SIX, defaults.experimentProtocolSix),
-            experimentTolerantRx = prefs.getBoolean(KEY_EXPERIMENT_TOLERANT_RX, defaults.experimentTolerantRx),
-            experimentWakeAa = prefs.getBoolean(KEY_EXPERIMENT_WAKE_AA, defaults.experimentWakeAa),
-            experimentEncoderLowLatency = prefs.getBoolean(KEY_EXPERIMENT_ENCODER_LOW_LATENCY, defaults.experimentEncoderLowLatency),
-            experimentMotorcycle = prefs.getBoolean(KEY_EXPERIMENT_MOTORCYCLE, defaults.experimentMotorcycle),
+            announceMotorcycle = prefs.getBoolean(KEY_ANNOUNCE_MOTORCYCLE, defaults.announceMotorcycle),
             updateNotice = prefs.getBoolean(KEY_UPDATE_NOTICE, defaults.updateNotice),
         ).sanitized()
     }
@@ -358,24 +341,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             putBoolean(KEY_WEB_VIEW, s.webView)
             putBoolean(KEY_WEB_TOUCH, s.webTouch)
             putString(KEY_WEB_AUDIO, s.webAudio.name)
-            putBoolean(KEY_EXPERIMENT_RTP_PACING, s.experimentRtpPacing)
-            putBoolean(KEY_EXPERIMENT_DEBUG_DSCP, s.experimentDebugDscp)
-            putBoolean(KEY_EXPERIMENT_ADAPTIVE_BITRATE, s.experimentAdaptiveBitrate)
-            putBoolean(KEY_EXPERIMENT_WIFI_BIND, s.experimentWifiBind)
-            putBoolean(KEY_EXPERIMENT_START_GUARD, s.experimentStartGuard)
-            putBoolean(KEY_EXPERIMENT_ENCODER_WATCH, s.experimentEncoderWatch)
-            putBoolean(KEY_EXPERIMENT_FOCUS_GAP, s.experimentFocusGap)
-            putBoolean(KEY_EXPERIMENT_NIGHT_MEMORY, s.experimentNightMemory)
-            putBoolean(KEY_EXPERIMENT_WEATHER_AGE, s.experimentWeatherAge)
-            putBoolean(KEY_EXPERIMENT_HEAT_CEILING, s.experimentHeatCeiling)
-            putBoolean(KEY_EXPERIMENT_GPS_SPEED, s.experimentGpsSpeed)
-            putBoolean(KEY_EXPERIMENT_RECALC_INACTIVE, s.experimentRecalcInactive)
-            putBoolean(KEY_EXPERIMENT_COLOR_MATRIX, s.experimentColorMatrix)
-            putBoolean(KEY_EXPERIMENT_PROTOCOL_SIX, s.experimentProtocolSix)
-            putBoolean(KEY_EXPERIMENT_TOLERANT_RX, s.experimentTolerantRx)
-            putBoolean(KEY_EXPERIMENT_WAKE_AA, s.experimentWakeAa)
-            putBoolean(KEY_EXPERIMENT_ENCODER_LOW_LATENCY, s.experimentEncoderLowLatency)
-            putBoolean(KEY_EXPERIMENT_MOTORCYCLE, s.experimentMotorcycle)
+            putBoolean(KEY_ANNOUNCE_MOTORCYCLE, s.announceMotorcycle)
             putBoolean(KEY_UPDATE_NOTICE, s.updateNotice)
         }
     }
@@ -484,24 +450,8 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val KEY_WEB_TOUCH = "web_touch"
         private const val KEY_WEB_AUDIO = "web_audio"
         private const val KEY_GEMINI = "gemini"
-        private const val KEY_EXPERIMENT_RTP_PACING = "experiment_rtp_pacing"
-        private const val KEY_EXPERIMENT_DEBUG_DSCP = "experiment_debug_dscp"
-        private const val KEY_EXPERIMENT_ADAPTIVE_BITRATE = "experiment_adaptive_bitrate"
-        private const val KEY_EXPERIMENT_WIFI_BIND = "experiment_wifi_bind"
-        private const val KEY_EXPERIMENT_START_GUARD = "experiment_start_guard"
-        private const val KEY_EXPERIMENT_ENCODER_WATCH = "experiment_encoder_watch"
-        private const val KEY_EXPERIMENT_FOCUS_GAP = "experiment_focus_gap"
-        private const val KEY_EXPERIMENT_NIGHT_MEMORY = "experiment_night_memory"
-        private const val KEY_EXPERIMENT_WEATHER_AGE = "experiment_weather_age"
-        private const val KEY_EXPERIMENT_HEAT_CEILING = "experiment_heat_ceiling"
-        private const val KEY_EXPERIMENT_GPS_SPEED = "experiment_gps_speed"
-        private const val KEY_EXPERIMENT_RECALC_INACTIVE = "experiment_recalc_inactive"
-        private const val KEY_EXPERIMENT_COLOR_MATRIX = "experiment_color_matrix"
-        private const val KEY_EXPERIMENT_PROTOCOL_SIX = "experiment_protocol_six"
-        private const val KEY_EXPERIMENT_TOLERANT_RX = "experiment_tolerant_rx"
-        private const val KEY_EXPERIMENT_WAKE_AA = "experiment_wake_aa"
-        private const val KEY_EXPERIMENT_ENCODER_LOW_LATENCY = "experiment_encoder_low_latency"
-        private const val KEY_EXPERIMENT_MOTORCYCLE = "experiment_motorcycle"
+        /** "Anunciar como moto" (20/11/2026). The key of the debug build's experiment it came from, `experiment_motorcycle`, is ignored: everyone starts with it on. */
+        private const val KEY_ANNOUNCE_MOTORCYCLE = "announce_motorcycle"
         private const val KEY_UPDATE_NOTICE = "update_notice"
         private const val OLD_KEY_AA_SLOW_PACE = "aa_slow_pace"
         private const val OLD_KEY_AA_SLOW_PACE_FPS = "aa_slow_pace_fps"

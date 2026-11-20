@@ -19,17 +19,17 @@ import java.util.Random
  * on this same bench, left the tree in step G3 (the archive says how to bring it back).
  */
 
-/** One stream configuration. The two real ones are what `REauSettings.sanitized()` leaves: [REAL_400] and, with the adaptive bitrate experiment, [REAL_200]. */
+/** One stream configuration. [REAL_400] is what `REauSettings.sanitized()` leaves; [REAL_200] is the same with a 200 kbps ceiling, which no setting gives any more (the adaptive bitrate experiment went on 20/11/2026) and the bench keeps as the governor's lower-ceiling case. */
 internal data class GovernorConfig(val name: String, val ceilingFps: Int, val bitrateBps: Int, val keyframeSec: Int, val lightScreenFps: Int) {
     companion object {
         /** The stream as the app starts it, in a debug and in a release build alike (6 fps, 400 kbps; PaceGovernorTest has the rest): the rider's settings, sanitized, through `VideoLoop.Settings.withRider`. */
-        fun real(adaptiveBitrate: Boolean): GovernorConfig {
-            val s = VideoLoop.Settings().withRider(REauSettings(experimentAdaptiveBitrate = adaptiveBitrate).sanitized(debugBuild = false))
+        fun real(): GovernorConfig {
+            val s = VideoLoop.Settings().withRider(REauSettings().sanitized(debugBuild = false))
             return GovernorConfig("${s.bitrateBps / 1000} kbps", s.ceilingFps, s.bitrateBps, s.keyframeSec, s.lightScreenFps)
         }
 
-        val REAL_400 = real(adaptiveBitrate = false)
-        val REAL_200 = real(adaptiveBitrate = true)
+        val REAL_400 = real()
+        val REAL_200 = REAL_400.copy(name = "200 kbps", bitrateBps = 200_000)
         val REAL = listOf(REAL_400, REAL_200)
 
         /** Two the app does not use, kept in the seeded sequences to be sure: no light-screen pace, and a keyframe every 2 s. */

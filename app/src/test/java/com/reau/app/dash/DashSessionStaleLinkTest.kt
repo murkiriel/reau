@@ -43,15 +43,14 @@ class DashSessionStaleLinkTest {
         }
     }
 
-    /** A session streaming to the fake dash, the watches' loop at 50 ms and the video's safety net at 400 ms; [tolerant] is the experimental switch. */
-    private fun streaming(tolerant: Boolean = false): DashSession {
+    /** A session streaming to the fake dash, the watches' loop at 50 ms and the video's safety net at 400 ms. */
+    private fun streaming(): DashSession {
         com.reau.app.data.RideDiagnostics.testOnlySetFile(logFile)
         val fake = FakeDashPeer(clock = { System.nanoTime() / 1_000_000L }).also { fakeDash = it }
         val s = DashSession(
             scope,
             socketFactory = { DashSocket(null, ctrlDest = fake.ctrlDest, rtpDest = fake.rtpDest).also { sock -> socket = sock } },
             timing = DashSession.Timing(watchdogTickMs = 50, rtpStallMs = 400),
-            tolerantRx = { tolerant },
         ).also { session = it }
         s.onError = { errors += it }
         s.connect("DashFake")
@@ -125,16 +124,8 @@ class DashSessionStaleLinkTest {
     }
 
     @Test
-    fun `the tolerant watch does not hold the video's safety net back`() {
-        val s = streaming(tolerant = true)
-        videoFailsFor(3_000, s)
-        await("the session to be lost", timeoutMs = 2_000) { s.state.value == DashState.ERROR }
-        assertEquals(listOf(RtpStall.FAILURE), errors.toList())
-    }
-
-    @Test
     fun `a short failure of the video that mends itself leaves the session streaming`() {
-        val s = streaming(tolerant = true)
+        val s = streaming()
         videoFailsFor(200, s) // suppressed (more than five failures), but well inside the 400 ms
         assertTrue(socket!!.testOnlyRtpSuppressed())
         repeat(20) { s.sendRtp(ByteArray(12)) } // the 20th is the probe, and the loopback takes it

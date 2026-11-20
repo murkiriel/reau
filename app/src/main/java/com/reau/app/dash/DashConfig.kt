@@ -44,13 +44,6 @@ object DashConfig {
     /** The pace on the screens of Android Auto that are not the navigation's (its app menu and the other apps) in every build ([com.reau.app.settings.REauSettings.lightScreenFps]); never above [PROFILE_FULL_FPS]. */
     const val LIGHT_SCREEN_FPS = PROFILE_FULL_FPS
 
-    /**
-     * The experimental lower bitrate ([com.reau.app.settings.REauSettings.experimentAdaptiveBitrate]): the target of the normal stream, 200 kbps instead of the
-     * profile's 400, and the least the live adjustment ([com.reau.app.stream.BitrateAdapter]) goes down to.
-     */
-    const val EXPERIMENT_TARGET_BPS = 200_000
-    const val EXPERIMENT_FLOOR_BPS = 64_000
-
     /** The size of a picture the dash decodes, in pixels. [id] is its stable text, "526x300", what the settings keep the picture as. */
     data class FrameSize(val width: Int, val height: Int) {
         val id: String get() = "${width}x$height"

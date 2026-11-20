@@ -128,11 +128,9 @@ internal class AaReceiver(
         val callIn: CallIn? = null,
         /** How long the compositor that [videoSurface] belongs to has been stuck inside one frame, 0 when it is not: the decoder's stall watch asks. */
         val downstreamBusyMs: () -> Long = { 0L },
-        /** How long the video focus stays away when a keyframe is asked for, read at each cycle ([FocusGap]). */
-        val focusGapMs: () -> Long = { FocusGap.DEFAULT_MS },
         /** The changes of the phone's USB, to tell a session that Android Auto closed because of one ([UsbSessionEnd]). */
         val usb: UsbSessionEnd = UsbSessionEnd.shared,
-        /** What waking Android Auto does ([AaConfig.wakeBeforeDial]); null: its settings are opened, as when the head unit server is off. */
+        /** What waking Android Auto does ([AaWake]); null: its settings are opened, as when the head unit server is off. */
         val wake: (() -> Unit)? = null,
     )
 
@@ -146,7 +144,6 @@ internal class AaReceiver(
     private val onMediaApp = options.onMediaApp
     private val onAudio = options.onAudio
     private val quickUnresponsive = options.quickUnresponsive
-    private val focusGapMs = options.focusGapMs
     private val onVideoSilent = options.onVideoSilent
     private val callIn = options.callIn
     private val downstreamBusyMs = options.downstreamBusyMs
@@ -368,9 +365,9 @@ internal class AaReceiver(
         // is counted from here. Not for a REau ended mid-session (quick: its server is known to hold the old session
         // and does not clear by itself) nor for the old Android Auto, which dials in and has no such server.
         if (callIn == null && !quickUnresponsive) AaRestartGap.dialBegun(android.os.SystemClock.elapsedRealtime())
-        // The wake of Android Auto before a dial that may find it frozen by Android, behind its switch; the Android Auto of 17.3 and older is not dialled.
+        // The wake of Android Auto before a dial that may find it frozen by Android; the Android Auto of 17.3 and older is not dialled.
         val waking = AaWake(
-            enabled = { config.wakeBeforeDial && callIn == null }, wake = wake, pause = { Thread.sleep(it) }, say = ::logReceiver,
+            enabled = { callIn == null }, wake = wake, pause = { Thread.sleep(it) }, say = ::logReceiver,
             waitMs = timing.wakeWaitMs,
         )
         try {
@@ -567,12 +564,7 @@ internal class AaReceiver(
     private fun runSession(mine: Int, socket: Socket): Handshake {
         val config = this.config
         val link = SocketAccessoryConnection(socket)
-        // The proof that 6.0 works with the installed Android Auto, kept across processes, so that a silence is not taken for a refusal (ProtocolAsk).
-        if (config.protocolSix) ProtocolAsk.use(ProtocolAsk.proofIn(context))
-        val asked = ProtocolAsk.resolve(config.protocolSix, config.protocolMinor)
-        val transport = AapTransport(
-            context, protocolMajor = asked.major, protocolMinor = asked.minor, versionRequests = config.versionRequests, focusGapMs = focusGapMs,
-        )
+        val transport = AapTransport(context, protocolMinor = config.protocolMinor, versionRequests = config.versionRequests)
         val ended = CountDownLatch(1)
         val clean = AtomicBoolean()
         transport.onQuit = { wasClean ->

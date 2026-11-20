@@ -57,7 +57,6 @@ class EscadaInalcancavelTest {
                 assertEquals(said, 1, stream.keyframeSec)
                 assertEquals(said, s.streamBitrateBps, stream.bitrateBps)
                 assertEquals(said, 6, stream.lightScreenFps)
-                assertEquals("the adaptive bitrate experiment is the one other bitrate", 200_000, VideoLoop.Settings().withRider(s.copy(experimentAdaptiveBitrate = true)).bitrateBps)
             }
         }
     }

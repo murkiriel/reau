@@ -78,7 +78,7 @@ class ProjectionEndToEndTest {
                 ctx, report,
                 LiveSides.Setup(
                     aaConfig = com.reau.app.aa.AaConfig(touch = touch),
-                    aaOptions = AaReceiver.Options(aaPort, AaReceiver.Timing(redialMs = 300, afterDropMs = 200)),
+                    aaOptions = AaReceiver.Options(aaPort, AaReceiver.Timing(redialMs = 300, afterDropMs = 200), wake = {}),
                     // Read when each connection is made: a test may put a new fake dash in place of the old.
                     dashSocket = { DashSocket(null, ctrlDest = dash.ctrlDest, rtpDest = dash.rtpDest) },
                     linkUp = { _, _ -> if (noDash) noDashLinkUp else loopbackLinkUp },

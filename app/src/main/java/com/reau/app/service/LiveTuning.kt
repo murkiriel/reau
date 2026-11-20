@@ -92,7 +92,6 @@ object LiveTuning {
      * new encoder, SPS and PPS and a clean keyframe, never in the middle of one), so a pace with another picture is a new stream like any other.
      */
     private val REauSettings.stream get() = listOf(
-        fpsCeiling, frameSize, clockSlowPercent, effectiveStreamBitrateBps, bitrateMode, keyframeSec, experimentRtpPacing, experimentAdaptiveBitrate,
-        experimentEncoderWatch,
+        fpsCeiling, frameSize, clockSlowPercent, streamBitrateBps, bitrateMode, keyframeSec,
     )
 }

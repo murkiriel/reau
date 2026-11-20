@@ -2,8 +2,8 @@ package com.reau.app.service
 
 import com.reau.app.weather.GpsReading
 
-/** Who asks for the GPS: the info ring's GPS card, or the experimental speed profile ([SpeedGps]). The GPS stays on while any of them asks. */
-internal enum class GpsOwner { RING, SPEED }
+/** Who asks for the GPS: the info ring's GPS card (a second owner, the experimental speed profile, was taken out on 20/11/2026). The GPS stays on while any owner asks. */
+internal enum class GpsOwner { RING }
 
 /**
  * What [GpsWatch] decides, with the system left out (the registrations and the clock come from outside, so the JVM tests can run it):

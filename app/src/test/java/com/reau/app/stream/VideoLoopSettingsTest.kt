@@ -1,7 +1,6 @@
 package com.reau.app.stream
 
 import com.reau.app.dash.BitrateMode
-import com.reau.app.dash.DashConfig
 import com.reau.app.settings.REauSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -10,42 +9,22 @@ import org.junit.Test
 import java.io.File
 
 /**
- * What the rider's settings decide of the stream, as the video loop receives it ([VideoLoop.Settings.withRider]): the three experimental
- * switches (spaced RTP packets, the bitrate that follows the encoder, the mute encoder watch) go from the settings to the loop, and the
- * bitrate is the effective one. A projection starts with it and a new stream takes it up again. It used to be read from the source of the service.
+ * What the rider's settings decide of the stream, as the video loop receives it ([VideoLoop.Settings.withRider]): the bitrate is the rider's own and no
+ * experimental switch is left to go from the settings to the loop (they went on 20/11/2026). A projection starts with it and a new stream takes it up again.
  */
 class VideoLoopSettingsTest {
     private val loop = VideoLoop.Settings()
 
     @Test
-    fun `with the experiments off nothing of them reaches the loop`() {
-        val s = loop.withRider(REauSettings())
-        assertFalse(s.rtpPacing)
-        assertFalse(s.adaptiveBitrate)
-        assertFalse(s.encoderMuteWatch)
+    fun `the loop's settings have no experimental switch`() {
+        val names = VideoLoop.Settings::class.java.declaredFields.map { it.name }
+        for (gone in listOf("rtpPacing", "adaptiveBitrate", "encoderMuteWatch", "colorMatrix", "encoderLowLatency")) assertFalse(gone, gone in names)
     }
 
     @Test
-    fun `each experimental switch reaches the loop alone`() {
-        val pacing = loop.withRider(REauSettings(experimentRtpPacing = true))
-        assertEquals(listOf(true, false, false), listOf(pacing.rtpPacing, pacing.adaptiveBitrate, pacing.encoderMuteWatch))
-        val adaptive = loop.withRider(REauSettings(experimentAdaptiveBitrate = true))
-        assertEquals(listOf(false, true, false), listOf(adaptive.rtpPacing, adaptive.adaptiveBitrate, adaptive.encoderMuteWatch))
-        val watch = loop.withRider(REauSettings(experimentEncoderWatch = true))
-        assertEquals(listOf(false, false, true), listOf(watch.rtpPacing, watch.adaptiveBitrate, watch.encoderMuteWatch))
-    }
-
-    @Test
-    fun `the colour matrix switch reaches the loop alone, and off it does not`() {
-        assertFalse(loop.withRider(REauSettings()).colorMatrix)
-        val color = loop.withRider(REauSettings(experimentColorMatrix = true))
-        assertEquals(listOf(true, false, false, false), listOf(color.colorMatrix, color.rtpPacing, color.adaptiveBitrate, color.encoderMuteWatch))
-    }
-
-    @Test
-    fun `the bitrate is the rider's, or the experiment's target when the adaptive switch is on`() {
+    fun `the bitrate is the rider's`() {
         assertEquals(400_000, loop.withRider(REauSettings(streamBitrateBps = 400_000)).bitrateBps)
-        assertEquals(DashConfig.EXPERIMENT_TARGET_BPS, loop.withRider(REauSettings(streamBitrateBps = 400_000, experimentAdaptiveBitrate = true)).bitrateBps)
+        assertEquals(700_000, loop.withRider(REauSettings(streamBitrateBps = 700_000)).bitrateBps)
     }
 
     @Test

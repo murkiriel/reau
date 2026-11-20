@@ -67,7 +67,7 @@ class NightEndToEndTest {
             LiveSides(
                 ctx, report,
                 LiveSides.Setup(
-                    aaOptions = AaReceiver.Options(aaPort, AaReceiver.Timing(redialMs = 300, afterDropMs = 200)),
+                    aaOptions = AaReceiver.Options(aaPort, AaReceiver.Timing(redialMs = 300, afterDropMs = 200), wake = {}),
                     dashSocket = { DashSocket(null, ctrlDest = dash.ctrlDest, rtpDest = dash.rtpDest) },
                     linkUp = { _, _ -> loopbackLinkUp },
                     night = { nightNow },

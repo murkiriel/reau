@@ -2,19 +2,11 @@ package com.reau.app.aa
 
 /**
  * How long Android Auto is left without video focus when REau asks it for a keyframe (the focus is taken away and given back: the
- * protocol has no request for a keyframe). 100 ms is what REau always did. The experimental switch
- * ([com.reau.app.settings.REauSettings.experimentFocusGap]) makes it 400 ms: a loss and a gain too close together may be taken by the phone
- * for nothing at all. Which of the two brings the keyframe sooner is what [FocusCycleTiming] measures, with the switch on or off.
+ * protocol has no request for a keyframe). 100 ms is what REau always did; a 400 ms trial (a switch, until 20/11/2026) was never needed, no
+ * stall of the Android Auto decoder having been seen to compare. What a cycle bought is what [FocusCycleTiming] measures.
  */
 internal object FocusGap {
     const val DEFAULT_MS = 100L
-    const val EXPERIMENT_MS = 400L
-
-    /** The gap for the switch: the experiment's when it is [on], the one REau always used when it is off. */
-    fun ms(on: Boolean): Long = if (on) EXPERIMENT_MS else DEFAULT_MS
-
-    /** What the line of the cycle says after its usual words: nothing with the usual gap, the gap when it is another. */
-    fun words(gapMs: Long): String = if (gapMs == DEFAULT_MS) "" else " (experiment: the focus comes back after $gapMs ms, not $DEFAULT_MS)"
 }
 
 /**

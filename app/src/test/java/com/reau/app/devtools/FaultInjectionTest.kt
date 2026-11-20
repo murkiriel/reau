@@ -2,7 +2,6 @@ package com.reau.app.devtools
 
 import com.reau.app.data.RideDiagnostics
 import com.reau.app.devtools.FaultInjection.Fault
-import com.reau.app.stream.EncoderMuteWatch
 import java.io.File
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -14,7 +13,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * The debug build's fault injection (sources in `src/debug`): what arming each fault changes for the three places that
+ * The debug build's fault injection (sources in `src/debug`): what arming each fault changes for the places that
  * ask, that each is served once, and what the ride log says. The release build has none of it (FaultInjectionAbsenceInReleaseTest).
  */
 class FaultInjectionTest {
@@ -42,7 +41,6 @@ class FaultInjectionTest {
     @Test
     fun `nothing is armed at the start, so every question is answered no`() {
         assertFalse(FaultInjection.swallowDecoderOutput())
-        assertFalse(FaultInjection.muteEncoderOutput())
         assertFalse(FaultInjection.takeFocusCycle())
         assertEquals(emptySet<Fault>(), FaultInjection.armedNow())
     }
@@ -62,24 +60,6 @@ class FaultInjectionTest {
     }
 
     @Test
-    fun `the encoder mute hides the frames out until the mute watch gives a verdict, and that watch then rebuilds`() {
-        FaultInjection.arm(Fault.ENCODER_MUTE)
-        val watch = EncoderMuteWatch()
-        // As VideoLoop polls it: the frames out are zero while the fault is armed, whatever the encoder really did (here, 10 frames in and 10 out per poll).
-        var verdict = EncoderMuteWatch.Verdict.FINE
-        var now = 0L
-        while (verdict == EncoderMuteWatch.Verdict.FINE && now < 10_000) {
-            now += 500
-            verdict = watch.onPoll(now, submitted = 10, framesOut = if (FaultInjection.muteEncoderOutput()) 0 else 10)
-        }
-        assertEquals(EncoderMuteWatch.Verdict.REBUILD, verdict)
-        assertTrue("after about 3 s", now in 3_000..4_000)
-        FaultInjection.encoderVerdictGiven()
-        assertFalse(FaultInjection.muteEncoderOutput())
-        assertEquals("with the fault served the watch sees the real frames: fine", EncoderMuteWatch.Verdict.FINE, watch.onPoll(now + 500, 10, 10))
-    }
-
-    @Test
     fun `the focus cycle is taken once for each press`() {
         FaultInjection.arm(Fault.FOCUS_CYCLE)
         FaultInjection.arm(Fault.FOCUS_CYCLE) // two presses before a tick are one request: the gate would not allow two in a second anyway
@@ -89,11 +69,15 @@ class FaultInjectionTest {
 
     @Test
     fun `each fault is armed apart from the others`() {
-        FaultInjection.arm(Fault.ENCODER_MUTE)
+        FaultInjection.arm(Fault.FOCUS_CYCLE)
         assertFalse(FaultInjection.swallowDecoderOutput())
+        assertEquals(setOf(Fault.FOCUS_CYCLE), FaultInjection.armedNow())
+        assertTrue(FaultInjection.takeFocusCycle())
+        assertEquals(emptySet<Fault>(), FaultInjection.armedNow())
+        FaultInjection.arm(Fault.DECODER_STALL)
         assertFalse(FaultInjection.takeFocusCycle())
-        assertTrue(FaultInjection.muteEncoderOutput())
-        assertEquals(setOf(Fault.ENCODER_MUTE), FaultInjection.armedNow())
+        assertEquals(setOf(Fault.DECODER_STALL), FaultInjection.armedNow())
+        assertEquals("the encoder mute went with its watch", setOf("DECODER_STALL", "FOCUS_CYCLE"), Fault.entries.map { it.name }.toSet())
     }
 
     @Test

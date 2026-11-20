@@ -9,30 +9,16 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
-/** The line of the connection experiments that are on, at the top of the exported report (item 35 of the 11/11/2026 list). */
+/** The header at the top of the exported report: the app, and nothing of experiments (there are none left since 20/11/2026). */
 class DiagnosticsExportHeaderTest {
     @get:Rule val tmp = TemporaryFolder()
 
     private val app = "app 0.3.0-dev (1, abc1234)"
 
     @Test
-    fun `the header names the app and carries the experiments line as the logs write it`() {
-        val line = "connection experiments ON: video pacing (RTP packets spaced out); start guard (experiments go off after a death right after a start)"
-        assertEquals(
-            "REau diagnostics report\n$app\n$line\n(set at the moment of the export; each ride's own are the `settings` lines inside the logs)\n",
-            reportHeader(app, line),
-        )
-    }
-
-    @Test
-    fun `with none on the header says none`() {
-        assertTrue(reportHeader(app, null), "\nconnection experiments: none on\n" in reportHeader(app, null))
-    }
-
-    @Test
-    fun `settings that could not be read are not reported as none`() {
-        val text = reportHeader(app, null, readable = false)
-        assertTrue(text, "unknown" in text && "none on" !in text)
+    fun `the header names the app`() {
+        assertEquals("REau diagnostics report\n$app\n", reportHeader(app))
+        assertTrue("no word of experiments", "experiment" !in reportHeader(app))
     }
 
     @Test
@@ -41,12 +27,12 @@ class DiagnosticsExportHeaderTest {
         File(diag, "ride-1.log").writeText("one")
         File(diag, "ride-2.log").writeText("two")
         val out = tmp.newFolder("out")
-        val header = reportHeader(app, "connection experiments ON: x")
+        val header = reportHeader(app)
         val zip = DiagnosticsExport.export(listOf("" to diag), out, freeBytes = { Long.MAX_VALUE }, extras = DiagnosticsExport.ExportExtras(header))!!
         ZipFile(zip).use { zf ->
             val names = zf.entries().asSequence().map { it.name }.toList()
             assertEquals(listOf(DiagnosticsExport.HEADER_ENTRY, "ride-1.log", "ride-2.log"), names)
-            assertTrue(zf.getInputStream(zf.getEntry(DiagnosticsExport.HEADER_ENTRY)).readBytes().decodeToString().contains("connection experiments ON: x"))
+            assertTrue(zf.getInputStream(zf.getEntry(DiagnosticsExport.HEADER_ENTRY)).readBytes().decodeToString().contains(app))
             assertEquals("one", zf.getInputStream(zf.getEntry("ride-1.log")).readBytes().decodeToString())
         }
     }

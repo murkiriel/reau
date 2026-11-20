@@ -7,7 +7,7 @@ import java.io.File
 
 /**
  * The store of the place, the weather keeper and the projection's loop need Android to run, so the lines that only an emulator could prove
- * (the keeper's own calls) are read from the source, as [ConnectionExperimentsAreWiredTest] does. What can be run on the JVM is run:
+ * (the keeper's own calls) are read from the source, as the other "are wired" tests do. What can be run on the JVM is run:
  * the permission gate of the place (SunPlaceTest, SunPlaceSavedTest), what comes before any network (WeatherGateTest) and the waits
  * (WeatherBackoffTest).
  *

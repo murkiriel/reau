@@ -414,7 +414,7 @@ class DashEncoderSurfaceTest {
         assumeTrue("the encoder took the full format on its first try, the one this test builds again: $started", "lowLatency=on" in started)
         val name = checkNotNull(Regex("""chosen=(\S+)""").find(codecs)?.groupValues?.get(1)) { "no codec named in: $codecs" }
 
-        val format = DashEncoder.buildFormat(DashEncoder.Companion.Ask(4, 200_000, 1, false), lowLatency = true)
+        val format = DashEncoder.buildFormat(DashEncoder.Companion.Ask(4, 200_000, 1), lowLatency = true)
         val bare = MediaCodec.createByCodecName(name)
         var surface: android.view.Surface? = null
         val inputKeys = try {
@@ -510,7 +510,7 @@ class DashEncoderSurfaceTest {
 
     @Test
     fun theMetricsOfARunningCodecAreReadWithinTheLimitAndAReadThatHangsIsGivenUpAtIt() {
-        val format = DashEncoder.buildFormat(DashEncoder.Companion.Ask(4, 200_000, 1, false), lowLatency = false)
+        val format = DashEncoder.buildFormat(DashEncoder.Companion.Ask(4, 200_000, 1), lowLatency = false)
         val bare = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
         var surface: android.view.Surface? = null
         try {

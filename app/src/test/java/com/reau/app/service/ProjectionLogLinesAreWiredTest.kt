@@ -56,9 +56,9 @@ class ProjectionLogLinesAreWiredTest {
     }
 
     @Test
-    fun `the exported report carries the header with the experiments line, and the permissions did not grow`() {
+    fun `the exported report carries the header with the app, and the permissions did not grow`() {
         val export = source("util/DiagnosticsExport.kt")
-        assertTrue(export, "ExportExtras(reportHeader(app, read.getOrNull(), readable = read.isSuccess), listOf(dashName))" in export)
+        assertTrue(export, "ExportExtras(reportHeader(app), listOf(dashName))" in export)
         val manifest = File("src/main/AndroidManifest.xml").readText()
         // No permission was added for the Wi-Fi events: the ones the app already holds.
         assertFalse("READ_LOGS" in manifest || "ACCESS_FINE_LOCATION" in source("service/WifiEvents.kt"))

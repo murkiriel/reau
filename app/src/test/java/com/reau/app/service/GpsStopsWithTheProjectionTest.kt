@@ -22,7 +22,7 @@ class GpsStopsWithTheProjectionTest {
     @Test
     fun `the ring's loop is handed the GPS's stop`() {
         // That the loop calls it when the ring is off the video runs in InfoRingLoopTest; here only what it is handed, which needs the service.
-        // since the speed profile became the GPS's second owner (15/11/2026) the ring lets go only its own ask; the end of the projection (above) lets go all
+        // the ring lets go only its own ask (the speed profile was a second owner until 20/11/2026); the end of the projection (above) lets go all
         assertTrue(source.contains("InfoRingFeed.Loop(RING_TICKS_PER_LOOK, stopGps = { GpsWatch.stop(GpsOwner.RING) },"))
     }
 }

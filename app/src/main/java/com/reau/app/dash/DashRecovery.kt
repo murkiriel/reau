@@ -177,23 +177,3 @@ internal class RefusedNetworks<T>(private val max: Int) {
 
     fun clear() = synchronized(list) { list.clear() }
 }
-
-/**
- * The experimental retries of a refused bind ([com.reau.app.settings.REauSettings.experimentWifiBind]). Android sometimes refuses
- * `Network.bindSocket` with EPERM for a moment on a network that is fine (it is still being set up); [BindRefusals] and the manager let that
- * network go at once and ask for another. With the switch on, the session first tries the same network again, up to [MAX_RETRIES] times
- * with [PAUSE_MS] between, and only if it is still refused after them does the refusal go on to the manager as before. Off, there is
- * no retry: the first refusal goes on.
- */
-internal object BindRetry {
-    const val MAX_RETRIES = 5
-    const val PAUSE_MS = 400L
-
-    /** Whether the bind refused is tried again: the switch is on, it was an EPERM refusal of the network, and [retriesDone] are fewer than [MAX_RETRIES]. */
-    fun again(enabled: Boolean, refusal: Boolean, retriesDone: Int): Boolean = enabled && refusal && retriesDone < MAX_RETRIES
-
-    fun retryLine(network: Any?, retry: Int, pauseMs: Long = PAUSE_MS): String =
-        "binding the socket to network $network was refused (EPERM): trying the same network again in $pauseMs ms (retry $retry of $MAX_RETRIES)"
-
-    fun workedLine(network: Any?, retries: Int): String = "binding the sockets to network $network worked after $retries retries on the same network"
-}

@@ -96,22 +96,7 @@ class LiveTuningTest {
     }
 
     @Test
-    fun `the video experiments restart the stream and the connection ones do nothing live`() {
-        assertEquals(setOf(Step.NEW_STREAM), LiveTuning.steps(before, before.copy(experimentRtpPacing = true)))
-        assertEquals(setOf(Step.NEW_STREAM), LiveTuning.steps(before, before.copy(experimentAdaptiveBitrate = true)))
-        assertEquals(setOf(Step.NEW_STREAM), LiveTuning.steps(before, before.copy(experimentEncoderWatch = true)))
-        assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(experimentDebugDscp = true)))
-        assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(experimentWifiBind = true)))
-        assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(experimentStartGuard = true)))
-        assertEquals("a session of Android Auto is not restarted for it", emptySet<Step>(), LiveTuning.steps(before, before.copy(experimentFocusGap = true)))
-        assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(experimentNightMemory = true)))
-        // The seven of the third round are read from the live settings where they act (or at the next start); none of them restarts anything.
-        assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(experimentWeatherAge = true)))
-        assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(experimentHeatCeiling = true)))
-        assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(experimentGpsSpeed = true)))
-        assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(experimentRecalcInactive = true)))
-        assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(experimentColorMatrix = true)))
-        assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(experimentProtocolSix = true)))
-        assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(experimentTolerantRx = true)))
+    fun `Anunciar como moto restarts nothing, it counts from the next Android Auto session`() {
+        assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(announceMotorcycle = !before.announceMotorcycle)))
     }
 }

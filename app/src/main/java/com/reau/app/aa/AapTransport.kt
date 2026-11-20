@@ -31,8 +31,6 @@ class AapTransport(
     private val protocolMinor: Int = Messages.MINOR_DEFAULT,
     /** How many times the version request may be sent; the last one waits out the whole budget. */
     private val versionRequests: Int = AaConfig.VERSION_REQUESTS,
-    /** How long the video focus stays away in a keyframe cycle, asked at each cycle ([FocusGap]): 100 ms unless the experimental switch is on. */
-    private val focusGapMs: () -> Long = { FocusGap.DEFAULT_MS },
 ) {
     val ssl: AapSsl = externalSsl ?: AapSslContext(SingleKeyKeyManager(context))
 
@@ -127,8 +125,8 @@ class AapTransport(
         if (verdict == KeyframeCycleGate.Verdict.WAIT_BLOCKED) "the compositor is stuck" else "storm guard"
 
     private fun cycleVideoFocus() {
-        val gapMs = focusGapMs()
-        AaLog.w("AapTransport: Requesting recovery keyframe via focus cycle.${FocusGap.words(gapMs)}")
+        val gapMs = FocusGap.DEFAULT_MS
+        AaLog.w("AapTransport: Requesting recovery keyframe via focus cycle.")
         focusTiming.cycled(SystemClock.elapsedRealtime(), gapMs)
         send(VideoFocusEvent(gain = false, unsolicited = false))
         // The gain goes out on the send thread, not the main one: a main thread held up (a slow frame, the cold start) would leave Android Auto without focus.
@@ -244,10 +242,6 @@ class AapTransport(
         pollHandler = Handler(pollThread!!.looper, pollHandlerCallback)
 
         val handshook = handshake(connection)
-        // Protocol 6.0, asked on the experimental switch: whether it worked is kept, and the ride log says what was asked and answered (ProtocolAsk).
-        ProtocolAsk.settle(ProtocolAsk.Version(protocolMajor, protocolMinor), handshook, answeredVersion) { line, failed ->
-            if (failed) AaLog.w(line) else AaLog.i(line)
-        }
         if (!handshook) {
             quit()
             AaLog.e("Handshake failed")

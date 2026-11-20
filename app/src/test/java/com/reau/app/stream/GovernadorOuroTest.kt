@@ -10,8 +10,8 @@ import java.security.MessageDigest
 
 /**
  * Plan 27, layer 2: golden traces of the stream governor. Each case of [GovernorCases] and each seeded sequence of
- * [GovernorSequences] runs on the bench ([GovernorBench]) with the two real configurations (400 kbps, and 200 kbps with the adaptive
- * bitrate experiment), and what the governor answers at every poll of 250 ms (its actions, and the eight values `VideoLoop` reads of
+ * [GovernorSequences] runs on the bench ([GovernorBench]) with the two bench configurations (400 kbps, and 200 kbps, which no setting gives
+ * any more), and what the governor answers at every poll of 250 ms (its actions, and the eight values `VideoLoop` reads of
  * it, [GovernorTrace]) must be, to the letter, what the files in `app/src/test/resources/governador/` say:
  *
  * - `NN-name.txt`: one case of the table, readable, both configurations in the one file;

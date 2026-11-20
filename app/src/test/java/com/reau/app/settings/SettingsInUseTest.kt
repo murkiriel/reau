@@ -32,8 +32,7 @@ class SettingsInUseTest {
                 "logKeepDays=${if (com.reau.app.BuildConfig.DEBUG) 0 else 30} noDashStopMinutes=20 answerCalls=true phoneTouch=true dashMusic=true dashCaller=true aaNewProtocol=true " +
                 "gemini=true actionEcho=true joystickLegend=true clearAaFocus=true dashMask=true blurredFill=false spokenAlerts=false " +
                 "statsOverlay=false buttonOverlay=false dashPhoneStatus=true dashAlbumArt=true maneuverRing=false dashWeather=true infoRing=false infoRingData=7 infoRingCarousel=true infoRingSeconds=7 infoRingInPlace=false infoTitle=false webView=false webTouch=false webAudio=PHONE " +
-                "experimentRtpPacing=false experimentDebugDscp=false experimentAdaptiveBitrate=false experimentWifiBind=false experimentStartGuard=true experimentEncoderWatch=false experimentFocusGap=false experimentNightMemory=false experimentWeatherAge=false experimentHeatCeiling=false experimentGpsSpeed=false " +
-                "experimentRecalcInactive=false experimentColorMatrix=false experimentProtocolSix=false experimentTolerantRx=false experimentWakeAa=false experimentEncoderLowLatency=false videoFrame=528x304 experimentMotorcycle=false",
+                "videoFrame=528x304 announceMotorcycle=true",
             SettingsInUse.line(REauSettings()),
         )
     }

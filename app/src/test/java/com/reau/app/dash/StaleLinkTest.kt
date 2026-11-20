@@ -97,10 +97,9 @@ class StaleLinkTest {
     }
 
     @Test
-    fun `the limit is five seconds, far below the tolerant watch and above the silence watch`() {
+    fun `the limit is five seconds, above the silence watch`() {
         assertEquals(5_000L, RtpStall.LIMIT_MS)
         assertTrue(RtpStall.LIMIT_MS > DashSession.RX_WATCHDOG_MS)
-        assertTrue(RtpStall.LIMIT_MS < RxQuiet.NOTE_MS)
     }
 
     @Test

@@ -59,8 +59,7 @@ internal class RtpStall {
          * 5 s. A Wi-Fi network that went is asked for again after 4 s and takes some more to join (4.4 s in the log above), so it is never back
          * before this, and it comes back as another network: the session has to be redone anyway. A link that is still the same one is probed
          * every 20 packets, several times a second while riding, and the longest silence of a dash that was still there was 2.96 s
-         * ([DashSession.RX_WATCHDOG_MS]): a failure that mends itself is over well before 5 s. And it is far below the 60 s of the tolerant watch
-         * ([RxQuiet.GIVE_UP_MS]), which this does not wait for.
+         * ([DashSession.RX_WATCHDOG_MS]): a failure that mends itself is over well before 5 s.
          */
         const val LIMIT_MS = 5_000L
 

@@ -1,7 +1,8 @@
 package com.reau.app.aa
 
 /**
- * Waking Android Auto before dialling it, on the experimental switch ([com.reau.app.settings.REauSettings.experimentWakeAa]).
+ * Waking Android Auto before dialling it. Always on (a switch until 20/11/2026): the first negotiation of a projection failed in 10 of 62
+ * projections without it and in none of 48 with it (ride logs of 11 to 20/11/2026).
  *
  * With its battery use restricted, Android freezes Android Auto's projection process about 10 s after each session and keeps it frozen for
  * 1 to 44 minutes (measured in the logs of 04 to 14/11/2026). In that time the phone's kernel still accepts the connection to the head unit
@@ -14,7 +15,7 @@ package com.reau.app.aa
  * twice in a projection: once before the first dial, if [due], and once, whatever the clock says, after a negotiation that got no answer at all
  * ([muteNegotiation]); both come right before a dial ([dialing]), which then follows at once.
  *
- * [enabled] is the switch, read at each decision. [wake] opens Android Auto's settings, [pause] waits [waitMs] and [say] writes the ride log.
+ * [enabled] is read at each decision (a call-in Android Auto, 17.3 and older, is not dialled, so it is not woken). [wake] opens Android Auto's settings, [pause] waits [waitMs] and [say] writes the ride log.
  */
 internal class AaWake(
     private val enabled: () -> Boolean,

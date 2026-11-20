@@ -60,11 +60,11 @@ class PictureSizeTest {
     }
 
     @Test
-    fun `the fall back keeps the lower bitrate of the experiment`() {
-        val adaptive = VideoLoop.Settings().withRider(REauSettings(experimentAdaptiveBitrate = true).sanitized(true))
-        assertEquals(200_000, adaptive.bitrateBps)
-        val back = adaptive.atFullFrame()
-        assertEquals(200_000, back.bitrateBps)
+    fun `the fall back keeps the bitrate`() {
+        val kept = VideoLoop.Settings().withRider(REauSettings().sanitized(true))
+        assertEquals(400_000, kept.bitrateBps)
+        val back = kept.atFullFrame()
+        assertEquals(400_000, back.bitrateBps)
     }
 
     @Test
@@ -121,7 +121,7 @@ class PictureSizeTest {
     fun `the encoder asks the codec for its picture, in the format, in the list of the encoders that take it and in the line of the log`() {
         val encoder = source("dash/video/DashEncoder.kt")
         assertTrue(encoder.contains("MediaFormat.createVideoFormat(MIME, ask.frame.width, ask.frame.height)"))
-        assertTrue(encoder.contains("Ask(fpsHint, bitrateBps, iFrameIntervalSec, colorMatrix, vendorLowLatency, frame)"))
+        assertTrue(encoder.contains("Ask(fpsHint, bitrateBps, iFrameIntervalSec, frame)"))
         assertTrue("an encoder that does not take the size is left out of the order", encoder.contains("isSizeSupported(frame.width, frame.height)"))
         assertTrue("and the list kept for the process is of this size", encoder.contains("CodecNames.pick(\"dash encoders \${frame.width}x\${frame.height} baseline\")"))
         assertTrue(encoder.contains("val detail = \"size=\${frame.width}x\${frame.height} fpsHint="))
