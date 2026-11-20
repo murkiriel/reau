@@ -85,7 +85,7 @@ class ProjectionEndToEndTest {
                     // Not the compositor's own default, so the test below can see the setting reach the picture.
                     mapping = FIT,
                     // What a change while running is told apart from, as on the phone. The stream's pace is no longer a
-                    // choice (the store always gives the fixed 4 fps), so the one test about a stream change starts the
+                    // choice (the store always gives the fixed 6 fps), so the one test about a stream change starts the
                     // running stream at the old, higher ceiling: the store's value then differs from it.
                     settings = SettingsStore.open(ctx).load().let { if (oldCeiling) it.copy(fpsCeiling = OLD_CEILING_FPS) else it },
                 ),
@@ -505,7 +505,7 @@ class ProjectionEndToEndTest {
     @Test
     fun aFrameRateCeilingChangedWhileRunningTakesEffectAtOnce() {
         // The stream runs at the old ceiling (setUp); the fake Android Auto's picture changes every 66 ms, so the dash gets
-        // the stream's own rate. The store holds the fixed 4 fps (sanitized), which differs from what runs: a new stream.
+        // the stream's own rate. The store holds the fixed 6 fps (sanitized), which differs from what runs: a new stream.
         val start = SystemClock.elapsedRealtime()
         Thread.sleep(PACE_WINDOW_MS)
         val fast = framesBetween(dash, start, SystemClock.elapsedRealtime())
@@ -516,7 +516,7 @@ class ProjectionEndToEndTest {
             val from = SystemClock.elapsedRealtime()
             Thread.sleep(PACE_WINDOW_MS)
             val slow = framesBetween(dash, from, SystemClock.elapsedRealtime())
-            assertTrue("about 4 frames a second now: $slow in ${PACE_WINDOW_MS / 1000} s (before: $fast)", slow <= 6 * PACE_WINDOW_MS / 1000 && slow < fast)
+            assertTrue("about 6 frames a second now: $slow in ${PACE_WINDOW_MS / 1000} s (before: $fast)", slow <= 8 * PACE_WINDOW_MS / 1000 && slow < fast)
             assertTrue(ProjectionService.projection.value.streaming)
             assertEquals("Android Auto untouched", AaLinkState.ACTIVE, ProjectionService.projection.value.androidAuto)
         }
@@ -607,7 +607,7 @@ class ProjectionEndToEndTest {
         const val MAX_GAP_MS = 1_000L
         const val PACE_WINDOW_MS = 3_000L
 
-        /** The frame-rate ceiling the stream ran at before the pace became fixed at 4 fps. */
+        /** The frame-rate ceiling the stream ran at before the pace became fixed (at 6 fps since 20/11/2026). */
         const val OLD_CEILING_FPS = 16
         const val SCREEN_OFF_MS = 5 * 60 * 1000L
         const val NAL_IDR = 5

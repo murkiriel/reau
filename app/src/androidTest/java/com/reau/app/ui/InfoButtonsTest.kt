@@ -84,14 +84,14 @@ class InfoButtonsTest {
     private val settingsWith = listOf(
         o("applies_next_time"), o("map_theme"), o("use_location"), o("dash_phone_status"), o("dash_music"), o("dash_album_art"), o("dash_maneuver_ring"), o("spoken_alerts"),
         o("answer_calls"), o("gemini"), o("actionEcho"), o("joystickLegend"),
-        o("fps", "fps_locked"), o("maneuver_fps_profile", "maneuver_fps_profile_locked"), o("speed_fps_profile", "speed_fps_profile_locked"),
+        o("maneuver_fps_profile", "maneuver_fps_profile_locked"), o("speed_fps_profile", "speed_fps_profile_locked"),
         o("card_now"),
         o("ride_log"), o("record_video"), o("record_sessions"), o("detailed_log"), o("log_keep"), o("no_dash_stop"),
     )
 
     private val settingsWithout = listOf(
         o("language"), o("dash_caller"), o("open_joystick"),
-        o("bitrate", "bitrate_locked"), o("bitrate_mode", "bitrate_mode_locked"), o("keyframe", "keyframe_locked"),
+        o("bitrate_mode", "bitrate_mode_locked"), o("keyframe", "keyframe_locked"),
         o("card_pick"), o("view_logs"), o("share"), o("delete"),
     )
 

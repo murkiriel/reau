@@ -4,7 +4,6 @@ import android.os.SystemClock
 import com.reau.app.data.RideDiagnostics
 import com.reau.app.dash.BitrateMode
 import com.reau.app.dash.DashConfig
-import com.reau.app.dash.VideoChoice
 import com.reau.app.dash.video.DashEncoder
 import com.reau.app.dash.video.PendingFrames
 import com.reau.app.settings.REauSettings
@@ -34,7 +33,7 @@ import java.util.concurrent.TimeUnit
  *
  * A hot phone streams under a lower ceiling ([ThermalCeiling]): [thermalStatus] (PowerManager's) is read at
  * the start, which sets the pace of the whole stream, and at every poll. Nothing lowers the pace of a running stream
- * (at the app's ceiling of 4 the heat has no step under it): from 'moderate' on the heat puts out the faster pace of the
+ * (at the app's ceiling of 6 the heat has only the steps of [ThermalCeiling]): from 'moderate' on the heat puts out the faster pace of the
  * light screens and the burst after a touch, and a window that ran above what the status allows says `thermal=HOT`.
  * Each change of status is logged.
  *
@@ -54,10 +53,6 @@ internal class VideoLoop(
     private val navSample: () -> StreamGovernor.NavSample? = { null },
     /** Whether Android Auto's screen in front is a light one (its app menu), read every poll. */
     private val lightScreen: () -> Boolean = { false },
-    /** The dash's last reading of the low-fuel reminder (`0C05`), read every poll; only one that came in this dash session counts ([ReserveCap]). */
-    private val reserveReading: () -> com.reau.app.dash.DashReading? = { null },
-    /** When the dash session began, in the phone's wall clock: a reading older than this is from another session. The default is this loop's own start. */
-    private val sessionStartedAtMs: Long = ReserveCap.nowMs(),
     /** The stats text on the dash's video: told when the stream starts and stops, and its numbers each second. */
     private val stats: StatsFeed? = null,
 ) {
@@ -105,14 +100,8 @@ internal class VideoLoop(
         val colorMatrix: Boolean = false,
         /** Experimental ([com.reau.app.settings.REauSettings.experimentEncoderLowLatency]): a Qualcomm encoder is also asked for the maker's low-latency key ([com.reau.app.dash.video.VendorLowLatency]). */
         val encoderLowLatency: Boolean = false,
-        /** The bitrate of profile B, the exact half of profile A's in the table ([com.reau.app.settings.REauSettings.profileReducedBps]). */
-        val reducedBitrateBps: Int = DashConfig.PROFILE_REDUCED_BPS,
         /** The size the encoder is built for ([com.reau.app.settings.REauSettings.frameSize]): fixed for the whole stream, so another size is another stream. */
         val frame: DashConfig.FrameSize = DashConfig.FULL_FRAME,
-        /** A debug build's choices are pure ([com.reau.app.settings.REauSettings.manualVideo]): no profile B, no start ramp, no still halving ([StreamGovernor]). */
-        val manual: Boolean = false,
-        /** A debug build's switch ([com.reau.app.settings.REauSettings.reserveCapOn]): off, the reserve does not cap the pace or the bitrate ([StreamGovernor]). */
-        val reserveCap: Boolean = true,
     ) {
         /**
          * These settings with what the rider's own settings decide of the stream: the rate ceiling and clock, the bitrate (the experimental
@@ -131,10 +120,7 @@ internal class VideoLoop(
             encoderMuteWatch = rider.experimentEncoderWatch,
             colorMatrix = rider.experimentColorMatrix,
             encoderLowLatency = rider.experimentEncoderLowLatency,
-            reducedBitrateBps = rider.streamBitrateBps / 2,
             frame = rider.frameSize,
-            manual = rider.manualVideo,
-            reserveCap = rider.reserveCapOn,
         )
 
         /**
@@ -182,8 +168,7 @@ internal class VideoLoop(
         if (thermalCapped(ceiling, settings.ceilingFps)) logThermal(status)
         val g = StreamGovernor(
             ceiling, settings.clockSlowPercent, settings.windowMs, settings.bitrateBps, settings.keyframeSec,
-            reducedBitrateBps = settings.reducedBitrateBps, lightScreenFps = settings.lightScreenFps, reserveCapOn = settings.reserveCap,
-            manual = settings.manual,
+            lightScreenFps = settings.lightScreenFps,
         )
         val rec = recordInto(settings.recordDir, settings.recordFrames)?.let {
             H264Recorder(it, settings.recordFrames, H264Recorder.nameFor(System.currentTimeMillis()), settings.recordRolling, log)
@@ -331,9 +316,8 @@ internal class VideoLoop(
                         thermalOk = ThermalCeiling.allows(status, g.profileFps, settings.ceilingFps),
                         link = runCatching { link() }.getOrNull(),
                         navSample = runCatching { navSample() }.getOrNull(),
-                        // The heat stops the faster pace from the first sign of it ('moderate'): the ceiling of a stream fixed at 4 fps has no step under it.
+                        // The heat stops the faster pace from the first sign of it ('moderate'): the heat has only the steps of ThermalCeiling under the fixed 6 fps.
                         lightScreen = lightScreenOn(settings.lightScreenFps, status, lightScreen),
-                        lowFuel = runCatching { ReserveCap.lowFuel(reserveReading(), sessionStartedAtMs) }.getOrDefault(false),
                         encode = timed?.latency ?: StageStats.EMPTY,
                     ),
                 ),
@@ -447,13 +431,12 @@ internal class VideoLoop(
 
     companion object {
         /**
-         * The choices as the "video loop start" line says them: pace, ceiling, picture, the guide for that pace ([VideoChoice.recommendedKbps]) and the
-         * load in macroblocks a second ([VideoChoice.loadMbPerSec]), which stays in the log although the settings no longer warn of it.
+         * The video as the "video loop start" line says it: pace, ceiling, picture and the load in macroblocks a second ([DashConfig.loadMbPerSec]), which
+         * stays in the log although nothing in the settings shows it any more.
          */
         internal fun videoChoiceText(fps: Int, bitrateBps: Int, frame: DashConfig.FrameSize): String {
-            val load = VideoChoice.loadMbPerSec(fps, frame)
-            return "choice $fps fps / ${bitrateBps / 1000} kbps cap / ${frame.width}x${frame.height} " +
-                "(recommended ${VideoChoice.recommendedKbps(fps)} kbps, load $load MB/s)"
+            val load = DashConfig.loadMbPerSec(fps, frame)
+            return "fixed video $fps fps / ${bitrateBps / 1000} kbps cap / ${frame.width}x${frame.height} (load $load MB/s)"
         }
 
         /** The WARN line of the fall back to the dash's own frame, with the pace and ceiling that are kept. */

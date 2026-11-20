@@ -86,10 +86,10 @@ class StreamGovernorTest {
     // ── how a stream starts ────────────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `a stream starts at the still pace, at the still bitrate, asking for a keyframe`() {
+    fun `a stream starts at the still pace, at the ceiling bitrate, asking for a keyframe`() {
         val g = governor()
         assertEquals(
-            listOf(Action.SetPace(DashCompositor.Pace(250, 250, 0)), Action.SetBitrate(512_000), Action.RequestSync("stream start")),
+            listOf(Action.SetPace(DashCompositor.Pace(250, 250, 0)), Action.SetBitrate(1_024_000), Action.RequestSync("stream start")),
             g.start(nowMs),
         )
         assertEquals(16, g.fps)
@@ -121,13 +121,12 @@ class StreamGovernorTest {
     // ── bitrate ────────────────────────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `the bitrate goes up while pictures keep coming and back down 1500 ms after the last one`() {
+    fun `the bitrate is the ceiling from the start and nothing moves it, pictures coming or not`() {
         val g = governor().also { it.start(nowMs) }
         g.poll(confirmed = true) // pace change, nothing drawn yet
-        assertEquals(listOf(Action.SetBitrate(1_024_000)), g.poll(drawn = 4)) // t = 500
-        val quiet = (1..5).map { g.poll() } // t = 750 .. 1750: up to 1250 ms after the last picture
-        assertTrue("still within the hold, got $quiet", quiet.all { it.isEmpty() })
-        assertEquals(listOf(Action.SetBitrate(512_000)), g.poll()) // t = 2000: 1500 ms after
+        val all = g.poll(drawn = 4) + (1..12).flatMap { g.poll() } + (1..4).flatMap { g.poll(drawn = 4) } + (1..12).flatMap { g.poll() }
+        assertTrue("a still picture no longer halves the bitrate, got $all", all.none { it is Action.SetBitrate })
+        assertEquals(1_024_000, g.activeBitrateBps)
     }
 
     // ── keyframes while still ──────────────────────────────────────────────────────────────────────────────
@@ -592,7 +591,7 @@ class StreamGovernorTest {
     }
 
     @Test
-    fun `at the conservative 4 fps 200 kbps ceiling, REDUCED still feeds 2 fps, past the app's general floor, on the same encoder`() {
+    fun `at the 4 fps of a hot phone with a 200 kbps ceiling, REDUCED still feeds 2 fps, past the app's general floor, on the same encoder`() {
         val g = started(fullFps = 4, bitrateCeilingBps = 200_000) // the conservative default
         g.keptAt(1200) // the first verdict, FULL, kept 10 s: a change may come at once now
         val reduced = g.poll(navSample = maneuverSample(distance = 1450))
@@ -647,54 +646,53 @@ class StreamGovernorTest {
     // ── the two profiles: 4 fps / 400 kbps and 2 fps / 200 kbps ───────────────────────────────────────────
 
     private fun reducedGovernor(): StreamGovernor {
-        val g = started(fullFps = 4, bitrateCeilingBps = 400_000)
+        val g = started(fullFps = 6, bitrateCeilingBps = 400_000)
         g.keptAt(1200, drawn = 1) // the first verdict, FULL, kept 10 s: a change may come at once now
         return g
     }
 
     /**
-     * A ride log: `nav profile: FULL -> REDUCED (data), pace 2 fps, encoder 4 fps` with the bitrate still
-     * `set=400k`. Profile 2 is 2 fps at 200 kbps ([DashConfig.PROFILE_REDUCED_BPS]), profile 1 4 fps at 400 kbps.
+     * Profile B is 3 fps at the SAME 400 kbps as profile A (6 fps): going to it and coming back change the pace only, never the bitrate or the encoder.
      */
     @Test
-    fun `going to profile 2 sets its bitrate with its pace, with no new encoder, and coming back to profile 1 sets profile 1's`() {
+    fun `going to profile B changes its pace and not its bitrate, with no new encoder, and coming back to profile A the same`() {
         val g = reducedGovernor()
         val reduced = g.poll(drawn = 1, navSample = maneuverSample(distance = 1450))
-        assertEquals(2, g.fps)
-        assertTrue("got $reduced", Action.SetBitrate(DashConfig.PROFILE_REDUCED_BPS) in reduced)
-        assertEquals(200_000, DashConfig.PROFILE_REDUCED_BPS)
-        assertTrue("never a new encoder for it, got $reduced", reduced.none { it is Action.Rebuild })
+        assertEquals(3, g.fps)
+        assertTrue("got $reduced", reduced.none { it is Action.SetBitrate || it is Action.Rebuild })
+        assertTrue("got $reduced", Action.SetPace(DashCompositor.Pace(333, 666, 0)) in reduced)
 
-        // Profile 2 is held 10 s (40 polls) before the other may be taken: nothing is set meanwhile.
+        // Profile B is held 10 s (40 polls) before the other may be taken: nothing is set meanwhile.
         val held = (1..39).flatMap { g.poll(drawn = 1, navSample = maneuverSample(distance = 400)) }
         assertTrue("got $held", held.none { it is Action.SetBitrate || it is Action.Rebuild })
-        assertEquals("still profile 2", 2, g.fps)
+        assertEquals("still profile B", 3, g.fps)
 
-        val back = g.poll(drawn = 1, navSample = maneuverSample(distance = 400)) // near: profile 1, after its 10 s
-        assertEquals(4, g.fps)
-        assertTrue("got $back", Action.SetBitrate(DashConfig.PROFILE_FULL_BPS) in back)
-        assertTrue("never a new encoder for it, got $back", back.none { it is Action.Rebuild })
+        val back = g.poll(drawn = 1, navSample = maneuverSample(distance = 400)) // near: profile A, after its 10 s
+        assertEquals(6, g.fps)
+        assertTrue("got $back", back.none { it is Action.SetBitrate || it is Action.Rebuild })
+        assertEquals(DashConfig.PROFILE_FULL_BPS, g.activeBitrateBps)
     }
 
     @Test
-    fun `profile 2 keeps its bitrate when the picture goes still, and profile 1 still halves its own`() {
+    fun `neither profile halves its bitrate when the picture goes still`() {
         val g = reducedGovernor()
-        g.poll(drawn = 1, navSample = maneuverSample(distance = 1450)) // profile 2, moving
+        g.poll(drawn = 1, navSample = maneuverSample(distance = 1450)) // profile B, moving
         val still = (1..12).flatMap { g.poll(navSample = maneuverSample(distance = 1450)) }
-        assertTrue("200 kbps is profile 2's whole and the still one too, got $still", still.none { it is Action.SetBitrate })
+        assertTrue("got $still", still.none { it is Action.SetBitrate })
 
         val full = reducedGovernor()
         full.poll(drawn = 1, navSample = maneuverSample(distance = 1200))
         val quiet = (1..12).flatMap { full.poll(navSample = maneuverSample(distance = 1200)) }
-        assertEquals(listOf(Action.SetBitrate(200_000)), quiet.filterIsInstance<Action.SetBitrate>())
+        assertTrue("profile A keeps its 400 kbps too, got $quiet", quiet.none { it is Action.SetBitrate })
     }
 
     @Test
-    fun `profile 2's bitrate is its own whatever the ceiling of profile 1`() {
+    fun `profile B's bitrate is profile A's whatever the ceiling`() {
         val g = started(fullFps = 16) // ceiling 1 024 000
         g.keptAt(1200, drawn = 1)
         val reduced = g.poll(drawn = 1, navSample = maneuverSample(distance = 1450))
-        assertTrue("got $reduced", Action.SetBitrate(DashConfig.PROFILE_REDUCED_BPS) in reduced)
+        assertTrue("got $reduced", reduced.none { it is Action.SetBitrate })
+        assertEquals(1_024_000, g.activeBitrateBps)
     }
 
     @Test
@@ -715,16 +713,15 @@ class StreamGovernorTest {
         const val POLL_MS = 250L
         const val POLLS_PER_WINDOW = 20
     }
-    /** Audit of 20/10/2026: an encoder rebuilt after a failure came back at the full bitrate while the stream was at the reduced one. */
+    /** Audit of 20/10/2026: an encoder rebuilt after a failure came back at the full bitrate while the stream was at the reduced one. Now the bitrate is the ceiling at every moment. */
     @Test
-    fun `an encoder rebuilt after a failure takes the bitrate that is applied now, not the full one`() {
+    fun `an encoder rebuilt after a failure takes the bitrate that is applied now, which is the ceiling whatever the picture does`() {
         val g = governor()
         g.start(nowMs)
-        // Still: the stream starts at the reduced bitrate and stays there while nothing moves on the map.
+        // Still: the bitrate stays the ceiling while nothing moves on the map.
         g.poll(drawn = 0, repeated = 4, confirmed = true)
-        val still = g.rebuildAction()
-        assertTrue("the applied bitrate is the still one: ${still.bitrateBps}", still.bitrateBps < g.activeBitrateBps)
-        // Moving: the full bitrate is applied, and that is what a rebuild takes.
+        assertEquals(g.activeBitrateBps, g.rebuildAction().bitrateBps)
+        // Moving: the same.
         g.poll(drawn = 4, confirmed = true)
         assertEquals(g.activeBitrateBps, g.rebuildAction().bitrateBps)
         assertEquals("built for the encoder's own rate, not the pace's", g.encoderFps, g.rebuildAction().fps)

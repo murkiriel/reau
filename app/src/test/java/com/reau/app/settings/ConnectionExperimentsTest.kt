@@ -28,7 +28,7 @@ class ConnectionExperimentsTest {
         for (debug in listOf(true, false)) {
             val s = allOn.sanitized(debug)
             assertTrue(s.experimentRtpPacing && s.experimentDebugDscp && s.experimentAdaptiveBitrate && s.experimentWifiBind)
-            assertEquals("the stream's profile is not touched", listOf(if (debug) 6 else 4, 400_000, 1), listOf(s.fpsCeiling, s.streamBitrateBps, s.keyframeSec))
+            assertEquals("the stream's profile is not touched", listOf(6, 400_000, 1), listOf(s.fpsCeiling, s.streamBitrateBps, s.keyframeSec))
         }
     }
 

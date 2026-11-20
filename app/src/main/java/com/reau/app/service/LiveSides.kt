@@ -412,8 +412,8 @@ internal class LiveSides(
     @Volatile private var videoSettings: VideoLoop.Settings = setup.video
 
     /**
-     * The area the stream really runs in when it is not the one the settings ask for: no encoder took a debug build's 528x304 and the loop fell back to the dash's 526x300
-     * ([VideoLoop.frame]). The fits are then made for it, as a release build's are ([fitOf]); null while the stream runs in the area of the settings.
+     * The area the stream really runs in when it is not the one the settings ask for: no encoder took the 528x304 and the loop fell back to the dash's 526x300
+     * ([VideoLoop.frame]). The fits are then made for it, as the dash's own are ([fitOf]); null while the stream runs in the area of the settings.
      */
     @Volatile private var fallbackArea: com.reau.app.dash.DashConfig.FrameSize? = null
 
@@ -877,7 +877,6 @@ internal class LiveSides(
             report(ProjectionEvent.DashChanged(DashLink.TAKEN))
             return
         }
-        live.dashSessionStartedAtMs = com.reau.app.stream.ReserveCap.nowMs()
         linkUp.start(
             { ssid, network -> session.connect(ssid, network) },
             { why ->
@@ -1055,13 +1054,6 @@ internal class LiveSides(
 
     /** The settings changed while running, and the video loop made with the latest of them. */
     private inner class Live {
-        /**
-         * When the dash session this projection is dialling began (the phone's clock): what the stream's reading of the low-fuel reminder is compared with
-         * ([com.reau.app.stream.ReserveCap]). It is the session's, not the stream's: a stream started again by a setting (a new pace, say) in the same
-         * session must not lose the reserve's ceiling for lack of a new reading.
-         */
-        @Volatile var dashSessionStartedAtMs = com.reau.app.stream.ReserveCap.nowMs()
-
         // The new sessions asked for by the settings wait for the burst of changes to end.
         private val sessionSettle = SessionSettle { delayMs, action ->
             val job = scope.launch {
@@ -1182,8 +1174,6 @@ internal class LiveSides(
             }
             val fresh = VideoLoop(compositor, dash, videoSettings, thermalStatus, link = linkSample, navSample = navSample,
                 lightScreen = { com.reau.app.stream.LightScreen.wanted(com.reau.app.aa.AaScreens.watch.screen.value) },
-                reserveReading = { com.reau.app.dash.DashReadings.all.value[com.reau.app.stream.ReserveCap.CODE] },
-                sessionStartedAtMs = dashSessionStartedAtMs,
                 stats = statsFeed,
             )
             if (fresh.start()) {

@@ -95,7 +95,7 @@ class SettingsScreenTest {
         compose.onNodeWithTag("margin_w_value").assertDoesNotExist()
         compose.onNodeWithTag("margin_h_value").assertDoesNotExist()
         tap("profile_details") // the stream's numbers are behind "Detalhes" (12/11/2026)
-        compose.onNodeWithTag("fps_locked").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("video_fixed").performScrollTo().assertIsDisplayed()
     }
 
     // ── the fit ────────────────────────────────────────────────────────────────────────────────────────────
@@ -103,9 +103,9 @@ class SettingsScreenTest {
     // ── pace ───────────────────────────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun theFrameCeilingIsShownAndCannotBeChanged() {
+    fun theFixedPaceIsShownAndCannotBeChanged() {
         tap("profile_details") // behind "Detalhes" (12/11/2026)
-        compose.onNodeWithTag("fps_locked").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("video_fixed").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("fps_plus").assertDoesNotExist()
         compose.onNodeWithTag("fps_minus").assertDoesNotExist()
     }

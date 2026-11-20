@@ -74,7 +74,7 @@ class SettingsScreenNowTest {
     private val withoutChip = listOf(
         "dash_caller", "dash_music", "gemini", "aa_server_auto",
         "record_video", "record_sessions",
-        "fps", "bitrate", "bitrate_mode", "keyframe", "maneuver_fps_profile", "speed_fps_profile",
+        "bitrate_mode", "keyframe", "maneuver_fps_profile", "speed_fps_profile",
         "open_joystick", "card_now", "view_logs", "share", "delete",
         "exp_debug_dscp", "exp_wifi_bind", "exp_start_guard", "exp_focus_gap", "exp_night_memory",
         "exp_color_matrix", "exp_protocol_six", "exp_tolerant_rx", "exp_wake_aa", "exp_encoder_low_latency",

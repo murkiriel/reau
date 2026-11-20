@@ -19,8 +19,8 @@ class ProfileDetailsTest {
     }
 
     @Test
-    fun `opened, they show the four numbers, in the order they always had`() {
-        assertEquals(listOf("fps", "bitrate", "bitrate_mode", "keyframe"), ProfileDetails.rowsShown(true))
+    fun `opened, they show the fixed video line, the mode and the keyframe`() {
+        assertEquals(listOf("video_fixed", "bitrate_mode", "keyframe"), ProfileDetails.rowsShown(true))
     }
 
     private val video = File("src/main/java/com/reau/app/ui/SettingsVideo.kt").readText()
@@ -31,7 +31,7 @@ class ProfileDetailsTest {
         val rows = video.substringAfter("fun StreamProfileRows").substringBefore("fun NavProfileRows")
         for (tag in ProfileDetails.ROWS) assertTrue("$tag is one of the rows of StreamProfileRows", rows.contains("\"$tag\""))
         // The stream's rows are asked for by the details row alone; the group itself never draws them.
-        assertEquals(1, Regex("""StreamProfileRows\(s, change\)""").findAll(video).count())
+        assertEquals(1, Regex("""StreamProfileRows\(s\)""").findAll(video).count())
         assertFalse(screen.contains("StreamProfileRows"))
         assertTrue(video.substringAfter("fun ProfileDetailsRow").contains("if (ProfileDetails.rowsShown(open).isNotEmpty())"))
         assertTrue("the state starts from the constant", video.contains("rememberSaveable { mutableStateOf(ProfileDetails.START_OPEN) }"))
@@ -40,7 +40,7 @@ class ProfileDetailsTest {
     @Test
     fun `the group shows each profile by name, then the navigation profiles, then the details row`() {
         val group = screen.substringAfter("private fun VideoProfilesGroup").substringBefore("tag = \"group_video_profiles\"")
-        val order = listOf("\"profile_a\"", "\"profile_b\"", "NavProfileRows()", "ProfileDetailsRow(s, change)").map { group.indexOf(it) }
+        val order = listOf("\"profile_a\"", "\"profile_b\"", "NavProfileRows()", "ProfileDetailsRow(s)").map { group.indexOf(it) }
         assertTrue("all four are there: $order", order.all { it >= 0 })
         assertEquals("in that order", order.sorted(), order)
     }
@@ -66,9 +66,27 @@ class ProfileDetailsTest {
     }
 
     @Test
-    fun `the values themselves did not change`() {
+    fun `the fixed video has no choice in the screen, only the line that says it, in the three languages`() {
+        assertFalse("no selector, slider, switch or warning", Regex("""SegmentedRow|SliderRow|SwitchRow|FlickerWarning|flicker_warning|reserve_cap|VideoChoice""").containsMatchIn(video))
+        assertTrue(
+            "the line is made of the settings' own fixed values and the picture the stream runs in",
+            video.contains("stringResource(R.string.video_fixed_line, s.fpsCeiling, s.streamBitrateBps / KBPS, \"\${frame.width}\\u00d7\${frame.height}\")"),
+        )
+        assertTrue(video.contains("val frame = s.frameSize"))
+        assertEquals("Vídeo: %1\$d fps, %2\$d kbps, %3\$s (fixo)", text("values-pt", "video_fixed_line"))
+        assertEquals("Video: %1\$d fps, %2\$d kbps, %3\$s (fixed)", text("values", "video_fixed_line"))
+        assertEquals("Video: %1\$d fps, %2\$d kbps, %3\$s (fijo)", text("values-es", "video_fixed_line"))
+        for (gone in listOf("pace_option", "pace_sub", "bitrate_cap_title", "bitrate_cap_sub", "flicker_warning", "reserve_cap_title", "reserve_cap_sub", "profiles_info")) {
+            for (folder in listOf("values-pt", "values", "values-es")) {
+                assertFalse("$folder still has $gone", File("src/main/res/$folder/strings.xml").readText().contains("name=\"$gone\""))
+            }
+        }
+    }
+
+    @Test
+    fun `the values themselves are the fixed ones`() {
         val d = com.reau.app.dash.DashConfig
-        assertEquals(listOf(4, 400_000, 1), listOf(d.PROFILE_FULL_FPS, d.PROFILE_FULL_BPS, d.PROFILE_KEYFRAME_SEC))
-        assertEquals(listOf(2, 200_000), listOf(d.PROFILE_REDUCED_FPS, d.PROFILE_REDUCED_BPS))
+        assertEquals(listOf(6, 400_000, 1), listOf(d.PROFILE_FULL_FPS, d.PROFILE_FULL_BPS, d.PROFILE_KEYFRAME_SEC))
+        assertEquals(3, d.PROFILE_REDUCED_FPS)
     }
 }

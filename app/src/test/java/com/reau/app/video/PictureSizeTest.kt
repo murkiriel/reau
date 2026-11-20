@@ -1,7 +1,6 @@
 package com.reau.app.video
 
 import com.reau.app.dash.DashConfig
-import com.reau.app.dash.VideoChoice
 import com.reau.app.settings.REauSettings
 import com.reau.app.stream.VideoLoop
 import org.junit.Assert.assertEquals
@@ -12,39 +11,40 @@ import org.junit.Test
 import java.io.File
 
 /**
- * The picture size of the stream (plan 32): fixed at 528x304 in a debug build and 526x300 in a release build, the arithmetic that scales the dash's 526x300 frame to it
- * on the way out, the fall back to 526x300 when no encoder takes 528x304, and the lines that wire all of it (the encoder,
+ * The picture size of the stream (plan 32): fixed at 528x304 in a debug and in a release build, composed directly in that area, 1:1, the fall back to 526x300
+ * when no encoder takes 528x304, and the lines that wire all of it (the encoder,
  * the OpenGL output and the video loop need Android, so their wiring is read from the source, as the `*IsWiredTest` tests do).
  */
 class PictureSizeTest {
     private fun source(path: String) = File("src/main/java/com/reau/app/$path").readText()
 
-    private val manual = VideoChoice.MANUAL_FRAME
+    private val fixed = DashConfig.VIDEO_FRAME
 
     // ---- the size by choice
 
     @Test
-    fun `the compositor's frame is the dash's 526x300, and the encoder is built for it in a release build`() {
+    fun `the compositor's frame is the dash's 526x300, and the encoder is built for 528x304 in every build`() {
         assertEquals(listOf(526, 300), listOf(DashConfig.FULL_FRAME.width, DashConfig.FULL_FRAME.height))
         assertEquals("the compositor's frame is the encoder's", listOf(DashGlass.FRAME_W, DashGlass.FRAME_H), listOf(DashConfig.FULL_FRAME.width, DashConfig.FULL_FRAME.height))
-        assertEquals(DashConfig.FULL_FRAME, REauSettings().sanitized(debugBuild = false).frameSize)
-        assertEquals(DashConfig.FULL_FRAME, VideoLoop.Settings().frame)
+        assertEquals(DashConfig.VIDEO_FRAME, REauSettings().sanitized(debugBuild = false).frameSize)
+        assertEquals("a stream made without the rider's settings (the tests) is the dash's own frame", DashConfig.FULL_FRAME, VideoLoop.Settings().frame)
     }
 
     @Test
     fun `the fixed picture is of nearly the shape of the frame, so the dash's stretching hardly changes it`() {
         val shape = DashConfig.FULL_FRAME.width.toDouble() / DashConfig.FULL_FRAME.height
-        assertEquals(shape, manual.width.toDouble() / manual.height, FrameFit.MAX_DISTORTION * shape)
+        assertEquals(shape, fixed.width.toDouble() / fixed.height, FrameFit.MAX_DISTORTION * shape)
     }
 
     @Test
-    fun `the picture is 528x304 in a debug build whatever was stored, and the full frame in a release build, in the settings and in the video loop`() {
+    fun `the picture is 528x304 in a debug and in a release build whatever was stored, in the settings and in the video loop`() {
         val loop = VideoLoop.Settings()
         for (stored in listOf("528x304", "448x256", "512x288", "526x300", "")) {
-            val debug = REauSettings(videoFrame = stored).sanitized(debugBuild = true)
-            assertEquals(stored, manual, debug.frameSize)
-            assertEquals(stored, manual, loop.withRider(debug).frame)
-            assertEquals("a release build is the full frame ($stored)", DashConfig.FULL_FRAME, loop.withRider(REauSettings(videoFrame = stored).sanitized(debugBuild = false)).frame)
+            for (debugBuild in listOf(true, false)) {
+                val sanitized = REauSettings(videoFrame = stored).sanitized(debugBuild = debugBuild)
+                assertEquals("$stored, debugBuild=$debugBuild", fixed, sanitized.frameSize)
+                assertEquals("$stored, debugBuild=$debugBuild", fixed, loop.withRider(sanitized).frame)
+            }
         }
     }
 
@@ -53,32 +53,31 @@ class PictureSizeTest {
     @Test
     fun `without an encoder for the picture the stream keeps its pace and its ceiling at 526x300`() {
         val chosen = VideoLoop.Settings().withRider(REauSettings(fpsCeiling = 8, streamBitrateBps = 700_000).sanitized(true))
-        assertEquals(manual, chosen.frame)
+        assertEquals(fixed, chosen.frame)
         val back = chosen.atFullFrame()
-        assertEquals(listOf(8, 700_000, DashConfig.FULL_FRAME), listOf(back.ceilingFps, back.bitrateBps, back.frame))
+        assertEquals("the fixed 6 fps and 400 kbps", listOf(6, 400_000, DashConfig.FULL_FRAME), listOf(back.ceilingFps, back.bitrateBps, back.frame))
         assertEquals("only the picture moved", chosen.copy(frame = DashConfig.FULL_FRAME), back)
     }
 
     @Test
-    fun `the fall back keeps the lower bitrate of the experiment and the switch of the reserve`() {
-        val adaptive = VideoLoop.Settings().withRider(REauSettings(experimentAdaptiveBitrate = true, reserveCapOn = false).sanitized(true))
+    fun `the fall back keeps the lower bitrate of the experiment`() {
+        val adaptive = VideoLoop.Settings().withRider(REauSettings(experimentAdaptiveBitrate = true).sanitized(true))
         assertEquals(200_000, adaptive.bitrateBps)
         val back = adaptive.atFullFrame()
         assertEquals(200_000, back.bitrateBps)
-        assertFalse(back.reserveCap)
     }
 
     @Test
     fun `a stream that is already at 526x300 has nothing to fall back to`() {
-        val release = VideoLoop.Settings().withRider(REauSettings().sanitized(false))
-        assertSame(release, release.atFullFrame())
-        val back = VideoLoop.Settings().withRider(REauSettings().sanitized(true)).atFullFrame()
+        val plain = VideoLoop.Settings()
+        assertSame(plain, plain.atFullFrame())
+        val back = VideoLoop.Settings().withRider(REauSettings().sanitized(false)).atFullFrame()
         assertSame("and the fall back is done once", back, back.atFullFrame())
     }
 
     @Test
     fun `the fall back line is a warning that says the picture, the pace and the ceiling that are kept`() {
-        val line = VideoLoop.fallbackLine(manual, 8, 700_000)
+        val line = VideoLoop.fallbackLine(fixed, 8, 700_000) // any pace and ceiling: the line says what it is given
         assertTrue(line, line.startsWith(com.reau.app.data.RideDiagnostics.WARN))
         assertTrue(line, "528x304" in line && "526x300" in line && "8 fps" in line && "700 kbps" in line)
         assertTrue("it says what happened: $line", "no encoder took the 528x304 picture" in line)
@@ -99,10 +98,10 @@ class PictureSizeTest {
     // ---- the start line
 
     @Test
-    fun `the start line says the pace, the ceiling, the picture, the guide and the load in MB a second, with no note`() {
-        assertEquals("choice 6 fps / 400 kbps cap / 528x304 (recommended 400 kbps, load 3762 MB/s)", VideoLoop.videoChoiceText(6, 400_000, manual))
-        assertEquals("choice 8 fps / 400 kbps cap / 528x304 (recommended 600 kbps, load 5016 MB/s)", VideoLoop.videoChoiceText(8, 400_000, manual))
-        assertEquals("choice 4 fps / 400 kbps cap / 526x300 (recommended 400 kbps, load 2508 MB/s)", VideoLoop.videoChoiceText(4, 400_000, DashConfig.FULL_FRAME))
+    fun `the start line says the pace, the ceiling, the picture and the load in MB a second`() {
+        assertEquals("fixed video 6 fps / 400 kbps cap / 528x304 (load 3762 MB/s)", VideoLoop.videoChoiceText(6, 400_000, fixed))
+        assertEquals("the fall back is 526x300, the same load", "fixed video 6 fps / 400 kbps cap / 526x300 (load 3762 MB/s)", VideoLoop.videoChoiceText(6, 400_000, DashConfig.FULL_FRAME))
+        assertEquals("a hot phone's 4 fps", "fixed video 4 fps / 400 kbps cap / 528x304 (load 2508 MB/s)", VideoLoop.videoChoiceText(4, 400_000, fixed))
         val loop = source("stream/VideoLoop.kt")
         assertTrue(loop.contains("videoChoiceText(settings.ceilingFps, settings.bitrateBps, settings.frame)"))
     }
@@ -168,52 +167,56 @@ class PictureSizeTest {
 
     @Test
     fun `in 528x304 the picture fills the area by the same rules`() {
-        assertEquals("filling the dome: as large as fits, resting on the bottom edge, centred", RectPx(11, 0, 507, 304), FrameFit.fillDome(content, manual).dest)
-        assertEquals("whole and visible: the corners on the glass, resting on the area's bottom edge", RectPx(76, 80, 374, 224), FrameFit.wholeVisible(content, manual).dest)
-        assertEquals(304, FrameFit.wholeVisible(content, manual).dest.bottom)
+        assertEquals("filling the dome: as large as fits, resting on the bottom edge, centred", RectPx(11, 0, 507, 304), FrameFit.fillDome(content, fixed).dest)
+        assertEquals("whole and visible: the corners on the glass, resting on the area's bottom edge", RectPx(76, 80, 374, 224), FrameFit.wholeVisible(content, fixed).dest)
+        assertEquals(304, FrameFit.wholeVisible(content, fixed).dest.bottom)
         // rows 300 to 303 are past the rows the glass shows (DashGlass.USABLE_BOTTOM), so a few pixels of the picture's bottom are not counted as seen
-        assertTrue(DashGlass.visibleFraction(FrameFit.wholeVisible(content, manual).dest) > 0.97)
-        assertEquals("a crop of 100% is the whole area", 528 to 304, FrameFit.cropSize(content, 100, manual))
-        assertEquals(660 to 380, FrameFit.cropSize(content, 80, manual))
-        assertEquals(800 to 461, FrameFit.cropSize(content, 66, manual))
-        val crop = FrameFit.cropAt(content, 100, 100, 50, manual)
+        assertTrue(DashGlass.visibleFraction(FrameFit.wholeVisible(content, fixed).dest) > 0.97)
+        assertEquals("a crop of 100% is the whole area", 528 to 304, FrameFit.cropSize(content, 100, fixed))
+        assertEquals(660 to 380, FrameFit.cropSize(content, 80, fixed))
+        assertEquals(800 to 461, FrameFit.cropSize(content, 66, fixed))
+        val crop = FrameFit.cropAt(content, 100, 100, 50, fixed)
         assertEquals("the crop's window is shown over the whole area", RectPx(0, 0, 528, 304), crop.dest)
         assertEquals(RectPx(100, 50, 528, 304), crop.source)
     }
 
     @Test
     fun `a move stops at the edges of the area, so the picture can reach the extra columns and rows`() {
-        val whole = FrameFit.fillDome(content, manual)
-        val right = FrameFit.moved(whole, 100, 100, manual)
+        val whole = FrameFit.fillDome(content, fixed)
+        val right = FrameFit.moved(whole, 100, 100, fixed)
         assertEquals("527 - 507 + 1... the far edge of 528", 528, right.dest.right)
         assertEquals(0, right.dest.y)
-        val left = FrameFit.moved(whole, -100, -100, manual)
+        val left = FrameFit.moved(whole, -100, -100, fixed)
         assertEquals(0, left.dest.x)
-        val small = FrameFit.wholeVisible(content, manual)
-        assertEquals(304, FrameFit.moved(small, 0, 100, manual).dest.bottom)
+        val small = FrameFit.wholeVisible(content, fixed)
+        assertEquals(304, FrameFit.moved(small, 0, 100, fixed).dest.bottom)
         assertEquals("in the dash's own frame the same move stops at 300", 300, FrameFit.moved(FrameFit.wholeVisible(content), 0, 100).dest.bottom)
     }
 
     @Test
     fun `a fit made for 528x304 is only valid in an area that holds it, and the extra pixels count as the frame`() {
-        val whole = FrameFit.fillDome(content, manual)
-        assertEquals(emptyList<FrameFit.Problem>(), FrameFit.problems(whole, 800, 480, manual))
+        val whole = FrameFit.fillDome(content, fixed)
+        assertEquals(emptyList<FrameFit.Problem>(), FrameFit.problems(whole, 800, 480, fixed))
         assertEquals(listOf(FrameFit.Problem.DEST_OUTSIDE_FRAME), FrameFit.problems(whole, 800, 480))
         assertEquals(emptyList<FrameFit.Problem>(), FrameFit.problems(FrameFit.fillDome(content), 800, 480))
-        assertEquals(emptyList<FrameFit.Problem>(), FrameFit.problems(FrameFit.fillDome(content), 800, 480, manual))
+        assertEquals(emptyList<FrameFit.Problem>(), FrameFit.problems(FrameFit.fillDome(content), 800, 480, fixed))
     }
 
     @Test
-    fun `the settings fit the picture for their own area, 528x304 in a debug build and 526x300 in a release build`() {
+    fun `the settings fit the picture for their own area, 528x304 in a debug and in a release build, and 526x300 after the fall back`() {
         val debug = REauSettings(fit = com.reau.app.settings.Fit.CROP, cropPercent = 100, cropX = null, cropY = null, moveX = 0, moveY = 0).sanitized(debugBuild = true)
         val release = debug.sanitized(debugBuild = false)
         assertEquals(RectPx(0, 0, 528, 304), debug.mapping.dest)
-        assertEquals(RectPx(0, 0, 526, 300), release.mapping.dest)
-        assertEquals(manual, debug.frameSize)
-        assertEquals(DashConfig.FULL_FRAME, release.frameSize)
+        assertEquals(RectPx(0, 0, 528, 304), release.mapping.dest)
+        assertEquals(fixed, debug.frameSize)
+        assertEquals(fixed, release.frameSize)
+        val fallen = release.copy(videoFrame = DashConfig.FULL_FRAME.id)
+        assertEquals(RectPx(0, 0, 526, 300), fallen.mapping.dest)
+        assertEquals(DashConfig.FULL_FRAME, fallen.frameSize)
         val whole = REauSettings(fit = com.reau.app.settings.Fit.WHOLE_VISIBLE, moveX = 0, moveY = 0)
-        assertEquals(FrameFit.wholeVisible(whole.content, manual).dest, whole.sanitized(true).mapping.dest)
-        assertEquals(FrameFit.wholeVisible(whole.content).dest, whole.sanitized(false).mapping.dest)
+        assertEquals(FrameFit.wholeVisible(whole.content, fixed).dest, whole.sanitized(true).mapping.dest)
+        assertEquals(FrameFit.wholeVisible(whole.content, fixed).dest, whole.sanitized(false).mapping.dest)
+        assertEquals(FrameFit.wholeVisible(whole.content).dest, whole.sanitized(false).copy(videoFrame = DashConfig.FULL_FRAME.id).mapping.dest)
         assertEquals("the saved crop place is kept within the range of the area", 0, REauSettings(cropX = 0).sanitized(true).cropX)
     }
 
@@ -238,7 +241,7 @@ class PictureSizeTest {
 
     @Test
     fun `the blurred background is planned for the area, and a picture that fills it leaves no border`() {
-        val whole = FrameFit.fillDome(content, manual)
+        val whole = FrameFit.fillDome(content, fixed)
         assertEquals(null, CompositorMath.backdrop(true, whole.source, RectPx(0, 0, 528, 304), 800, 480, 528, 304))
         val plan = checkNotNull(CompositorMath.backdrop(true, whole.source, whole.dest, 800, 480, 528, 304))
         assertEquals(RectPx(0, 0, 528, 304), plan.frame)
@@ -328,8 +331,8 @@ class PictureSizeTest {
 
     @Test
     fun `the dash mask is drawn for the area of the fit`() {
-        val mapping = FrameFit.fillDome(content, manual)
-        val in528 = checkNotNull(DashMask.of(mapping, 800, 480, 800, 480, manual))
+        val mapping = FrameFit.fillDome(content, fixed)
+        val in528 = checkNotNull(DashMask.of(mapping, 800, 480, 800, 480, fixed))
         // the frame box is the area, and the glass is the dash's, wherever the area ends
         val perDashPixel528 = in528.glass.r / DashGlass.RADIUS
         assertEquals(528 * perDashPixel528, in528.frame.right - in528.frame.left, 1e-2f)
@@ -343,12 +346,5 @@ class PictureSizeTest {
     fun `the picture is part of what a stream is made with`() {
         val tuning = source("service/LiveTuning.kt")
         assertTrue(tuning.contains("fpsCeiling, frameSize, clockSlowPercent,"))
-    }
-
-    @Test
-    fun `the dash session's start, not the stream's, bounds the reading of the reserve in a loop made by the service`() {
-        val loop = source("stream/VideoLoop.kt")
-        assertFalse("no start of the stream of its own is kept", loop.contains("streamStartedAtMs"))
-        assertTrue(loop.contains("private val sessionStartedAtMs: Long = ReserveCap.nowMs(),"))
     }
 }

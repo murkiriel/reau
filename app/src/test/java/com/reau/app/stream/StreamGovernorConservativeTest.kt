@@ -42,11 +42,12 @@ class StreamGovernorConservativeTest {
     }
 
     @Test
-    fun `at 4 frames a second and 200 kbps the stream runs at 200 moving and 100 still`() {
+    fun `at 4 frames a second and 200 kbps the stream runs at 200 whether the picture moves or is still`() {
         val g = governor()
-        assertTrue(Action.SetBitrate(100_000) in g.start(nowMs))
+        assertTrue(Action.SetBitrate(200_000) in g.start(nowMs))
         assertEquals(200_000, g.activeBitrateBps)
-        assertTrue(Action.SetBitrate(200_000) in (1..3).flatMap { g.poll(drawn = 1) })
+        val after = (1..3).flatMap { g.poll(drawn = 1) } + (1..12).flatMap { g.poll(drawn = 0) } + (1..4).flatMap { g.poll(drawn = 1) }
+        assertTrue("nothing halves it: got ${after.filterIsInstance<Action.SetBitrate>()}", after.none { it is Action.SetBitrate })
     }
 
     @Test

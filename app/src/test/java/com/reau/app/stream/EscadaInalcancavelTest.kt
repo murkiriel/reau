@@ -1,6 +1,7 @@
 package com.reau.app.stream
 
 import com.reau.app.dash.BitrateMode
+import com.reau.app.dash.DashConfig
 import com.reau.app.dash.NavProfileMode
 import com.reau.app.settings.REauSettings
 import com.reau.app.stream.StreamGovernor.Action
@@ -24,7 +25,7 @@ class EscadaInalcancavelTest {
     private val extremes = listOf(0, 2, 6, 16, 30, 99)
 
     @Test
-    fun `whatever was stored, the settings in use ask for 4 fps, 400 kbps constant, a keyframe a second and both profiles, pessimistic`() {
+    fun `whatever was stored, the settings in use ask for 6 fps, 400 kbps constant, a keyframe a second and both profiles, pessimistic`() {
         val stored = listOf(REauSettings()) + extremes.flatMap { v ->
             listOf(
                 REauSettings(fpsCeiling = v),
@@ -41,13 +42,10 @@ class EscadaInalcancavelTest {
             for (debug in listOf(true, false)) {
                 val s = settings.sanitized(debugBuild = debug)
                 val said = "stored $settings"
-                // A release build is fixed at 4 fps and 400 kbps; a debug build keeps its own choices, brought into the offer (VideoChoiceStoreTest).
-                if (!debug) {
-                    assertEquals(said, 4, s.fpsCeiling)
-                    assertEquals(said, 400_000, s.streamBitrateBps)
-                } else {
-                    assertTrue(said, s.fpsCeiling in 4..12 && s.streamBitrateBps in 400_000..1_000_000)
-                }
+                // The video is fixed at 6 fps and 400 kbps in both builds (FixedVideoStoreTest).
+                assertEquals(said, 6, s.fpsCeiling)
+                assertEquals(said, 400_000, s.streamBitrateBps)
+                assertEquals(said, DashConfig.VIDEO_FRAME, s.frameSize)
                 assertEquals(said, 1, s.keyframeSec)
                 assertEquals(said, BitrateMode.CBR, s.bitrateMode)
                 assertEquals(said, 0, s.clockSlowPercent)
@@ -73,17 +71,22 @@ class EscadaInalcancavelTest {
     }
 
     @Test
-    fun `at a ceiling of 4 no heat lowers the ceiling, and both paces are always within it`() {
-        for (status in -1..6) {
-            assertEquals("status $status", 4, ThermalCeiling.capFor(status, 4))
-            assertTrue("2 fps at status $status", ThermalCeiling.allows(status, 2, 4))
-            assertTrue("4 fps at status $status", ThermalCeiling.allows(status, 4, 4))
-            assertFalse("the start of a stream never says the heat capped it", VideoLoop.thermalCapped(ThermalCeiling.capFor(status, 4), 4))
+    fun `at a ceiling of 6 a cool phone does not lower it, both paces are within it, and a hot one lowers it and says so`() {
+        for (status in -1..1) {
+            assertEquals("status $status", 6, ThermalCeiling.capFor(status, 6))
+            assertTrue("3 fps at status $status", ThermalCeiling.allows(status, 3, 6))
+            assertTrue("6 fps at status $status", ThermalCeiling.allows(status, 6, 6))
+            assertFalse("the start of a stream never says the heat capped it", VideoLoop.thermalCapped(ThermalCeiling.capFor(status, 6), 6))
+        }
+        for (status in 2..6) {
+            assertTrue("status $status lowers the ceiling", ThermalCeiling.capFor(status, 6) < 6)
+            assertTrue("and says so", VideoLoop.thermalCapped(ThermalCeiling.capFor(status, 6), 6))
+            assertFalse("6 fps is no longer allowed at status $status", ThermalCeiling.allows(status, 6, 6))
         }
     }
 
     @Test
-    fun `the governor with the real settings never asks for a rebuild in a poll, and its rates never leave 2, 4 and 6`() {
+    fun `the governor with the real settings never asks for a rebuild in a poll, and its rates never leave 3 and 6`() {
         var windows = 0
         val paces = HashSet<Int>()
         val states = HashSet<String>()
@@ -95,16 +98,16 @@ class EscadaInalcancavelTest {
                     val g = bench.governor
                     val said = "${config.name}, seed $seed, poll $poll (${bench.nowMs} ms): $actions"
                     assertTrue(said, actions.none { it is Action.Rebuild })
-                    assertEquals(said, 4, g.encoderFps)
-                    assertTrue(said, g.fps in RealRates.PACES && g.profileFps in setOf(2, 4))
+                    assertEquals(said, 6, g.encoderFps)
+                    assertTrue(said, g.fps in RealRates.PACES && g.profileFps in setOf(3, 6))
                     paces += g.fps
                     assertEquals(said, 1, g.keyframeSec)
-                    assertEquals(said, 2, g.encoderKeyframeSec)
+                    assertEquals(said, 1, g.encoderKeyframeSec)
                     assertEquals(said, 6, g.gopFps)
-                    assertEquals(said, config.bitrateBps, g.activeBitrateBps)
+                    assertEquals(said, DashLogic.effectiveActiveBitrate(config.bitrateBps, g.encoderFps), g.activeBitrateBps) // the 200 kbps experiment is raised to the 300 that gives a 6 fps frame its least bits
                     for (line in actions.filterIsInstance<Action.Log>().map { it.line }.filter { it.startsWith(GovernorTrace.WINDOW_LINE) }) {
                         windows++
-                        assertEquals(said, 4, GovernorTrace.autoFpsOf(line))
+                        assertEquals(said, 6, GovernorTrace.autoFpsOf(line))
                         val state = GovernorTrace.ladderStateOf(line).orEmpty()
                         assertTrue(said, state == "ok" || state == "not judged" || state.startsWith("short: "))
                         states += state.substringBefore(' ')

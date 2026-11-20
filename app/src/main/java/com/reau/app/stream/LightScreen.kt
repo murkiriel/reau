@@ -1,5 +1,7 @@
 package com.reau.app.stream
 
+import com.reau.app.dash.DashConfig
+
 /**
  * A faster pace for the screens of Android Auto that are not the navigation's: its app menu and the other apps (the navigation follows the profile), screens that are mostly still (about 9 new pictures a
  * second against about 30 on the map, and 156 kbps against 234 at 4 fps in the logs of 19 and 20/10/2026), where the wait for the
@@ -47,7 +49,10 @@ internal class LightScreen(private val holdMs: Long = HOLD_MS) {
         fun wanted(screen: com.reau.app.aa.AaScreen): Boolean =
             screen == com.reau.app.aa.AaScreen.MENU || screen == com.reau.app.aa.AaScreen.APPS
 
-        /** The pace's rate on a light screen: [light] fps, never below the [base] one (the profile's). */
-        fun fps(base: Int, light: Int): Int = maxOf(base, light)
+        /**
+         * The pace's rate on a light screen: [light] fps, never below the [base] one (the profile's), and never above [DashConfig.PROFILE_FULL_FPS]: the dash has
+         * trouble with its buttons and its reserve icon above 6 fps (measured on the bike, 20/11/2026), and the app menu does not ask for more.
+         */
+        fun fps(base: Int, light: Int): Int = maxOf(base, minOf(light, DashConfig.PROFILE_FULL_FPS))
     }
 }

@@ -5,7 +5,6 @@ import com.reau.app.aa.AaVideo
 import com.reau.app.dash.BitrateMode
 import com.reau.app.dash.DashConfig
 import com.reau.app.dash.NavProfileMode
-import com.reau.app.dash.VideoChoice
 import com.reau.app.video.AaMargins
 import com.reau.app.video.ButtonOverlay
 import com.reau.app.video.FrameFit
@@ -21,9 +20,9 @@ import com.reau.app.video.StatsOverlay
  * sends (a content URI the rider picked, or the measuring grid built in, [DEFAULT_CARD]); null sends the legibility
  * card.
  *
- * The video to the dash (it lagged at speed with more) is a conservative envelope known to work on this dash in a release build: 4 frames a second ([fpsCeiling]; the reduced
- * profile 2), [streamBitrateBps] 400 kbps at a constant [bitrateMode], a keyframe every [keyframeSec] second, in the 526x300 frame (the profiles are in [com.reau.app.dash.DashConfig]). A debug build
- * mixes two independent choices ([fpsCeiling], [streamBitrateBps]; [VideoChoice]) in a fixed picture ([VideoChoice.MANUAL_FRAME]). Before, 6 frames a second and always 1024 kbps, by the codec's own mode.
+ * The video to the dash (it lagged at speed with more) is one fixed envelope, the same in a debug and in a release build, measured on this dash: 6 frames a second ([fpsCeiling]; the
+ * reduced profile 3), [streamBitrateBps] 400 kbps at a constant [bitrateMode], a keyframe every [keyframeSec] second, in the 528x304 frame (the profiles are in [com.reau.app.dash.DashConfig]).
+ * None of it is a choice: [sanitized] sets it whatever an older build stored.
  */
 data class REauSettings(
     val density: Int = DEFAULT_DENSITY,
@@ -43,9 +42,9 @@ data class REauSettings(
     val zoom: Int = 100,
     /** The apps' black bands over the dash's frame ([FrameFit.Cover]). */
     val cover: FrameFit.Cover = FrameFit.Cover.NONE,
-    /** The pace of the stream, 4 to 8 fps ([VideoChoice.FPS_OPTIONS]): a debug build's choice; a release build is always [DashConfig.PROFILE_FULL_FPS] ([sanitized]). */
-    val fpsCeiling: Int = VideoChoice.DEFAULT_FPS,
-    /** The bitrate ceiling, 400 to 1000 kbps by 100: a debug build's choice; a release build is always [DashConfig.PROFILE_FULL_BPS] ([sanitized]). Raised as needed so a higher rate keeps its bits per frame. */
+    /** The pace of the stream: always [DashConfig.PROFILE_FULL_FPS] ([sanitized]); no choice, whatever an older build stored. */
+    val fpsCeiling: Int = DashConfig.PROFILE_FULL_FPS,
+    /** The bitrate ceiling: always [DashConfig.PROFILE_FULL_BPS] ([sanitized]); no choice, whatever an older build stored. */
     val streamBitrateBps: Int = DEFAULT_STREAM_BITRATE,
     val bitrateMode: BitrateMode = BitrateMode.CBR,
     /** 1 or 2 s. A stored 0 ("chosen by the stream itself", which is no more) is still read: [sanitized] makes it 1 s, and the stream would take it as 1 s too. */
@@ -274,42 +273,24 @@ data class REauSettings(
     /** Experimental: a Qualcomm encoder of the dash (`c2.qti.` or `OMX.qcom.`) is also asked for the maker's low-latency key, so it does not hold frames ([com.reau.app.dash.video.VendorLowLatency]); a codec that refuses is asked again without it. Off, or with any other encoder, the format is as always. */
     val experimentEncoderLowLatency: Boolean = false,
     /**
-     * The picture size of the stream, by its id: no choice and not stored (the old `video_frame` key is ignored), [sanitized] sets it from the build, a debug
-     * build's [VideoChoice.MANUAL_FRAME] (528x304) or a release build's [DashConfig.FULL_FRAME] (526x300); the default is the build's own, like the other debug builds' defaults. It is the AREA the fit is made for
-     * ([mapping]) and the video is composed in, 1:1. Kept as a field so that [sanitized] can say both and the log lists it.
+     * The picture size of the stream, by its id: no choice and not stored (the old `video_frame` key is ignored), [sanitized] sets it to [DashConfig.VIDEO_FRAME] (528x304) in every build.
+     * It is the AREA the fit is made for ([mapping]) and the video is composed in, 1:1. Kept as a field so that the fall back to 526x300 when no encoder takes 528x304
+     * ([com.reau.app.service.LiveSides]) can say so, and the log lists it.
      */
-    val videoFrame: String = (if (com.reau.app.BuildConfig.DEBUG) VideoChoice.MANUAL_FRAME else DashConfig.FULL_FRAME).id,
-    /**
-     * A debug build's switch "cap at 6 fps in the reserve" (D117, [DashConfig.RESERVE_CAP_FPS]); on by default. Off, the reserve limits neither the pace nor the bitrate, and the
-     * ride log only says when the reserve begins and ends: the reserve icon of the dash animates only with the bike in the reserve, where the cap drops every profile to 6 fps,
-     * so without this switch the profiles could never be compared at their own pace there. A release build always has it on ([sanitized]).
-     */
-    val reserveCapOn: Boolean = true,
+    val videoFrame: String = DashConfig.VIDEO_FRAME.id,
     /**
      * Experimental, a debug build's only (a release build always has it off, [sanitized]): the head unit tells Android Auto it is a MOTORCYCLE, under a vehicle id of its
      * own ([com.reau.app.aa.ServiceDiscoveryResponse.VEHICLE_ID_MOTORCYCLE]), see [aaConfig]. It counts from the next Android Auto session. Off, the announcement is the one it always was.
      */
     val experimentMotorcycle: Boolean = false,
 ) {
-    /** The size the stream's encoder is built for: [videoFrame] after [sanitized] (a release build: the dash's frame, 526x300; anything not [VideoChoice.MANUAL_FRAME] reads as that). */
+    /** The size the stream's encoder is built for: [videoFrame] after [sanitized] (528x304; the dash's own 526x300 only after the fall back, when no encoder takes 528x304). */
     val frameSize: DashConfig.FrameSize
-        get() = if (videoFrame == VideoChoice.MANUAL_FRAME.id) VideoChoice.MANUAL_FRAME else DashConfig.FULL_FRAME
-
-    /**
-     * The three choices of the video are pure (a debug build): no profile B, no start at half the pace and no halving of the bitrate while the picture is
-     * still. A release build keeps profiles A and B as they were ([com.reau.app.stream.StreamGovernor]).
-     */
-    val manualVideo: Boolean get() = com.reau.app.BuildConfig.DEBUG
-
-    /** What the pace is worth: the bitrate guide for it ([VideoChoice.recommendedKbps]), kbps. */
-    val recommendedKbps: Int get() = VideoChoice.recommendedKbps(fpsCeiling)
-
-    /** Whether the pace is one at which the dash's reserve icon may flicker ([VideoChoice.mayFlickerReserveIcon]): the settings say so beside the pace. */
-    val reserveIconMayFlicker: Boolean get() = VideoChoice.mayFlickerReserveIcon(fpsCeiling)
+        get() = if (videoFrame == DashConfig.VIDEO_FRAME.id) DashConfig.VIDEO_FRAME else DashConfig.FULL_FRAME
 
     /**
      * The bitrate the stream is built for and asked for: the chosen ceiling ([streamBitrateBps]) or, with
-     * [experimentAdaptiveBitrate], [DashConfig.EXPERIMENT_TARGET_BPS]. [sanitized] fixes [streamBitrateBps] in a release build; this is where the experiment lowers it.
+     * [experimentAdaptiveBitrate], [DashConfig.EXPERIMENT_TARGET_BPS]. [sanitized] fixes [streamBitrateBps]; this is where the experiment lowers it.
      */
     val effectiveStreamBitrateBps: Int get() = if (experimentAdaptiveBitrate) DashConfig.EXPERIMENT_TARGET_BPS else streamBitrateBps
 
@@ -440,23 +421,20 @@ data class REauSettings(
      * Every value brought into what is offered. Two are no longer choices: the
      * video clock runs at 0% slower and touching Android Auto from the phone is native (the frame size and the
      * instrument cluster experiment went from the code itself); the newer protocol and the focus clearing are fixed on. The two texts over
-     * the dash's video are kept only when [debugBuild] is true (the recordings are kept as stored in both builds). Four more are fixed, the stream's
-     * rate ceiling, bitrate, bitrate mode and keyframe: profile A is 4 fps / 400 kbps / constant / 1 s in a release build and profile B,
-     * its half in pace, 2 fps (the navigation profiles choose between them, [DashConfig.PROFILE_FULL_FPS]); a debug build keeps the rider's three
-     * independent choices ([fpsCeiling] 4 to 8, a stored 10 or 12 reading as 8, [streamBitrateBps] 400 to 1000 kbps by 100) in the fixed 528x304 picture ([videoFrame], whatever
-     * was stored), a value outside the offer reading as the nearest one, and a release build is always 4 fps / 400 kbps / 526x300), and the
+     * the dash's video are kept only when [debugBuild] is true (the recordings are kept as stored in both builds). Five more are fixed, in a debug and in a release build alike, the stream's
+     * rate ceiling, bitrate, picture, bitrate mode and keyframe: profile A is 6 fps / 400 kbps / constant / 1 s in 528x304 and profile B,
+     * its half in pace, 3 fps (the navigation profiles choose between them, [DashConfig.PROFILE_FULL_FPS]); whatever an older build stored for the pace, the ceiling or the
+     * picture (`video_fps`, `video_cap_bps`, `video_frame`, `video_profile`, `video_pace_fps`, `experiment_fps63`, `fps_ceiling`, `stream_bitrate`) is ignored. The
      * maneuver data and the two navigation profiles (by maneuver, by speed) are always on, the pessimistic one winning when they disagree
      * ([navProfileMode]).
      */
     fun sanitized(debugBuild: Boolean = com.reau.app.BuildConfig.DEBUG): REauSettings {
-        // The choices of the video are a debug build's: a release build is fixed at the dash's own values, and a value outside the offer is brought into it.
+        // The video is fixed (plan 32, 20/11/2026): whatever an older build stored for the pace, the ceiling or the picture is ignored, in a debug and in a release build.
         val framed = copy(
             // The two texts over the dash's video are a debug build's: a value left on by one build must not draw in the other.
             statsOverlay = statsOverlay && debugBuild,
             buttonOverlay = buttonOverlay && debugBuild,
-            videoFrame = (if (debugBuild) VideoChoice.MANUAL_FRAME else DashConfig.FULL_FRAME).id,
-            // The cap is on in a release build whatever a debug build left stored.
-            reserveCapOn = reserveCapOn || !debugBuild,
+            videoFrame = DashConfig.VIDEO_FRAME.id,
             // The motorcycle announcement is a debug build's experiment: a value left on by one build must not count in the other.
             experimentMotorcycle = experimentMotorcycle && debugBuild,
             clockSlowPercent = 0,
@@ -470,8 +448,8 @@ data class REauSettings(
             aaNewProtocol = true,
             maneuverFpsProfile = true,
             speedFpsProfile = true,
-            fpsCeiling = if (debugBuild) VideoChoice.clampFps(fpsCeiling) else DashConfig.PROFILE_FULL_FPS,
-            streamBitrateBps = if (debugBuild) VideoChoice.snapCapKbps(streamBitrateBps / KBPS) * KBPS else DashConfig.PROFILE_FULL_BPS,
+            fpsCeiling = DashConfig.PROFILE_FULL_FPS,
+            streamBitrateBps = DashConfig.PROFILE_FULL_BPS,
             bitrateMode = BitrateMode.CBR,
             keyframeSec = DashConfig.PROFILE_KEYFRAME_SEC,
             logKeepDays = logKeepDays.takeIf { it in LOG_KEEP_DAYS } ?: defaultLogKeepDays(debugBuild),
@@ -511,8 +489,8 @@ data class REauSettings(
 
     companion object {
         /**
-         * While Android Auto's app menu or another app is in front, the pace to the dash goes up to [DashConfig.LIGHT_SCREEN_FPS] (the profile's
-         * 4 fps on the navigation, which alone follows the profiles), so a joystick touch shows sooner: always, in a debug build and in a
+         * While Android Auto's app menu or another app is in front, the pace to the dash goes up to [DashConfig.LIGHT_SCREEN_FPS] (never above 6; profile B's
+         * 3 fps on the navigation, which alone follows the profiles), so a joystick touch shows sooner: always, in a debug build and in a
          * release (28/10/2026: it was a debug switch, now it has none). Tried on the bike in a debug build on 28/10/2026.
          */
         fun lightScreenFps(): Int = DashConfig.LIGHT_SCREEN_FPS
@@ -547,9 +525,8 @@ data class REauSettings(
         private const val DEFAULT_DENSITY = 180
         private const val DEFAULT_CROP = 74
         private const val DEFAULT_APPS_CROP = 64
-        private const val KBPS = 1000
 
-        private const val DEFAULT_STREAM_BITRATE = VideoChoice.DEFAULT_CAP_KBPS * KBPS
+        private const val DEFAULT_STREAM_BITRATE = DashConfig.PROFILE_FULL_BPS
         private const val DEFAULT_KEYFRAME_SEC = DashConfig.PROFILE_KEYFRAME_SEC
 
         /**

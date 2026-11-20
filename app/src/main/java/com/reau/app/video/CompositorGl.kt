@@ -91,7 +91,7 @@ internal class CompositorGl {
     val hasOutput: Boolean get() = windowSurface != EGL14.EGL_NO_SURFACE
 
     // The size of the output surface (the encoder's), which is also the area everything is composed in, 1:1: the picture's rectangle, the black bands and the
-    // overlays are all in its pixels, the overlays at the same pixels from the top left as in the dash's own 526x300 frame (nothing is scaled; a debug build's
+    // overlays are all in its pixels, the overlays at the same pixels from the top left as in the dash's own 526x300 frame (nothing is scaled; the
     // 528x304 only has 2 columns and 4 rows more, to the right and below). Only the dash's output has it: the preview, the web viewers' output and the
     // small copies of the picture are drawn at their own sizes.
     private var outputW = DashGlass.FRAME_W

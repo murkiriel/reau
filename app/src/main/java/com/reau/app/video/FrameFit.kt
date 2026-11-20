@@ -15,8 +15,7 @@ import kotlin.math.roundToInt
  * Every function takes the CONTENT rectangle of the source: the whole coded frame, or the area Android Auto was
  * told to draw in ([AaMargins.contentRect]). Nothing here stretches: source and destination keep one shape.
  *
- * Every function that places the picture on the dash also takes the AREA it is composed in, [DashConfig.FULL_FRAME] (526×300) unless a debug build
- * composes in [com.reau.app.dash.VideoChoice.MANUAL_FRAME] (528×304): Android Auto's picture fills that area by the same rules, and the round glass
+ * Every function that places the picture on the dash also takes the AREA it is composed in, [DashConfig.VIDEO_FRAME] (528×304; [DashConfig.FULL_FRAME], 526×300, after the fall back): Android Auto's picture fills that area by the same rules, and the round glass
  * ([DashGlass]) stays where it is (anchored at the top left, like every element drawn over the picture).
  */
 object FrameFit {
@@ -184,7 +183,7 @@ object FrameFit {
          *  no part of it is. */
         SOURCE_OUTSIDE_FRAME,
 
-        /** The destination rectangle is not inside the area the picture is composed in (the dash's 526×300 frame, or a debug build's 528×304). */
+        /** The destination rectangle is not inside the area the picture is composed in (528×304, or the dash's own 526×300 frame after the fall back). */
         DEST_OUTSIDE_FRAME,
 
         /** A side of either rectangle is under [MIN_SIDE] px. */

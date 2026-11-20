@@ -3,7 +3,6 @@ package com.reau.app.settings
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
-import com.reau.app.dash.VideoChoice
 import com.reau.app.video.FrameFit
 import com.reau.app.video.RectPx
 
@@ -34,23 +33,6 @@ class SettingsStore(private val prefs: SharedPreferences) {
                 navFit = loaded.navFit.placedOwn(content, NAV_KEYS, defaults.navFit),
             )
             .sanitized()
-    }
-
-    /**
-     * The two choices of the video as stored (pace, ceiling). The old `video_frame` key (the picture, a choice until 20/11/2026) is never read: the picture is fixed. Once the new keys are saved they are the only ones read, so a later change is
-     * never undone by an older key still lying in the file. A phone that never saved them takes the choice from what it replaced: the profile id
-     * (`video_profile`, [VideoChoice.fromLegacyProfile]), else the pace alone (`video_pace_fps`, as the first profile of that pace), else the experiment
-     * "6/3 fps" on as the profile "6"; none of them is [default].
-     */
-    private fun storedVideo(default: VideoChoice.Choice): VideoChoice.Choice = when {
-        prefs.contains(KEY_VIDEO_FPS) -> VideoChoice.Choice(
-            prefs.getInt(KEY_VIDEO_FPS, default.fps),
-            prefs.getInt(KEY_VIDEO_CAP, default.capKbps * KBPS) / KBPS,
-        )
-        prefs.contains(KEY_VIDEO_PROFILE) -> VideoChoice.fromLegacyProfile(prefs.getString(KEY_VIDEO_PROFILE, null)) ?: VideoChoice.fromLegacyPace(0)
-        prefs.contains(KEY_VIDEO_PACE) -> VideoChoice.fromLegacyPace(prefs.getInt(KEY_VIDEO_PACE, 0))
-        prefs.getBoolean(KEY_EXPERIMENT_FPS63, false) -> checkNotNull(VideoChoice.fromLegacyProfile(MIGRATED_EXPERIMENT_PROFILE))
-        else -> default
     }
 
     /**
@@ -184,7 +166,6 @@ class SettingsStore(private val prefs: SharedPreferences) {
     @Suppress("LongMethod") // one line per setting, in the order of the class
     private fun loadAllButThePlaces(): REauSettings {
         val defaults = REauSettings()
-        val video = storedVideo(VideoChoice.Choice(defaults.fpsCeiling, defaults.streamBitrateBps / KBPS))
         return REauSettings(
             density = prefs.getInt(KEY_DENSITY, defaults.density),
             marginW = prefs.getInt(KEY_MARGIN_W, defaults.marginW),
@@ -198,8 +179,8 @@ class SettingsStore(private val prefs: SharedPreferences) {
             menuFit = menuFitOr(defaults.menuFit ?: defaults.appsFit, defaults.menuFit != null),
             menuFitKept = menuFitOr(defaults.menuFitKept, on = null) ?: defaults.menuFitKept,
             navFit = ownFit(NAV_KEYS, defaults.navFit),
-            fpsCeiling = video.fps,
-            streamBitrateBps = video.capKbps * KBPS,
+            // The pace, the ceiling and the picture of the video are fixed ([REauSettings.sanitized]): the keys older builds stored (video_fps, video_cap_bps, video_frame,
+            // video_profile, video_pace_fps, experiment_fps63, fps_ceiling, stream_bitrate) are neither read nor written, and are left in the file.
             bitrateMode = enumOr(prefs.getString(KEY_BITRATE_MODE, null), defaults.bitrateMode),
             keyframeSec = prefs.getInt(KEY_KEYFRAME, defaults.keyframeSec),
             clockSlowPercent = prefs.getInt(KEY_CLOCK, defaults.clockSlowPercent),
@@ -276,7 +257,6 @@ class SettingsStore(private val prefs: SharedPreferences) {
             experimentTolerantRx = prefs.getBoolean(KEY_EXPERIMENT_TOLERANT_RX, defaults.experimentTolerantRx),
             experimentWakeAa = prefs.getBoolean(KEY_EXPERIMENT_WAKE_AA, defaults.experimentWakeAa),
             experimentEncoderLowLatency = prefs.getBoolean(KEY_EXPERIMENT_ENCODER_LOW_LATENCY, defaults.experimentEncoderLowLatency),
-            reserveCapOn = prefs.getBoolean(KEY_RESERVE_CAP, defaults.reserveCapOn),
             experimentMotorcycle = prefs.getBoolean(KEY_EXPERIMENT_MOTORCYCLE, defaults.experimentMotorcycle),
         ).sanitized()
     }
@@ -394,9 +374,6 @@ class SettingsStore(private val prefs: SharedPreferences) {
             putBoolean(KEY_EXPERIMENT_TOLERANT_RX, s.experimentTolerantRx)
             putBoolean(KEY_EXPERIMENT_WAKE_AA, s.experimentWakeAa)
             putBoolean(KEY_EXPERIMENT_ENCODER_LOW_LATENCY, s.experimentEncoderLowLatency)
-            putInt(KEY_VIDEO_FPS, s.fpsCeiling)
-            putInt(KEY_VIDEO_CAP, s.streamBitrateBps)
-            putBoolean(KEY_RESERVE_CAP, s.reserveCapOn)
             putBoolean(KEY_EXPERIMENT_MOTORCYCLE, s.experimentMotorcycle)
         }
     }
@@ -455,7 +432,6 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val PERCENT = 100
         private const val KEY_MENU_MOVE_X = "menu_move_x"
         private const val KEY_MENU_MOVE_Y = "menu_move_y"
-        private const val KBPS = 1000
         private const val KEY_BITRATE_MODE = "bitrate_mode"
         private const val KEY_KEYFRAME = "keyframe_sec"
         private const val OLD_KEY_REDUCTION = "reduction_filter"
@@ -523,20 +499,6 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val KEY_EXPERIMENT_TOLERANT_RX = "experiment_tolerant_rx"
         private const val KEY_EXPERIMENT_WAKE_AA = "experiment_wake_aa"
         private const val KEY_EXPERIMENT_ENCODER_LOW_LATENCY = "experiment_encoder_low_latency"
-        /** The profile the old experiment meant: its full profile at 6 fps. */
-        private const val MIGRATED_EXPERIMENT_PROFILE = "6"
-
-        /** The key of the profile id of the first plan-32 build; only read, to migrate. */
-        private const val KEY_VIDEO_PROFILE = "video_profile"
-        private const val KEY_VIDEO_FPS = "video_fps"
-        private const val KEY_VIDEO_CAP = "video_cap_bps"
-        private const val KEY_RESERVE_CAP = "reserve_cap"
-
-        /** The key of the pace alone that the profile ids replaced; only read, to migrate (plan 32). */
-        private const val KEY_VIDEO_PACE = "video_pace_fps"
-
-        /** The key of the experiment "video at 6 fps (3 in the reduced profile)" that the pace chooser replaced; only read, to migrate (plan 32). */
-        private const val KEY_EXPERIMENT_FPS63 = "experiment_fps63"
         private const val KEY_EXPERIMENT_MOTORCYCLE = "experiment_motorcycle"
         private const val OLD_KEY_AA_SLOW_PACE = "aa_slow_pace"
         private const val OLD_KEY_AA_SLOW_PACE_FPS = "aa_slow_pace_fps"

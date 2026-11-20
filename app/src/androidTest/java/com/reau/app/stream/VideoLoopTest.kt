@@ -375,7 +375,7 @@ class VideoLoopTest {
         val all = steadyUnits(tickMs = 125, count = 18)
         stopSource()
 
-        assertTrue("got $log", log.any { "video loop start: 8 fps (ceiling 8)" in it })
+        assertTrue("got $log", log.any { "video loop start: 8 fps (ceiling 8," in it })
         val steps = stepsMs(all)
         assertTrue("most frames 125 ms apart, got $steps", steps.count { it == 125L } >= steps.size * 8 / 10)
         assertTrue("no frame closer than 125 ms to the one before (that would be above the ceiling), got $steps", steps.all { it >= 125L })
@@ -398,7 +398,13 @@ class VideoLoopTest {
         while (log.none { it.startsWith("video fps target=4") && "full=true" in it } && System.currentTimeMillis() < deadline) Thread.sleep(200)
         stopSource()
 
-        assertTrue("got $log", log.any { "video loop start: 4 fps (ceiling 4), keyframe 1s fixed (encoder asked 1 (every 4 frames at the hint), pace up to 4 fps), 200 kbps (200 chosen) CBR" in it })
+        assertTrue(
+            "got $log",
+            log.any {
+                "video loop start: 4 fps (ceiling 4, profile A 4 fps / 200 kbps, B 2 fps / 200 kbps), fixed video 4 fps / 200 kbps cap / 526x300 (load 2508 MB/s), " +
+                    "keyframe 1s fixed (encoder asked 1 (every 4 frames at the hint), pace up to 4 fps), 200 kbps (200 chosen) CBR" in it
+            },
+        )
         val line = log.first { it.startsWith("video fps target=4") && "full=true" in it }
         assertTrue(line, "speed~72km/h(max 72) wifi=-60dBm/52Mbps(worst)" in line)
         assertTrue(line, " kf=1s " in line)

@@ -22,7 +22,7 @@ import java.util.Random
 /** One stream configuration. The two real ones are what `REauSettings.sanitized()` leaves: [REAL_400] and, with the adaptive bitrate experiment, [REAL_200]. */
 internal data class GovernorConfig(val name: String, val ceilingFps: Int, val bitrateBps: Int, val keyframeSec: Int, val lightScreenFps: Int) {
     companion object {
-        /** The stream as a release build starts it (4 fps, 400 kbps; a debug build's own choices are PaceGovernorTest's): the rider's settings, sanitized, through `VideoLoop.Settings.withRider`. */
+        /** The stream as the app starts it, in a debug and in a release build alike (6 fps, 400 kbps; PaceGovernorTest has the rest): the rider's settings, sanitized, through `VideoLoop.Settings.withRider`. */
         fun real(adaptiveBitrate: Boolean): GovernorConfig {
             val s = VideoLoop.Settings().withRider(REauSettings(experimentAdaptiveBitrate = adaptiveBitrate).sanitized(debugBuild = false))
             return GovernorConfig("${s.bitrateBps / 1000} kbps", s.ceilingFps, s.bitrateBps, s.keyframeSec, s.lightScreenFps)
@@ -185,7 +185,7 @@ internal class GovernorBench(val governor: StreamGovernor, private val config: G
  * them changed. A poll with no action and no change has no line (the last line says how many polls ran), so a trace stays short enough
  * to read in a review.
  *
- * The text in brackets after `auto=4fps` (the ladder's own state: `at ceiling`, `healthy 2/3`…) is written as `[*]`: the owner chose
+ * The text in brackets after `auto=6fps` (the ladder's own state: `at ceiling`, `healthy 2/3`…) is written as `[*]`: the owner chose
  * (14/11/2026) that the cut replaces it with a stateless text, and it is the one thing of the line allowed to change. The number before
  * it stays in the trace.
  */
@@ -312,11 +312,11 @@ internal object GovernorCases {
             Script.of(Scene(confirmed = false)) { hold(6.0, "the map moves, the dash has confirmed nothing yet") },
         ),
         GovernorCase(
-            "02-moving-no-route", "4 fps at the full bitrate, one sync=pace a second",
+            "02-moving-no-route", "6 fps at the ceiling bitrate, the encoder's own keyframes (no sync=pace at the encoder's own pace)",
             Script.of { hold(12.0, "first frame confirmed, the map moves, no route") },
         ),
         GovernorCase(
-            "03-still-screen", "half the bitrate 1.5 s after the last new picture, sync=idle every 2 s",
+            "03-still-screen", "the bitrate stays the ceiling while the screen is still (it is no longer halved), the encoder's own keyframe every 2 s at the idle pace, no sync=idle",
             Script.of {
                 hold(3.0, "the map moves")
                 hold(9.0, "the screen is still") { copy(moving = false) }
@@ -324,14 +324,14 @@ internal object GovernorCases {
             },
         ),
         GovernorCase(
-            "04-route-far", "2 fps and 200 kbps once the distance moved 200 m in the far zone, and no rebuild",
+            "04-route-far", "3 fps at the same bitrate once the distance moved 200 m in the far zone, and no rebuild",
             Script.of {
                 hold(3.0, "a route, 2000 m from the maneuver, 40 km/h") { copy(route = slowFar) }
                 hold(15.0, "1790 m from the maneuver") { copy(route = slowFar.copy(meters = 1790)) }
             },
         ),
         GovernorCase(
-            "05-route-near-again", "back to 4 fps under 1000 m, but only once the reduced tier was kept 10 s",
+            "05-route-near-again", "back to 6 fps under 1000 m, but only once the reduced tier was kept 10 s",
             Script.of {
                 hold(1.0, "a route, 2000 m from the maneuver, 40 km/h") { copy(route = slowFar) }
                 hold(13.0, "1790 m: reduced once the first tier was kept 10 s") { copy(route = slowFar.copy(meters = 1790)) }
@@ -339,7 +339,7 @@ internal object GovernorCases {
             },
         ),
         GovernorCase(
-            "06-fast-near", "2 fps: the speed profile says reduced and the pessimistic mode takes it",
+            "06-fast-near", "3 fps: the speed profile says reduced and the pessimistic mode takes it",
             Script.of { hold(8.0, "a route, 500 m from the maneuver, 70 km/h") { copy(route = fastNear) } },
         ),
         GovernorCase("07-speed-wobble", "one tier change every 10 s at most, however often the speed crosses the band", speedWobble(seconds = 90)),
@@ -351,7 +351,7 @@ internal object GovernorCases {
             },
         ),
         GovernorCase(
-            "09-route-data-gaps", "the tier is held 7 s without data, then falls to none (4 fps)",
+            "09-route-data-gaps", "the tier is held 7 s without data, then falls to none (6 fps)",
             Script.of {
                 hold(4.0, "a route, 500 m from the maneuver, 70 km/h") { copy(route = fastNear) }
                 hold(5.0, "no distance and no speed for 5 s") { copy(route = noData) }
@@ -361,7 +361,7 @@ internal object GovernorCases {
             },
         ),
         GovernorCase(
-            "10-menu-in-reduced-profile", "6 fps at the full bitrate on the app menu, back 500 ms after leaving it",
+            "10-menu-in-reduced-profile", "profile B's 3 fps goes to 6 on the app menu, at the same bitrate, and back 500 ms after leaving it",
             Script.of {
                 hold(4.0, "a route, 500 m from the maneuver, 70 km/h") { copy(route = fastNear) }
                 hold(6.0, "the app menu of Android Auto") { copy(menu = true) }
@@ -394,14 +394,14 @@ internal object GovernorCases {
             },
         ),
         GovernorCase(
-            "14-encoder-short", "the pace stays 4 (the floor) with 3 frames of 4 coming out; only the bracket would say it",
+            "14-encoder-short", "the pace stays 6 with 3 frames of 4 coming out; only the bracket would say it",
             Script.of {
                 hold(6.0, "the map moves, every frame comes out")
                 hold(21.0, "the encoder gives out 3 frames of 4") { copy(deliveryPermille = 750) }
             },
         ),
         GovernorCase(
-            "15-encoder-failed", "the rebuild carries the bitrate applied now (still, reduced), not the full one",
+            "15-encoder-failed", "the rebuild carries the bitrate applied now, the ceiling at every moment (still, reduced)",
             Script.of {
                 hold(2.0, "the map moves, no route")
                 hold(3.0, "the screen is still") { copy(moving = false) }

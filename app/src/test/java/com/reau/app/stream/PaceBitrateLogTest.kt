@@ -26,11 +26,10 @@ class PaceBitrateLogTest {
     }
 
     @Test
-    fun `a change of pace puts the following polls in the new line, in the order A, B, light, reserve`() {
+    fun `a change of pace puts the following polls in the new line, in the order A, B, light`() {
         val l = log()
         var now = 0L
         fun poll(kind: Kind, fps: Int, bytes: Long) { now += 1_000; l.add(kind, fps, frames = fps, bytes = bytes, nowMs = now) }
-        poll(Kind.RESERVE, 6, 50_000)
         poll(Kind.LIGHT, 6, 36_250)
         poll(Kind.B, 4, 25_625)
         poll(Kind.A, 8, 64_000)
@@ -39,23 +38,8 @@ class PaceBitrateLogTest {
         val line = l.line()!!
         assertEquals(
             "bitrate by pace: A 8 fps avg 512 kbps 8.0 fps sent 0.0 min; B 4 fps avg 205 kbps 4.0 fps sent 0.0 min; " +
-                "light 6 fps avg 290 kbps 6.0 fps sent 0.0 min; reserve 6 fps avg 400 kbps 6.0 fps sent 0.0 min",
+                "light 6 fps avg 290 kbps 6.0 fps sent 0.0 min",
             line,
-        )
-    }
-
-    @Test
-    fun `the reserve without the ceiling is a line of its own, after the reserve with it`() {
-        assertEquals("reserve (no cap)", Kind.RESERVE_UNCAPPED.label)
-        assertTrue(Kind.RESERVE.ordinal < Kind.RESERVE_UNCAPPED.ordinal)
-        val l = log()
-        l.add(Kind.RESERVE_UNCAPPED, 8, 8, 64_000, 1_000)
-        l.add(Kind.RESERVE, 6, 6, 50_000, 2_000)
-        l.add(Kind.A, 8, 8, 64_000, 3_000)
-        assertEquals(
-            "bitrate by pace: A 8 fps avg 512 kbps 8.0 fps sent 0.0 min; reserve 6 fps avg 400 kbps 6.0 fps sent 0.0 min; " +
-                "reserve (no cap) 8 fps avg 512 kbps 8.0 fps sent 0.0 min",
-            l.line(),
         )
     }
 

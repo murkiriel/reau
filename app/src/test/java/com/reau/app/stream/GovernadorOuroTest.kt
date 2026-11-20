@@ -1,6 +1,7 @@
 package com.reau.app.stream
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -16,14 +17,15 @@ import java.security.MessageDigest
  * - `NN-name.txt`: one case of the table, readable, both configurations in the one file;
  * - `digests.txt`: the SHA-256 of the traces that are too long to read (the seeded sequences, and case 7 at its 11 minutes).
  *
- * THE GOLDEN FILES WERE RECORDED FROM THE CODE BEFORE THE FPS LADDER WAS CUT (step G0, 14/11/2026) AND ARE ONLY READ FROM THEN ON.
- * The commit that cuts the ladder (step G1), and the one that cuts the automatic keyframe (G2), must pass with these files untouched:
- * that the files did not move is what the proof is, and `git diff` of those commits shows it. Recording them again there, "to pass",
- * would be cheating. The one thing of a trace that is allowed to change with the cut is the text in brackets after `auto=4fps`, and the
- * trace already holds it as `[*]`.
+ * THE GOLDEN FILES WERE FIRST RECORDED FROM THE CODE BEFORE THE FPS LADDER WAS CUT (step G0, 14/11/2026), and the commits that cut the ladder (G1) and the
+ * automatic keyframe (G2) passed with them untouched: that is the proof of those cuts. They were RECORDED AGAIN, on purpose, once: on 20/11/2026 the owner fixed the
+ * video of every build at 6 fps (profile A) and 3 fps (profile B), both at the 400 kbps ceiling, in the 528x304 picture (plan 32), and the stream stopped halving its
+ * bitrate (a still picture, profile B and the start ramp change the pace only). What the new files show of the old ones: the paces are 6 and 3 where they were 4 and 2
+ * (the start ramp is the 3 fps still pace, 334 ms), the encoder is built for 6 (so its own keyframes do for profile A, and `sync=pace` is only profile B's),
+ * the light screens stay at 6, and no trace has a `bitrate=` after the first one (it was 400/200 kbps, and a half of each, before). The checks below say it.
  *
  * To record (only when a case is added, or the bench itself changes, on code whose behaviour is known to be the wanted one; say so in the
- * commit, and never together with a change of `app/src/main`):
+ * commit, and never together with a change of `app/src/main`, except for the fixed video of plan 32):
  *
  *     REAU_GRAVAR_OURO=1 ./gradlew --offline :app:testDebugUnitTest --tests '*.GovernadorOuroTest' --rerun
  *
@@ -103,10 +105,10 @@ class GovernadorOuroTest {
     }
 
     @Test
-    fun `a trace hides the ladder's own text and nothing else, and the rate before it is 4 in every window`() {
-        val line = "video fps target=4 sent=4.0 kf=1s idr=5(max 15000B/11pkt) sync=5[pace:5] auto=4fps [healthy 2/3] compose_max=- wake=20(4.0/s)"
+    fun `a trace hides the ladder's own text and nothing else, and the rate before it is 6 in every window`() {
+        val line = "video fps target=6 sent=6.0 kf=1s idr=5(max 15000B/11pkt) sync=5[pace:5] auto=6fps [healthy 2/3] compose_max=- wake=20(6.0/s)"
         assertEquals(
-            "video fps target=4 sent=4.0 kf=1s idr=5(max 15000B/11pkt) sync=5[pace:5] auto=4fps [*] compose_max=- wake=20(4.0/s)",
+            "video fps target=6 sent=6.0 kf=1s idr=5(max 15000B/11pkt) sync=5[pace:5] auto=6fps [*] compose_max=- wake=20(6.0/s)",
             GovernorTrace.withoutLadderState(line),
         )
         assertEquals("healthy 2/3", GovernorTrace.ladderStateOf(line))
@@ -115,8 +117,8 @@ class GovernadorOuroTest {
             for (case in GovernorCases.ALL) {
                 for (window in trace(config, case.steps).filter { GovernorTrace.WINDOW_LINE in it }) {
                     windows++
-                    assertEquals("${case.file}, ${config.name}: $window", 4, GovernorTrace.autoFpsOf(window))
-                    assertTrue("${case.file}, ${config.name}: $window", window.contains("auto=4fps [*]") && " kf=1s " in window)
+                    assertEquals("${case.file}, ${config.name}: $window", 6, GovernorTrace.autoFpsOf(window))
+                    assertTrue("${case.file}, ${config.name}: $window", window.contains("auto=6fps [*]") && " kf=1s " in window)
                 }
             }
         }
@@ -124,14 +126,18 @@ class GovernadorOuroTest {
     }
 
     @Test
-    fun `the table really shows the three paces, both bitrates, the three kinds of keyframe request and a rebuild after a failure`() {
+    fun `the table really shows the paces of the fixed video, the bitrate set once, the kinds of keyframe request and a rebuild after a failure`() {
         val all = GovernorCases.ALL.flatMap { case -> GovernorConfig.REAL.flatMap { trace(it, case.steps) } }.joinToString("\n")
+        // The fixed video: the start ramp (334 ms), profile A (167 ms), profile B (333 ms, the exact half of the pace), and the bitrate set once, at the start, whatever the picture does.
+        assertEquals("the bitrate is set once per stream and nothing moves it", 2 * GovernorCases.ALL.size, Regex("""bitrate=\d+""").findAll(all).count())
+        assertTrue("no bitrate below the ceilings (400 kbps; 300 for the 200 kbps experiment, raised to give a 6 fps frame its bits)", "bitrate=100000" !in all && "bitrate=200000" !in all)
+        assertFalse("no idle sync: the encoder's own keyframes do at the idle pace", "sync=idle" in all)
         for (shown in listOf(
-            "pace=500/500", "pace=250/500", "pace=167/334", "bitrate=400000", "bitrate=200000", "bitrate=100000",
-            "sync=stream start", "sync=pace", "sync=idle", "syncRequested(withheld)", "encoder failed, rebuildAction(): rebuild(fps=4 keyframeSec=1 bitrateBps=100000 encoderKeyframeSec=2)",
+            "pace=334/334", "pace=167/334", "pace=333/666", "bitrate=400000", "bitrate=300000",
+            "sync=stream start", "sync=pace", "syncRequested(withheld)", "encoder failed, rebuildAction(): rebuild(fps=6 keyframeSec=1 bitrateBps=400000 encoderKeyframeSec=1)",
             "nav profile: none -> FULL", "nav profile: FULL -> REDUCED", "nav profile: REDUCED -> FULL", "nav profile: REDUCED -> none (no data for 7 s)",
-            "light screen: pace up to 6 fps", "light screen: pace back to the profile's 2 fps", " dash=", "thermal=OK",
-            "fps=2 profileFps=2 encoderFps=4 gopFps=6 encoderKeyframeSec=2 keyframeSec=1", "fps=6 profileFps=2", "fps=6 profileFps=4",
+            "light screen: pace up to 6 fps", "light screen: pace back to the profile's 3 fps", " dash=", "thermal=OK",
+            "fps=3 profileFps=3 encoderFps=6 gopFps=6 encoderKeyframeSec=1 keyframeSec=1", "fps=6 profileFps=3", "fps=6 profileFps=6",
         )) {
             assertTrue("no trace shows `$shown`", shown in all)
         }

@@ -74,7 +74,7 @@ object CompositorMath {
 
     /**
      * An overlay [box] (pixels from the top left of the output, its size the overlay's) on a [areaW]×[areaH] output (1:1: the pixel is the output's own, so a
-     * debug build's 528×304 keeps every overlay at the pixel it has in the dash's 526×300 frame).
+     * 528×304 keeps every overlay at the pixel it has in the dash's 526×300 frame).
      */
     fun overlayQuad(box: RectPx, areaW: Int, areaH: Int): Quad = Quad(
         left = box.x.toFloat() / areaW * 2f - 1f,

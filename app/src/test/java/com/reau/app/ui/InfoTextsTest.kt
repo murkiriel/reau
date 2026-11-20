@@ -54,7 +54,7 @@ class InfoTextsTest {
         assertTrue("${infoNames.size} info texts", infoNames.size >= 44)
         val inEnglish = texts.filter { it.first.path.contains("/values/") }.map { it.second }.toSet()
         assertEquals("not in the English texts: ${infoNames - inEnglish}", emptySet<String>(), infoNames - inEnglish)
-        for (name in listOf("bike_range_info", "info_ring_info", "weather_info", "use_location", "dash_music", "web_view_long", "profiles_info")) {
+        for (name in listOf("bike_range_info", "info_ring_info", "weather_info", "use_location", "dash_music", "web_view_long")) {
             assertTrue("$name is not found", name in infoNames)
         }
     }

@@ -24,7 +24,7 @@ object SettingsInUse {
         "statsOverlay", "buttonOverlay", "dashPhoneStatus", "dashAlbumArt", "dashWeather", "infoRing", "infoRingData", "infoRingCarousel", "infoRingSeconds",
         "infoRingInPlace", "infoTitle",
         "maneuverRing", "webView", "webTouch", "webAudio",
-        "videoFrame", "reserveCapOn",
+        "videoFrame",
         "experimentMotorcycle",
         "experimentRtpPacing", "experimentDebugDscp", "experimentAdaptiveBitrate", "experimentWifiBind", "experimentStartGuard",
         "experimentEncoderWatch", "experimentFocusGap", "experimentNightMemory", "experimentEncoderLowLatency",

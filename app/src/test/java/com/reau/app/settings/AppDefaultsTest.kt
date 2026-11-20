@@ -21,9 +21,9 @@ class AppDefaultsTest {
         assertEquals(FitParams(Fit.WHOLE_VISIBLE, 64, -34, 54, 20, 0), s.appsFit)
         assertEquals(FitParams(Fit.WHOLE_VISIBLE, 90, 32, 20, 20, 0), s.menuFit)
         assertEquals(FitParams(Fit.CROP, 74, 90, 62, 0, 0), s.navFit)
-        // A debug build starts at 6 fps (VideoChoiceStoreTest); the conservative envelope for the video is the release's 4 (profile 1, FixedProfilesTest).
+        // The video is fixed at 6 fps in a debug and in a release build (profile A, FixedProfilesTest).
         assertEquals(6, s.fpsCeiling)
-        assertEquals(4, s.sanitized(debugBuild = false).fpsCeiling)
+        assertEquals(6, s.sanitized(debugBuild = false).fpsCeiling)
         assertEquals(MapTheme.AUTO, s.mapTheme)
         assertEquals(com.reau.app.dash.NavProfileMode.PESSIMISTA, s.navProfileMode)
         assertEquals(joystick, s.joystick)
@@ -80,8 +80,8 @@ class AppDefaultsTest {
         val s = SettingsStore(prefs).load()
         assertEquals(160, s.density)
         assertEquals("the fill-the-dome of before reads as the whole picture", Fit.WHOLE_VISIBLE, s.fit)
-        // But for the video, which an older store gets conservative once (the old pace key is not read: the debug default is 6, a release is fixed at 4).
-        assertEquals(if (com.reau.app.BuildConfig.DEBUG) 6 else 4, s.fpsCeiling)
+        // But for the video, which an older store gets conservative once (the old pace key is not read: the video is fixed at 6 fps).
+        assertEquals(6, s.fpsCeiling)
         assertEquals("the menu's own fit switched off stays off", null, s.menuFit)
         assertEquals(false, s.gemini)
         assertEquals("media.up.once=HOME", s.joystick)

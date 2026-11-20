@@ -22,20 +22,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.reau.app.R
-import com.reau.app.dash.DashConfig
-import com.reau.app.dash.VideoChoice
 import com.reau.app.settings.REauSettings
 import com.reau.app.ui.components.Info
 import com.reau.app.ui.components.LockedRow
 import com.reau.app.ui.components.MsIcon
-import com.reau.app.ui.components.SegmentedRow
-import com.reau.app.ui.components.SliderRow
-import com.reau.app.ui.components.SwitchRow
 import com.reau.app.ui.components.hairline
 import com.reau.app.ui.theme.REauSpace
 
-// The stream's rate ceiling, bitrate, mode and keyframe are fixed, in two profiles (the four rows, under the Android
-// Auto group of SettingsScreen.kt, are only shown). Each used to be a choice.
+// The stream's rate, bitrate, picture, mode and keyframe are fixed, in two profiles (the rows, behind "Detalhes" in the video group of SettingsScreen.kt,
+// are only shown). The first three used to be choices of a debug build.
 
 /** The two video profiles by name and one short line each, and nothing else: no number (those are behind [ProfileDetailsRow]). */
 @Composable
@@ -48,7 +43,7 @@ internal fun ProfileNameRow(titleRes: Int, subRes: Int, tag: String) {
  * and is closed again at the next visit to the screen.
  */
 @Composable
-internal fun ProfileDetailsRow(s: REauSettings, change: (REauSettings) -> Unit) {
+internal fun ProfileDetailsRow(s: REauSettings) {
     var open by rememberSaveable { mutableStateOf(ProfileDetails.START_OPEN) }
     Column(Modifier.fillMaxWidth()) {
         Row(
@@ -74,65 +69,27 @@ internal fun ProfileDetailsRow(s: REauSettings, change: (REauSettings) -> Unit) 
         }
         if (ProfileDetails.rowsShown(open).isNotEmpty()) {
             HorizontalDivider(thickness = 1.dp, color = hairline(0.14f, 0.6f))
-            StreamProfileRows(s, change)
+            StreamProfileRows(s)
         }
     }
 }
 
 /**
- * The stream's values (REauSettings.sanitized). A release build only shows them, locked: 4 fps, 400 kbps, the two profiles A and B. A debug build has the
- * two choices, independent of each other (plan 32): the pace ([VideoChoice.FPS_OPTIONS]) with the warning of 8 fps beside it, the bitrate ceiling (a slider,
- * 400 to 1000 kbps by 100, with the guide for the pace beside it), then the reserve's switch. The picture is fixed ([VideoChoice.MANUAL_FRAME]), so it has no row.
- * Nothing is forced by the guide or the warning. The navigation profiles below choose between A and B in a release build only.
+ * The stream's values (REauSettings.sanitized), the same in a debug and in a release build and none of them a choice: one line to read
+ * ("Video: 6 fps, 400 kbps, 528x304 (fixed)", tag `video_fixed`), then the bitrate mode and the keyframe, locked. The pace, the ceiling and the picture used to be
+ * choices of a debug build (plan 32); the dash showed why they are not (it does not stretch a smaller picture, it freezes when the size changes with the video
+ * running, it ignores the buttons at 12 fps and flickers the reserve icon at 8). The navigation profiles below choose between A and B.
  */
 @Composable
-internal fun StreamProfileRows(s: REauSettings, change: (REauSettings) -> Unit) {
-    if (com.reau.app.BuildConfig.DEBUG) {
-        SegmentedRow(
-            stringResource(R.string.fps_title),
-            VideoChoice.FPS_OPTIONS.map { stringResource(R.string.pace_option, it) to "pace_$it" },
-            VideoChoice.FPS_OPTIONS.indexOf(s.fpsCeiling).coerceAtLeast(0), { change(s.copy(fpsCeiling = VideoChoice.FPS_OPTIONS[it])) },
-            sub = stringResource(R.string.pace_sub, DashConfig.RESERVE_CAP_FPS),
-            now = true, tag = "fps",
-        )
-        SliderRow(
-            stringResource(R.string.bitrate_cap_title), s.streamBitrateBps / KBPS,
-            VideoChoice.CAP_MIN_KBPS, VideoChoice.CAP_MAX_KBPS, VideoChoice.CAP_STEP_KBPS,
-            { stringResource(R.string.bitrate_value, it) }, { change(s.copy(streamBitrateBps = it * KBPS)) }, "bitrate",
-            sub = stringResource(R.string.bitrate_cap_sub, s.recommendedKbps), now = true,
-        )
-        if (s.reserveIconMayFlicker) FlickerWarning()
-        // A debug build's switch to compare the choices in the reserve: the dash's reserve icon animates only there, where the cap would take every pace to 6 fps.
-        SwitchRow(
-            stringResource(R.string.reserve_cap_title, DashConfig.RESERVE_CAP_FPS), s.reserveCapOn, { change(s.copy(reserveCapOn = it)) }, "reserve_cap",
-            sub = stringResource(R.string.reserve_cap_sub, DashConfig.RESERVE_CAP_FPS), now = true,
-        )
-    } else {
-        LockedRow(
-            stringResource(R.string.fps_title), "${s.fpsCeiling}", "fps",
-            sub = stringResource(R.string.profiles_fps_sub, s.fpsCeiling, s.fpsCeiling / 2),
-            info = Info(
-                stringResource(R.string.fps_title),
-                stringResource(R.string.profiles_info, s.fpsCeiling, s.streamBitrateBps / KBPS, s.fpsCeiling / 2, s.streamBitrateBps / 2 / KBPS),
-            ),
-        )
-        LockedRow(
-            stringResource(R.string.bitrate_title), stringResource(R.string.bitrate_value, s.streamBitrateBps / KBPS), "bitrate",
-            sub = stringResource(R.string.profiles_bitrate_sub, s.streamBitrateBps / KBPS, s.streamBitrateBps / 2 / KBPS),
-        )
-    }
+internal fun StreamProfileRows(s: REauSettings) {
+    val frame = s.frameSize
+    Text(
+        stringResource(R.string.video_fixed_line, s.fpsCeiling, s.streamBitrateBps / KBPS, "${frame.width}\u00d7${frame.height}"),
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp).testTag("video_fixed"),
+        color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium,
+    )
     LockedRow(stringResource(R.string.bitrate_mode_title), stringResource(R.string.bitrate_cbr), "bitrate_mode")
     LockedRow(stringResource(R.string.keyframe_title), "${s.keyframeSec} s", "keyframe")
-}
-
-/** The warning of a pace at which the dash's reserve icon may flicker (8 fps): only a line, the pace is the rider's to keep (tag `flicker_warning`). */
-@Composable
-private fun FlickerWarning() {
-    Text(
-        stringResource(R.string.flicker_warning, VideoChoice.FPS_OPTIONS.last(), DashConfig.RESERVE_CAP_FPS),
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp).testTag("flicker_warning"),
-        color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
-    )
 }
 
 private const val KBPS = 1000

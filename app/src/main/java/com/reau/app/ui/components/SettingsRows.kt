@@ -23,14 +23,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -139,42 +136,6 @@ fun SegmentedRow(
             options.forEachIndexed { i, (label, optionTag) -> Segment(label, i == selected, optionTag, Modifier) { onSelect(i) } }
         }
     })
-}
-
-/**
- * A whole number on a slider with stops every [step] from [min] to [max] (tags `<tag>`, `<tag>_value` at the right and `<tag>_slider`). The text at the right
- * follows the thumb while it is dragged; [onChange] is called once, when the thumb is let go, so a setting that restarts the video is not changed at every stop passed.
- */
-@Composable
-fun SliderRow(
-    title: String,
-    value: Int,
-    min: Int,
-    max: Int,
-    step: Int,
-    valueText: @Composable (Int) -> String,
-    onChange: (Int) -> Unit,
-    tag: String,
-    sub: String? = null,
-    now: Boolean = false,
-    info: Info? = null,
-) {
-    var dragging by remember(value) { mutableFloatStateOf(value.toFloat()) }
-    SettingRow(
-        title, sub, now, info, null, tag, Modifier, "${tag}_row",
-        trailing = {
-            Text(
-                valueText(dragging.toInt()), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.testTag("${tag}_value"),
-            )
-        },
-        below = {
-            Slider(
-                value = dragging, onValueChange = { dragging = it }, valueRange = min.toFloat()..max.toFloat(), steps = (max - min) / step - 1,
-                onValueChangeFinished = { onChange(dragging.toInt()) }, modifier = Modifier.fillMaxWidth().testTag("${tag}_slider"),
-            )
-        },
-    )
 }
 
 /** A row that opens another page: an optional leading [icon], the title and a chevron. */

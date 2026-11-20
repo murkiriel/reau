@@ -30,19 +30,19 @@ object DashConfig {
     }
 
     /**
-     * What a release build runs: profile A is 4 fps at 400 kbps, constant, a keyframe every second. Profile B (the navigation's reduced tier) is
-     * half of A's PACE, 2 fps, at the same bitrate ceiling: the choices are pure (plan 32), the bitrate is never halved by a tier or by a still picture.
-     * A debug build chooses the pace and the ceiling, in a fixed picture ([VideoChoice]). The encoder is built once for A's pace; B only feeds it fewer
-     * frames, so a change of tier never replaces the encoder. [PROFILE_REDUCED_BPS] is only the default of an encoder prepared with no bitrate.
+     * What every build runs, with nothing to choose (owner's decision of 20/11/2026, after the ride that showed the dash does not stretch a smaller picture,
+     * freezes its decoder when the size changes with the video running, ignores the buttons at 12 fps and flickers the reserve icon at 8): profile A is
+     * 6 fps at a 400 kbps ceiling, constant, a keyframe every second, in the [VIDEO_FRAME] picture. Profile B (the navigation's reduced tier) is half of A's
+     * PACE, 3 fps, at the same ceiling: the bitrate is never halved by a tier, by a still picture or by the start ramp. The encoder is built once for A's
+     * pace; B only feeds it fewer frames, so a change of tier never replaces the encoder. [PROFILE_FULL_FPS] is also the most any screen is paced at.
      */
-    const val PROFILE_FULL_FPS = 4
+    const val PROFILE_FULL_FPS = 6
     const val PROFILE_FULL_BPS = 400_000
-    const val PROFILE_REDUCED_FPS = 2
-
-    /** The pace on the screens of Android Auto that are not the navigation's (its app menu and the other apps) in every build ([com.reau.app.settings.REauSettings.lightScreenFps]); the encoder stays as built. */
-    const val LIGHT_SCREEN_FPS = 6
-    const val PROFILE_REDUCED_BPS = 200_000
+    const val PROFILE_REDUCED_FPS = 3
     const val PROFILE_KEYFRAME_SEC = 1
+
+    /** The pace on the screens of Android Auto that are not the navigation's (its app menu and the other apps) in every build ([com.reau.app.settings.REauSettings.lightScreenFps]); never above [PROFILE_FULL_FPS]. */
+    const val LIGHT_SCREEN_FPS = PROFILE_FULL_FPS
 
     /**
      * The experimental lower bitrate ([com.reau.app.settings.REauSettings.experimentAdaptiveBitrate]): the target of the normal stream, 200 kbps instead of the
@@ -51,26 +51,31 @@ object DashConfig {
     const val EXPERIMENT_TARGET_BPS = 200_000
     const val EXPERIMENT_FLOOR_BPS = 64_000
 
-    /** The size of a picture the dash decodes, in pixels. [id] is its stable text, "526x300", what a debug build's choice is stored by. */
+    /** The size of a picture the dash decodes, in pixels. [id] is its stable text, "526x300", what the settings keep the picture as. */
     data class FrameSize(val width: Int, val height: Int) {
         val id: String get() = "${width}x$height"
     }
 
     /**
-     * The dash's frame, 526x300: what everything is composed in (the mask, the ring, the title, the overlays), and what the release build's encoder is
-     * built for. A debug build runs [VideoChoice.MANUAL_FRAME]; only the encoder's output then has that size, and the compositor
-     * scales what it composed on the way out.
+     * The dash's own frame, 526x300: the coordinates everything drawn over the picture keeps (the mask, the ring, the title, the overlays), and the picture
+     * the stream falls back to when no encoder takes [VIDEO_FRAME] ([com.reau.app.stream.VideoLoop.Settings.atFullFrame]).
      */
     val FULL_FRAME = FrameSize(526, 300)
 
     /**
-     * The ceiling of the pace while the bike is in the reserve (decision D117, plan 32): the stream goes down to this pace and to [RESERVE_CAP_BPS],
-     * whatever was chosen; a pace or bitrate below it is left as it is. The light screens too.
+     * The picture of the stream, in every build and with no choice: 528x304 is the dash's 526x300 aligned to 16 (multiples of 16 on both sides, which the dash
+     * decodes without cropping), composed directly, 1:1, anchored at the top left: the 2 columns and 4 rows more only extend the picture and its blurred
+     * background. Measured on the bike: the dash does not stretch a smaller picture, and changing the size with the video running freezes its decoder.
      */
-    const val RESERVE_CAP_FPS = 6
+    val VIDEO_FRAME = FrameSize(528, 304)
 
-    /** The most the bitrate is in the reserve: 400 kbps, the bitrate the owner approved at [RESERVE_CAP_FPS]. */
-    const val RESERVE_CAP_BPS = 400_000
+    private const val MB = 16
+
+    /** Macroblocks of [frame], 16x16 each, a partial one counted whole (526x300 is 33x19, the same as 528x304). */
+    fun macroblocks(frame: FrameSize): Int = (frame.width + MB - 1) / MB * ((frame.height + MB - 1) / MB)
+
+    /** The load of [fps] frames a second of [frame], in macroblocks a second: the dash decodes H.264 in software, and this is what it pays for. Only for the ride log. */
+    fun loadMbPerSec(fps: Int, frame: FrameSize): Int = fps * macroblocks(frame)
 
     /**
      * "Automatic", as a stored setting may still say: the stream used to pick 1 or 2 s itself. Nothing picks any more (cut on 14/11/2026):

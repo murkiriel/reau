@@ -1,6 +1,7 @@
 package com.reau.app.settings
 
 import com.reau.app.aa.Messages
+import com.reau.app.dash.DashConfig
 import com.reau.app.data.KeystoreBackedPrefsTest
 import com.reau.app.video.AaMargins
 import com.reau.app.video.DashGlass
@@ -33,9 +34,9 @@ class REauSettingsTest {
         assertEquals(180, s.density)
         assertEquals(0 to 0, s.marginW to s.marginH)
         assertEquals(Fit.WHOLE_VISIBLE, s.fit)
-        // A debug build starts at 6 fps; the conservative envelope's 4 is the release's (profile 1, FixedProfilesTest).
+        // The video is fixed at 6 fps in a debug and in a release build (profile A, FixedProfilesTest).
         assertEquals(6, s.fpsCeiling)
-        assertEquals(4, s.sanitized(debugBuild = false).fpsCeiling)
+        assertEquals(6, s.sanitized(debugBuild = false).fpsCeiling)
         assertEquals(0, s.clockSlowPercent)
         assertEquals("on in the debug build the tests run, off in a release (FixedProfilesTest)", com.reau.app.BuildConfig.DEBUG to com.reau.app.BuildConfig.DEBUG, s.recordVideo to s.recordSessions)
     }
@@ -51,11 +52,13 @@ class REauSettingsTest {
     fun `each fit gives the mapping of FrameFit for the content Android Auto draws`() {
         val content = RectPx(50, 0, 700, 480) // 800x480 with 100 px of width margin, centred
         val base = plan.copy(marginW = 100)
-        // made for the settings' own area: 528x304 in a debug build, the dash's 526x300 in a release build
+        // made for the settings' own area: 528x304 in both builds, the dash's 526x300 after the fall back
         assertEquals(FrameFit.wholeVisible(content, base.frameSize), base.copy(fit = Fit.WHOLE_VISIBLE).mapping)
         assertEquals(FrameFit.centerCrop(content, 45, area = base.frameSize), base.copy(fit = Fit.CROP, cropPercent = 45).mapping)
-        assertEquals(FrameFit.wholeVisible(content), base.copy(fit = Fit.WHOLE_VISIBLE).sanitized(debugBuild = false).mapping)
-        assertEquals(FrameFit.centerCrop(content, 45), base.copy(fit = Fit.CROP, cropPercent = 45).sanitized(debugBuild = false).mapping)
+        assertEquals(base.copy(fit = Fit.WHOLE_VISIBLE).mapping, base.copy(fit = Fit.WHOLE_VISIBLE).sanitized(debugBuild = false).mapping)
+        val fallen = base.copy(videoFrame = DashConfig.FULL_FRAME.id)
+        assertEquals(FrameFit.wholeVisible(content), fallen.copy(fit = Fit.WHOLE_VISIBLE).mapping)
+        assertEquals(FrameFit.centerCrop(content, 45), fallen.copy(fit = Fit.CROP, cropPercent = 45).mapping)
     }
 
     @Test
@@ -63,10 +66,12 @@ class REauSettingsTest {
         assertEquals(0 to 0, plan.moveX to plan.moveY)
         val s = plan.copy(moveX = -8, moveY = 24)
         assertEquals(FrameFit.moved(plan.mapping, -8, 24, plan.frameSize), s.mapping)
-        // in the dash's own 526x300 (a release build)
-        assertEquals("resting on the frame's bottom: only the sideways move shows", RectPx(70, 78, 370, 222), s.sanitized(debugBuild = false).mapping.dest)
-        assertEquals(RectPx(70, 54, 370, 222), plan.copy(fit = Fit.WHOLE_VISIBLE, moveX = -8, moveY = -24).sanitized(debugBuild = false).mapping.dest)
-        // and in a debug build's 528x304, resting on its bottom edge
+        // in the dash's own 526x300 (after the fall back)
+        val fallen = s.copy(videoFrame = DashConfig.FULL_FRAME.id)
+        assertEquals("resting on the frame's bottom: only the sideways move shows", RectPx(70, 78, 370, 222), fallen.mapping.dest)
+        assertEquals(RectPx(70, 54, 370, 222), plan.copy(fit = Fit.WHOLE_VISIBLE, moveX = -8, moveY = -24, videoFrame = DashConfig.FULL_FRAME.id).mapping.dest)
+        // and in the 528x304 of both builds, resting on its bottom edge
+        assertEquals(s.mapping, s.sanitized(debugBuild = false).mapping)
         assertEquals(RectPx(68, 80, 374, 224), s.mapping.dest)
         assertEquals(RectPx(68, 56, 374, 224), plan.copy(fit = Fit.WHOLE_VISIBLE, moveX = -8, moveY = -24).mapping.dest)
     }
@@ -117,13 +122,13 @@ class REauSettingsTest {
         assertEquals(0, wild.marginW)
         assertEquals("at least 16 px of picture left", 480 - 16, wild.marginH)
         assertEquals(20, wild.cropPercent)
-        assertEquals("a pace out of the offer is brought to its end in a debug build, and a release is fixed at 4 (FixedProfilesTest)", 8, wild.fpsCeiling)
-        assertEquals(4, REauSettings(fpsCeiling = 99).sanitized(debugBuild = false).fpsCeiling)
+        assertEquals("the pace is fixed at 6 in both builds (FixedProfilesTest)", 6, wild.fpsCeiling)
+        assertEquals(6, REauSettings(fpsCeiling = 99).sanitized(debugBuild = false).fpsCeiling)
         assertEquals("not one of the clock options", 0, wild.clockSlowPercent)
         assertEquals(-150 to 150, wild.moveX to wild.moveY)
 
         val low = REauSettings(density = 1, fpsCeiling = 1).sanitized()
-        assertEquals(80 to 4, low.density to low.fpsCeiling)
+        assertEquals(80 to 6, low.density to low.fpsCeiling)
     }
 
     @Test
@@ -572,13 +577,13 @@ class REauSettingsTest {
 
     @Test
     fun `the crop's place may leave the picture by all the window but a pixel, and is saved`() {
-        // (was half the window, and before that -100..200 % of the slack): at 74% the window is 714×411 in a debug build's 528×304 area (711×405 in the
-        // dash's own 526×300), so -713..799 across and -410..479 down
+        // (was half the window, and before that -100..200 % of the slack): at 74% the window is 714×411 in the 528×304 area (711×405 in the
+        // dash's own 526×300 after the fall back), so -713..799 across and -410..479 down
         val beyond = plan.copy(fit = Fit.CROP, cropPercent = 74, cropX = -300, cropY = 270).sanitized()
         assertEquals(-300 to 270, beyond.cropX to beyond.cropY)
         val wild = plan.copy(fit = Fit.CROP, cropPercent = 74, cropX = -1_000, cropY = 1_000).sanitized()
         assertEquals(-713 to 479, wild.cropX to wild.cropY)
-        assertEquals("a release build's window is the dash's 526x300 one", -710 to 479, plan.copy(fit = Fit.CROP, cropPercent = 74, cropX = -1_000, cropY = 1_000).sanitized(debugBuild = false).let { it.cropX to it.cropY })
+        assertEquals("a release build's window is the same 528x304 one", -713 to 479, plan.copy(fit = Fit.CROP, cropPercent = 74, cropX = -1_000, cropY = 1_000).sanitized(debugBuild = false).let { it.cropX to it.cropY })
         assertEquals("centred stays centred", null, plan.sanitized().cropX)
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
         SettingsStore(prefs).save(plan.copy(cropX = 30, cropY = 70))
@@ -590,8 +595,8 @@ class REauSettingsTest {
 
     @Test
     fun `a crop saved in percent comes back at the same place in pixels`() {
-        // 74% on 800×480: a 711×405 window, a slack of 89 × 75; 100% across is x 89, 20% down is y 15. The menu's too. (Read in the dash's 526×300; the debug build's
-        // 528×304 area then takes a 714×411 window from that place.)
+        // 74% on 800×480: a 711×405 window, a slack of 89 × 75; 100% across is x 89, 20% down is y 15. The menu's too. (Read in the dash's 526×300; the 528×304 area
+        // then takes a 714×411 window from that place.)
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
         prefs.edit().putString("fit", "CROP").putInt("crop_percent", 74).putInt("crop_center_x", 100).putInt("crop_center_y", 20)
             .putBoolean("menu_fit_on", true).putString("menu_fit", "CROP").putInt("menu_crop_percent", 74)
@@ -600,7 +605,8 @@ class REauSettingsTest {
         assertEquals(89 to 15, back.cropX to back.cropY)
         assertEquals(0 to 45, back.menuFit?.cropX to back.menuFit?.cropY)
         assertEquals(RectPx(89, 15, 714, 411), back.mapping.source)
-        assertEquals(RectPx(89, 15, 711, 405), back.sanitized(debugBuild = false).mapping.source)
+        assertEquals("the same in a release build", back.mapping.source, back.sanitized(debugBuild = false).mapping.source)
+        assertEquals("and in the dash's own frame, after the fall back, the smaller window", RectPx(89, 15, 711, 405), back.copy(videoFrame = DashConfig.FULL_FRAME.id).mapping.source)
     }
 
     @Test
@@ -758,8 +764,9 @@ class REauSettingsTest {
         assertEquals(REauSettings.DEFAULT_NAV_FIT, s.navFit)
         assertEquals(s.navMapping, s.mappingFor(com.reau.app.aa.AaScreen.NAV))
         assertEquals("the owner's phone's crop", FrameFit.cropAt(s.content, 74, 90, 62, s.frameSize), s.navMapping)
-        assertEquals("the window the owner's phone logged on 30/10/2026 (in the dash's own 526x300)", RectPx(90, 62, 711, 405), s.sanitized(debugBuild = false).navMapping.source)
-        assertEquals("and in a debug build's 528x304", RectPx(90, 62, 714, 411), s.navMapping.source)
+        assertEquals("the window the owner's phone logged on 30/10/2026 (in the dash's own 526x300)", RectPx(90, 62, 711, 405), s.copy(videoFrame = DashConfig.FULL_FRAME.id).navMapping.source)
+        assertEquals("and in the 528x304 of both builds", RectPx(90, 62, 714, 411), s.navMapping.source)
+        assertEquals(s.navMapping.source, s.sanitized(debugBuild = false).navMapping.source)
         assertTrue("not the apps' fit", s.mapping != s.navMapping)
     }
 

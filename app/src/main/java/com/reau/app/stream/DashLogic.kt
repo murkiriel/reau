@@ -11,7 +11,7 @@ internal object DashLogic {
 
     /**
      * Whether the stream runs at its full rate: only with the map changing AND the dash having confirmed the
-     * first frame of this stream. Until then it keeps the still-map pace (4 fps, a keyframe every 2 s): on a real
+     * first frame of this stream. Until then it keeps the still-map pace (half of the full one: 3 fps, the start ramp): on a real
      * dash, every stream that got its first frame confirmed had started at that pace; of the 36 that began at
      * 30 fps in motion, none was.
      */

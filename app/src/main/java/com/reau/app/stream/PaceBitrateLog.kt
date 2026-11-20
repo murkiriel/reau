@@ -6,7 +6,7 @@ import java.util.Locale
  * What each pace really cost in bits, for the ride log (plan 32): the nominal bitrate of a profile says little, so every poll's frames and
  * bytes are added to the pace that was IN FORCE during it, and a summary line says each pace's average bitrate (bytes x 8 / time), the
  * frames per second actually sent and how long the stream spent at it. The paces are told apart by what put the stream there ([Kind]) and
- * by the rate itself, so profile A at 8 fps, profile A capped to 6 by the reserve and the light screens at 6 are three lines, not one.
+ * by the rate itself, so profile A at 6 fps, profile B at 3 and the light screens at 6 are three lines, not two.
  *
  * The line is written every [everyMs] of stream ([periodicLine]) and when the stream ends ([line]); both are the totals since the stream
  * began, never reset. A pace with no time in it is left out, so nothing divides by zero. Pure, with the clock passed in, so the JVM tests cover it.
@@ -20,14 +20,8 @@ internal class PaceBitrateLog(private val everyMs: Long = SUMMARY_EVERY_MS) {
         /** Profile B, the reduced one (the half of A). */
         B("B"),
 
-        /** The light screens of Android Auto, faster than the profile. */
+        /** The light screens of Android Auto, faster than profile B and never above A. */
         LIGHT("light"),
-
-        /** Profile A held under the reserve's ceiling ([com.reau.app.dash.DashConfig.RESERVE_CAP_FPS]). */
-        RESERVE("reserve"),
-
-        /** The bike is in the reserve and the debug switch has the ceiling off ([com.reau.app.settings.REauSettings.reserveCapOn]): the profile at its own pace, measured apart. */
-        RESERVE_UNCAPPED("reserve (no cap)"),
     }
 
     private data class Key(val kind: Kind, val fps: Int)

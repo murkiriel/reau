@@ -101,7 +101,7 @@ class DashCompositor(private val log: (String) -> Unit) {
     private var sourceW = 0
     private var sourceH = 0
     private var window = CompositorMath.TexWindow(0f, 0f, 1f, 1f)
-    // The area the picture is composed in: the dash's 526x300 frame, or a debug build's 528x304. [start] says it and [setOutput] takes the output's size; the rows of
+    // The area the picture is composed in: 528x304, or the dash's own 526x300 frame after the fall back. [start] says it and [setOutput] takes the output's size; the rows of
     // [dest] are counted from the top and become the GL viewport (from the bottom) at each draw, 1:1 on the output.
     private var area = DashConfig.FULL_FRAME
     private var dest = RectPx(0, 0, DashGlass.FRAME_W, DashGlass.FRAME_H)
@@ -271,7 +271,7 @@ class DashCompositor(private val log: (String) -> Unit) {
     }
 
     /**
-     * Points the compositor at an encoder's input surface, [size] of it (526×300, or a debug build's 528×304: the area everything is composed in, drawn 1:1, nothing
+     * Points the compositor at an encoder's input surface, [size] of it (528×304, or the dash's own 526×300 after the fall back: the area everything is composed in, drawn 1:1, nothing
      * scaled; a size other than the one [start] was given takes the area over and the black bands and the blurred background are planned again for it, the
      * fit staying as it was until the caller gives one made for it) and starts the clock; a frame goes out at
      * once. [onFrameSubmitted] is called with each frame's time right before the frame is posted (the encoder's

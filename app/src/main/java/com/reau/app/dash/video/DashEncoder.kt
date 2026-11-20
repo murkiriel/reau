@@ -15,13 +15,13 @@ import com.reau.app.util.CodecReport
 
 /**
  * MediaCodec H.264 encoder for the dash stream:
- *   526 × 300 (or a debug build's [com.reau.app.dash.VideoChoice.MANUAL_FRAME], 528 × 304), Baseline L4.1, 1-second IDR interval.
+ *   528 × 304 ([DashConfig.VIDEO_FRAME]; the dash's own 526 × 300 when no encoder takes it), Baseline L4.1, 1-second IDR interval.
  *
  * Cadence/bitrate are DRIVEN BY THE FRAME LOOP, not fixed here (the stream package's pacing). The
- * dash shows a map well at only **2–4 fps / 200–400 kbps** (the two profiles of [DashConfig]). A map doesn't need video frame rates, and
+ * dash shows a map well at only **3–6 fps / 400 kbps** (the two profiles of [DashConfig]). A map doesn't need video frame rates, and
  * crucially a few fps NEVER overruns the dash decoder — which is the real cause of the blink/stutter seen
- * at 24 fps. So the encoder is configured at the active rate (4 fps hint, 400 kbps, profile 1) and the bitrate is
- * dropped live via [requestBitrate] to the reduced profile's 200 kbps when the stream goes to profile 2. ([FPS] here is
+ * at 24 fps. So the encoder is configured at the active rate (6 fps hint, 400 kbps, profile A) and the bitrate stays
+ * at that ceiling whatever the profile, the picture or the start ramp ([requestBitrate] only sets it once). ([FPS] here is
  * only the encoder's frame-rate HINT; the real rate is the surface feed rate.)
  *
  * History (kept so we don't re-walk it): we'd climbed 4 → 12 → 24 fps and 0.8 → 1.2 Mbps chasing
@@ -37,7 +37,7 @@ import com.reau.app.util.CodecReport
  * behind, the wait vanished and the same run reached 22 fps, so the loop's capacity depended on chance.
  *
  * [frame] is the size the encoder is built for, fixed for its whole life: the dash is told a size by the SPS of a stream, so a stream with another
- * size is another encoder (and a clean keyframe), never a change in the middle of one. The compositor shrinks what it composed in 526 × 300 to it.
+ * size is another encoder (and a clean keyframe), never a change in the middle of one. The compositor composes in that same size, 1:1.
  *
  * @param onFrame  called on the output thread with (annexBBytes, isKeyFrame, ptsMs) for each output buffer, ptsMs
  *   being the presentation time the frame was posted to [inputSurface] with.
@@ -50,8 +50,8 @@ class DashEncoder(
         // Encoder frame-rate HINT only (actual rate = how fast the loop feeds the surface); the full profile's, from DashConfig.
         const val FPS     = DashConfig.PROFILE_FULL_FPS
         // What prepare() uses when the caller gives no bitrate (the stream always gives the profile's own, and changes it with
-        // requestBitrate()): the reduced profile's, from DashConfig. Far under the old 1.2 Mbps that risked overrunning the dash decoder.
-        const val BITRATE = DashConfig.PROFILE_REDUCED_BPS
+        // requestBitrate()): the profile's own, from DashConfig. Far under the old 1.2 Mbps that risked overrunning the dash decoder.
+        const val BITRATE = DashConfig.PROFILE_FULL_BPS
         /** Safety net for a compositor that stops: with nothing posted to the input surface for this long, the
          *  codec encodes the last frame again by itself. OpenCfMoto uses the same 900 ms. What keeps the dash fed
          *  when Android Auto pauses is the compositor's own clock, not this. */
