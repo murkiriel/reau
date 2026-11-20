@@ -13,7 +13,7 @@ import org.junit.Test
 /**
  * The info ring's pages as words for the title of the dash's gold band (P31 Título): the same pages and the same choice of them as the ring,
  * written in the three languages within what the dash's street field holds (19 characters, Latin-1), and with the pages that are not words
- * (the phone's battery, signal and GPS, and the sky now) never among them. The place's clock is 2026-10-26 12:07, offset 0.
+ * (the phone's signal and GPS, and the sky now) never among them; the phone's battery is one of them. The place's clock is 2026-10-26 12:07, offset 0.
  */
 class InfoRingTitleTest {
     private val languages = mapOf("en" to "values", "pt" to "values-pt", "es" to "values-es")
@@ -38,7 +38,7 @@ class InfoRingTitleTest {
         fun t(name: String) = s.getValue("title_$name")
         return TitleWords(
             t("rain_now"), t("rain_until"), t("rain_soon"), t("thunder_now"), t("thunder_soon"), t("wind"), t("temps"), t("temps_now"),
-            t("uv_high"), t("uv_very_high"), t("uv_extreme"), t("sunset"), t("sunrise"), t("air"),
+            t("uv_high"), t("uv_very_high"), t("uv_extreme"), t("sunset"), t("sunrise"), t("air"), t("battery"), t("battery_charging"),
         )
     }
 
@@ -67,7 +67,8 @@ class InfoRingTitleTest {
         place: DayNight.Place = exactPlace,
         units: WeatherUnits = WeatherUnits(),
         air: AirQuality? = null,
-    ) = InfoRing.titlePages(WeatherKeeper.Snapshot(f, nowMs, air), nowMs, 0L, place, units, ringWords, options)
+        phone: PhoneReadings = PhoneReadings(),
+    ) = InfoRing.titlePages(WeatherKeeper.Snapshot(f, nowMs, air), nowMs, 0L, place, units, ringWords, options, phone)
 
     /** What the title would say of [f], most urgent first, in the language of [folder]. */
     private fun said(
@@ -77,7 +78,8 @@ class InfoRingTitleTest {
         place: DayNight.Place = exactPlace,
         units: WeatherUnits = WeatherUnits(),
         air: AirQuality? = null,
-    ): List<String> = titlePages(f, options, place, units, air).mapNotNull { InfoRingTitle.text(it, words(folder)) }
+        phone: PhoneReadings = PhoneReadings(),
+    ): List<String> = titlePages(f, options, place, units, air, phone).mapNotNull { InfoRingTitle.text(it, words(folder)) }
 
     /** What a new install ticks: the rain, the wind and the storm (the ring's own default is every kind). */
     private val factory = RingOptions(data = RingData.DEFAULT)
@@ -214,17 +216,63 @@ class InfoRingTitleTest {
         assertEquals(emptyList<RingKind>(), titlePages(busy(), RingOptions(data = 0)).map { it.kind })
     }
 
+    private fun phone(percent: Int, charging: Boolean = false) =
+        PhoneReadings(BatteryDetail(percent, charging, saver = false), LinkReading(LinkKind.WIFI), GpsReading(5, 9, 4f, 90f, 10f))
+
+    private val batteryOnly = RingOptions(data = RingData.BATTERY.bit)
+
     @Test
-    fun `battery, signal, GPS and the sky never come to the title, ticked or not`() {
-        val kinds = titlePages(busy(), everything()).map { it.kind }
-        for (out in listOf(RingKind.BATTERY, RingKind.LINK, RingKind.GPS, RingKind.SKY)) assertFalse("$out", out in kinds)
-        assertEquals(setOf(RingKind.BATTERY, RingKind.LINK, RingKind.GPS, RingKind.SKY), RingKind.entries.toSet() - InfoRingTitle.KINDS)
-        val only = RingOptions(data = RingData.BATTERY.bit or RingData.LINK.bit or RingData.GPS.bit or RingData.SKY.bit)
-        assertEquals(emptyList<RingKind>(), titlePages(busy(), only).map { it.kind })
-        val phone = PhoneReadings(BatteryDetail(15, charging = false, saver = false), LinkReading(LinkKind.WIFI), GpsReading(5, 9, 4f, 90f, 10f))
-        for (page in InfoRing.pages(busy(), null, now, true, WeatherUnits(), ringWords, phone).filter { it.kind !in InfoRingTitle.KINDS }) {
+    fun `signal, GPS and the sky never come to the title, ticked or not`() {
+        val kinds = titlePages(busy(), everything(), phone = phone(15)).map { it.kind }
+        for (out in listOf(RingKind.LINK, RingKind.GPS, RingKind.SKY)) assertFalse("$out", out in kinds)
+        assertEquals(setOf(RingKind.LINK, RingKind.GPS, RingKind.SKY), RingKind.entries.toSet() - InfoRingTitle.KINDS)
+        val only = RingOptions(data = RingData.LINK.bit or RingData.GPS.bit or RingData.SKY.bit)
+        assertEquals(emptyList<RingKind>(), titlePages(busy(), only, phone = phone(15)).map { it.kind })
+        for (page in InfoRing.pages(busy(), null, now, true, WeatherUnits(), ringWords, phone(15)).filter { it.kind !in InfoRingTitle.KINDS }) {
             assertNull("${page.kind}", InfoRingTitle.text(page, words("values-pt")))
         }
+    }
+
+    @Test
+    fun `the phone's battery says its level, in each language`() {
+        assertEquals(listOf("Bateria 85%"), said(forecast(), "values-pt", batteryOnly, phone = phone(85)))
+        assertEquals(listOf("Battery 85%"), said(forecast(), "values", batteryOnly, phone = phone(85)))
+        assertEquals(listOf("Batería 85%"), said(forecast(), "values-es", batteryOnly, phone = phone(85)))
+    }
+
+    @Test
+    fun `a charging phone says so, in each language`() {
+        assertEquals(listOf("Carregando 85%"), said(forecast(), "values-pt", batteryOnly, phone = phone(85, charging = true)))
+        assertEquals(listOf("Charging 85%"), said(forecast(), "values", batteryOnly, phone = phone(85, charging = true)))
+        assertEquals(listOf("Cargando 85%"), said(forecast(), "values-es", batteryOnly, phone = phone(85, charging = true)))
+    }
+
+    @Test
+    fun `the battery is a page only when the rider ticked it, and not without a reading`() {
+        assertEquals("not among the factory's pages", emptyList<String>(), said(forecast(), phone = phone(85)))
+        assertEquals("ticked but the phone gave no reading", emptyList<String>(), said(forecast(), "values-pt", batteryOnly))
+    }
+
+    @Test
+    fun `the battery takes its turn among the weather pages by its urgency, as in the ring`() {
+        val options = RingOptions(data = RingData.BATTERY.bit or RingData.TEMPS.bit)
+        val normal = titlePages(forecast(), options, phone = phone(80))
+        assertEquals(setOf(RingKind.TEMPS, RingKind.BATTERY), normal.map { it.kind }.toSet())
+        val rotation = InfoRingRotation()
+        val seen = (0 until 2).map { rotation.pick(normal, it * 7_000L)!!.kind }
+        assertEquals("the battery is one of the turns", setOf(RingKind.TEMPS, RingKind.BATTERY), seen.toSet())
+        val critical = titlePages(forecast(), options, phone = phone(5))
+        assertEquals("a critical battery is a danger page, as in the ring", 1, critical.first { it.kind == RingKind.BATTERY }.level)
+        assertEquals("the danger page takes the turns alone", listOf(RingKind.BATTERY), InfoRingRotation().turn(critical, 0L)!!.pages.map { it.kind })
+        val ring = InfoRing.pages(forecast(), null, now, true, WeatherUnits(), ringWords, phone(5)).filter { it.kind in InfoRingTitle.KINDS && RingData.shown(options.data, RingData.of(it.kind)) }
+        assertEquals(ring, critical)
+        assertEquals("low is level 2", 2, titlePages(forecast(), options, phone = phone(15)).first { it.kind == RingKind.BATTERY }.level)
+    }
+
+    @Test
+    fun `with no usable forecast the battery still says its level, as the ring's phone cards do`() {
+        val pages = InfoRing.titlePages(null, nowMs, 0L, exactPlace, WeatherUnits(), ringWords, batteryOnly, phone(40))
+        assertEquals(listOf("Battery 40%"), pages.mapNotNull { InfoRingTitle.text(it, words("values")) })
     }
 
     @Test
@@ -257,6 +305,8 @@ class InfoRingTitleTest {
         page(RingKind.SUN, RingIcon.SUNSET, RingTone.NONE, listOf("em", "59", "min"), extra = listOf("23:59")),
         page(RingKind.SUN, RingIcon.SUNRISE, RingTone.NONE, listOf("em", "59", "min"), extra = listOf("23:59")),
         page(RingKind.AIR, RingIcon.AIR, RingTone.AIR_HAZARDOUS, listOf("IQAr", "500")),
+        RingPage(RingKind.BATTERY, 4, RingIcon.BATTERY, RingTone.NONE, listOf(RingText("carregando", false)), BatteryDetail(100, charging = true, saver = false)),
+        RingPage(RingKind.BATTERY, 4, RingIcon.BATTERY, RingTone.NONE, listOf(RingText("na bateria", false)), BatteryDetail(100, charging = false, saver = false)),
     )
 
     @Test
@@ -290,7 +340,7 @@ class InfoRingTitleTest {
     @Test
     fun `the templates are all in the three languages and no two say the same in a language`() {
         val names = snake(TitleWords::class.java.declaredFields.filter { !it.isSynthetic && !java.lang.reflect.Modifier.isStatic(it.modifiers) }.map { it.name })
-        assertEquals(14, names.size)
+        assertEquals(16, names.size)
         for ((language, folder) in languages) {
             val s = strings(folder)
             val values = names.map { name -> s["title_$name"] ?: error("$language: no title_$name") }
@@ -308,5 +358,6 @@ class InfoRingTitleTest {
         assertNull(InfoRingTitle.text(page(RingKind.SUN, RingIcon.SUNSET, RingTone.NONE, listOf("em", "5", "min")), w))
         assertNull(InfoRingTitle.text(page(RingKind.RAIN_SOON, RingIcon.RAIN, RingTone.RAIN, listOf("em")), w))
         assertNull(InfoRingTitle.text(page(RingKind.WIND_ALERT, RingIcon.WIND, RingTone.ALERT, listOf("55")), w))
+        assertNull("a battery page with no detail", InfoRingTitle.text(page(RingKind.BATTERY, RingIcon.BATTERY, RingTone.NONE, listOf("na bateria")), w))
     }
 }

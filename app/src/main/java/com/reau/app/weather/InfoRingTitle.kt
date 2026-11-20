@@ -31,18 +31,21 @@ data class TitleWords(
     val sunrise: String = "Sunrise %1\$s",
     /** The US air quality index `%1$s`. */
     val air: String = "Air AQI %1\$s",
+    /** The phone's battery level `%1$s` (the `%%` is the percent sign); and the same while it charges. */
+    val battery: String = "Battery %1\$s%%",
+    val batteryCharging: String = "Charging %1\$s%%",
 )
 
 /**
  * The words of the info ring's pages for the title of the dash's gold band, in place of the ring ("Informações no título"). The pages and
  * the choice of them are the ring's ([InfoRing.titlePages]); only the ink changes. Pages that are not words stay out ([KINDS]): the phone's
- * battery, signal and GPS and the sky now, which the dash already shows.
+ * signal and GPS and the sky now, which the dash already shows. The phone's battery is in (the dash does not show the phone's).
  */
 object InfoRingTitle {
-    /** The pages the title says: every page of the weather but the sky now (the phone's three never come here either). */
+    /** The pages the title says: every page of the weather but the sky now, and the phone's battery (its signal and GPS never come here). */
     val KINDS: Set<RingKind> = setOf(
         RingKind.WIND_DANGER, RingKind.THUNDER, RingKind.WIND_ALERT, RingKind.RAIN_SOON, RingKind.RAIN_NOW, RingKind.WIND_ATTENTION,
-        RingKind.SUN, RingKind.UV, RingKind.AIR, RingKind.TEMPS,
+        RingKind.SUN, RingKind.UV, RingKind.AIR, RingKind.TEMPS, RingKind.BATTERY,
     )
 
     /** The words of [page] for the title, or null for a page the title does not say. */
@@ -56,6 +59,7 @@ object InfoRingTitle {
             RingKind.UV -> fill(uvTemplate(page.tone, words), page.line.getOrNull(1)?.text)
             RingKind.AIR -> fill(words.air, page.line.getOrNull(1)?.text)
             RingKind.SUN -> fill(if (page.icon == RingIcon.SUNRISE) words.sunrise else words.sunset, page.extra.firstOrNull())
+            RingKind.BATTERY -> battery(page, words)
             else -> temps(page, words)
         }
     }
@@ -68,6 +72,10 @@ object InfoRingTitle {
         RingTone.UV_VERY_HIGH -> words.uvVeryHigh
         else -> words.uvHigh
     }
+
+    /** The battery's level, or "charging" with it when the phone is plugged in; null for a page with no battery detail. */
+    private fun battery(page: RingPage, words: TitleWords): String? =
+        (page.detail as? BatteryDetail)?.let { fill(if (it.charging) words.batteryCharging else words.battery, it.percent.toString()) }
 
     /** The day's low and high ([RingPage.extra] has the high first, the low second); with no day, the temperature now (the page's line is "22°"). */
     private fun temps(page: RingPage, words: TitleWords): String? =

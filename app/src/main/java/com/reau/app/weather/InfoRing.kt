@@ -597,8 +597,8 @@ object InfoRing {
 
     /**
      * The pages the dash's title can say now ([InfoRingTitle]): the very pages the ring would have, chosen by the same data ticks
-     * ([RingOptions.data]) and in the same order of urgency, less the ones that are not words: the phone's (the dash shows its battery, its
-     * signal and its GPS) and the sky now. The phone is not even asked, so its GPS is not listened to for a title.
+     * ([RingOptions.data]) and in the same order of urgency, less the ones that are not words: the phone's signal and GPS (the dash shows them)
+     * and the sky now. The phone's battery is a page of the title; [phone] is what the caller read of it (the battery only: the GPS is not listened to for a title).
      */
     @Suppress("LongParameterList") // the clocks, the place and the rider's choices, all given
     fun titlePages(
@@ -609,8 +609,9 @@ object InfoRing {
         units: WeatherUnits,
         words: RingWords,
         options: RingOptions = RingOptions(),
+        phone: PhoneReadings = PhoneReadings(),
     ): List<RingPage> =
-        look(snapshot, wallNowMs, monoNowMs, place, units, words, PhoneReadings()).pages
+        look(snapshot, wallNowMs, monoNowMs, place, units, words, phone).pages
             .filter { it.kind in InfoRingTitle.KINDS && RingData.shown(options.data, RingData.of(it.kind)) }
 }
 

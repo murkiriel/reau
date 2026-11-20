@@ -132,11 +132,13 @@ object InfoRingFeed {
         sunset = context.getString(R.string.title_sunset),
         sunrise = context.getString(R.string.title_sunrise),
         air = context.getString(R.string.title_air),
+        battery = context.getString(R.string.title_battery),
+        batteryCharging = context.getString(R.string.title_battery_charging),
     )
 
     /**
      * What the dash's title can say now: the ring's pages in words ([InfoRing.titlePages]), by the same ticks, urgency and turns as the ring
-     * has. The phone's cards are not asked (no GPS is listened to for a title).
+     * has. Of the phone's cards only the battery is asked, when ticked (no GPS is listened to for a title).
      */
     fun titleSource(context: Context, useLocation: Boolean, options: RingOptions): TitleSource {
         val mono = MonotonicClock.nowMs()
@@ -149,6 +151,8 @@ object InfoRingFeed {
             units = WeatherUnits.of(DashReadings.settings.value),
             words = words(context),
             options = options,
+            // The battery only, and only when the rider ticked it: the signal and the GPS are not for the title (no GPS is listened to for it).
+            phone = PhoneReadings(battery = PhoneReader.battery(context).takeIf { RingData.shown(options.data, RingData.BATTERY) }),
         )
         return TitleSource(pages.mapNotNull { page -> InfoRingTitle.text(page, title)?.let { TitleEntry(page, it) } }, options.carousel, options.periodMs)
     }

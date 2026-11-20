@@ -502,8 +502,8 @@
     <string name="info_ring_seconds_value">%1$d s</string>
     <string name="info_title_title">Informações no título (no lugar do anel)</string>
     <string name="info_title_sub">O anel some do vídeo; as informações vão no título do painel, alternando com a rua</string>
-    <string name="info_title_info">Escreve os dados do anel de informações (chuva, vento, trovoada e o que você marcar abaixo) no título da faixa dourada do painel, no lugar do anel, que deixa de ser desenhado no vídeo. O título alterna entre a rua (ou REau, sem rota) e os dados, no tempo do anel para cada um; a menos de 300 m da manobra, mostra só a rua. Bateria, sinal, GPS e céu ficam de fora, porque o painel já mostra.</string>
-    <string name="info_title_replaces_ring">Informações no título ligado: o anel não aparece no vídeo. Bateria, sinal, GPS e céu não entram no título.</string>
+    <string name="info_title_info">Escreve os dados do anel de informações (chuva, vento, trovoada e o que você marcar abaixo) no título da faixa dourada do painel, no lugar do anel, que deixa de ser desenhado no vídeo. O título alterna entre a rua (ou REau, sem rota) e os dados, no tempo do anel para cada um; a menos de 300 m da manobra, mostra só a rua. Sinal, GPS e céu ficam de fora, porque o painel já mostra; a bateria do celular entra se você marcar.</string>
+    <string name="info_title_replaces_ring">Informações no título ligado: o anel não aparece no vídeo. Sinal, GPS e céu não entram no título.</string>
     <string name="title_rain_now">Chovendo agora</string>
     <string name="title_rain_until">Chuva até %1$s min</string>
     <string name="title_rain_soon">Chuva em %1$s min</string>
@@ -518,6 +518,8 @@
     <string name="title_sunset">Pôr do sol %1$s</string>
     <string name="title_sunrise">Nascer do sol %1$s</string>
     <string name="title_air">Ar AQI %1$s</string>
+    <string name="title_battery">Bateria %1$s%%</string>
+    <string name="title_battery_charging">Carregando %1$s%%</string>
     <string name="ring_in">em</string>
     <string name="ring_minutes">min</string>
     <string name="ring_until">até</string>

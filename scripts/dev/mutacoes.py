@@ -4191,6 +4191,21 @@ MUTATIONS = [
      "musicCardAllowed || musicModePlaying", "musicModePlaying", ["DashSessionMusicModeCardTest"]),
     ("P32S Spotify: o modo música não diz ao painel que toca", MAIN + "service/LiveSides.kt",
      "session.musicModePlaying = music.playing(com.reau.app.util.MonotonicClock.nowMs())", "session.musicModePlaying = false", ["MusicModeIsWiredTest"]),
+    # Leva 32 (20/11/2026): a bateria do celular entra em "Informações no título" (o sinal e o GPS continuam fora).
+    ("P32S Bateria no título: a bateria fica fora de KINDS", MAIN + "weather/InfoRingTitle.kt",
+     "RingKind.TEMPS, RingKind.BATTERY,\n    )", "RingKind.TEMPS,\n    )", ["InfoRingTitleTest"]),
+    ("P32S Bateria no título: o carregando é ignorado", MAIN + "weather/InfoRingTitle.kt",
+     "fill(if (it.charging) words.batteryCharging else words.battery, it.percent.toString())", "fill(words.battery, it.percent.toString())", ["InfoRingTitleTest"]),
+    ("P32S Bateria no título: o sinal entra por engano", MAIN + "weather/InfoRingTitle.kt",
+     "RingKind.TEMPS, RingKind.BATTERY,\n    )", "RingKind.TEMPS, RingKind.BATTERY, RingKind.LINK,\n    )", ["InfoRingTitleTest"]),
+    ("P32S Bateria no título: o GPS entra por engano", MAIN + "weather/InfoRingTitle.kt",
+     "RingKind.TEMPS, RingKind.BATTERY,\n    )", "RingKind.TEMPS, RingKind.BATTERY, RingKind.GPS,\n    )", ["InfoRingTitleTest"]),
+    ("P32S Bateria no título: o painel do título não lê a bateria", MAIN + "service/InfoRingFeed.kt",
+     "phone = PhoneReadings(battery = PhoneReader.battery(context).takeIf { RingData.shown(options.data, RingData.BATTERY) }),", "phone = PhoneReadings(),", ["InfoTitleSettingsTest"]),
+    ("P32S Bateria no título: a bateria entra sem o piloto marcar", MAIN + "service/InfoRingFeed.kt",
+     "PhoneReader.battery(context).takeIf { RingData.shown(options.data, RingData.BATTERY) }),", "PhoneReader.battery(context)),", ["InfoTitleSettingsTest"]),
+    ("P32S Bateria no título: o texto da bateria em português muda", "app/src/main/res/values-pt/strings.xml",
+     '<string name="title_battery">Bateria %1$s%%</string>', '<string name="title_battery">Carga %1$s%%</string>', ["InfoRingTitleTest"]),
 ]
 
 

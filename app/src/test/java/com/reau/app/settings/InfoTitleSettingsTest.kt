@@ -139,11 +139,12 @@ class InfoTitleSettingsTest {
     }
 
     @Test
-    fun `the feed asks for the pages of the ring's options and not for the phone`() {
+    fun `the feed asks for the pages of the ring's options and for the phone's battery only`() {
         val feed = source("service/InfoRingFeed.kt")
         val title = feed.substringAfter("fun titleSource(").substringBefore("/** Whether the GPS card may be listened to")
         assertTrue(title, "InfoRing.titlePages(" in title && "options = options," in title)
         assertTrue(title, "TitleSource(" in title && "options.carousel, options.periodMs" in title)
-        assertFalse("the phone is not read for a title", "phone(" in title || "GpsWatch" in title)
+        assertTrue(title, "phone = PhoneReadings(battery = PhoneReader.battery(context).takeIf { RingData.shown(options.data, RingData.BATTERY) })," in title)
+        assertFalse("the signal and the GPS are not read for a title", "phone(" in title || "GpsWatch" in title || "PhoneReader.link" in title)
     }
 }
