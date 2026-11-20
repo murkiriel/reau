@@ -4514,10 +4514,10 @@ MUTATIONS = [
     ("P31 Título: a linha do anel não diz que ele não aparece", MAIN + "ui/FitPanel.kt",
      "if (s.infoRing && s.infoTitle) {", "if (false) {", ["InfoTitleSettingsTest"]),
     # Plano 32 (p32-alterna): Atualizações enxuta e o aviso diário de versão nova (JobScheduler, sem dependência nem permissão nova).
-    ("P32A Atualizações: a tela volta a mostrar a assinatura do APK", MAIN + "ui/UpdateGroup.kt",
-     "        listOf(\n            { UpdateRow(state, check) { url -> runCatching { uri.openUri(url) } } },", "        listOf(\n            { SigningCheck.installed(context) },\n            { UpdateRow(state, check) { url -> runCatching { uri.openUri(url) } } },", ["UpdateNoticeTest"]),
+    ("P32A Atualizações: o bloco da assinatura do APK volta à tela", MAIN + "ui/UpdateGroup.kt",
+     "        // The buttons sit in the middle of the card (28/10/2026), not at its left.", '        Text(stringResource(R.string.update_notice_title), Modifier.testTag("update_signing"))\n        // The buttons sit in the middle of the card (28/10/2026), not at its left.', ["UpdateNoticeTest"]),
     ("P32A Atualizações: o parágrafo do GitHub volta à tela", MAIN + "ui/UpdateGroup.kt",
-     '        // The buttons sit in the middle of the card (28/10/2026), not at its left.', '        Text(stringResource(R.string.update_info), Modifier.testTag("update_note"))\n        // The buttons sit in the middle of the card (28/10/2026), not at its left.', ["UpdateNoticeTest"]),
+     "        // The buttons sit in the middle of the card (28/10/2026), not at its left.", '        Text(stringResource(R.string.update_notice_sub), Modifier.testTag("update_note"))\n        // The buttons sit in the middle of the card (28/10/2026), not at its left.', ["UpdateNoticeTest"]),
     ("P32A Atualizações: o botão da versão aparece mesmo sem versão mais nova", MAIN + "ui/UpdateGroup.kt",
      "if (latest != null && verdict == ReleaseCheck.Verdict.NEWER) {", "if (latest != null) {", ["UpdateNoticeTest"]),
     ("P32A Aviso: uma versão nova já avisada avisa de novo", MAIN + "update/UpdateNotice.kt",

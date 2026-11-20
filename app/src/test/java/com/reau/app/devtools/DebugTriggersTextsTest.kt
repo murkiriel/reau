@@ -79,7 +79,7 @@ class DebugTriggersTextsTest {
             assertFalse("still typed in: $old", text.contains("\"$old"))
         }
         for (key in keys.filter { !it.endsWith("_what") && it != "debug_arrow_sub_off" && it != "debug_arrow_sending" && it != "debug_arrow_unnamed" && it != "debug_arrow_hidden" }) {
-            assertTrue("$key is not used", text.contains("R.string.$key"))
+            assertTrue("$key is not used", Regex("""R\.string\.$key(?![A-Za-z_])""").containsMatchIn(text))
         }
     }
 
