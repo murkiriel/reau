@@ -298,6 +298,18 @@ class VideoChoiceStoreTest {
     }
 
     @Test
+    fun `the slider has a stop at every step, shows its value while it moves and changes the setting once, when it is let go`() {
+        val rows = File("src/main/java/com/reau/app/ui/components/SettingsRows.kt").readText()
+        val slider = rows.substringAfter("fun SliderRow(").substringBefore("/** A row that opens another page")
+        assertTrue("the stops of 400..1000 by 100 are 5 between the ends", slider.contains("steps = (max - min) / step - 1,"))
+        assertTrue("the setting changes when the thumb is let go", slider.contains("onValueChangeFinished = { onChange(dragging.toInt()) }"))
+        assertFalse("and not at every stop passed", slider.contains("onValueChange = { dragging = it; onChange("))
+        assertTrue("the value is shown beside the title while it is dragged", slider.contains("valueText(dragging.toInt())") && slider.contains("testTag(\"\${tag}_value\")"))
+        assertTrue(slider.contains("onValueChange = { dragging = it }"))
+        assertEquals("(1000 - 400) / 100 - 1 stops between the ends", 5, (VideoChoice.CAP_MAX_KBPS - VideoChoice.CAP_MIN_KBPS) / VideoChoice.CAP_STEP_KBPS - 1)
+    }
+
+    @Test
     fun `a release build only shows the fixed values locked, with A and B as they were`() {
         val video = File("src/main/java/com/reau/app/ui/SettingsVideo.kt").readText()
         val rows = video.substringAfter("fun StreamProfileRows").substringBefore("fun NavProfileRows")

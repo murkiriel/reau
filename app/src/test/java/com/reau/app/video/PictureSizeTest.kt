@@ -83,6 +83,7 @@ class PictureSizeTest {
         val line = VideoLoop.fallbackLine(FrameSize(480, 272), 10, 700_000)
         assertTrue(line, line.startsWith(com.reau.app.data.RideDiagnostics.WARN))
         assertTrue(line, "480x272" in line && "526x300" in line && "10 fps" in line && "700 kbps" in line)
+        assertTrue("it says what happened: $line", "no encoder took the 480x272 picture" in line)
     }
 
     @Test
