@@ -83,8 +83,9 @@ internal fun ProfileDetailsRow(s: REauSettings) {
 @Composable
 internal fun StreamProfileRows(s: REauSettings) {
     val frame = s.frameSize
+    val picture = "${frame.width}\u00d7${frame.height}"
     Text(
-        stringResource(R.string.video_fixed_line, s.videoPace.fullFps, s.videoPace.reducedFps, s.streamBitrateBps / KBPS, "${frame.width}\u00d7${frame.height}"),
+        stringResource(R.string.video_fixed_line, s.videoPace.fullFps, s.videoPace.reducedFps, s.streamBitrateBps / KBPS, picture),
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp).testTag("video_fixed"),
         color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium,
     )

@@ -70,7 +70,8 @@ class ProfileDetailsTest {
         assertFalse("no selector, slider, switch or warning", Regex("""SegmentedRow|SliderRow|SwitchRow|FlickerWarning|flicker_warning|reserve_cap|VideoChoice""").containsMatchIn(video))
         assertTrue(
             "the line is made of the pace of the settings, their bitrate and the picture the stream runs in",
-            video.contains("stringResource(R.string.video_fixed_line, s.videoPace.fullFps, s.videoPace.reducedFps, s.streamBitrateBps / KBPS, \"\${frame.width}\\u00d7\${frame.height}\")"),
+            video.contains("stringResource(R.string.video_fixed_line, s.videoPace.fullFps, s.videoPace.reducedFps, s.streamBitrateBps / KBPS, picture)") &&
+                video.contains("val picture = \"\${frame.width}\\u00d7\${frame.height}\""),
         )
         assertTrue(video.contains("val frame = s.frameSize"))
         assertEquals("Vídeo: perfil A %1\$d fps, perfil B %2\$d fps, %3\$d kbps, %4\$s", text("values-pt", "video_fixed_line"))

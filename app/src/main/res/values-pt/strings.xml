@@ -434,7 +434,7 @@
     <string name="video_pace_sub">REau: 6 fps no A e 3 no B. Original: 4 e 2, mais leve.</string>
     <string name="video_pace_reau">REau</string>
     <string name="video_pace_original">Original</string>
-    <string name="video_pace_info">O perfil A é a imagem mais fluida; o B tem metade do ritmo do A, é mais leve e entra longe da manobra ou em velocidade alta. O REau é o padrão (A a 6 fps, B a 3 fps); o Original é mais leve para o painel e para o Wi-Fi (A a 4 fps, B a 2 fps). A troca vale na hora, sem desligar a projeção.</string>
+    <string name="video_pace_info">O perfil A é a imagem mais fluida; o B tem metade do ritmo do A, é mais leve e entra longe da manobra ou em velocidade alta. O REau é o padrão (6 fps no A, 3 no B); o Original é mais leve para o painel e para o Wi-Fi (4 fps no A, 2 no B). A troca vale na hora, sem desligar a projeção.</string>
     <string name="profile_fixed">Fixo</string>
     <string name="profile_details_title">Detalhes</string>
     <string name="profile_details_sub">Os números de cada perfil, que não se mudam</string>

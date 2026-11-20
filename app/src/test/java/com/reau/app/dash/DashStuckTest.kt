@@ -83,7 +83,7 @@ class DashStuckTest {
         tookMs: Long = 1_798,
         joinedBefore: Boolean = true,
         earlyInARow: Int = 1,
-    ) = JoinRules.onUnavailable(everConnected, wantConnected, { up }, { seen }, tookMs, timeout, joinedBefore, earlyInARow)
+    ) = JoinRules.onUnavailable(everConnected, wantConnected, { up }, { seen }, JoinRules.Attempt(tookMs, timeout, joinedBefore, earlyInARow))
 
     @Test
     fun `a quick refusal with the dash's network already up is adopted, not called a stuck dash`() {
@@ -120,12 +120,12 @@ class DashStuckTest {
     @Test
     fun `the network and the scan are asked only when the answer needs them`() {
         var asked = ""
-        JoinRules.onUnavailable(true, true, { asked += "n"; true }, { asked += "s"; true }, 100, timeout, true, 1)
+        JoinRules.onUnavailable(true, true, { asked += "n"; true }, { asked += "s"; true }, JoinRules.Attempt(100, timeout, true, 1))
         assertEquals("a reconnection asks neither", "", asked)
-        JoinRules.onUnavailable(false, true, { asked += "n"; true }, { asked += "s"; true }, 100, timeout, true, 1)
+        JoinRules.onUnavailable(false, true, { asked += "n"; true }, { asked += "s"; true }, JoinRules.Attempt(100, timeout, true, 1))
         assertEquals("a network that is up needs no scan", "n", asked)
         asked = ""
-        JoinRules.onUnavailable(false, true, { asked += "n"; false }, { asked += "s"; true }, 100, timeout, true, 1)
+        JoinRules.onUnavailable(false, true, { asked += "n"; false }, { asked += "s"; true }, JoinRules.Attempt(100, timeout, true, 1))
         assertEquals("ns", asked)
     }
 
@@ -138,9 +138,11 @@ class DashStuckTest {
     fun `the callback adopts the network under the lock, lets the request go and leaves the refusal when it cannot`() {
         val manager = java.io.File("src/main/java/com/reau/app/dash/DashWifiManager.kt").readText()
         val callback = manager.substringAfter("override fun onUnavailable()").substringBefore("override fun onLosing(")
-        assertTrue(callback, "if (outcome == JoinRules.Unavailable.AdoptExisting && adoptTheNetworkThePhoneJoined(this, tookMs, early)) return" in callback)
+        assertTrue(callback, "outcome == JoinRules.Unavailable.AdoptExisting && adoptTheNetworkThePhoneJoined(this, tookMs, early) -> Unit" in callback)
+        assertTrue(callback, "else -> giveUpAfterUnavailable(outcome, seenNow, tookMs, early)" in callback)
         assertTrue(callback, "dashNetworkUp = { findAlreadyConnectedDashNetwork() != null }" in callback)
-        assertTrue("the refusal stays for an adoption that did not hold", "?: refusal(seenInScan, tookMs, requestTimeoutMs, joinedOnce, quickRefusals)" in callback)
+        val giveUp = manager.substringAfter("private fun giveUpAfterUnavailable(").substringBefore("Canonical place to read the connected SSID")
+        assertTrue("the refusal stays for an adoption that did not hold", "?: refusal(seenInScan, tookMs, requestTimeoutMs, joinedOnce, quickRefusals)" in giveUp)
         val adoption = manager.substringAfter("private fun adoptTheNetworkThePhoneJoined(").substringBefore("private fun askForTheNetwork")
         assertTrue(adoption, "synchronized(requestLock)" in adoption)
         assertTrue("a stale request or a switch-off adopts nothing", "if (!wantConnected || networkCallback !== dead) return false" in adoption)

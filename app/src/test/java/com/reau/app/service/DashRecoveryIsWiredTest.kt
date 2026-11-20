@@ -80,7 +80,8 @@ class DashRecoveryIsWiredTest {
 
     @Test
     fun `the failed tries of a request feed the hung dash watch, from the unavailable and from the early release`() {
-        assertTrue(wifi.between("override fun onUnavailable()", "override fun onLosing").contains("noteFailedTry()"))
+        assertTrue(wifi.between("override fun onUnavailable()", "override fun onLosing").contains("retryAfterUnavailable(tookMs)"))
+        assertTrue(wifi.between("private fun retryAfterUnavailable(", "private fun giveUpAfterUnavailable(").contains("noteFailedTry()"))
         assertTrue(wifi.between("private fun refileForSighting", "// ── A hung dash, and a network Android refuses").contains("noteFailedTry()"))
     }
 

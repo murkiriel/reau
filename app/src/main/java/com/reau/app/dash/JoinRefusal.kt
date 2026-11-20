@@ -90,15 +90,15 @@ internal object JoinRules {
         wantConnected: Boolean,
         dashNetworkUp: () -> Boolean,
         seenInScan: () -> Boolean?,
-        tookMs: Long,
-        timeoutMs: Int,
-        joinedBefore: Boolean,
-        earlyInARow: Int,
+        attempt: Attempt,
     ): Unavailable = when {
         shouldRetryOnUnavailable(everConnected, wantConnected) -> Unavailable.RetryMidSession
         dashNetworkUp() -> Unavailable.AdoptExisting
-        else -> Unavailable.Refused(refusal(seenInScan(), tookMs, timeoutMs, joinedBefore, earlyInARow))
+        else -> Unavailable.Refused(refusal(seenInScan(), attempt.tookMs, attempt.timeoutMs, attempt.joinedBefore, attempt.earlyInARow))
     }
+
+    /** What the join that ended says of itself, for the verdict of [refusal]: how long it took, the wait it was given, whether the dash had worked, and the quick refusals in a row. */
+    internal data class Attempt(val tookMs: Long, val timeoutMs: Int, val joinedBefore: Boolean, val earlyInARow: Int)
 
     /** The quick refusals in a row, this one included; a request that ran its wait out starts the count over. */
     internal fun earlyInARow(previous: Int, tookMs: Long, timeoutMs: Int): Int =

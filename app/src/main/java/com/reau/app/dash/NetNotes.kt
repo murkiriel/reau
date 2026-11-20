@@ -90,6 +90,6 @@ internal class NetNotes {
         private const val NO_RSSI = -127
 
         /** What Android answers for the address when the app may not see it (`WifiInfo.DEFAULT_MAC_ADDRESS`, hidden from the public SDK). */
-        private val REDACTED_ADDRESS = "02:00:00:00:00:" + "00" // split so that no address-shaped text sits in the sources (PrivacyGuardTest)
+        private const val REDACTED_ADDRESS = "02:00:00:00:00:" + "00" // split so that no address-shaped text sits in the sources (PrivacyGuardTest)
     }
 }

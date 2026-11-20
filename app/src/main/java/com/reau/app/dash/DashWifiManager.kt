@@ -344,7 +344,9 @@ class DashWifiManager(
             com.reau.app.data.RideDiagnostics.log("wifi", line)
             val taken = useAlreadyConnectedNetwork()
             if (!taken) {
-                com.reau.app.data.RideDiagnostics.warn("wifi", "the dash network that was up went before it could be adopted: the refusal stands as it always did")
+                com.reau.app.data.RideDiagnostics.warn(
+                    "wifi", "the dash network that was up went before it could be adopted: the refusal stands as it always did",
+                )
             }
             return taken
         }
@@ -644,59 +646,14 @@ class DashWifiManager(
                 everConnected, wantConnected,
                 dashNetworkUp = { findAlreadyConnectedDashNetwork() != null },
                 seenInScan = { scan.verdict(pendingSsid, pendingPrefix).also { seenNow = it } },
-                tookMs, requestTimeoutMs, joinedOnce, early,
+                JoinRules.Attempt(tookMs, requestTimeoutMs, joinedOnce, early),
             )
-            // Mid-ride drop where the dash AP went missing (we HAD connected): keep retrying so a
-            // dash that's hung — and revived by a bike power-cycle — auto-rejoins with no manual
-            // step. The ViewModel's reconnect-giveup timer still bounds this if it never returns.
-            if (outcome == JoinRules.Unavailable.RetryMidSession) {
-                Log.w(TAG, "WiFi unavailable mid-session (${tookMs}ms) — dash AP missing, retrying in ${RECONNECT_DELAY}ms")
-                // The first of an absence, then every fifth with the count: a long absence wrote a trio of lines at each try.
-                if (unavailableLogDue(++unavailableInARow)) {
-                    com.reau.app.data.RideDiagnostics.warn(
-                        "wifi", "unavailable after ${tookMs}ms (mid-session, #$unavailableInARow of this absence) — retrying in " +
-                            "${RECONNECT_DELAY}ms; ${lastScanEvidence()}, approvedBefore=${approvedBefore()}",
-                    )
-                }
-                _state.value = WifiState(
-                    status = WifiConnStatus.REQUESTING,
-                    ssid   = pendingSsid,
-                    error  = context.getString(com.reau.app.R.string.dash_err_wifi_lost),
-                )
-                reconnectActedMs = MonotonicClock.nowMs()
-                noteFailedTry()
-                scheduleReconnect()
-                return
+            when {
+                outcome == JoinRules.Unavailable.RetryMidSession -> retryAfterUnavailable(tookMs)
+                // The phone already has the dash's network up (it joined by itself): that is the answer to the request, not a refusal.
+                outcome == JoinRules.Unavailable.AdoptExisting && adoptTheNetworkThePhoneJoined(this, tookMs, early) -> Unit
+                else -> giveUpAfterUnavailable(outcome, seenNow, tookMs, early)
             }
-            // The phone already has the dash's network up (it joined by itself): that is the answer to the request, not a refusal.
-            if (outcome == JoinRules.Unavailable.AdoptExisting && adoptTheNetworkThePhoneJoined(this, tookMs, early)) return
-            // Failed INITIAL connect / user declined the dialog → give up. onUnavailable()
-            // alone can't tell WHY (Android collapses "SSID not in range" and "auth/password
-            // rejected" into the same callback) — but findDashSsid() already proved a fresh
-            // scan can see the dash's SSID, so reuse that same lookup here to disambiguate the
-            // message instead of leaving the rider guessing (a real gap seen in a log:
-            // several consecutive failures with no way to tell if the dash was just
-            // out of range or the saved password had gone stale).
-            // A quick refusal after the network worked, or several in a row, is a stuck dash (DashStuckTest).
-            val seenInScan = seenNow ?: scan.verdict(pendingSsid, pendingPrefix)
-            quickRefusals = early
-            // After an adoption that did not hold (the network went in between), the verdict is the one it always was.
-            val refusal = (outcome as? JoinRules.Unavailable.Refused)?.refusal
-                ?: refusal(seenInScan, tookMs, requestTimeoutMs, joinedOnce, quickRefusals)
-            val message = refusal.message(pendingSsid).let { (text, name) -> context.getString(text, name) }
-            Log.w(TAG, "WiFi unavailable (${tookMs}ms) — seenInScan=$seenInScan refusal=$refusal")
-            com.reau.app.data.RideDiagnostics.warn(
-                "wifi", "unavailable after ${tookMs}ms (initial connect) — giving up, seenInScan=$seenInScan " +
-                    "quick=$quickRefusals joined=$joinedOnce refusal=$refusal firstApproval=$requestFirstApproval " +
-                    "approvedBefore=${approvedBefore()}; ${lastScanEvidence()}",
-            )
-            _state.value = WifiState(
-                status = WifiConnStatus.ERROR,
-                ssid   = pendingSsid,
-                error  = message,
-                dashVisible = refusal == Refusal.DASH_STUCK || refusal == Refusal.SEEN_NOT_JOINED,
-            )
-            wantConnected = false
         }
 
         override fun onLosing(network: Network, maxMsToLive: Int) {
@@ -704,6 +661,60 @@ class DashWifiManager(
         }
 
         override fun onLost(network: Network) = bikeLost()
+    }
+
+    /**
+     * Mid-ride drop where the dash AP went missing (we HAD connected): keep retrying so a dash that's hung — and revived by a bike power-cycle — auto-rejoins with no manual
+     * step. The ViewModel's reconnect-giveup timer still bounds this if it never returns.
+     */
+    private fun retryAfterUnavailable(tookMs: Long) {
+        Log.w(TAG, "WiFi unavailable mid-session (${tookMs}ms) — dash AP missing, retrying in ${RECONNECT_DELAY}ms")
+        // The first of an absence, then every fifth with the count: a long absence wrote a trio of lines at each try.
+        if (unavailableLogDue(++unavailableInARow)) {
+            com.reau.app.data.RideDiagnostics.warn(
+                "wifi", "unavailable after ${tookMs}ms (mid-session, #$unavailableInARow of this absence) — retrying in " +
+                    "${RECONNECT_DELAY}ms; ${lastScanEvidence()}, approvedBefore=${approvedBefore()}",
+            )
+        }
+        _state.value = WifiState(
+            status = WifiConnStatus.REQUESTING,
+            ssid   = pendingSsid,
+            error  = context.getString(com.reau.app.R.string.dash_err_wifi_lost),
+        )
+        reconnectActedMs = MonotonicClock.nowMs()
+        noteFailedTry()
+        scheduleReconnect()
+    }
+
+    /** The first connection's request ended without the network: the refusal that [outcome] gives (or the one from the scan, after an adoption that did not hold), and the end of the attempt. */
+    private fun giveUpAfterUnavailable(outcome: JoinRules.Unavailable, seenNow: Boolean?, tookMs: Long, early: Int) {
+        // Failed INITIAL connect / user declined the dialog → give up. onUnavailable()
+        // alone can't tell WHY (Android collapses "SSID not in range" and "auth/password
+        // rejected" into the same callback) — but findDashSsid() already proved a fresh
+        // scan can see the dash's SSID, so reuse that same lookup here to disambiguate the
+        // message instead of leaving the rider guessing (a real gap seen in a log:
+        // several consecutive failures with no way to tell if the dash was just
+        // out of range or the saved password had gone stale).
+        // A quick refusal after the network worked, or several in a row, is a stuck dash (DashStuckTest).
+        val seenInScan = seenNow ?: scan.verdict(pendingSsid, pendingPrefix)
+        quickRefusals = early
+        // After an adoption that did not hold (the network went in between), the verdict is the one it always was.
+        val refusal = (outcome as? JoinRules.Unavailable.Refused)?.refusal
+            ?: refusal(seenInScan, tookMs, requestTimeoutMs, joinedOnce, quickRefusals)
+        val message = refusal.message(pendingSsid).let { (text, name) -> context.getString(text, name) }
+        Log.w(TAG, "WiFi unavailable (${tookMs}ms) — seenInScan=$seenInScan refusal=$refusal")
+        com.reau.app.data.RideDiagnostics.warn(
+            "wifi", "unavailable after ${tookMs}ms (initial connect) — giving up, seenInScan=$seenInScan " +
+                "quick=$quickRefusals joined=$joinedOnce refusal=$refusal firstApproval=$requestFirstApproval " +
+                "approvedBefore=${approvedBefore()}; ${lastScanEvidence()}",
+        )
+        _state.value = WifiState(
+            status = WifiConnStatus.ERROR,
+            ssid   = pendingSsid,
+            error  = message,
+            dashVisible = refusal == Refusal.DASH_STUCK || refusal == Refusal.SEEN_NOT_JOINED,
+        )
+        wantConnected = false
     }
 
     /**

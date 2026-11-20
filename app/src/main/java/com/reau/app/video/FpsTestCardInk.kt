@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
 import androidx.core.graphics.createBitmap
+import androidx.core.graphics.withScale
 
 /**
  * Draws the FPS test card ([FpsTestCard]) on ONE bitmap that is kept and drawn on again for every frame (no bitmap per frame): black, the number of the
@@ -32,13 +33,12 @@ internal class FpsTestCardInk {
             canvas = Canvas(bmp)
         }
         val c = checkNotNull(canvas)
-        c.save()
-        c.scale(width / REF_W, height / REF_H)
-        c.drawColor(Color.BLACK)
-        header(c, cells)
-        slots(c, cells)
-        binary(c, cells)
-        c.restore()
+        c.withScale(width / REF_W, height / REF_H) {
+            drawColor(Color.BLACK)
+            header(this, cells)
+            slots(this, cells)
+            binary(this, cells)
+        }
         return bmp
     }
 
@@ -50,14 +50,14 @@ internal class FpsTestCardInk {
     }
 
     private fun header(c: Canvas, cells: FpsTestCard.Cells) {
-        label(c, cells.number, NUMBER_X, NUMBER_BASE, NUMBER_SIZE, Color.WHITE)
-        label(c, cells.rate, INFO_X, RATE_BASE, INFO_SIZE, YELLOW)
-        label(c, cells.secondsLine, INFO_X, SECONDS_BASE, INFO_SIZE, CYAN)
+        c.label(cells.number, NUMBER_X, NUMBER_BASE, NUMBER_SIZE, Color.WHITE)
+        c.label(cells.rate, INFO_X, RATE_BASE, INFO_SIZE, YELLOW)
+        c.label(cells.secondsLine, INFO_X, SECONDS_BASE, INFO_SIZE, CYAN)
         fill.color = if (cells.even) Color.WHITE else DARK
         rect.set(SQUARE_X, SQUARE_Y, SQUARE_X + SQUARE_SIDE, SQUARE_Y + SQUARE_SIDE)
         c.drawRect(rect, fill)
         text.textAlign = Paint.Align.RIGHT
-        label(c, "PAR/IMPAR", SQUARE_X + SQUARE_SIDE + 4f, SQUARE_LABEL_BASE, SMALL_SIZE, GREY)
+        c.label("PAR/IMPAR", SQUARE_X + SQUARE_SIDE + 4f, SQUARE_LABEL_BASE, SMALL_SIZE, GREY)
         text.textAlign = Paint.Align.LEFT
     }
 
@@ -79,7 +79,7 @@ internal class FpsTestCardInk {
                 fill.style = Paint.Style.FILL
             }
             text.textAlign = Paint.Align.CENTER
-            label(c, i.toString(), left + cellW / 2f, SLOT_Y + SLOT_H / 2f + SLOT_SIZE * HALF_CAP, SLOT_SIZE, if (now) Color.BLACK else GREY_DIM)
+            c.label(i.toString(), left + cellW / 2f, SLOT_Y + SLOT_H / 2f + SLOT_SIZE * HALF_CAP, SLOT_SIZE, if (now) Color.BLACK else GREY_DIM)
             text.textAlign = Paint.Align.LEFT
         }
     }
@@ -93,13 +93,13 @@ internal class FpsTestCardInk {
             rect.set(left + 1f, BITS_Y, left + cellW - 1f, BITS_Y + BITS_H)
             c.drawRect(rect, fill)
         }
-        label(c, "binario do quadro (${FpsTestCard.BITS} bits)", STRIP_X, BITS_LABEL_BASE, SMALL_SIZE, GREY)
+        c.label("binario do quadro (${FpsTestCard.BITS} bits)", STRIP_X, BITS_LABEL_BASE, SMALL_SIZE, GREY)
     }
 
-    private fun label(c: Canvas, line: String, x: Float, baseline: Float, size: Float, color: Int) {
+    private fun Canvas.label(line: String, x: Float, baseline: Float, size: Float, color: Int) {
         text.textSize = size
         text.color = color
-        c.drawText(line, x, baseline, text)
+        drawText(line, x, baseline, text)
     }
 
     private companion object {

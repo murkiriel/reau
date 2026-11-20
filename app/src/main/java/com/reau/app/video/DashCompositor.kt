@@ -730,6 +730,29 @@ class DashCompositor(private val log: (String) -> Unit) {
         testWindowAtMs = now
     }
 
+    /** The blurred background could not be made: it is off from now on, the border stays black. */
+    private fun dropBackdropIfFailed() {
+        if (backdrop != null && gl.backdropFailed) {
+            backdrop = null
+            log("${RideDiagnostics.WARN}compositor: the blurred background could not be made and is off (the border stays black)")
+        }
+    }
+
+    /** Tells once that the output surface refused a frame, and keeps whether it is refusing now. */
+    private fun noteOutputRefusal(posted: Boolean) {
+        if (CompositorRules.refusalToTell(posted, postFailing)) log("${RideDiagnostics.WARN}compositor: the output surface refused a frame (encoder gone?)")
+        postFailing = !posted
+    }
+
+    /** A frame was drawn: a new picture also ends the wait of the tick and the latency of the rider's touch; a repeat only counts. */
+    private fun countFrame(repeat: Boolean) {
+        if (!repeat) {
+            waitClock.drawn(System.nanoTime())?.let { tickWaits.add(it) }
+            com.reau.app.stream.InputLatency.pictureDrawn()
+        }
+        (if (repeat) repeated else drawn).incrementAndGet()
+    }
+
     private fun drawAndPost(repeat: Boolean) {
         val startNs = System.nanoTime()
         val testRate = fpsTestRate
@@ -742,10 +765,7 @@ class DashCompositor(private val log: (String) -> Unit) {
             if (buttonOverlay.on) gl.drawButton(buttonOverlay.x, buttonOverlay.y)
         } else {
             gl.draw(window.takeIf { hasImage }, viewport, backdrop)
-            if (backdrop != null && gl.backdropFailed) {
-                backdrop = null
-                log("${RideDiagnostics.WARN}compositor: the blurred background could not be made and is off (the border stays black)")
-            }
+            dropBackdropIfFailed()
             gl.fillBlack(cover)
             if (overlay.on) gl.drawOverlay(overlay.x, overlay.y)
             if (buttonOverlay.on) gl.drawButton(buttonOverlay.x, buttonOverlay.y)
@@ -759,8 +779,7 @@ class DashCompositor(private val log: (String) -> Unit) {
         val stampMs = clock.stampMs
         onFrameSubmitted(stampMs)
         val posted = gl.post(stampMs)
-        if (CompositorRules.refusalToTell(posted, postFailing)) log("${RideDiagnostics.WARN}compositor: the output surface refused a frame (encoder gone?)")
-        postFailing = !posted
+        noteOutputRefusal(posted)
         if (testRate > 0 && posted) countTestFrame(testRate)
         if (gl.hasPreview && hasImage) drawPreview()
 
@@ -768,11 +787,7 @@ class DashCompositor(private val log: (String) -> Unit) {
         lastFrameAtMs = SystemClock.uptimeMillis()
         sinceLastFrameMs = 0L
         newImage = false
-        if (!repeat) {
-            waitClock.drawn(System.nanoTime())?.let { tickWaits.add(it) }
-            com.reau.app.stream.InputLatency.pictureDrawn()
-        }
-        (if (repeat) repeated else drawn).incrementAndGet()
+        countFrame(repeat)
         val composedNs = System.nanoTime() - startNs
         composeNs.addAndGet(composedNs)
         composeClock.add(composedNs)
