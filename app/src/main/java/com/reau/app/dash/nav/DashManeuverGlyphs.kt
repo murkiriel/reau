@@ -14,6 +14,9 @@ enum class DrivingSide {
             "HK", "MO", "AU", "NZ", "PG", "FJ", "WS", "TO", "SB", "KI", "TV", "NR", "ZA", "NA", "BW", "ZW", "ZM", "MZ", "MW", "KE", "TZ", "UG",
             "SZ", "LS", "MU", "SC", "GY", "SR", "JM", "BB", "BS", "TT", "AG", "DM", "GD", "KN", "LC", "VC", "FK", "SH", "BM", "AI", "VG", "KY",
             "MS", "TC",
+            // The overseas territories that keep the left: the US Virgin Islands (VI), the Cook Islands (CK), Niue (NU), Norfolk Island (NF), Christmas Island (CX),
+            // the Cocos (Keeling) Islands (CC), Tokelau (TK), the Pitcairn Islands (PN) and the British Indian Ocean Territory (IO).
+            "VI", "CK", "NU", "NF", "CX", "CC", "TK", "PN", "IO",
         )
 
         fun forCountry(iso2: String?): DrivingSide = if (iso2 != null && iso2.uppercase() in LEFT) LEFT_HAND else RIGHT_HAND

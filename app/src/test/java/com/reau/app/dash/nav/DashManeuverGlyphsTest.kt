@@ -147,6 +147,13 @@ class DashManeuverGlyphsTest {
         assertEquals(DrivingSide.LEFT_HAND, DrivingSide.forCountry("GB"))
         assertEquals(DrivingSide.LEFT_HAND, DrivingSide.forCountry("JP"))
         assertEquals(DrivingSide.LEFT_HAND, DrivingSide.forCountry("AU"))
+        for (code in listOf("VI", "CK", "NU", "NF", "CX", "CC", "TK", "PN", "IO")) {
+            assertEquals("$code drives on the left", DrivingSide.LEFT_HAND, DrivingSide.forCountry(code))
+            assertEquals("$code in lower case", DrivingSide.LEFT_HAND, DrivingSide.forCountry(code.lowercase()))
+        }
+        assertEquals("the neighbours that drive on the right stay", DrivingSide.RIGHT_HAND, DrivingSide.forCountry("PR")) // Puerto Rico
+        assertEquals(DrivingSide.RIGHT_HAND, DrivingSide.forCountry("AS")) // American Samoa
+        assertEquals(DrivingSide.RIGHT_HAND, DrivingSide.forCountry("GU")) // Guam
         assertEquals("unknown or missing country: the global default", DrivingSide.RIGHT_HAND, DrivingSide.forCountry(null))
         assertEquals(DrivingSide.RIGHT_HAND, DrivingSide.forCountry(""))
         assertEquals(DrivingSide.RIGHT_HAND, DrivingSide.forCountry("ZZ"))
