@@ -75,16 +75,16 @@ internal fun ProfileDetailsRow(s: REauSettings) {
 }
 
 /**
- * The stream's values (REauSettings.sanitized), the same in a debug and in a release build and none of them a choice: one line to read
- * ("Video: 6 fps, 400 kbps, 528x304 (fixed)", tag `video_fixed`), then the bitrate mode and the keyframe, locked. The pace, the ceiling and the picture used to be
- * choices of a debug build (plan 32); the dash showed why they are not (it does not stretch a smaller picture, it freezes when the size changes with the video
+ * The stream's values (REauSettings.sanitized), the same in a debug and in a release build and none of them a choice here (the pace is [VideoPaceChoice]'s):
+ * one line to read ("Video: profile A 6 fps, profile B 3 fps, 400 kbps, 528x304", the pace of the rider's [REauSettings.videoPace]; tag `video_fixed`),
+ * then the bitrate mode and the keyframe, locked. The ceiling and the picture used to be choices of a debug build (plan 32); the dash showed why they are not (it does not stretch a smaller picture, it freezes when the size changes with the video
  * running, it ignores the buttons at 12 fps and flickers the reserve icon at 8). The navigation profiles below choose between A and B.
  */
 @Composable
 internal fun StreamProfileRows(s: REauSettings) {
     val frame = s.frameSize
     Text(
-        stringResource(R.string.video_fixed_line, s.fpsCeiling, s.streamBitrateBps / KBPS, "${frame.width}\u00d7${frame.height}"),
+        stringResource(R.string.video_fixed_line, s.videoPace.fullFps, s.videoPace.reducedFps, s.streamBitrateBps / KBPS, "${frame.width}\u00d7${frame.height}"),
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp).testTag("video_fixed"),
         color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium,
     )

@@ -35,6 +35,7 @@ class Tip(val tag: String, @StringRes val title: Int, @StringRes val text: Int, 
 object Tips {
     val ALL: List<Tip> = listOf(
         Tip("waze_zoom", R.string.tip_waze_zoom_title, R.string.tip_waze_zoom_text, R.drawable.ic_ms_map),
+        Tip("video_fps", R.string.tip_video_fps_title, R.string.tip_video_fps_text, R.drawable.ic_ms_speed),
     )
 }
 

@@ -9,6 +9,7 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.reau.app.R
@@ -46,6 +47,14 @@ class TipsScreenTest {
         compose.onNodeWithTag("tip_waze_zoom").assertIsDisplayed()
         compose.onNodeWithTag("tip_waze_zoom_title").assertIsDisplayed().assertTextEquals(context.getString(R.string.tip_waze_zoom_title))
         compose.onNodeWithTag("tip_waze_zoom_text").assertIsDisplayed().assertTextEquals(context.getString(R.string.tip_waze_zoom_text))
+    }
+
+    @Test
+    fun theVideoPaceTipIsRightAfterTheWazeOne() {
+        compose.setContent { TipsScreen(onBack = {}) }
+        assertEquals(listOf("waze_zoom", "video_fps"), Tips.ALL.map { it.tag })
+        compose.onNodeWithTag("tip_video_fps_title").performScrollTo().assertIsDisplayed().assertTextEquals(context.getString(R.string.tip_video_fps_title))
+        compose.onNodeWithTag("tip_video_fps_text").assertIsDisplayed().assertTextEquals(context.getString(R.string.tip_video_fps_text))
     }
 
     @Test

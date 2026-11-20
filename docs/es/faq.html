@@ -277,20 +277,22 @@
 <p>Es una limitación del <strong>propio tablero y de su Wi-Fi</strong>, no del teléfono. REau tiene solo <strong>dos perfiles de video fijos</strong> (la tabla de abajo), que cambian según la distancia a la maniobra y según la velocidad estimada, no según las condiciones reales de la red. REau no envía más de lo que el tablero puede recibir: tiene un límite.</p>
 </article><article class="qa" id="s9-q2"><h3>¿Cuáles son los perfiles de video de REau?</h3>
 <div class="tw"><div class="tws"><table><thead><tr><th>Perfil</th><th>Cuadros por segundo</th><th>Bitrate</th><th>Para qué</th></tr>
-</thead><tbody><tr><td>A</td><td>6</td><td>400 kbps</td><td>Imagen más fluida, cuando la maniobra está cerca y la velocidad es baja</td></tr>
-<tr><td>B</td><td>3</td><td>400 kbps</td><td>Más liviano para el Wi-Fi y el tablero, en crucero y a alta velocidad</td></tr>
+</thead><tbody><tr><td>A</td><td>6 (REau) o 4 (Original)</td><td>400 kbps</td><td>Imagen más fluida, cuando la maniobra está cerca y la velocidad es baja</td></tr>
+<tr><td>B</td><td>3 (REau) o 2 (Original)</td><td>400 kbps</td><td>Más liviano para el Wi-Fi y el tablero, en crucero y a alta velocidad</td></tr>
 </tbody></table>
 </div>
 </div>
-<ul><li>Bitrate <strong>constante</strong>, el <strong>mismo tope de 400 kbps</strong> en los dos perfiles (nunca cortado a la mitad), imagen de <strong>528×304</strong> y un <strong>fotograma clave cada 1 segundo</strong> (una imagen rota dura como máximo ese tiempo). Las pantallas ligeras de Android Auto (el menú y las otras apps) suben a 6 fps, nunca más.</li>
+<ul><li><strong>Ritmo del video</strong> (Ajustes → Perfiles de video): <strong>REau</strong>, el predeterminado, usa 6 fps en el perfil A y 3 en el B; <strong>Original</strong> usa 4 y 2, más liviano para el tablero y para el Wi-Fi. El cambio vale al instante, con la proyección encendida.</li>
+<li>Bitrate <strong>constante</strong>, el <strong>mismo tope de 400 kbps</strong> en los dos perfiles (nunca cortado a la mitad), imagen de <strong>528×304</strong> y un <strong>fotograma clave cada 1 segundo</strong> (una imagen rota dura como máximo ese tiempo). Las pantallas ligeras de Android Auto (el menú y las otras apps) suben al ritmo del perfil A (6 fps en REau, 4 en Original), nunca más.</li>
 <li><strong>Perfil por maniobra</strong> (activado): a menos de 1 km de la próxima maniobra, A; más lejos, B.</li>
 <li><strong>Perfil por velocidad</strong> (activado): hasta cerca de 55 km/h (34 mph), A; desde cerca de 65 km/h (40 mph), B. La velocidad se <strong>estima</strong> a partir de la ruta que informa Android Auto, sin que REau encienda el GPS, así que no usa batería extra.</li>
 <li>Si cualquiera de los dos pide B, <strong>gana B</strong>. Los perfiles solo deciden mientras hay una ruta activa.</li>
 </ul>
 <div class="figs"><figure class="wide"><a class="zoom" href="../assets/img/profiles.jpg"><img width="720" height="720" src="../assets/img/profiles.jpg" alt="Ajustes → Perfiles de video (valores fijos)." loading="lazy"></a><figcaption>Ajustes → Perfiles de video (valores fijos).<span class="old"> Imagen de una versión anterior de la app.</span></figcaption></figure></div>
 </article><article class="qa" id="s9-q3"><h3>¿Puedo subir los cuadros por segundo o el bitrate?</h3>
-<p>No: los valores de los perfiles son <strong>fijos</strong>, para evitar dolores de cabeza. Lo que mostraron las pruebas:</p>
-<ul><li>A 30 cuadros por segundo, el tablero se cayó y no se reconectó; a 16, aguantó, pero no vale la pena.</li>
+<p>No: salvo la elección entre el ritmo REau y el Original, los valores de los perfiles son <strong>fijos</strong>, para evitar dolores de cabeza. Lo que mostraron las pruebas:</p>
+<ul><li>El tablero acepta más cuadros por segundo, pero el mismo procesador que muestra el video también dibuja la pantalla y atiende los botones: a 8 fps el icono de la reserva empezó a parpadear y a 12 fps el tablero empezó a ignorar los botones. A 6 fps todo funciona sin fallas, por eso REau no pasa de ahí (el mismo consejo está en la página Consejos de la app).</li>
+<li>A 30 cuadros por segundo, el tablero se cayó y no se reconectó; a 16, aguantó, pero no vale la pena.</li>
 <li>Un <strong>tope de 200 kbps no sirve para Waze</strong>: la calidad queda mala. <strong>400 kbps es estable.</strong></li>
 <li>A alta velocidad el problema no es la app ni los FPS, es el <strong>bitrate</strong>: el Wi-Fi del tablero no aguanta más, y un mapa que cambia mucho (acelerando en la ciudad) llega al techo y se traba.</li>
 <li>Más cuadros con el mismo bitrate no hacen la imagen más nítida; comprimir demasiado la deja horrible. REau no puede compactar más allá de eso toda la información que manda Android Auto.</li>
@@ -426,7 +428,7 @@
 <tr><td>Modo desarrollador de Android Auto</td><td>Se activa con ~10 toques en “Versión” en los ajustes de Android Auto. Distinto del modo desarrollador del teléfono.</td></tr>
 <tr><td>Anillo de maniobras (burbuja)</td><td>El círculo de la izquierda del tablero, nativo del tablero, que muestra la flecha de la maniobra y la distancia.</td></tr>
 <tr><td>Anillo de información</td><td>Un anillo opcional que REau dibuja dentro de la imagen, a la derecha del tablero, con el clima y el estado del teléfono.</td></tr>
-<tr><td>Perfil A / Perfil B</td><td>Los dos niveles de video fijos de REau (6 fps / 400 kbps y 3 fps / 400 kbps).</td></tr>
+<tr><td>Perfil A / Perfil B</td><td>Los dos niveles de video de REau: 6 fps / 400 kbps y 3 fps / 400 kbps en el ritmo REau, 4 fps / 400 kbps y 2 fps / 400 kbps en el ritmo Original.</td></tr>
 <tr><td>Fotograma clave</td><td>El cuadro de video completo, enviado cada 1 s, que limita cuánto dura una imagen rota.</td></tr>
 <tr><td>Ajuste / recorte / DPI / máscara</td><td>Cómo se encuadra, se agranda y se dimensiona la imagen de Android Auto para la pantalla redonda del tablero.</td></tr>
 <tr><td>Fondo</td><td>Una imagen fija enviada al tablero, sin Android Auto (para pruebas).</td></tr>

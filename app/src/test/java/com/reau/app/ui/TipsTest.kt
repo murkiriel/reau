@@ -63,6 +63,41 @@ class TipsTest {
     }
 
     @Test
+    fun `the second tip is the one about the video not going past 6 fps, right after the Waze one`() {
+        assertEquals(listOf("waze_zoom", "video_fps"), Tips.ALL.map { it.tag })
+        val tip = Tips.ALL[1]
+        assertEquals(R.string.tip_video_fps_title, tip.title)
+        assertEquals(R.string.tip_video_fps_text, tip.text)
+        assertTrue("the list names it", screen.contains("Tip(\"video_fps\", R.string.tip_video_fps_title, R.string.tip_video_fps_text"))
+        assertTrue("after the Waze one", screen.indexOf("Tip(\"waze_zoom\"") in 0 until screen.indexOf("Tip(\"video_fps\""))
+    }
+
+    @Test
+    fun `the video tip says what was asked in the three languages and names no firmware or chip`() {
+        assertEquals("Por que o vídeo não passa de 6 fps", text("values-pt", "tip_video_fps_title"))
+        assertEquals(
+            "O painel aceita mais quadros por segundo, mas o mesmo processador que mostra o vídeo também desenha a tela e atende os botões. " +
+                "Nos testes na moto, a 8 fps o ícone da reserva passou a piscar e a 12 fps o painel começou a ignorar os botões. " +
+                "A 6 fps tudo funciona sem falhas, por isso o REau não passa disso.",
+            text("values-pt", "tip_video_fps_text"),
+        )
+        val en = text("values", "tip_video_fps_title")!! to text("values", "tip_video_fps_text")!!
+        assertTrue(en.toString(), en.first.contains("6 fps") && en.second.contains("8 fps") && en.second.contains("12 fps") && en.second.contains("REau"))
+        assertTrue(en.second, en.second.contains("reserve icon") && en.second.contains("ignore the buttons"))
+        val es = text("values-es", "tip_video_fps_title")!! to text("values-es", "tip_video_fps_text")!!
+        assertTrue(es.toString(), es.first.contains("6 fps") && es.second.contains("8 fps") && es.second.contains("12 fps") && es.second.contains("REau"))
+        assertTrue(es.second, es.second.contains("tablero") && es.second.contains("reserva") && es.second.contains("ignorar los botones"))
+        // The repository is public: nothing of the dash's firmware (its decoder, its chip, its software) is in the tip.
+        val firmware = Regex("""\b(?:firmware|decoder|decodificador|software|chip|SoC|ARM|Cortex|MCU|Linux|hardware)\b""", RegexOption.IGNORE_CASE)
+        for (folder in listOf("values", "values-pt", "values-es")) {
+            for (name in listOf("tip_video_fps_title", "tip_video_fps_text")) {
+                val body = text(folder, name)!!
+                assertFalse("$folder/$name: $body", firmware.containsMatchIn(body))
+            }
+        }
+    }
+
+    @Test
     fun `the button is called Tips in each language`() {
         assertEquals("Tips", text("values", "tips_title"))
         assertEquals("Dicas", text("values-pt", "tips_title"))

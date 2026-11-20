@@ -107,7 +107,7 @@ internal class VideoLoop(
             bitrateBps = rider.streamBitrateBps,
             bitrateMode = rider.bitrateMode,
             keyframeSec = rider.keyframeSec,
-            lightScreenFps = REauSettings.lightScreenFps(),
+            lightScreenFps = REauSettings.lightScreenFps(rider.videoPace),
             frame = rider.frameSize,
         )
 

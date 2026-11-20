@@ -1,5 +1,6 @@
 package com.reau.app.settings
 
+import com.reau.app.dash.DashConfig
 import com.reau.app.video.FrameFit
 
 /**
@@ -16,6 +17,25 @@ enum class Fit {
 
 /** Where Android Auto's sound goes while the browser switch is on: the phone only, the browser only, or both. */
 enum class WebAudioMode { PHONE, BROWSER, BOTH }
+
+/**
+ * The pace of the video to the dash (plan 32, 20/11/2026): the rider's only choice about it, an everyday setting in a debug and in a release build.
+ * [fullFps] is profile A's pace and [reducedFps] profile B's, always its exact half; the bitrate ceiling (400 kbps), the picture (528x304) and the keyframe (1 s)
+ * are the same in both. [lightScreenFps] is the pace on Android Auto's light screens, never above A's.
+ */
+enum class VideoPace(val fullFps: Int, val reducedFps: Int) {
+    /** REau's own pace, the default: A at 6 fps and B at 3, the most the dash takes without its buttons or the reserve icon suffering. */
+    REAU(DashConfig.PROFILE_FULL_FPS, DashConfig.PROFILE_REDUCED_FPS),
+
+    /** The lighter pace: A at 4 fps and B at 2, easier on the dash and on the Wi-Fi. */
+    ORIGINAL(DashConfig.ORIGINAL_FULL_FPS, DashConfig.ORIGINAL_REDUCED_FPS);
+
+    /** The pace on the light screens of Android Auto: A's, so they are never above it. */
+    val lightScreenFps: Int get() = fullFps
+
+    /** The ride log's line when the rider picks this pace, e.g. "video pace: REAU (A 6 fps / B 3 fps)". */
+    fun logLine(): String = "video pace: $name (A $fullFps fps / B $reducedFps fps)"
+}
 
 /** Waze's map theme, through Android Auto's night sensor (service/DayNight.kt). */
 enum class MapTheme {

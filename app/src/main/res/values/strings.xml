@@ -433,7 +433,7 @@
     <string name="answer_title">Answer calls</string>
     <string name="gemini_title">Gemini</string>
     <string name="by_joystick_sub">By handlebar joystick</string>
-    <string name="video_fixed_line">Video: %1$d fps, %2$d kbps, %3$s (fixed)</string>
+    <string name="video_fixed_line">Video: profile A %1$d fps, profile B %2$d fps, %3$d kbps, %4$s</string>
     <string name="bitrate_mode_title">Bitrate mode</string>
     <string name="bitrate_cbr">Constant</string>
     <string name="keyframe_title">Keyframe</string>
@@ -442,6 +442,11 @@
     <string name="profile_a_sub">The smoother picture</string>
     <string name="profile_b_title">Profile B</string>
     <string name="profile_b_sub">Lighter on the Wi-Fi and on the dash</string>
+    <string name="video_pace_title">Video pace</string>
+    <string name="video_pace_sub">REau: 6 fps on A and 3 on B. Original: 4 and 2, lighter.</string>
+    <string name="video_pace_reau">REau</string>
+    <string name="video_pace_original">Original</string>
+    <string name="video_pace_info">Profile A is the smoother picture; B runs at half of A\'s pace, is lighter, and takes over far from the maneuver or at high speed. REau is the default (A at 6 fps, B at 3 fps); Original is lighter on the dash and on the Wi-Fi (A at 4 fps, B at 2 fps). The change takes effect right away, without turning the projection off.</string>
     <string name="profile_fixed">Fixed</string>
     <string name="profile_details_title">Details</string>
     <string name="profile_details_sub">The numbers of each profile, which cannot be changed</string>
@@ -945,4 +950,6 @@
     <string name="tips_title">Tips</string>
     <string name="tip_waze_zoom_title">Turn off Waze\'s automatic zoom</string>
     <string name="tip_waze_zoom_text">We recommend turning off automatic zoom in the Waze settings. It makes the video heavier for the dash, and the dash screen is too small for the amount of information that automatic zoom shows.</string>
+    <string name="tip_video_fps_title">Why the video stays at 6 fps</string>
+    <string name="tip_video_fps_text">The dash accepts more frames per second, but the same processor that shows the video also draws the screen and handles the buttons. In tests on the bike, at 8 fps the reserve icon started to flicker, and at 12 fps the dash began to ignore the buttons. At 6 fps everything works without glitches, so REau does not go above it.</string>
 </resources>

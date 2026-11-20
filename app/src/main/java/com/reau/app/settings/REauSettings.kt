@@ -42,7 +42,12 @@ data class REauSettings(
     val zoom: Int = 100,
     /** The apps' black bands over the dash's frame ([FrameFit.Cover]). */
     val cover: FrameFit.Cover = FrameFit.Cover.NONE,
-    /** The pace of the stream: always [DashConfig.PROFILE_FULL_FPS] ([sanitized]); no choice, whatever an older build stored. */
+    /**
+     * The video's pace, the rider's only choice about it ([VideoPace]): REau (A 6 fps / B 3, the default) or Original (A 4 / B 2). A normal setting in a debug and in a
+     * release build, taken at once with the projection on ([com.reau.app.service.LiveTuning.Step.NEW_STREAM]).
+     */
+    val videoPace: VideoPace = VideoPace.REAU,
+    /** The pace of profile A, always [VideoPace.fullFps] of [videoPace] ([sanitized]); nothing else sets it, whatever an older build stored. */
     val fpsCeiling: Int = DashConfig.PROFILE_FULL_FPS,
     /** The bitrate ceiling: always [DashConfig.PROFILE_FULL_BPS] ([sanitized]); no choice, whatever an older build stored. */
     val streamBitrateBps: Int = DEFAULT_STREAM_BITRATE,
@@ -413,7 +418,7 @@ data class REauSettings(
             aaNewProtocol = true,
             maneuverFpsProfile = true,
             speedFpsProfile = true,
-            fpsCeiling = DashConfig.PROFILE_FULL_FPS,
+            fpsCeiling = videoPace.fullFps,
             streamBitrateBps = DashConfig.PROFILE_FULL_BPS,
             bitrateMode = BitrateMode.CBR,
             keyframeSec = DashConfig.PROFILE_KEYFRAME_SEC,
@@ -454,11 +459,11 @@ data class REauSettings(
 
     companion object {
         /**
-         * While Android Auto's app menu or another app is in front, the pace to the dash goes up to [DashConfig.LIGHT_SCREEN_FPS] (never above 6; profile B's
-         * 3 fps on the navigation, which alone follows the profiles), so a joystick touch shows sooner: always, in a debug build and in a
+         * While Android Auto's app menu or another app is in front, the pace to the dash goes up to [VideoPace.lightScreenFps], profile A's pace of [pace] (6 fps in
+         * REau, 4 in Original; never above 6, and profile B's pace on the navigation, which alone follows the profiles), so a joystick touch shows sooner: always, in a debug build and in a
          * release (28/10/2026: it was a debug switch, now it has none). Tried on the bike in a debug build on 28/10/2026.
          */
-        fun lightScreenFps(): Int = DashConfig.LIGHT_SCREEN_FPS
+        fun lightScreenFps(pace: VideoPace = VideoPace.REAU): Int = pace.lightScreenFps
 
         /** Privacy: the days offered for the logs, and 0 (never). */
         val LOG_KEEP_DAYS = listOf(7, 14, 30, 0)

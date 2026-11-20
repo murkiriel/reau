@@ -60,6 +60,7 @@ class SettingsScreenNowTest {
         Row("detailed_log", "Registro detalhado", "Detailed log"),
         Row("log_keep", "Apagar sozinho os mais velhos que", "Automatically delete those older than"),
         Row("no_dash_stop", "Desligar sozinho sem o painel", "Turn off by itself without the dash"),
+        Row("video_pace", "Ritmo do vídeo", "Video pace"),
     )
 
     /** The rows that wait for the next start, are fixed, or are not settings at all (their buttons): no chip. */

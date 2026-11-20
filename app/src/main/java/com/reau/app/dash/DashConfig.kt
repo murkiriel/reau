@@ -41,6 +41,13 @@ object DashConfig {
     const val PROFILE_REDUCED_FPS = 3
     const val PROFILE_KEYFRAME_SEC = 1
 
+    /**
+     * The other pace the rider can pick ([com.reau.app.settings.VideoPace.ORIGINAL], 20/11/2026): profile A at 4 fps and profile B, its exact half, at 2 fps,
+     * with the same 400 kbps ceiling, 528x304 picture and 1 s keyframe. Lighter for the dash and for the Wi-Fi than [PROFILE_FULL_FPS] and [PROFILE_REDUCED_FPS].
+     */
+    const val ORIGINAL_FULL_FPS = 4
+    const val ORIGINAL_REDUCED_FPS = 2
+
     /** The pace on the screens of Android Auto that are not the navigation's (its app menu and the other apps) in every build ([com.reau.app.settings.REauSettings.lightScreenFps]); never above [PROFILE_FULL_FPS]. */
     const val LIGHT_SCREEN_FPS = PROFILE_FULL_FPS
 

@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.reau.app.settings.PlanSettings
+import com.reau.app.settings.VideoPace
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
@@ -42,7 +43,7 @@ class SettingsScreenVideoTest {
         for (tag in listOf("bitrate_mode", "keyframe")) {
             compose.onNodeWithTag("${tag}_locked").performScrollTo().assertIsDisplayed()
         }
-        compose.onNodeWithTag("video_fixed").assertTextContains("Vídeo: 6 fps, 400 kbps, 528×304 (fixo)")
+        compose.onNodeWithTag("video_fixed").assertTextContains("Vídeo: perfil A 6 fps, perfil B 3 fps, 400 kbps, 528×304")
         compose.onNodeWithTag("keyframe_locked").assertTextContains("1 s", substring = true)
         for (tag in listOf("fps", "fps_plus", "fps_minus", "bitrate", "bitrate_slider", "reserve_cap", "flicker_warning", "frame", "bitrate_vbr", "bitrate_cbr", "keyframe_1", "keyframe_2", "keyframe_auto")) {
             compose.onNodeWithTag(tag).assertDoesNotExist()
@@ -67,11 +68,32 @@ class SettingsScreenVideoTest {
     @Test
     fun detailsOpenAndCloseAndTheValuesInsideAreTheFixedOnes() {
         compose.onNodeWithTag("profile_details").performScrollTo().performClick()
-        compose.onNodeWithTag("video_fixed").performScrollTo().assertIsDisplayed().assertTextContains("6 fps, 400 kbps, 528×304", substring = true)
+        compose.onNodeWithTag("video_fixed").performScrollTo().assertIsDisplayed().assertTextContains("perfil A 6 fps, perfil B 3 fps, 400 kbps, 528×304", substring = true)
         compose.onNodeWithTag("keyframe_locked").assertTextContains("1 s", substring = true)
         compose.onNodeWithTag("profile_details").performScrollTo().performClick()
         compose.onNodeWithTag("video_fixed").assertDoesNotExist()
         for (tag in listOf("bitrate_mode", "keyframe")) compose.onNodeWithTag("${tag}_locked").assertDoesNotExist()
+    }
+
+    @Test
+    fun theVideoPaceIsTheOnlyChoiceAndStartsOnReau() {
+        compose.onNodeWithTag("video_pace").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("video_pace_REAU").performScrollTo().assertIsDisplayed().assertTextContains("REau")
+        compose.onNodeWithTag("video_pace_ORIGINAL").assertIsDisplayed().assertTextContains("Original")
+        compose.onNodeWithTag("video_pace").assertTextContains("Ritmo do vídeo", substring = true)
+        assertEquals(VideoPace.REAU, settings.videoPace)
+    }
+
+    @Test
+    fun pickingOriginalChangesThePaceAndTheDetailsFollowIt() {
+        compose.onNodeWithTag("video_pace_ORIGINAL").performScrollTo().performClick()
+        assertEquals(VideoPace.ORIGINAL, settings.videoPace)
+        assertEquals("the pace of A is the pace picked", 4, settings.fpsCeiling)
+        compose.onNodeWithTag("profile_details").performScrollTo().performClick()
+        compose.onNodeWithTag("video_fixed").performScrollTo().assertTextContains("perfil A 4 fps, perfil B 2 fps, 400 kbps, 528×304", substring = true)
+        compose.onNodeWithTag("video_pace_REAU").performScrollTo().performClick()
+        assertEquals(VideoPace.REAU, settings.videoPace)
+        compose.onNodeWithTag("video_fixed").performScrollTo().assertTextContains("perfil A 6 fps, perfil B 3 fps, 400 kbps, 528×304", substring = true)
     }
 
     @Test

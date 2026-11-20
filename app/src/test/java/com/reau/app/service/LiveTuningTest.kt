@@ -42,6 +42,18 @@ class LiveTuningTest {
     }
 
     @Test
+    fun `the video pace takes a new stream, with the projection on and no new Android Auto session`() {
+        val original = LiveTuning.steps(before, before.copy(videoPace = com.reau.app.settings.VideoPace.ORIGINAL))
+        assertEquals(setOf(Step.NEW_STREAM), original)
+        assertEquals(setOf(Step.NEW_STREAM), LiveTuning.steps(before.copy(videoPace = com.reau.app.settings.VideoPace.ORIGINAL), before))
+        assertEquals("the same pace is no change", emptySet<Step>(), LiveTuning.steps(before, before.copy()))
+        // as the settings screen hands it over (sanitized), the pace of A moves with it and it is still one step
+        val picked = before.copy(videoPace = com.reau.app.settings.VideoPace.ORIGINAL).sanitized()
+        assertEquals(4, picked.fpsCeiling)
+        assertEquals(setOf(Step.NEW_STREAM), LiveTuning.steps(before.sanitized(), picked))
+    }
+
+    @Test
     fun `the map theme is asked again at once`() {
         assertEquals(setOf(Step.NIGHT_NOW), LiveTuning.steps(before, before.copy(mapTheme = MapTheme.NIGHT)))
     }

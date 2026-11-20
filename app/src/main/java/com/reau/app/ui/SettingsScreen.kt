@@ -84,7 +84,7 @@ fun SettingsScreen(
                     MapGroup(settings, change)
                     OnDashGroup(settings, change)
                     JoystickGroup(settings, change, onOpenJoystick)
-                    VideoProfilesGroup(settings)
+                    VideoProfilesGroup(settings, change)
                     CardGroup(settings, change, actions.onPickCardImage)
                     AndroidAutoGroup(settings, change)
                     DebugGroup(settings, change, actions, say)
@@ -265,12 +265,14 @@ private fun JoystickGroup(s: REauSettings, change: (REauSettings) -> Unit, onOpe
 }
 
 /**
- * The video's two fixed profiles: each by its name and one short line, the navigation profiles that choose between them, and, behind
- * "Detalhes" (closed at first), one line with the stream's fixed pace, bitrate and picture, then its mode and keyframe. Everything in it is shown and locked.
+ * The video's pace first (REau or Original, [VideoPaceChoice]: the one choice), then the two profiles, each by its name and one short line, the navigation
+ * profiles that choose between them, and, behind "Detalhes" (closed at first), one line with the pace of A and of B, the bitrate and the picture, then
+ * the mode and the keyframe. Everything but the pace is shown and locked.
  */
 @Composable
-private fun VideoProfilesGroup(s: REauSettings) {
+private fun VideoProfilesGroup(s: REauSettings, change: (REauSettings) -> Unit) {
     SettingsGroup(R.drawable.ic_ms_tune, stringResource(R.string.group_video_profiles), listOf(
+        { VideoPaceChoice(s, change) },
         { ProfileNameRow(R.string.profile_a_title, R.string.profile_a_sub, "profile_a") },
         { ProfileNameRow(R.string.profile_b_title, R.string.profile_b_sub, "profile_b") },
         { NavProfileRows() },

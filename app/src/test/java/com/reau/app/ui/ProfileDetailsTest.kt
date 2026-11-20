@@ -69,13 +69,13 @@ class ProfileDetailsTest {
     fun `the fixed video has no choice in the screen, only the line that says it, in the three languages`() {
         assertFalse("no selector, slider, switch or warning", Regex("""SegmentedRow|SliderRow|SwitchRow|FlickerWarning|flicker_warning|reserve_cap|VideoChoice""").containsMatchIn(video))
         assertTrue(
-            "the line is made of the settings' own fixed values and the picture the stream runs in",
-            video.contains("stringResource(R.string.video_fixed_line, s.fpsCeiling, s.streamBitrateBps / KBPS, \"\${frame.width}\\u00d7\${frame.height}\")"),
+            "the line is made of the pace of the settings, their bitrate and the picture the stream runs in",
+            video.contains("stringResource(R.string.video_fixed_line, s.videoPace.fullFps, s.videoPace.reducedFps, s.streamBitrateBps / KBPS, \"\${frame.width}\\u00d7\${frame.height}\")"),
         )
         assertTrue(video.contains("val frame = s.frameSize"))
-        assertEquals("Vídeo: %1\$d fps, %2\$d kbps, %3\$s (fixo)", text("values-pt", "video_fixed_line"))
-        assertEquals("Video: %1\$d fps, %2\$d kbps, %3\$s (fixed)", text("values", "video_fixed_line"))
-        assertEquals("Video: %1\$d fps, %2\$d kbps, %3\$s (fijo)", text("values-es", "video_fixed_line"))
+        assertEquals("Vídeo: perfil A %1\$d fps, perfil B %2\$d fps, %3\$d kbps, %4\$s", text("values-pt", "video_fixed_line"))
+        assertEquals("Video: profile A %1\$d fps, profile B %2\$d fps, %3\$d kbps, %4\$s", text("values", "video_fixed_line"))
+        assertEquals("Video: perfil A %1\$d fps, perfil B %2\$d fps, %3\$d kbps, %4\$s", text("values-es", "video_fixed_line"))
         for (gone in listOf("pace_option", "pace_sub", "bitrate_cap_title", "bitrate_cap_sub", "flicker_warning", "reserve_cap_title", "reserve_cap_sub", "profiles_info")) {
             for (folder in listOf("values-pt", "values", "values-es")) {
                 assertFalse("$folder still has $gone", File("src/main/res/$folder/strings.xml").readText().contains("name=\"$gone\""))

@@ -421,7 +421,7 @@
     <string name="answer_title">Atender ligação</string>
     <string name="gemini_title">Gemini</string>
     <string name="by_joystick_sub">Pelo joystick do guidão</string>
-    <string name="video_fixed_line">Vídeo: %1$d fps, %2$d kbps, %3$s (fixo)</string>
+    <string name="video_fixed_line">Vídeo: perfil A %1$d fps, perfil B %2$d fps, %3$d kbps, %4$s</string>
     <string name="bitrate_mode_title">Modo da taxa</string>
     <string name="bitrate_cbr">Constante</string>
     <string name="keyframe_title">Quadro-chave</string>
@@ -430,6 +430,11 @@
     <string name="profile_a_sub">A imagem mais fluida</string>
     <string name="profile_b_title">Perfil B</string>
     <string name="profile_b_sub">Mais leve para o Wi-Fi e para o painel</string>
+    <string name="video_pace_title">Ritmo do vídeo</string>
+    <string name="video_pace_sub">REau: 6 fps no A e 3 no B. Original: 4 e 2, mais leve.</string>
+    <string name="video_pace_reau">REau</string>
+    <string name="video_pace_original">Original</string>
+    <string name="video_pace_info">O perfil A é a imagem mais fluida; o B tem metade do ritmo do A, é mais leve e entra longe da manobra ou em velocidade alta. O REau é o padrão (A a 6 fps, B a 3 fps); o Original é mais leve para o painel e para o Wi-Fi (A a 4 fps, B a 2 fps). A troca vale na hora, sem desligar a projeção.</string>
     <string name="profile_fixed">Fixo</string>
     <string name="profile_details_title">Detalhes</string>
     <string name="profile_details_sub">Os números de cada perfil, que não se mudam</string>
@@ -934,4 +939,6 @@
     <string name="tips_title">Dicas</string>
     <string name="tip_waze_zoom_title">Desative o zoom automático do Waze</string>
     <string name="tip_waze_zoom_text">Recomendamos desligar o zoom automático nas configurações do Waze. Ele deixa o vídeo mais pesado para o painel, e a tela do painel é pequena demais para o volume de informações que o zoom automático mostra.</string>
+    <string name="tip_video_fps_title">Por que o vídeo não passa de 6 fps</string>
+    <string name="tip_video_fps_text">O painel aceita mais quadros por segundo, mas o mesmo processador que mostra o vídeo também desenha a tela e atende os botões. Nos testes na moto, a 8 fps o ícone da reserva passou a piscar e a 12 fps o painel começou a ignorar os botões. A 6 fps tudo funciona sem falhas, por isso o REau não passa disso.</string>
 </resources>

@@ -181,6 +181,8 @@ class SettingsStore(private val prefs: SharedPreferences) {
             navFit = ownFit(NAV_KEYS, defaults.navFit),
             // The pace, the ceiling and the picture of the video are fixed ([REauSettings.sanitized]): the keys older builds stored (video_fps, video_cap_bps, video_frame,
             // video_profile, video_pace_fps, experiment_fps63, fps_ceiling, stream_bitrate) are neither read nor written, and are left in the file.
+            // An unknown or missing name is REau's pace.
+            videoPace = enumOr(prefs.getString(KEY_VIDEO_PACE, null), defaults.videoPace),
             bitrateMode = enumOr(prefs.getString(KEY_BITRATE_MODE, null), defaults.bitrateMode),
             keyframeSec = prefs.getInt(KEY_KEYFRAME, defaults.keyframeSec),
             clockSlowPercent = prefs.getInt(KEY_CLOCK, defaults.clockSlowPercent),
@@ -294,6 +296,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             putBoolean(KEY_RECORD_SESSIONS, s.recordSessions)
             putString(KEY_CARD_IMAGE, s.cardImage.orEmpty())
             putString(KEY_MAP_THEME, s.mapTheme.name)
+            putString(KEY_VIDEO_PACE, s.videoPace.name)
             putBoolean(KEY_MANEUVER_DATA, s.maneuverData)
             putBoolean(KEY_MANEUVER_FPS_PROFILE, s.maneuverFpsProfile)
             putBoolean(KEY_SPEED_FPS_PROFILE, s.speedFpsProfile)
@@ -365,6 +368,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val FILE = "settings"
         private const val OLD_KEY_RESOLUTION = "resolution"
         private const val KEY_DENSITY = "density"
+        private const val KEY_VIDEO_PACE = "video_pace_mode"
         private const val KEY_MARGIN_W = "margin_w"
         private const val KEY_MARGIN_H = "margin_h"
         private const val KEY_FIT = "fit"

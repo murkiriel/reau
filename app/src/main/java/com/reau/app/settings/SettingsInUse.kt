@@ -13,7 +13,7 @@ object SettingsInUse {
     /** Written, by the field's name in [REauSettings]. */
     internal val LOGGED = setOf(
         "density", "marginW", "marginH", "fit", "cropPercent",
-        "fpsCeiling", "streamBitrateBps", "bitrateMode", "keyframeSec", "clockSlowPercent",
+        "videoPace", "fpsCeiling", "streamBitrateBps", "bitrateMode", "keyframeSec", "clockSlowPercent",
         "recordVideo", "recordSessions", "cardImage", "mapTheme",
         "maneuverData", "maneuverFpsProfile", "speedFpsProfile", "navProfileMode",
         "autoJoinWifi", "detailedLog", "rideLog", "useLocation", "logKeepDays", "noDashStopMinutes",

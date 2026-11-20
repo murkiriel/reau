@@ -25,7 +25,7 @@ class SettingsInUseTest {
     fun `the line of the default settings says the ones that change a ride, in the order of the settings`() {
         assertEquals(
             "settings in use: density=${fields.getValue("density")} marginW=0 marginH=0 fit=WHOLE_VISIBLE cropPercent=${fields.getValue("cropPercent")} " +
-                "fpsCeiling=${fields.getValue("fpsCeiling")} streamBitrateBps=${fields.getValue("streamBitrateBps")} bitrateMode=CBR " +
+                "videoPace=REAU fpsCeiling=${fields.getValue("fpsCeiling")} streamBitrateBps=${fields.getValue("streamBitrateBps")} bitrateMode=CBR " +
                 "keyframeSec=${fields.getValue("keyframeSec")} clockSlowPercent=0 " +
                 "recordVideo=${com.reau.app.BuildConfig.DEBUG} recordSessions=${com.reau.app.BuildConfig.DEBUG} cardImage=default mapTheme=AUTO maneuverData=true maneuverFpsProfile=true " +
                 "speedFpsProfile=true navProfileMode=PESSIMISTA autoJoinWifi=true detailedLog=${com.reau.app.BuildConfig.DEBUG} rideLog=true useLocation=true " +

@@ -1627,7 +1627,7 @@ MUTATIONS = [
     ("Comportamento 11/11 Vídeo: o intervalo de quadro-chave do dono não chega ao laço", MAIN + "stream/VideoLoop.kt",
      "            keyframeSec = rider.keyframeSec,\n", "", ["VideoLoopSettingsTest"]),
     ("Comportamento 11/11 Vídeo: o ritmo da tela leve não chega ao laço", MAIN + "stream/VideoLoop.kt",
-     "            lightScreenFps = REauSettings.lightScreenFps(),\n", "", ["VideoLoopSettingsTest"]),
+     "            lightScreenFps = REauSettings.lightScreenFps(rider.videoPace),\n", "", ["VideoLoopSettingsTest"]),
     # (The three of BandChoice.kt that were here left with the 2.4 GHz switch on 15/11/2026.)
     ("Comportamento 11/11 Pareamento: o nome digitado é gravado mesmo sem mudar", MAIN + "MainActivity.kt",
      "    if (typed.ssid != pairingStore.ssid) pairingStore.ssid = typed.ssid\n", "    pairingStore.ssid = typed.ssid\n", ["SavePairingTest"]),
@@ -4354,7 +4354,7 @@ MUTATIONS += [
     ("P32G carga: a carga ignora o ritmo", MAIN + "dash/DashConfig.kt",
      "fun loadMbPerSec(fps: Int, frame: FrameSize): Int = fps * macroblocks(frame)", "fun loadMbPerSec(fps: Int, frame: FrameSize): Int = macroblocks(frame)", ["PictureSizeTest"]),
     ("P32G ajustes: o sanitized deixa o ritmo guardado valer", MAIN + "settings/REauSettings.kt",
-     "            fpsCeiling = DashConfig.PROFILE_FULL_FPS,\n", "            fpsCeiling = fpsCeiling,\n", ["FixedVideoStoreTest", "FixedProfilesTest"]),
+     "            fpsCeiling = videoPace.fullFps,\n", "            fpsCeiling = fpsCeiling,\n", ["FixedVideoStoreTest", "FixedProfilesTest", "VideoPaceSettingsTest"]),
     ("P32G ajustes: o sanitized deixa o teto guardado valer", MAIN + "settings/REauSettings.kt",
      "            streamBitrateBps = DashConfig.PROFILE_FULL_BPS,\n", "            streamBitrateBps = streamBitrateBps,\n", ["FixedVideoStoreTest", "FixedProfilesTest"]),
     ("P32G ajustes: o sanitized deixa a imagem guardada valer", MAIN + "settings/REauSettings.kt",
@@ -4384,19 +4384,19 @@ MUTATIONS += [
     ("P32G registro: o B conta na linha do A", MAIN + "stream/PaceBitrateLog.kt",
      'B("B"),', 'B("A"),', ["PaceBitrateLogTest", "PaceGovernorTest"]),
     ("P32G tela: a linha do vídeo mostra um ritmo que não é o do ajuste", MAIN + "ui/SettingsVideo.kt",
-     "R.string.video_fixed_line, s.fpsCeiling, s.streamBitrateBps / KBPS,", "R.string.video_fixed_line, s.fpsCeiling + 2, s.streamBitrateBps / KBPS,", ["ProfileDetailsTest"]),
+     "R.string.video_fixed_line, s.videoPace.fullFps, s.videoPace.reducedFps, s.streamBitrateBps / KBPS,", "R.string.video_fixed_line, s.videoPace.fullFps + 2, s.videoPace.reducedFps, s.streamBitrateBps / KBPS,", ["ProfileDetailsTest"]),
     ("P32G tela: a linha do vídeo mostra o quadro do painel e não o do vídeo", MAIN + "ui/SettingsVideo.kt",
      "    val frame = s.frameSize\n", "    val frame = com.reau.app.dash.DashConfig.FULL_FRAME\n", ["ProfileDetailsTest"]),
     ("P32G tela: o Detalhes perde a linha do vídeo", MAIN + "ui/ProfileDetails.kt",
      'val ROWS = listOf("video_fixed", "bitrate_mode", "keyframe")', 'val ROWS = listOf("bitrate_mode", "keyframe")', ["ProfileDetailsTest"]),
-    ("P32G tela: a linha do vídeo em português perde o fixo", "app/src/main/res/values-pt/strings.xml",
-     "%3$s (fixo)</string>", "%3$s</string>", ["ProfileDetailsTest"]),
-    ("P32G tela: a linha do vídeo em inglês perde o fixo", "app/src/main/res/values/strings.xml",
-     "%3$s (fixed)</string>", "%3$s</string>", ["ProfileDetailsTest"]),
-    ("P32G tela: a linha do vídeo em espanhol perde o fixo", "app/src/main/res/values-es/strings.xml",
-     "%3$s (fijo)</string>", "%3$s</string>", ["ProfileDetailsTest"]),
+    ("P32G tela: a linha do vídeo em português perde o perfil B", "app/src/main/res/values-pt/strings.xml",
+     "perfil B %2$d fps, %3$d kbps", "%3$d kbps", ["ProfileDetailsTest"]),
+    ("P32G tela: a linha do vídeo em inglês perde o perfil B", "app/src/main/res/values/strings.xml",
+     "profile B %2$d fps, %3$d kbps", "%3$d kbps", ["ProfileDetailsTest"]),
+    ("P32G tela: a linha do vídeo em espanhol perde o perfil B", "app/src/main/res/values-es/strings.xml",
+     "perfil B %2$d fps, %3$d kbps", "%3$d kbps", ["ProfileDetailsTest"]),
     ("P32G tela: a linha do vídeo em português perde a taxa", "app/src/main/res/values-pt/strings.xml",
-     "Vídeo: %1$d fps, %2$d kbps, %3$s (fixo)", "Vídeo: %1$d fps, %3$s (fixo)", ["ProfileDetailsTest"]),
+     "Vídeo: perfil A %1$d fps, perfil B %2$d fps, %3$d kbps, %4$s", "Vídeo: perfil A %1$d fps, perfil B %2$d fps, %4$s", ["ProfileDetailsTest"]),
 ]
 
 # Plano 32 (limpeza das chaves experimentais, 20/11/2026): "Anunciar como moto" vira ajuste normal (ligado, na release também), o despertar do Android Auto é
@@ -4579,6 +4579,32 @@ MUTATIONS += [
      "El ritmo elegido vale solo mientras la prueba esté activada. ", "", ["FpsTestCardSettingsTest"]),
     ("P32T texto: o título do seletor em português muda", "app/src/main/res/values-pt/strings.xml",
      '<string name="fps_test_card_rate_title">Ritmo do teste</string>', '<string name="fps_test_card_rate_title">Ritmo</string>', ["FpsTestCardSettingsTest"]),
+]
+
+# Plano 32 (20/11/2026): o ritmo do vídeo é uma escolha entre REau (A 6 fps, B 3) e Original (A 4, B 2), na hora, em toda versão; e a dica de por que o vídeo não passa de 6 fps.
+MUTATIONS += [
+    ("P32R ritmo: o Original roda a 6 fps", MAIN + "dash/DashConfig.kt",
+     "const val ORIGINAL_FULL_FPS = 4", "const val ORIGINAL_FULL_FPS = 6", ["VideoPaceSettingsTest", "VideoPaceGovernorTest"]),
+    ("P32R ritmo: o perfil B do Original não é a metade do A", MAIN + "dash/DashConfig.kt",
+     "const val ORIGINAL_REDUCED_FPS = 2", "const val ORIGINAL_REDUCED_FPS = 3", ["VideoPaceSettingsTest", "VideoPaceGovernorTest"]),
+    ("P32R ritmo: o padrão é o Original", MAIN + "settings/REauSettings.kt",
+     "val videoPace: VideoPace = VideoPace.REAU,", "val videoPace: VideoPace = VideoPace.ORIGINAL,", ["VideoPaceSettingsTest", "SettingsInUseTest"]),
+    ("P32R ritmo: a troca não vale ao vivo", MAIN + "service/LiveTuning.kt",
+     "        videoPace, fpsCeiling, frameSize,", "        fpsCeiling, frameSize,", ["LiveTuningTest"]),
+    ("P32R ritmo: a dica do 6 fps fica fora da lista", MAIN + "ui/TipsScreen.kt",
+     '        Tip("video_fps", R.string.tip_video_fps_title, R.string.tip_video_fps_text, R.drawable.ic_ms_speed),\n', "", ["TipsTest"]),
+    ("P32R ritmo: o ritmo escolhido não grava", MAIN + "settings/SettingsStore.kt",
+     "            putString(KEY_VIDEO_PACE, s.videoPace.name)\n", "", ["VideoPaceSettingsTest"]),
+    ("P32R ritmo: um nome desconhecido não volta ao REau", MAIN + "settings/SettingsStore.kt",
+     "videoPace = enumOr(prefs.getString(KEY_VIDEO_PACE, null), defaults.videoPace),", "videoPace = enumOr(prefs.getString(KEY_VIDEO_PACE, null), VideoPace.ORIGINAL),", ["VideoPaceSettingsTest"]),
+    ("P32R ritmo: as telas leves passam do ritmo do A", MAIN + "settings/SettingsModels.kt",
+     "val lightScreenFps: Int get() = fullFps", "val lightScreenFps: Int get() = DashConfig.PROFILE_FULL_FPS + 2", ["VideoPaceSettingsTest", "VideoPaceGovernorTest"]),
+    ("P32R ritmo: o laço não leva o ritmo escolhido às telas leves", MAIN + "stream/VideoLoop.kt",
+     "lightScreenFps = REauSettings.lightScreenFps(rider.videoPace),", "lightScreenFps = REauSettings.lightScreenFps(),", ["VideoPaceSettingsTest"]),
+    ("P32R ritmo: o ritmo da tela é o primeiro segmento sempre", MAIN + "ui/SettingsVideoPace.kt",
+     "VideoPace.entries.indexOf(s.videoPace),", "0,", ["VideoPaceChoiceTest"]),
+    ("P32R ritmo: a troca ao vivo não diz o ritmo no registro", MAIN + "service/LiveSides.kt",
+     'if (before.videoPace != settings.videoPace) RideDiagnostics.log("stream", settings.videoPace.logLine())', "", ["VideoPaceSettingsTest"]),
 ]
 
 

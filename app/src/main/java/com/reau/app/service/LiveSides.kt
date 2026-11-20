@@ -1028,7 +1028,10 @@ internal class LiveSides(
                     newAndroidAutoSession(settings)
                 }
             }
-            if (LiveTuning.Step.NEW_STREAM in steps) newStream(settings)
+            if (LiveTuning.Step.NEW_STREAM in steps) {
+                if (before.videoPace != settings.videoPace) RideDiagnostics.log("stream", settings.videoPace.logLine())
+                newStream(settings)
+            }
             if (LiveTuning.Step.NIGHT_NOW in steps) receiver?.let { r -> scope.launch { runCatching { r.setNight(setup.night()) } } }
             if (LiveTuning.Step.JOYSTICK in steps) {
                 val page = JoystickBindings.decode(settings.joystick)
