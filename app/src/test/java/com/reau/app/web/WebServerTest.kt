@@ -236,6 +236,13 @@ class WebServerTest {
         assertTrue("the WebSocket is held too", open(server).second.startsWith("HTTP/1.1 429"))
     }
 
+    /**
+     * The log without its "server on port N" lines. The pin is random and so is the port, so a short pin can turn up inside the digits of the port
+     * ("server on port 38421" holds "8421"): a false alarm that comes and goes. The port line never carries the pin, so it is left out of the search
+     * for it; every other line is still searched.
+     */
+    private fun withoutPortLines(log: String): String = log.lines().filterNot { it.contains("server on port") }.joinToString("\n")
+
     @Test
     fun `wrong pins and a held address are said in the log, never with the pin or an address`() {
         val server = start()
@@ -243,7 +250,8 @@ class WebServerTest {
         val log = events.logs.joinToString("\n")
         assertEquals(log, 4, Regex("web: wrong pin").findAll(log).count())
         assertTrue(log, log.contains("web: address held"))
-        assertFalse(log, log.contains("4821") || log.contains("0000") || log.contains("127.0.0.1"))
+        val noPort = withoutPortLines(log)
+        assertFalse(log, noPort.contains("4821") || noPort.contains("0000") || log.contains("127.0.0.1"))
     }
 
     @Test
@@ -352,7 +360,7 @@ class WebServerTest {
         assertTrue(log, log.contains("server on port ${server.port}"))
         assertTrue(log, log.contains("viewer joined (1)"))
         assertTrue(log, log.contains("viewer left (0)"))
-        assertFalse("the pin is never logged", log.contains(pin))
+        assertFalse("the pin is never logged", withoutPortLines(log).contains(pin))
         assertFalse("nor an address", log.contains("127.0.0.1"))
     }
 
