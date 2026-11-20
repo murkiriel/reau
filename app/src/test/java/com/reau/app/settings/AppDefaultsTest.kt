@@ -25,6 +25,7 @@ class AppDefaultsTest {
         assertEquals(6, s.fpsCeiling)
         assertEquals(6, s.sanitized(debugBuild = false).fpsCeiling)
         assertEquals(MapTheme.AUTO, s.mapTheme)
+        assertEquals(DrivingSideMode.AUTO, s.drivingSideMode)
         assertEquals(com.reau.app.dash.NavProfileMode.PESSIMISTA, s.navProfileMode)
         assertEquals(joystick, s.joystick)
         val on = listOf(s.maneuverData, s.autoJoinWifi, s.dashMusic, s.dashCaller,

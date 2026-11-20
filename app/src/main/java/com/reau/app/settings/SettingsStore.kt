@@ -191,6 +191,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             // Nothing stored is the built-in grid; the legibility card chosen is stored as "".
             cardImage = if (!prefs.contains(KEY_CARD_IMAGE)) defaults.cardImage else prefs.getString(KEY_CARD_IMAGE, null)?.ifEmpty { null },
             mapTheme = enumOr(prefs.getString(KEY_MAP_THEME, null), defaults.mapTheme),
+            drivingSideMode = enumOr(prefs.getString(KEY_DRIVING_SIDE, null), defaults.drivingSideMode),
             maneuverData = prefs.getBoolean(KEY_MANEUVER_DATA, defaults.maneuverData),
             maneuverFpsProfile = prefs.getBoolean(KEY_MANEUVER_FPS_PROFILE, defaults.maneuverFpsProfile),
             speedFpsProfile = prefs.getBoolean(KEY_SPEED_FPS_PROFILE, defaults.speedFpsProfile),
@@ -296,6 +297,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             putBoolean(KEY_RECORD_SESSIONS, s.recordSessions)
             putString(KEY_CARD_IMAGE, s.cardImage.orEmpty())
             putString(KEY_MAP_THEME, s.mapTheme.name)
+            putString(KEY_DRIVING_SIDE, s.drivingSideMode.name)
             putString(KEY_VIDEO_PACE, s.videoPace.name)
             putBoolean(KEY_MANEUVER_DATA, s.maneuverData)
             putBoolean(KEY_MANEUVER_FPS_PROFILE, s.maneuverFpsProfile)
@@ -418,6 +420,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val KEY_RECORD_SESSIONS = "record_sessions"
         private const val KEY_CARD_IMAGE = "card_image"
         private const val KEY_MAP_THEME = "map_theme"
+        private const val KEY_DRIVING_SIDE = "driving_side_mode"
         private const val KEY_MANEUVER_DATA = "maneuver_data"
         private const val KEY_MANEUVER_FPS_PROFILE = "maneuver_fps_profile"
         private const val KEY_SPEED_FPS_PROFILE = "speed_fps_profile"

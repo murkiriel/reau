@@ -18,12 +18,12 @@ class GlyphEvidenceTest {
         SCAN_ONLY,
     }
 
-    // Typed out by hand, byte by byte, from what is recorded of the rides: the rider saw the roundabout turning the wrong way and it was put
-    // right (counter-clockwise, driving on the right). Nothing else was reported as seen.
+    // Typed out by hand, byte by byte, from what is recorded of the rides: on 20/11/2026 the owner saw, on the dash's own nav bubble, 0x0A..0x13 drawn
+    // clockwise (the published table calls them counter-clockwise), and the roundabouts were turned round. Nothing else was reported as seen.
     private val evidence: Map<Int, Evidence> = buildMap {
-        for (b in 0x0A..0x13) put(b, Evidence.SEEN_ON_REAUS_DASH) // roundabout, counter-clockwise, exits 0 to 9: the direction was seen
+        for (b in 0x0A..0x13) put(b, Evidence.SEEN_ON_REAUS_DASH) // roundabout, clockwise, exits 0 to 9: what the dash was seen to draw
         for (b in 0x50..0x59) put(b, Evidence.SCAN_ONLY)          // the same, exits 10 to 19
-        for (b in 0x31..0x3A) put(b, Evidence.SCAN_ONLY)          // roundabout, clockwise
+        for (b in 0x31..0x3A) put(b, Evidence.SCAN_ONLY)          // roundabout, counter-clockwise: the other direction, by the same swap
         for (b in 0x46..0x4F) put(b, Evidence.SCAN_ONLY)
         for (b in listOf(0x00, 0x01, 0x02)) put(b, Evidence.SCAN_ONLY) // arrive
         for (b in listOf(0x03, 0x04)) put(b, Evidence.SCAN_ONLY)       // merge
@@ -63,7 +63,7 @@ class GlyphEvidenceTest {
     fun `only the roundabout was seen on REau's own dash`() {
         val seen = evidence.filterValues { it == Evidence.SEEN_ON_REAUS_DASH }.keys
         assertEquals((0x0A..0x13).toSet(), seen)
-        for (b in seen) assertTrue(DashManeuverGlyphs.describe(b)!!.contains("counter-clockwise", ignoreCase = true))
+        for (b in seen) assertTrue(DashManeuverGlyphs.describe(b)!!.contains("clockwise", ignoreCase = true) && !DashManeuverGlyphs.describe(b)!!.contains("counter", ignoreCase = true))
     }
 
     @Test
@@ -72,6 +72,6 @@ class GlyphEvidenceTest {
         val toLookAt = evidence.filterValues { it == Evidence.SCAN_ONLY }.keys - roundabouts.toSet()
         val card = DashManeuverGlyphs.testSequence.toSet()
         assertEquals("not on the debug card", emptyList<String>(), (toLookAt - card).sorted().map { "0x%02X".format(it) })
-        assertTrue("a clockwise roundabout and a two-digit exit are there too", 0x31 in card && 0x50 in card)
+        assertTrue("a counter-clockwise and a clockwise roundabout, each with a two-digit exit, are there too", listOf(0x0A, 0x31, 0x46, 0x50).all { it in card })
     }
 }

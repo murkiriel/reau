@@ -138,8 +138,8 @@ class DebugTriggersTextsTest {
 
     @Test
     fun `the roundabouts' Spanish names carry the exit number`() {
-        assertEquals("Rotonda antihoraria, salida 1", ArrowNamesEs.name(0x0B))
-        assertEquals("Rotonda horaria, salida 2", ArrowNamesEs.name(0x33))
+        assertEquals("Rotonda horaria, salida 1", ArrowNamesEs.name(0x0B))
+        assertEquals("Rotonda antihoraria, salida 2", ArrowNamesEs.name(0x33))
     }
 
     @Test

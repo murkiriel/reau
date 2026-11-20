@@ -430,6 +430,12 @@
     <string name="profile_a_sub">A imagem mais fluida</string>
     <string name="profile_b_title">Perfil B</string>
     <string name="profile_b_sub">Mais leve para o Wi-Fi e para o painel</string>
+    <string name="driving_side_title">Lado da via</string>
+    <string name="driving_side_sub">O Automático usa o país da rede de celular.</string>
+    <string name="driving_side_auto">Automático</string>
+    <string name="driving_side_right">Mão direita</string>
+    <string name="driving_side_left">Mão inglesa</string>
+    <string name="driving_side_info">O Automático usa o país da rede de celular, e não lê nada quando você escolhe o lado. O lado só muda as setas que o Android Auto não define, como a rotatória sem saída ou o retorno. A escolha manual serve para experimentar ou para quando não há rede.</string>
     <string name="video_pace_title">Ritmo do vídeo</string>
     <string name="video_pace_sub">REau: 6 fps no A e 3 no B. Original: 4 e 2, mais leve.</string>
     <string name="video_pace_reau">REau</string>

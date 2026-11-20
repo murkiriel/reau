@@ -442,6 +442,12 @@
     <string name="profile_a_sub">The smoother picture</string>
     <string name="profile_b_title">Profile B</string>
     <string name="profile_b_sub">Lighter on the Wi-Fi and on the dash</string>
+    <string name="driving_side_title">Driving side</string>
+    <string name="driving_side_sub">Automatic uses the mobile network\'s country.</string>
+    <string name="driving_side_auto">Automatic</string>
+    <string name="driving_side_right">Right-hand</string>
+    <string name="driving_side_left">Left-hand</string>
+    <string name="driving_side_info">Automatic uses the country of the mobile network, and reads nothing when you pick a side yourself. The side only changes the arrows that Android Auto does not define, such as a roundabout without a direction or a U-turn. Picking it by hand is for testing or for when there is no network.</string>
     <string name="video_pace_title">Video pace</string>
     <string name="video_pace_sub">REau: 6 fps on A and 3 on B. Original: 4 and 2, lighter.</string>
     <string name="video_pace_reau">REau</string>

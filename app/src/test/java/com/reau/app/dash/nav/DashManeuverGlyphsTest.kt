@@ -28,7 +28,7 @@ class DashManeuverGlyphsTest {
             ManeuverType.SHARP_LEFT to 0x16,
             ManeuverType.SHARP_RIGHT to 0x17,
             ManeuverType.UTURN to 0x3D,          // no side given, right-hand traffic: the U-turn is made via the left
-            ManeuverType.ROUNDABOUT to 0x0C,     // exit 2, counter-clockwise (right-hand traffic)
+            ManeuverType.ROUNDABOUT to 0x33,     // exit 2, counter-clockwise (right-hand traffic)
             ManeuverType.ARRIVE to 0x00,
             ManeuverType.ARRIVE_LEFT to 0x01,
             ManeuverType.ARRIVE_RIGHT to 0x02,
@@ -62,7 +62,11 @@ class DashManeuverGlyphsTest {
             val code = DashManeuverGlyphs.codeFor(type, roundaboutExit = null)
             if (type != ManeuverType.ROUNDABOUT) assertTrue("$type must not draw a roundabout", code != 0x0B)
         }
-        assertEquals("only a roundabout with exit 1 is 0x0B", 0x0B, DashManeuverGlyphs.codeFor(ManeuverType.ROUNDABOUT, roundaboutExit = 1))
+        assertEquals(
+            "only a clockwise roundabout with exit 1 is 0x0B",
+            0x0B, DashManeuverGlyphs.codeFor(ManeuverType.ROUNDABOUT, roundaboutExit = 1, drivingSide = DrivingSide.LEFT_HAND),
+        )
+        assertEquals(0x32, DashManeuverGlyphs.codeFor(ManeuverType.ROUNDABOUT, roundaboutExit = 1))
     }
 
     @Test
@@ -74,13 +78,14 @@ class DashManeuverGlyphsTest {
 
     // ── roundabouts ─────────────────────────────────────────────────────────────
 
+    // What the real dash draws (seen by the owner on 20/11/2026; the published table has the two directions the other way round).
     private val ccw = listOf(
-        0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13,      // exits 0..9
-        0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59,      // exits 10..19
-    )
-    private val cw = listOf(
         0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3A,      // exits 0..9
         0x46, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F,      // exits 10..19
+    )
+    private val cw = listOf(
+        0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13,      // exits 0..9
+        0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59,      // exits 10..19
     )
 
     @Test
@@ -100,18 +105,19 @@ class DashManeuverGlyphsTest {
 
     @Test
     fun `a roundabout exit beyond the catalog is clamped, a missing exit is the plain circle`() {
-        assertEquals(0x59, DashManeuverGlyphs.roundabout(20, clockwise = false))
-        assertEquals(0x59, DashManeuverGlyphs.roundabout(999, clockwise = false))
-        assertEquals(0x4F, DashManeuverGlyphs.roundabout(25, clockwise = true))
-        assertEquals(0x0A, DashManeuverGlyphs.roundabout(-3, clockwise = false))
-        assertEquals(0x0A, DashManeuverGlyphs.codeFor(ManeuverType.ROUNDABOUT, roundaboutExit = null))
+        assertEquals(0x4F, DashManeuverGlyphs.roundabout(20, clockwise = false))
+        assertEquals(0x4F, DashManeuverGlyphs.roundabout(999, clockwise = false))
+        assertEquals(0x59, DashManeuverGlyphs.roundabout(25, clockwise = true))
+        assertEquals(0x31, DashManeuverGlyphs.roundabout(-3, clockwise = false))
+        assertEquals(0x0A, DashManeuverGlyphs.roundabout(-3, clockwise = true))
+        assertEquals(0x31, DashManeuverGlyphs.codeFor(ManeuverType.ROUNDABOUT, roundaboutExit = null))
     }
 
     @Test
     fun `the exit number of the route is the number in the circle`() {
-        assertEquals(0x0B, DashManeuverGlyphs.codeFor(ManeuverType.ROUNDABOUT, roundaboutExit = 1))
-        assertEquals(0x0D, DashManeuverGlyphs.codeFor(ManeuverType.ROUNDABOUT, roundaboutExit = 3))
-        assertEquals(0x52, DashManeuverGlyphs.codeFor(ManeuverType.ROUNDABOUT, roundaboutExit = 12))
+        assertEquals(0x32, DashManeuverGlyphs.codeFor(ManeuverType.ROUNDABOUT, roundaboutExit = 1))
+        assertEquals(0x34, DashManeuverGlyphs.codeFor(ManeuverType.ROUNDABOUT, roundaboutExit = 3))
+        assertEquals(0x48, DashManeuverGlyphs.codeFor(ManeuverType.ROUNDABOUT, roundaboutExit = 12))
     }
 
     // ── driving side and U-turns ────────────────────────────────────────────────
@@ -120,8 +126,8 @@ class DashManeuverGlyphsTest {
     fun `right-hand traffic circulates counter-clockwise, left-hand clockwise`() {
         assertFalse(DrivingSide.RIGHT_HAND.roundaboutClockwise)
         assertTrue(DrivingSide.LEFT_HAND.roundaboutClockwise)
-        assertEquals(0x0C, DashManeuverGlyphs.codeFor(ManeuverType.ROUNDABOUT, roundaboutExit = 2, drivingSide = DrivingSide.RIGHT_HAND))
-        assertEquals(0x33, DashManeuverGlyphs.codeFor(ManeuverType.ROUNDABOUT, roundaboutExit = 2, drivingSide = DrivingSide.LEFT_HAND))
+        assertEquals(0x33, DashManeuverGlyphs.codeFor(ManeuverType.ROUNDABOUT, roundaboutExit = 2, drivingSide = DrivingSide.RIGHT_HAND))
+        assertEquals(0x0C, DashManeuverGlyphs.codeFor(ManeuverType.ROUNDABOUT, roundaboutExit = 2, drivingSide = DrivingSide.LEFT_HAND))
     }
 
     @Test
@@ -138,6 +144,7 @@ class DashManeuverGlyphsTest {
         assertEquals(DrivingSide.RIGHT_HAND, DrivingSide.forCountry("us"))
         assertEquals(DrivingSide.LEFT_HAND, DrivingSide.forCountry("IN"))
         assertEquals(DrivingSide.LEFT_HAND, DrivingSide.forCountry("gb"))
+        assertEquals(DrivingSide.LEFT_HAND, DrivingSide.forCountry("GB"))
         assertEquals(DrivingSide.LEFT_HAND, DrivingSide.forCountry("JP"))
         assertEquals(DrivingSide.LEFT_HAND, DrivingSide.forCountry("AU"))
         assertEquals("unknown or missing country: the global default", DrivingSide.RIGHT_HAND, DrivingSide.forCountry(null))
@@ -161,6 +168,16 @@ class DashManeuverGlyphsTest {
         }
         assertFalse(DashManeuverGlyphs.isVisible(-1))
         assertEquals(84, (0x00..0x59).count { DashManeuverGlyphs.isVisible(it) })
+    }
+
+    @Test
+    fun `the roundabout descriptions name the direction the dash was seen to draw`() {
+        assertEquals("Roundabout, counter-clockwise, exit number 1", DashManeuverGlyphs.describe(0x32))
+        assertEquals("Roundabout, clockwise, exit number 1", DashManeuverGlyphs.describe(0x0B))
+        assertEquals("Rotatória anti-horária, saída 1", DashManeuverGlyphs.describePt(0x32))
+        assertEquals("Rotatória horária, saída 1", DashManeuverGlyphs.describePt(0x0B))
+        assertEquals("Roundabout, counter-clockwise, exit number 19", DashManeuverGlyphs.describe(0x4F))
+        assertEquals("Roundabout, clockwise, exit number 19", DashManeuverGlyphs.describe(0x59))
     }
 
     @Test

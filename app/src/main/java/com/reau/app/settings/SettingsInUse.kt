@@ -14,7 +14,7 @@ object SettingsInUse {
     internal val LOGGED = setOf(
         "density", "marginW", "marginH", "fit", "cropPercent",
         "videoPace", "fpsCeiling", "streamBitrateBps", "bitrateMode", "keyframeSec", "clockSlowPercent",
-        "recordVideo", "recordSessions", "cardImage", "mapTheme",
+        "recordVideo", "recordSessions", "cardImage", "mapTheme", "drivingSideMode",
         "maneuverData", "maneuverFpsProfile", "speedFpsProfile", "navProfileMode",
         "autoJoinWifi", "detailedLog", "rideLog", "useLocation", "logKeepDays", "noDashStopMinutes",
         "answerCalls", "phoneTouch", "dashMusic", "dashCaller", "gemini",

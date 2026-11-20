@@ -64,6 +64,8 @@ data class REauSettings(
     val recordSessions: Boolean = com.reau.app.BuildConfig.DEBUG,
     val cardImage: String? = DEFAULT_CARD,
     val mapTheme: MapTheme = MapTheme.AUTO,
+    /** The side of the road for the maneuvers Android Auto gives no side or direction to ([DrivingSideMode]); read at each guidance update, so a change counts at once. */
+    val drivingSideMode: DrivingSideMode = DrivingSideMode.AUTO,
     val maneuverData: Boolean = true,
     /**
      * The maneuver profile: near a maneuver (< 1000 m) the configured

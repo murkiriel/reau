@@ -26,7 +26,10 @@ enum class DrivingSide {
  * Source: a published scan of the dash's glyphs (credited in the NOTICE, in the entry on the dash maneuver glyph bytes). Its author, not REau,
  * sent every byte 0x00..0xFF to a real K1G dash and photographed each one; what each byte draws is read from that scan. Only those
  * observed facts (byte -> drawing) are used here, in REau's own words and code: no code, text or images of the scan's source.
- * What was looked at on REau's own dash: only the roundabout's direction (its rider saw it the wrong way round and it was put right).
+ * What was looked at on REau's own dash: only the roundabout's direction. On 20/11/2026 its owner saw, on the real dash's own nav bubble (not on
+ * the video), the roundabout drawn clockwise in Brazil while Android Auto said counter-clockwise. The published table has the two directions
+ * the other way round: the bytes it calls counter-clockwise (0x0A..0x13, 0x50..0x59) draw clockwise, and the ones it calls clockwise
+ * (0x31..0x3A, 0x46..0x4F) draw counter-clockwise. REau follows what the dash was seen to draw.
  * Everything else in this table is NOT yet confirmed on REau's own dash: the debug card ([testSequence]) is the tool for it.
  *
  * The old placeholder 0x0B is NOT "continue": it draws roundabout exit 1. Straight ahead is 0x09.
@@ -80,10 +83,11 @@ object DashManeuverGlyphs {
 
     private const val LAST_VISIBLE = 0x59
     private const val MAX_EXIT = 19
-    private const val CCW_LOW = 0x0A          // exits 0..9, counter-clockwise
-    private const val CCW_HIGH = 0x50         // exits 10..19, counter-clockwise
-    private const val CW_LOW = 0x31           // exits 0..9, clockwise
-    private const val CW_HIGH = 0x46          // exits 10..19, clockwise
+    // Directions as the real dash draws them (checked by the owner on 20/11/2026); the published table has the two swapped.
+    private const val CCW_LOW = 0x31          // exits 0..9, counter-clockwise
+    private const val CCW_HIGH = 0x46         // exits 10..19, counter-clockwise
+    private const val CW_LOW = 0x0A           // exits 0..9, clockwise
+    private const val CW_HIGH = 0x50          // exits 10..19, clockwise
     private const val TEN = 10
 
     /**
@@ -121,7 +125,7 @@ object DashManeuverGlyphs {
         ManeuverType.ARRIVE_RIGHT -> ARRIVE_RIGHT
     }
 
-    /** Roundabout glyph: [exit] 0..19 (clamped), counter-clockwise 0x0A..0x13 / 0x50..0x59, clockwise 0x31..0x3A / 0x46..0x4F. */
+    /** Roundabout glyph: [exit] 0..19 (clamped), counter-clockwise 0x31..0x3A / 0x46..0x4F, clockwise 0x0A..0x13 / 0x50..0x59. */
     fun roundabout(exit: Int, clockwise: Boolean): Int {
         val n = exit.coerceIn(0, MAX_EXIT)
         val (low, high) = if (clockwise) CW_LOW to CW_HIGH else CCW_LOW to CCW_HIGH
@@ -283,7 +287,7 @@ object DashManeuverGlyphs {
     val testSequence: List<Int> = listOf(
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, OFF_RAMP_RIGHT, OFF_RAMP_LEFT, 0x09, 0x0A, 0x0B, 0x0C, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A,
         RECALCULATING, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x22, 0x27, 0x28, 0x29, 0x2A, 0x2D, 0x2E, 0x2F, 0x30,
-        0x31, 0x32, 0x33, 0x3B, 0x3C, 0x3D, 0x3E, 0x3F, SIGNAL_LOST, 0x50, HIDDEN_BUBBLE,
+        0x31, 0x32, 0x33, 0x3B, 0x3C, 0x3D, 0x3E, 0x3F, SIGNAL_LOST, 0x46, 0x50, HIDDEN_BUBBLE,
     ).sorted().distinct()
 
     /** The next byte of [testSequence] strictly after [current], wrapping to the first (pure, so the debug button is testable). */

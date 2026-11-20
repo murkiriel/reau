@@ -131,6 +131,14 @@ class AapControlNavigationTest {
         // roundabout turns counterclockwise; it was always clockwise (the dash drew it backwards)
         legacy(NextTurnDetail.NextEvent.ROUNDABOUT_ENTER_AND_EXIT, NextTurnDetail.Side.RIGHT)
         assertEquals("driving on the right: counterclockwise", NavigationType.ROUNDABOUT_ENTER_AND_EXIT_CCW.number, seen.last().maneuverType)
+        // No side said (UNSPECIFIED, or not sent at all): no direction either; REau draws it by the driving side it knows.
+        legacy(NextTurnDetail.NextEvent.ROUNDABOUT_ENTER_AND_EXIT, NextTurnDetail.Side.UNSPECIFIED)
+        assertEquals("no side: no direction", NavigationType.ROUNDABOUT_ENTER.number, seen.last().maneuverType)
+        on(
+            NavigationStatus.MsgType.NEXTTURNDETAILS_VALUE,
+            NextTurnDetail.newBuilder().setNextTurn(NextTurnDetail.NextEvent.ROUNDABOUT_ENTER_AND_EXIT).setRoad("Rua Y").buildPartial(),
+        )
+        assertEquals("side absent: no direction either", NavigationType.ROUNDABOUT_ENTER.number, seen.last().maneuverType)
         legacy(NextTurnDetail.NextEvent.DESTINATION, NextTurnDetail.Side.RIGHT)
         assertEquals(NavigationType.DESTINATION.number, seen.last().maneuverType)
     }

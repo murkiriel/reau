@@ -37,6 +37,21 @@ enum class VideoPace(val fullFps: Int, val reducedFps: Int) {
     fun logLine(): String = "video pace: $name (A $fullFps fps / B $reducedFps fps)"
 }
 
+/**
+ * Which side of the road the maneuvers are drawn for, where Android Auto does not say (a roundabout without a direction, a U-turn without a side).
+ * A normal setting in a debug and in a release build, taken at once with the projection on.
+ */
+enum class DrivingSideMode {
+    /** From the country of the mobile network (else the SIM's); right-hand traffic when neither is known. The default. */
+    AUTO,
+
+    /** Right-hand traffic, whatever the network says; the country is not read. */
+    RIGHT_HAND,
+
+    /** Left-hand traffic, whatever the network says; the country is not read. */
+    LEFT_HAND,
+}
+
 /** Waze's map theme, through Android Auto's night sensor (service/DayNight.kt). */
 enum class MapTheme {
     /** By the sun where the phone is. */

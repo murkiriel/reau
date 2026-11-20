@@ -10,8 +10,8 @@ import kotlin.math.roundToInt
  * The maneuver type is Android Auto's NavigationManeuver.NavigationType wire number; each one becomes the dash glyph
  * of the catalog ([DashManeuverGlyphs], the glyph table observed on the dash, still to be checked
  * on the bike): turns by sharpness and side, ramps on and off with the bytes the official app gives them (the start of the route too), keep-left/right and forks as the Y fork, merges
- * through the catalog's own rule, roundabouts with their exit (counter-clockwise, as right-hand traffic goes, unless
- * Android Auto says clockwise), ferries, arrivals. Anything else is the hidden bubble here, which the session never
+ * through the catalog's own rule, roundabouts with their exit (in the direction Android Auto says; when it does not, the way the
+ * driving side goes: counter-clockwise in right-hand traffic, clockwise in left-hand), ferries, arrivals. Anything else is the hidden bubble here, which the session never
  * sends while guiding (DashSession.ringManeuver keeps the last drawable maneuver); rerouting shows the spinning
  * compass. Distances under a kilometre go in metres, from there in tenths of a kilometre; with the dash in miles ([distance]'s imperial) in feet
  * up to 550 of them and then in tenths of a mile.
@@ -75,19 +75,29 @@ object AaManeuvers {
         put(41, DashManeuverGlyphs.ARRIVE_LEFT)
         put(42, DashManeuverGlyphs.ARRIVE_RIGHT)
     }
-    private val ROUNDABOUT_CCW = setOf(30, 31, 34, 35)
+    // Android Auto says the direction of a roundabout in 32..35; 30 and 31 (enter, exit) do not, and follow the driving side.
+    private val ROUNDABOUT_CCW = setOf(34, 35)
     private val ROUNDABOUT_CW = setOf(32, 33)
+    private val ROUNDABOUT_NO_DIRECTION = setOf(30, 31)
 
     /**
      * Whether [navigationType] is one this class draws as something: a number of [BY_TYPE] or a roundabout's. The others (the unknown 0 of a
      * stretch with no turn ahead, 45 seen at the end of a route, 43, 44...) end in the hidden bubble.
      */
-    fun knowsType(navigationType: Int): Boolean = navigationType in BY_TYPE || navigationType in ROUNDABOUT_CCW || navigationType in ROUNDABOUT_CW
+    fun knowsType(navigationType: Int): Boolean = navigationType in BY_TYPE || navigationType in ROUNDABOUT_CCW || navigationType in ROUNDABOUT_CW ||
+            navigationType in ROUNDABOUT_NO_DIRECTION
 
-    fun glyphFor(navigationType: Int, roundaboutExit: Int, rerouting: Boolean = false): Int = when {
+    /**
+     * The glyph for one Android Auto maneuver number. A roundabout whose direction Android Auto states (32..35) keeps it whatever [drivingSide] is;
+     * only the ones it does not state (30 and 31) go round the way [drivingSide] says (clockwise in left-hand traffic).
+     */
+    fun glyphFor(
+        navigationType: Int, roundaboutExit: Int, rerouting: Boolean = false, drivingSide: DrivingSide = DrivingSide.RIGHT_HAND,
+    ): Int = when {
         rerouting -> DashManeuverGlyphs.RECALCULATING
         navigationType in ROUNDABOUT_CCW -> DashManeuverGlyphs.roundabout(roundaboutExit, clockwise = false)
         navigationType in ROUNDABOUT_CW -> DashManeuverGlyphs.roundabout(roundaboutExit, clockwise = true)
+        navigationType in ROUNDABOUT_NO_DIRECTION -> DashManeuverGlyphs.roundabout(roundaboutExit, drivingSide.roundaboutClockwise)
         else -> BY_TYPE[navigationType] ?: DashManeuverGlyphs.HIDDEN_BUBBLE
     }
 
@@ -133,9 +143,11 @@ object AaManeuvers {
     /**
      * The dash's nav figures for [guidance]; null when there is no guidance. [noNetwork]: the phone has been
      * without a network for a while, which turns the recalculating compass into the lost-signal icon; a real turn is never hidden.
+     * [drivingSide]: the side of the road, for the roundabouts Android Auto gives no direction to (see [glyphFor]).
      */
     fun toDash(
         guidance: NavGuidance, noNetwork: Boolean = false, now: java.time.LocalTime = java.time.LocalTime.now(), imperial: Boolean = false,
+        drivingSide: DrivingSide = DrivingSide.RIGHT_HAND,
     ): DashNav? {
         if (!guidance.active) return null
         val (primary, primaryUnit) = distance(guidance.distanceToManeuverMeters, imperial)
@@ -143,9 +155,9 @@ object AaManeuvers {
         val glyph = if (guidance.rerouting && noNetwork) {
             DashManeuverGlyphs.SIGNAL_LOST
         } else {
-            glyphFor(guidance.maneuverType, guidance.roundaboutExitNumber, guidance.rerouting)
+            glyphFor(guidance.maneuverType, guidance.roundaboutExitNumber, guidance.rerouting, drivingSide)
         }
-        val next = glyphFor(guidance.nextManeuverType, guidance.nextRoundaboutExit)
+        val next = glyphFor(guidance.nextManeuverType, guidance.nextRoundaboutExit, drivingSide = drivingSide)
             .takeIf { guidance.nextManeuverType >= 0 && DashManeuverGlyphs.isVisible(it) } ?: DashCommands.NEXT_MANEUVER_NONE
         return DashNav(
             glyph,

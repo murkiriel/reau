@@ -214,10 +214,16 @@ internal class AapControlNavigation(private val onGuidance: (NavGuidance) -> Uni
                 NavigationStatus.NavigationManeuver.NavigationType.ROUNDABOUT_EXIT.number
             // The side is the driving side; when driving on the right (what Waze sends for right-hand traffic),
             // the roundabout turns counterclockwise. Copied from MOTO-HUB it was always clockwise.
-            NavigationStatus.NextTurnDetail.NextEvent.ROUNDABOUT_ENTER_AND_EXIT -> pick(
-                NavigationStatus.NavigationManeuver.NavigationType.ROUNDABOUT_ENTER_AND_EXIT_CW,
-                NavigationStatus.NavigationManeuver.NavigationType.ROUNDABOUT_ENTER_AND_EXIT_CCW,
-            )
+            // With no side said (absent or UNSPECIFIED) the direction is not said either: the plain "enter" type, which REau draws by the driving side it knows.
+            NavigationStatus.NextTurnDetail.NextEvent.ROUNDABOUT_ENTER_AND_EXIT ->
+                if (!detail.hasSide() || detail.side == NavigationStatus.NextTurnDetail.Side.UNSPECIFIED) {
+                    NavigationStatus.NavigationManeuver.NavigationType.ROUNDABOUT_ENTER.number
+                } else {
+                    pick(
+                        NavigationStatus.NavigationManeuver.NavigationType.ROUNDABOUT_ENTER_AND_EXIT_CW,
+                        NavigationStatus.NavigationManeuver.NavigationType.ROUNDABOUT_ENTER_AND_EXIT_CCW,
+                    )
+                }
             NavigationStatus.NextTurnDetail.NextEvent.STRAIGHT ->
                 NavigationStatus.NavigationManeuver.NavigationType.STRAIGHT.number
             NavigationStatus.NextTurnDetail.NextEvent.FERRY_BOAT ->

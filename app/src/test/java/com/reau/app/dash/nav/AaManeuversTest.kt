@@ -14,7 +14,7 @@ import org.junit.Test
  */
 class AaManeuversTest {
 
-    private fun glyph(type: Int, exit: Int = 0) = AaManeuvers.glyphFor(type, exit)
+    private fun glyph(type: Int, exit: Int = 0, side: DrivingSide = DrivingSide.RIGHT_HAND) = AaManeuvers.glyphFor(type, exit, drivingSide = side)
 
     @Test
     fun `straight ahead and a new road name are the straight arrow`() {
@@ -98,11 +98,43 @@ class AaManeuversTest {
 
     @Test
     fun `roundabouts carry their exit and their direction`() {
-        // Counter-clockwise (right-hand traffic) unless Android Auto says clockwise.
-        for (type in listOf(30, 31, 34, 35)) assertEquals("type $type", DashManeuverGlyphs.roundabout(2, clockwise = false), glyph(type, exit = 2))
-        for (type in listOf(32, 33)) assertEquals("type $type", DashManeuverGlyphs.roundabout(2, clockwise = true), glyph(type, exit = 2))
+        // Android Auto says the direction in 32..35, and that is the one drawn, whatever the driving side.
+        for (side in DrivingSide.entries) {
+            for (type in listOf(34, 35)) {
+                assertEquals("type $type $side", DashManeuverGlyphs.roundabout(2, clockwise = false), glyph(type, exit = 2, side = side))
+            }
+            for (type in listOf(32, 33)) {
+                assertEquals("type $type $side", DashManeuverGlyphs.roundabout(2, clockwise = true), glyph(type, exit = 2, side = side))
+            }
+        }
+        assertEquals(0x33, glyph(34, exit = 2))
+        assertEquals(0x0C, glyph(32, exit = 2))
+    }
+
+    @Test
+    fun `a roundabout with no direction follows the driving side`() {
+        for (type in listOf(30, 31)) {
+            assertEquals("type $type, right-hand", DashManeuverGlyphs.roundabout(2, clockwise = false), glyph(type, exit = 2, side = DrivingSide.RIGHT_HAND))
+            assertEquals("type $type, left-hand", DashManeuverGlyphs.roundabout(2, clockwise = true), glyph(type, exit = 2, side = DrivingSide.LEFT_HAND))
+            assertEquals("type $type, no side known: right-hand", 0x33, glyph(type, exit = 2))
+        }
         assertEquals("no exit known: the plain circle", DashManeuverGlyphs.roundabout(0, clockwise = false), glyph(30, exit = 0))
-        assertEquals(0x0C, glyph(34, exit = 2))
+        assertEquals("left-hand, no exit known", 0x0A, glyph(30, exit = 0, side = DrivingSide.LEFT_HAND))
+    }
+
+    @Test
+    fun `the driving side reaches the dash's nav figures, for the next maneuver too`() {
+        val guidance = NavGuidance(active = true, maneuverType = 30, roundaboutExitNumber = 1, nextManeuverType = 31, nextRoundaboutExit = 2)
+        val right = AaManeuvers.toDash(guidance, drivingSide = DrivingSide.RIGHT_HAND)!!
+        val left = AaManeuvers.toDash(guidance, drivingSide = DrivingSide.LEFT_HAND)!!
+        assertEquals(0x32, right.maneuver)
+        assertEquals(0x33, right.next)
+        assertEquals(0x0B, left.maneuver)
+        assertEquals(0x0C, left.next)
+        assertEquals("right-hand is the default", right, AaManeuvers.toDash(guidance))
+        val stated = guidance.copy(maneuverType = 34, nextManeuverType = 32)
+        assertEquals("a stated direction ignores the side", AaManeuvers.toDash(stated, drivingSide = DrivingSide.RIGHT_HAND),
+            AaManeuvers.toDash(stated, drivingSide = DrivingSide.LEFT_HAND))
     }
 
     @Test

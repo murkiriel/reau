@@ -29,6 +29,8 @@ import com.reau.app.dash.DashSocket
 import com.reau.app.dash.DashWifiManager
 import com.reau.app.dash.DashWifiSuggestions
 import com.reau.app.dash.nav.AaManeuvers
+import com.reau.app.dash.nav.DrivingSide
+import com.reau.app.dash.nav.DrivingSideSource
 import com.reau.app.data.RideDiagnostics
 import com.reau.app.settings.REauSettings
 import com.reau.app.settings.SettingsStore
@@ -380,6 +382,16 @@ internal class LiveSides(
         return imperial
     }
 
+    // The side of the road for the roundabouts Android Auto gives no direction to: the rider's choice or, in automatic, the country of the mobile network
+    // (else the SIM's), read when the projection starts and again every ten minutes while guidance goes on; the log says the side and where it came from, never the country.
+    private val drivingSide = DrivingSideSource(
+        clockMs = { android.os.SystemClock.elapsedRealtime() },
+        networkCountry = { appContext.getSystemService(android.telephony.TelephonyManager::class.java)?.networkCountryIso },
+        simCountry = { appContext.getSystemService(android.telephony.TelephonyManager::class.java)?.simCountryIso },
+        log = { RideDiagnostics.log("dash", it) },
+        mode = { tuned?.drivingSideMode ?: com.reau.app.settings.DrivingSideMode.AUTO },
+    )
+
     // The latest guidance snapshot, for the maneuver distance (navSpeed above already reads the same feed).
     @Volatile private var guidanceNow: NavGuidance = NavGuidance.INACTIVE
     private val started: Boolean
@@ -476,13 +488,14 @@ internal class LiveSides(
                 lastFit = it
                 if (started && !compositor.setMapping(it)) RideDiagnostics.warn("projection", "the saved fit was refused, the dome is filled: $it")
             }
+            drivingSide.refresh()
             // Behind the switch: Android Auto's guidance goes to the dash's own nav bubble.
             // The route also gives the speed for the stream's log.
             val noNetwork = NoNetworkWatch(clockMs = { android.os.SystemClock.elapsedRealtime() }, online = setup.online)
             val show: (com.reau.app.aa.NavGuidance) -> Unit = {
                 guidanceNow = it
                 navSpeed.onGuidance(it, android.os.SystemClock.elapsedRealtime())
-                session.showGuidance(it, noNetwork = noNetwork.without(), imperial = navImperial())
+                session.showGuidance(it, noNetwork = noNetwork.without(), imperial = navImperial(), drivingSide = drivingSide.side())
             }
             val guidance: (com.reau.app.aa.NavGuidance) -> Unit = show
             var options = if (setup.aaConfig.navigation) setup.aaOptions.copy(onNavigation = guidance) else setup.aaOptions
@@ -1032,6 +1045,8 @@ internal class LiveSides(
                 if (before.videoPace != settings.videoPace) RideDiagnostics.log("stream", settings.videoPace.logLine())
                 newStream(settings)
             }
+            // The side of the road is read at each guidance update from `tuned`, so the next card has it; the choice is said in the log now.
+            if (before.drivingSideMode != settings.drivingSideMode) drivingSide.refresh()
             if (LiveTuning.Step.NIGHT_NOW in steps) receiver?.let { r -> scope.launch { runCatching { r.setNight(setup.night()) } } }
             if (LiveTuning.Step.JOYSTICK in steps) {
                 val page = JoystickBindings.decode(settings.joystick)
@@ -1197,8 +1212,8 @@ private fun phoneOnline(context: Context): Boolean = runCatching {
 }.getOrDefault(true)
 
 /** Android Auto's guidance on the dash's own nav bubble; none hides the bubble again. */
-private fun DashSession.showGuidance(guidance: NavGuidance, noNetwork: Boolean, imperial: Boolean) {
-    val nav = AaManeuvers.toDash(guidance, noNetwork, imperial = imperial)
+private fun DashSession.showGuidance(guidance: NavGuidance, noNetwork: Boolean, imperial: Boolean, drivingSide: DrivingSide) {
+    val nav = AaManeuvers.toDash(guidance, noNetwork, imperial = imperial, drivingSide = drivingSide)
     // For the projection's resumo: the numbers Android Auto sent that no glyph answers (a rerouting shows the compass whatever the number is).
     if (guidance.active) {
         val summary = com.reau.app.data.ProjectionSummary.current

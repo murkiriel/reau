@@ -225,6 +225,8 @@ private fun OnDashGroup(s: REauSettings, change: (REauSettings) -> Unit) {
                 change(s.copy(maneuverRing = it))
             }
         },
+        // The side of the road, for the arrows Android Auto gives no direction or side to (a roundabout without one, a U-turn): automatic or chosen.
+        { DrivingSideChoice(s, change) },
         { NoDashStop(s, change) },
         // The notices said in the headset: off by default; read at each phrase, so it counts at once.
         {

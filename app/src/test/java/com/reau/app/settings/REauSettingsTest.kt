@@ -563,6 +563,21 @@ class REauSettingsTest {
     }
 
     @Test
+    fun `the driving side is automatic until the rider picks one, and the pick is kept`() {
+        assertEquals(DrivingSideMode.AUTO, REauSettings().drivingSideMode)
+        assertEquals(listOf("AUTO", "RIGHT_HAND", "LEFT_HAND"), DrivingSideMode.entries.map { it.name })
+        val prefs = KeystoreBackedPrefsTest.FakePrefs()
+        for (mode in DrivingSideMode.entries) {
+            SettingsStore(prefs).save(REauSettings(drivingSideMode = mode))
+            assertEquals(mode, SettingsStore(prefs).load().drivingSideMode)
+            assertEquals("a release build keeps it too", mode, SettingsStore(prefs).load().sanitized(debugBuild = false).drivingSideMode)
+        }
+        assertEquals("a store from before has no pick: automatic", DrivingSideMode.AUTO, SettingsStore(KeystoreBackedPrefsTest.FakePrefs()).load().drivingSideMode)
+        prefs.edit().putString("driving_side_mode", "UPSIDE_DOWN").apply()
+        assertEquals("an unknown value is read as automatic", DrivingSideMode.AUTO, SettingsStore(prefs).load().drivingSideMode)
+    }
+
+    @Test
     fun `maneuver data to the dash is on by default, and it is what Android Auto is told`() {
         assertEquals(true, REauSettings().maneuverData)
         assertEquals(false, plan.aaConfig.navigation)

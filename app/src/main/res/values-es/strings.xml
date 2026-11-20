@@ -431,6 +431,12 @@
     <string name="profile_a_sub">La imagen más fluida</string>
     <string name="profile_b_title">Perfil B</string>
     <string name="profile_b_sub">Más liviano para el Wi-Fi y para el tablero</string>
+    <string name="driving_side_title">Lado de circulación</string>
+    <string name="driving_side_sub">Automático usa el país de la red móvil.</string>
+    <string name="driving_side_auto">Automático</string>
+    <string name="driving_side_right">Por la derecha</string>
+    <string name="driving_side_left">Por la izquierda</string>
+    <string name="driving_side_info">Automático usa el país de la red móvil, y no lee nada cuando eliges el lado tú mismo. El lado solo cambia las flechas que Android Auto no define, como la rotonda sin dirección o el retorno. Elegirlo a mano sirve para probar o para cuando no hay red.</string>
     <string name="video_pace_title">Ritmo del video</string>
     <string name="video_pace_sub">REau: 6 fps en el A y 3 en el B. Original: 4 y 2, más liviano.</string>
     <string name="video_pace_reau">REau</string>

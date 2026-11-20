@@ -120,7 +120,7 @@ class ManeuverEndToEndTest {
         assertEquals("tenths of a kilometre", 0x10, turn[4].value.single().toInt() and 0xFF)
 
         send(FakeNavigation.state(NavigationType.ROUNDABOUT_ENTER_AND_EXIT_CCW, exit = 2))
-        await("roundabout, exit 2", 10_000) { navPackets().any { it[0].value.single() == 0x0C.toByte() } }
+        await("roundabout, exit 2", 10_000) { navPackets().any { it[0].value.single() == 0x33.toByte() } }
 
         send(FakeNavigation.rerouting())
         await("rerouting: the spinning compass", 10_000) { navPackets().any { it[0].value.single() == 0x1C.toByte() } }

@@ -86,7 +86,7 @@ class InfoButtonsTest {
         o("answer_calls"), o("gemini"), o("actionEcho"), o("joystickLegend"),
         o("maneuver_fps_profile", "maneuver_fps_profile_locked"), o("speed_fps_profile", "speed_fps_profile_locked"),
         o("card_now"),
-        o("ride_log"), o("record_video"), o("record_sessions"), o("detailed_log"), o("log_keep"), o("no_dash_stop"), o("video_pace"),
+        o("ride_log"), o("record_video"), o("record_sessions"), o("detailed_log"), o("log_keep"), o("no_dash_stop"), o("video_pace"), o("driving_side"),
     )
 
     private val settingsWithout = listOf(

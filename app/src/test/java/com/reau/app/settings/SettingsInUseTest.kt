@@ -27,7 +27,7 @@ class SettingsInUseTest {
             "settings in use: density=${fields.getValue("density")} marginW=0 marginH=0 fit=WHOLE_VISIBLE cropPercent=${fields.getValue("cropPercent")} " +
                 "videoPace=REAU fpsCeiling=${fields.getValue("fpsCeiling")} streamBitrateBps=${fields.getValue("streamBitrateBps")} bitrateMode=CBR " +
                 "keyframeSec=${fields.getValue("keyframeSec")} clockSlowPercent=0 " +
-                "recordVideo=${com.reau.app.BuildConfig.DEBUG} recordSessions=${com.reau.app.BuildConfig.DEBUG} cardImage=default mapTheme=AUTO maneuverData=true maneuverFpsProfile=true " +
+                "recordVideo=${com.reau.app.BuildConfig.DEBUG} recordSessions=${com.reau.app.BuildConfig.DEBUG} cardImage=default mapTheme=AUTO drivingSideMode=AUTO maneuverData=true maneuverFpsProfile=true " +
                 "speedFpsProfile=true navProfileMode=PESSIMISTA autoJoinWifi=true detailedLog=${com.reau.app.BuildConfig.DEBUG} rideLog=true useLocation=true " +
                 "logKeepDays=${if (com.reau.app.BuildConfig.DEBUG) 0 else 30} noDashStopMinutes=20 answerCalls=true phoneTouch=true dashMusic=true dashCaller=true aaNewProtocol=true " +
                 "gemini=true actionEcho=true joystickLegend=true clearAaFocus=true dashMask=true blurredFill=false spokenAlerts=false " +

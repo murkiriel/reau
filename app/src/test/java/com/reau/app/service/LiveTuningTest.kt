@@ -108,6 +108,13 @@ class LiveTuningTest {
     }
 
     @Test
+    fun `the driving side restarts nothing, the next guidance update reads it`() {
+        for (mode in com.reau.app.settings.DrivingSideMode.entries) {
+            assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(drivingSideMode = mode)))
+        }
+    }
+
+    @Test
     fun `Anunciar como moto restarts nothing, it counts from the next Android Auto session`() {
         assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(announceMotorcycle = !before.announceMotorcycle)))
     }
