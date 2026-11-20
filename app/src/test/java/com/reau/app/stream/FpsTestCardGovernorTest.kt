@@ -76,6 +76,11 @@ class FpsTestCardGovernorTest {
         assertEquals(10, g.fps)
         g.poll(fpsTest = 10, navSample = maneuver(5_300), lightScreen = true)
         assertEquals("still 10 on a light screen", 10, g.fps)
+        // The card went off at once, but the light screen's own hold ([LightScreen.HOLD_MS], 500 ms) is what keeps 6 for the next two polls: that is the light screen's, not the card's.
+        g.poll(fpsTest = null, navSample = maneuver(5_300))
+        assertNull(g.testFps)
+        assertEquals("the light screen's hold, not the card", 6, g.fps)
+        g.poll(fpsTest = null, navSample = maneuver(5_300))
         g.poll(fpsTest = null, navSample = maneuver(5_300))
         assertEquals("the profile again with the card off", 3, g.fps)
     }

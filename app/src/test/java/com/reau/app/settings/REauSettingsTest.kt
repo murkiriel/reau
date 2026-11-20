@@ -519,7 +519,7 @@ class REauSettingsTest {
     fun `what is saved is what is loaded`() {
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
         val s = REauSettings(
-            density = 320, marginW = 200, marginH = 100, fit = Fit.WHOLE_VISIBLE,
+            density = 190, marginW = 200, marginH = 100, fit = Fit.WHOLE_VISIBLE,
             cropPercent = 80, recordVideo = true, recordSessions = true,
             moveX = -12, moveY = 40,
         )

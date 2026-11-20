@@ -455,7 +455,7 @@
     <string name="section_button">Código de botón sobre el video</string>
     <string name="section_fps_test_card">Cuadro de prueba de FPS</string>
     <string name="fps_test_card_title">Cuadro de prueba de FPS</string>
-    <string name="fps_test_card_info">Cambia la imagen del tablero por un cuadro de prueba numerado. Filma el tablero: cada cuadro tiene su número, una casilla verde, un cuadrado par/impar y el número en binario; un número que falta es un cuadro perdido, uno repetido es un cuadro que el tablero mostró dos veces. El ritmo elegido vale solo mientras la prueba esté activada. Solo de la compilación de depuración, se aplica de inmediato, y el mapa desaparece mientras esté activada.</string>
+    <string name="fps_test_card_info">Cambia la imagen del tablero por un cuadro de prueba numerado: filma el tablero, y un número que falta es un cuadro perdido y uno repetido es un cuadro que el tablero mostró dos veces (cada cuadro tiene su número, una casilla verde, un cuadrado par/impar y el número en binario). El ritmo elegido vale solo mientras la prueba esté activada. Solo de la compilación de depuración, se aplica de inmediato, y el mapa desaparece mientras esté activada.</string>
     <string name="fps_test_card_rate_title">Ritmo de la prueba</string>
     <string name="section_info_ring">Anillo de información en el tablero</string>
     <string name="info_ring_title">Anillo de información</string>

@@ -118,7 +118,7 @@ class TipsTest {
 
     @Test
     fun `the main screen's top bar draws the actions it is given, at its end`() {
-        val bar = File(src, "java/com/reau/app/ui/components/TopBar.kt").readText().substringBefore("        } else {")
+        val bar = File(src, "java/com/reau/app/ui/components/TopBar.kt").readText().substringBefore("\n        } else {")
         assertTrue(bar, bar.contains("Modifier.align(Alignment.CenterEnd)"))
         assertTrue(bar, bar.contains("{ actions() }"))
     }

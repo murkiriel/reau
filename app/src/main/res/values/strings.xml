@@ -466,7 +466,7 @@
     <string name="section_button">Button code on the video</string>
     <string name="section_fps_test_card">FPS test card</string>
     <string name="fps_test_card_title">FPS test card</string>
-    <string name="fps_test_card_info">Replaces the dash picture with a numbered test card. Film the dash: each frame has its number, a green cell, an even/odd square and the number in binary; a number that is missing is a lost frame, a repeated one is a frame the dash showed twice. The pace you pick applies only while the test is on. Only in the debug build, it applies right away, and the map disappears while it is on.</string>
+    <string name="fps_test_card_info">Replaces the dash picture with a numbered test card: film the dash, and a missing number is a lost frame and a repeated one a frame shown twice (each frame has its number, a green cell, an even/odd square and the number in binary). The pace you pick applies only while the test is on. Only in the debug build, it applies right away, and the map disappears while it is on.</string>
     <string name="fps_test_card_rate_title">Test rate</string>
     <string name="section_info_ring">Info ring on the dash</string>
     <string name="info_ring_title">Info ring</string>

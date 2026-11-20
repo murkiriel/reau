@@ -25,9 +25,11 @@ class VideoLoopReadsOfTheGovernorTest {
         assertEquals(
             // The last three (plan 32) only write to the log: the profiles in the line of the start and what each pace cost in bits, every 5 minutes and at the end.
             // They change no action and no value the golden traces record.
+            // `useTestRate` and `testFps` (plan 32, the debug build's FPS test card) are the loop's way to hand the card's pace to the governor and to label the card with the pace in force:
+            // with the card off (the rider's default, and always in a release build) `useTestRate(null, null)` returns null and `testFps` is null, so the golden traces do not move.
             sortedSetOf(
                 "fps", "profileFps", "encoderFps", "activeBitrateBps", "keyframeSec", "encoderKeyframeSec", "gopFps", "start", "onPoll", "syncRequested", "rebuildAction",
-                "profilesText", "periodicPaceSummary",
+                "profilesText", "periodicPaceSummary", "useTestRate", "testFps",
             ),
             members,
         )
