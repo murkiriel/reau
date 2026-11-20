@@ -940,4 +940,9 @@
     <string name="joystick_legend_title">Joystick legend on the dash</string>
     <string name="joystick_legend_sub">Shows what each direction does</string>
     <string name="joystick_legend">When the dash changes between its map and media modes, and at the first tap of the projection, a small card shows for 3 seconds in the middle of the picture what each direction of the joystick does in that mode, as set on the joystick page. The dash does not say its mode, so REau learns it from the tap and the card comes with the first tap of the new mode; it does not appear during a call. On by default; a change applies at once.</string>
+
+    <!-- The tips page ("Dicas"), opened by the lightbulb of the main screen's bar; one title and one text for each tip of Tips.ALL. -->
+    <string name="tips_title">Tips</string>
+    <string name="tip_waze_zoom_title">Turn off Waze\'s automatic zoom</string>
+    <string name="tip_waze_zoom_text">We recommend turning off automatic zoom in the Waze settings. It makes the video heavier for the dash, and the dash screen is too small for the amount of information that automatic zoom shows.</string>
 </resources>

@@ -7,8 +7,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
@@ -38,6 +41,7 @@ import com.reau.app.ui.components.BridgeSide
 import com.reau.app.ui.components.ComponentLogic
 import com.reau.app.ui.components.GhostButton
 import com.reau.app.ui.components.GroupLabel
+import com.reau.app.ui.components.MsIcon
 import com.reau.app.ui.components.PrimaryPowerButton
 import com.reau.app.ui.components.REauTopBar
 import com.reau.app.ui.theme.REauMono
@@ -82,7 +86,12 @@ fun MainScreen(
     AppTheme {
         val elapsed = rememberElapsed(p, state.startedAtMs, clock)
         Column(Modifier.fillMaxSize()) {
-            REauTopBar()
+            REauTopBar(actions = {
+                // The tips page, one tap from the main screen.
+                IconButton(extras.onOpenTips, Modifier.size(48.dp).testTag("open_tips")) {
+                    MsIcon(R.drawable.ic_ms_lightbulb, 24.dp, LocalContentColor.current, description = stringResource(R.string.tips_title))
+                }
+            })
             Box(Modifier.fillMaxWidth().weight(1f)) {
                 Column(
                     Modifier.fillMaxSize().testTag("main_scroll").verticalScroll(rememberScrollState())

@@ -930,4 +930,9 @@
     <string name="joystick_legend_title">Leyenda del joystick en el tablero</string>
     <string name="joystick_legend_sub">Muestra qué hace cada dirección</string>
     <string name="joystick_legend">Cuando el tablero cambia entre el modo mapa y el modo multimedia, y en el primer toque de la proyección, una tarjeta pequeña muestra durante 3 segundos, en medio de la imagen, qué hace cada dirección del joystick en ese modo, según la página del joystick. El tablero no dice en qué modo está, así que REau lo sabe por el toque y la tarjeta aparece en el primer toque del modo nuevo; no aparece durante una llamada. Activado por defecto; el cambio se aplica de inmediato.</string>
+
+    <!-- The tips page ("Dicas"), opened by the lightbulb of the main screen's bar; one title and one text for each tip of Tips.ALL. -->
+    <string name="tips_title">Consejos</string>
+    <string name="tip_waze_zoom_title">Desactiva el zoom automático de Waze</string>
+    <string name="tip_waze_zoom_text">Recomendamos desactivar el zoom automático en los ajustes de Waze. Hace que el video sea más pesado para el tablero, y la pantalla del tablero es demasiado pequeña para la cantidad de información que muestra el zoom automático.</string>
 </resources>

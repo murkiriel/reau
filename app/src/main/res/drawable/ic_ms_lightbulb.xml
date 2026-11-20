@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A "lightbulb" drawn for REau in the style of the Material Symbols Rounded ones (outline, round ends, wght 400, 24 dp). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="960" android:viewportHeight="960">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="70"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M356,640 A270,270 0 1,1 604,640 L604,700 L356,700 Z M390,790 L570,790 M430,880 L530,880" />
+</vector>

@@ -76,6 +76,8 @@ data class MainExtras(
     val onOpenWeather: () -> Unit = {},
     /** The network server's screen, from its icon. */
     val onOpenServer: () -> Unit = {},
+    /** The tips page, from the lightbulb in the main screen's bar. */
+    val onOpenTips: () -> Unit = {},
 )
 
 /** What the settings screen shows of the dash pairing. */

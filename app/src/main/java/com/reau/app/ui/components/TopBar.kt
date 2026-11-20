@@ -53,7 +53,7 @@ val TopBarHeight = 56.dp
 
 /**
  * The fixed top bar (only the content under it scrolls). Without [title], the main screen's: "REau" centred (with the
- * launcher mark beside it when [markBesideName], and a back button at the start when [onBack] is given). With it,
+ * launcher mark beside it when [markBesideName], a back button at the start when [onBack] is given and [actions] at the end). With it,
  * an inner screen's: back ([onBack], tag [backTag]) and the title in Fraunces ([titleTag], [titleStyle]), then [actions]. Dark, it sits
  * on Grafite over a thin Ouro suave line; light, on the Carvão chrome with Marfim text.
  */
@@ -86,6 +86,10 @@ fun REauTopBar(
                     IconButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart).size(48.dp).testTag(backTag)) {
                         MsIcon(R.drawable.ic_ms_arrow_back, 26.dp, ink, description = stringResource(R.string.action_back))
                     }
+                }
+                // The main screen's bar takes [actions] at its end too (the tips button); the name stays centred.
+                Row(Modifier.align(Alignment.CenterEnd).padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    CompositionLocalProvider(LocalContentColor provides ink) { actions() }
                 }
             }
         } else {

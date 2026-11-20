@@ -272,6 +272,7 @@ class MainActivity : ComponentActivity() {
                             onOpenWifi = { reload(); page = SettingsPage.WIFI },
                             onOpenWeather = { page = SettingsPage.WEATHER },
                             onOpenServer = { page = SettingsPage.SERVER },
+                            onOpenTips = { page = SettingsPage.TIPS },
                         ),
                     )
                 }
@@ -564,7 +565,7 @@ private fun forgetDash(context: android.content.Context, pairingStore: DashPairi
  * The pages over the settings that hold no setting, and the bike's Wi-Fi (from the settings or the main screen). The
  * permissions page shows the rows read at the last onResume, read again whenever REau comes back to the front.
  */
-private enum class SettingsPage { NONE, PERMISSIONS, ABOUT_DATA, CREDITS, TERMS, LOGS, WIFI, WEATHER, SERVER }
+private enum class SettingsPage { NONE, PERMISSIONS, ABOUT_DATA, CREDITS, TERMS, LOGS, WIFI, WEATHER, SERVER, TIPS }
 
 private val forgetScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
 
@@ -592,6 +593,7 @@ private fun SettingsPageFromSettings(
         SettingsPage.ABOUT_DATA -> com.reau.app.ui.AboutDataScreen(
             onBack, onOpenCredits = { goTo(SettingsPage.CREDITS) }, onOpenTerms = { goTo(SettingsPage.TERMS) },
         )
+        SettingsPage.TIPS -> com.reau.app.ui.TipsScreen(onBack)
         SettingsPage.CREDITS -> com.reau.app.ui.CreditsScreen(back) { copyAddress(activity, it) }
         SettingsPage.TERMS -> com.reau.app.ui.TermsScreen(gate = false, onAccept = {}, onDecline = {}, onBack = back)
         SettingsPage.LOGS -> com.reau.app.ui.LogViewerScreen(RideDiagnostics.logDir(), onBack) {
