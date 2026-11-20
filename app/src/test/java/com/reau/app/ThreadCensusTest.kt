@@ -19,6 +19,8 @@ class ThreadCensusTest {
         Entry("REauApp.kt", "folders", "creates the app's folders at start"),
         Entry("REauApp.kt", "dash-readings", "loads the saved dash readings at start"),
         Entry("REauApp.kt", "dash-pairing", "warms the pairing key at start"),
+        Entry("REauApp.kt", "update-job", "puts the daily update-check job back at start (a binder call to the job scheduler)"),
+        Entry("update/UpdateNoticeAndroid.kt", "update-check", "the daily update check's own request, off the job service's main thread"),
         Entry("MainActivity.kt", "log-age", "trims the log by age after a setting change"),
         Entry("MainActivity.kt", "dash-name", "learns the dash's name, off the main thread"),
         Entry("MainActivity.kt", "delete-logs", "deletes the logs, off the main thread"),

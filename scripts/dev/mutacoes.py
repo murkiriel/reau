@@ -4576,7 +4576,7 @@ MUTATIONS = [
     ("P32A Aviso: o canal das atualizações passa a ter importância alta", MAIN + "update/UpdateNoticeAndroid.kt",
      "NotificationManager.IMPORTANCE_LOW", "NotificationManager.IMPORTANCE_HIGH", ["UpdateNoticeTest"]),
     ("P32A Aviso: o toque abre a tela do app e não a página da versão", MAIN + "update/UpdateNoticeAndroid.kt",
-     "Intent(Intent.ACTION_VIEW, Uri.parse(latest.pageUrl))", "Intent(context, com.reau.app.MainActivity::class.java)", ["UpdateNoticeTest"]),
+     "Intent(Intent.ACTION_VIEW, latest.pageUrl.toUri())", "Intent(context, com.reau.app.MainActivity::class.java)", ["UpdateNoticeTest"]),
     ("P32A Aviso: a versão é marcada como avisada mesmo sem poder avisar", MAIN + "update/UpdateNoticeAndroid.kt",
      "if (!manager.areNotificationsEnabled()) {", "if (false) {", ["UpdateNoticeTest"]),
     ("P32A Aviso: a pergunta diária usa outro pedido que o botão", MAIN + "update/UpdateNoticeAndroid.kt",

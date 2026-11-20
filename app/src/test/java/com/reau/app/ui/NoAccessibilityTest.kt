@@ -98,7 +98,7 @@ class NoAccessibilityTest {
         val manifest = File(src, "main/AndroidManifest.xml").readText()
         assertFalse(Regex("accessib", RegexOption.IGNORE_CASE).containsMatchIn(manifest))
         assertFalse(manifest.contains("android.accessibilityservice.AccessibilityService"))
-        assertEquals("the app's services: the tile and the projection", 2, Regex("<service\\b").findAll(manifest).count())
+        assertEquals("the app's services: the tile, the projection and the daily update check (a job service)", 3, Regex("<service\\b").findAll(manifest).count())
     }
 
     @Test

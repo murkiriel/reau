@@ -37,14 +37,16 @@ object DebugTriggers {
     @Composable
     fun rows(): List<@Composable () -> Unit> {
         val context = LocalContext.current
+        val faultLines = listOf(R.string.debug_fault_sub, R.string.debug_fault_decoder_what, R.string.debug_fault_keyframe_what)
+            .map { stringResource(it) }.joinToString("\n")
         return listOf<@Composable () -> Unit>(
             {
                 ActionsRow(
                     stringResource(R.string.debug_warn_title), listOf(
-                        RowAction(stringResource(R.string.debug_warn_dash_stuck), "debug_fire_dash_stuck", R.drawable.ic_ms_construction) { fire(context, "dash stuck") },
-                        RowAction(stringResource(R.string.debug_warn_phone_hot), "debug_fire_phone_hot", R.drawable.ic_ms_construction) { fire(context, "phone hot") },
-                        RowAction(stringResource(R.string.debug_warn_no_dash), "debug_fire_no_dash", R.drawable.ic_ms_construction) { fire(context, "no dash stop") },
-                        RowAction(stringResource(R.string.debug_warn_channel), "debug_alert_channel", R.drawable.ic_ms_construction) { openAlertChannel(context) },
+                        button(R.string.debug_warn_dash_stuck, "debug_fire_dash_stuck") { fire(context, "dash stuck") },
+                        button(R.string.debug_warn_phone_hot, "debug_fire_phone_hot") { fire(context, "phone hot") },
+                        button(R.string.debug_warn_no_dash, "debug_fire_no_dash") { fire(context, "no dash stop") },
+                        button(R.string.debug_warn_channel, "debug_alert_channel") { openAlertChannel(context) },
                     ),
                     sub = stringResource(R.string.debug_warn_sub),
                     tag = "debug_fire",
@@ -53,20 +55,22 @@ object DebugTriggers {
             {
                 ActionsRow(
                     stringResource(R.string.debug_fault_title), listOf(
-                        RowAction(stringResource(R.string.debug_fault_decoder), "debug_fault_decoder", R.drawable.ic_ms_construction) { arm(Fault.DECODER_STALL) },
-                        RowAction(stringResource(R.string.debug_fault_encoder), "debug_fault_encoder", R.drawable.ic_ms_construction) { arm(Fault.ENCODER_MUTE) },
-                        RowAction(stringResource(R.string.debug_fault_keyframe), "debug_fault_focus", R.drawable.ic_ms_construction) { arm(Fault.FOCUS_CYCLE) },
+                        button(R.string.debug_fault_decoder, "debug_fault_decoder") { arm(Fault.DECODER_STALL) },
+                        button(R.string.debug_fault_keyframe, "debug_fault_focus") { arm(Fault.FOCUS_CYCLE) },
                     ),
                     // The group's line, then what each button does (the resources say it in the language of the app).
-                    sub = listOf(
-                        R.string.debug_fault_sub, R.string.debug_fault_decoder_what, R.string.debug_fault_encoder_what, R.string.debug_fault_keyframe_what,
-                    ).joinToString("\n") { stringResource(it) },
+                    sub = faultLines,
                     tag = "debug_fault",
                 )
             },
             { ArrowTestRow() },
         )
     }
+
+    /** A button of these rows: its text from the debug resources, the tools' icon. */
+    @Composable
+    private fun button(@androidx.annotation.StringRes text: Int, tag: String, onClick: () -> Unit) =
+        RowAction(stringResource(text), tag, R.drawable.ic_ms_construction, onClick = onClick)
 
     /** Whether the arrow test may run: a projection running with the dash connected. */
     internal fun arrowTestAvailable(phase: Phase, dash: DashLink): Boolean = phase == Phase.RUNNING && dash == DashLink.READY
@@ -91,11 +95,12 @@ object DebugTriggers {
         val language = LocalConfiguration.current.locales[0].language
         ActionsRow(
             stringResource(R.string.debug_arrow_title), listOf(
-                RowAction(stringResource(R.string.debug_arrow_previous), "debug_arrow_previous", R.drawable.ic_ms_construction) { ArrowTrial.previous() },
-                RowAction(stringResource(R.string.debug_arrow_next), "debug_arrow_next", R.drawable.ic_ms_construction) { ArrowTrial.next() },
-                RowAction(stringResource(R.string.debug_arrow_stop), "debug_arrow_stop", R.drawable.ic_ms_construction) { ArrowTrial.stop() },
+                button(R.string.debug_arrow_previous, "debug_arrow_previous") { ArrowTrial.previous() },
+                button(R.string.debug_arrow_next, "debug_arrow_next") { ArrowTrial.next() },
+                button(R.string.debug_arrow_stop, "debug_arrow_stop") { ArrowTrial.stop() },
             ),
-            sub = sent?.let { stringResource(R.string.debug_arrow_sending, ArrowTrial.label(it, language, words)) } ?: stringResource(R.string.debug_arrow_sub_idle),
+            sub = sent?.let { stringResource(R.string.debug_arrow_sending, ArrowTrial.label(it, language, words)) }
+                ?: stringResource(R.string.debug_arrow_sub_idle),
             tag = "debug_arrow",
         )
     }

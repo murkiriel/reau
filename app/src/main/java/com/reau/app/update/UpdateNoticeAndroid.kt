@@ -11,7 +11,8 @@ import android.app.job.JobService
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import androidx.core.content.edit
+import androidx.core.net.toUri
 import com.reau.app.BuildConfig
 import com.reau.app.R
 import com.reau.app.data.RideDiagnostics
@@ -74,7 +75,7 @@ internal object UpdateNoticeAndroid {
         val decision = UpdateNotice.decide(true, BuildConfig.VERSION_NAME, result, prefs.getString(KEY_LAST_TOLD, null))
         RideDiagnostics.log("update", UpdateNotice.logLine(decision, result))
         if (decision == UpdateNotice.Decision.NOTIFY && result is ReleaseCheck.Result.Latest && post(context, result)) {
-            prefs.edit().putString(KEY_LAST_TOLD, result.tag).apply()
+            prefs.edit { putString(KEY_LAST_TOLD, result.tag) }
         }
     }
 
@@ -91,7 +92,7 @@ internal object UpdateNoticeAndroid {
             },
         )
         // The page is the project's own address (ReleaseCheck keeps it so), opened in the browser by the tap.
-        val open = PendingIntent.getActivity(context, 0, Intent(Intent.ACTION_VIEW, Uri.parse(latest.pageUrl)), PendingIntent.FLAG_IMMUTABLE)
+        val open = PendingIntent.getActivity(context, 0, Intent(Intent.ACTION_VIEW, latest.pageUrl.toUri()), PendingIntent.FLAG_IMMUTABLE)
         val text = context.getString(R.string.notif_update_text)
         val notification = Notification.Builder(context, UpdateNotice.CHANNEL_ID)
             .setContentTitle(context.getString(R.string.notif_update_title, UpdateNotice.versionLabel(latest.tag)))

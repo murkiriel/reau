@@ -162,7 +162,7 @@ class UpdateNoticeTest {
         assertTrue(code, code.contains("""ReleaseCheck.fetch("REau/${'$'}{BuildConfig.VERSION_NAME}")"""))
         assertTrue(code, code.contains("UpdateNotice.plan(enabled, pending = scheduler.getPendingJob(UpdateNotice.JOB_ID) != null)"))
         assertTrue("the switch off cancels", code.contains("scheduler.cancel(UpdateNotice.JOB_ID)"))
-        assertTrue("one notification per version: the tag is kept only when it was posted", code.contains("post(context, result)") && code.contains("KEY_LAST_TOLD, result.tag"))
+        assertTrue("one notification per version: the tag is kept only when it was posted", code.contains("post(context, result)") && code.contains("putString(KEY_LAST_TOLD, result.tag)"))
         assertTrue("a refused notification permission does not count as told", code.contains("areNotificationsEnabled()"))
     }
 
@@ -172,7 +172,7 @@ class UpdateNoticeTest {
         assertTrue(code, code.contains("NotificationChannel(UpdateNotice.CHANNEL_ID"))
         assertTrue("low importance: no sound", code.contains("NotificationManager.IMPORTANCE_LOW"))
         assertFalse(code, code.contains("ALERT_CHANNEL_ID") || code.contains("IMPORTANCE_HIGH"))
-        assertTrue(code, code.contains("Intent(Intent.ACTION_VIEW, Uri.parse(latest.pageUrl))"))
+        assertTrue(code, code.contains("Intent(Intent.ACTION_VIEW, latest.pageUrl.toUri())"))
         assertTrue(code, code.contains("PendingIntent.FLAG_IMMUTABLE"))
         assertTrue(code, code.contains("""getString(R.string.notif_update_title, UpdateNotice.versionLabel(latest.tag))"""))
         // The page is the project's own: ReleaseCheck keeps any other address out.

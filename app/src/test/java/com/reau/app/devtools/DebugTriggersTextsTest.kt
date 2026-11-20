@@ -24,8 +24,8 @@ class DebugTriggersTextsTest {
 
     private val keys = listOf(
         "debug_warn_title", "debug_warn_sub", "debug_warn_dash_stuck", "debug_warn_phone_hot", "debug_warn_no_dash", "debug_warn_channel",
-        "debug_fault_title", "debug_fault_sub", "debug_fault_decoder", "debug_fault_encoder", "debug_fault_keyframe",
-        "debug_fault_decoder_what", "debug_fault_encoder_what", "debug_fault_keyframe_what",
+        "debug_fault_title", "debug_fault_sub", "debug_fault_decoder", "debug_fault_keyframe",
+        "debug_fault_decoder_what", "debug_fault_keyframe_what",
         "debug_arrow_title", "debug_arrow_sub_off", "debug_arrow_sub_idle", "debug_arrow_sending", "debug_arrow_previous", "debug_arrow_next",
         "debug_arrow_stop", "debug_arrow_unnamed", "debug_arrow_hidden",
     )
@@ -55,8 +55,8 @@ class DebugTriggersTextsTest {
             listOf("debug_warn_dash_stuck", "debug_warn_phone_hot", "debug_warn_no_dash", "debug_warn_channel").map { pt[it] })
         assertEquals("Simular falhas", pt["debug_fault_title"])
         assertEquals("Com a projeção rodando. O REau deve se recuperar sozinho.", pt["debug_fault_sub"])
-        assertEquals(listOf("Travar o decodificador", "Calar o codificador", "Pedir um quadro completo"),
-            listOf("debug_fault_decoder", "debug_fault_encoder", "debug_fault_keyframe").map { pt[it] })
+        assertEquals(listOf("Travar o decodificador", "Pedir um quadro completo"),
+            listOf("debug_fault_decoder", "debug_fault_keyframe").map { pt[it] })
         assertEquals("Testar as setas do painel", pt["debug_arrow_title"])
         assertTrue(pt.getValue("debug_arrow_sub_idle").contains("Percorra as setas de manobra e fotografe o painel com a moto parada; Parar devolve a seta real."))
         assertEquals(listOf("Anterior", "Próxima", "Parar"), listOf("debug_arrow_previous", "debug_arrow_next", "debug_arrow_stop").map { pt[it] })
@@ -75,7 +75,7 @@ class DebugTriggersTextsTest {
     fun `the code has no English text typed in it, only resources`() {
         val code = File(root, "debug/java/com/reau/app/devtools/DebugTriggers.kt").readLines().filterNot { it.trimStart().startsWith("*") || it.trimStart().startsWith("//") || it.trimStart().startsWith("/*") }
         val text = code.joinToString("\n")
-        for (old in listOf("Fire a warning", "Dash stuck", "Phone hot", "Inject a fault", "Decoder stalls", "Encoder mute", "Focus cycle", "Arrow test", "Previous", "Next", "Stop")) {
+        for (old in listOf("Fire a warning", "Dash stuck", "Phone hot", "Inject a fault", "Decoder stalls", "Encoder mute", "Calar o codificador", "Focus cycle", "Arrow test", "Previous", "Next", "Stop")) {
             assertFalse("still typed in: $old", text.contains("\"$old"))
         }
         for (key in keys.filter { !it.endsWith("_what") && it != "debug_arrow_sub_off" && it != "debug_arrow_sending" && it != "debug_arrow_unnamed" && it != "debug_arrow_hidden" }) {
@@ -87,7 +87,7 @@ class DebugTriggersTextsTest {
     fun `the tags the screen tests look for are all still there`() {
         val text = File(root, "debug/java/com/reau/app/devtools/DebugTriggers.kt").readText()
         for (tag in listOf(
-            "debug_fire_dash_stuck", "debug_fire_phone_hot", "debug_fire_no_dash", "debug_alert_channel", "debug_fire", "debug_fault_decoder", "debug_fault_encoder",
+            "debug_fire_dash_stuck", "debug_fire_phone_hot", "debug_fire_no_dash", "debug_alert_channel", "debug_fire", "debug_fault_decoder",
             "debug_fault_focus", "debug_fault", "debug_arrow_previous", "debug_arrow_next", "debug_arrow_stop", "debug_arrow", "debug_arrow_off",
         )) assertTrue(tag, text.contains("\"$tag\""))
     }

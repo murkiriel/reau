@@ -10,10 +10,8 @@
     <string name="debug_fault_title">Simulate failures</string>
     <string name="debug_fault_sub">With the projection running. REau should recover by itself.</string>
     <string name="debug_fault_decoder">Stall the decoder</string>
-    <string name="debug_fault_encoder">Mute the encoder</string>
     <string name="debug_fault_keyframe">Ask for a full frame</string>
     <string name="debug_fault_decoder_what">Stall the decoder: the watch restarts it in 3 s.</string>
-    <string name="debug_fault_encoder_what">Mute the encoder: with the experimental watch switch on, it is rebuilt in 3 s.</string>
     <string name="debug_fault_keyframe_what">Ask for a full frame: asks Android Auto for a keyframe.</string>
     <string name="debug_arrow_title">Test the dash arrows</string>
     <string name="debug_arrow_sub_off">Only with the dash connected. Start the projection and wait for the dash. Step through the maneuver arrows and photograph the dash with the motorcycle stopped; Stop gives the real arrow back.</string>
