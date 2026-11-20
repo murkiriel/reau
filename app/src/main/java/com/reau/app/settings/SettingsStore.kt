@@ -36,6 +36,17 @@ class SettingsStore(private val prefs: SharedPreferences) {
     }
 
     /**
+     * The pace of profile A as stored. A phone that has never saved the chooser's own key takes it from the experiment it replaced: the
+     * experiment on is 6 fps, off or never stored is [default] (4). Once the key is saved it is the only one read, so a later change of the
+     * pace is never undone by the old key still lying in the file.
+     */
+    private fun storedVideoPace(default: Int): Int = when {
+        prefs.contains(KEY_VIDEO_PACE) -> prefs.getInt(KEY_VIDEO_PACE, default)
+        prefs.getBoolean(KEY_EXPERIMENT_FPS63, false) -> MIGRATED_EXPERIMENT_PACE
+        else -> default
+    }
+
+    /**
      * A phone whose settings were saved by a version before the conservative video gets the conservative
      * video once (the defaults of [REauSettings]), with the newer protocol on;
      * the rest stays as it was. Everything saved from then on carries the mark, and is kept.
@@ -259,7 +270,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             experimentTolerantRx = prefs.getBoolean(KEY_EXPERIMENT_TOLERANT_RX, defaults.experimentTolerantRx),
             experimentWakeAa = prefs.getBoolean(KEY_EXPERIMENT_WAKE_AA, defaults.experimentWakeAa),
             experimentEncoderLowLatency = prefs.getBoolean(KEY_EXPERIMENT_ENCODER_LOW_LATENCY, defaults.experimentEncoderLowLatency),
-            experimentFpsSixThree = prefs.getBoolean(KEY_EXPERIMENT_FPS63, defaults.experimentFpsSixThree),
+            videoPaceFps = storedVideoPace(defaults.videoPaceFps),
             experimentMotorcycle = prefs.getBoolean(KEY_EXPERIMENT_MOTORCYCLE, defaults.experimentMotorcycle),
         ).sanitized()
     }
@@ -377,7 +388,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             putBoolean(KEY_EXPERIMENT_TOLERANT_RX, s.experimentTolerantRx)
             putBoolean(KEY_EXPERIMENT_WAKE_AA, s.experimentWakeAa)
             putBoolean(KEY_EXPERIMENT_ENCODER_LOW_LATENCY, s.experimentEncoderLowLatency)
-            putBoolean(KEY_EXPERIMENT_FPS63, s.experimentFpsSixThree)
+            putInt(KEY_VIDEO_PACE, s.videoPaceFps)
             putBoolean(KEY_EXPERIMENT_MOTORCYCLE, s.experimentMotorcycle)
         }
     }
@@ -505,6 +516,11 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val KEY_EXPERIMENT_TOLERANT_RX = "experiment_tolerant_rx"
         private const val KEY_EXPERIMENT_WAKE_AA = "experiment_wake_aa"
         private const val KEY_EXPERIMENT_ENCODER_LOW_LATENCY = "experiment_encoder_low_latency"
+        /** The pace the old experiment meant: its full profile at 6 fps. */
+        private const val MIGRATED_EXPERIMENT_PACE = 6
+        private const val KEY_VIDEO_PACE = "video_pace_fps"
+
+        /** The key of the experiment "video at 6 fps (3 in the reduced profile)" that the pace chooser replaced; only read, to migrate (plan 32). */
         private const val KEY_EXPERIMENT_FPS63 = "experiment_fps63"
         private const val KEY_EXPERIMENT_MOTORCYCLE = "experiment_motorcycle"
         private const val OLD_KEY_AA_SLOW_PACE = "aa_slow_pace"

@@ -24,7 +24,7 @@ object SettingsInUse {
         "statsOverlay", "buttonOverlay", "dashPhoneStatus", "dashAlbumArt", "dashWeather", "infoRing", "infoRingData", "infoRingCarousel", "infoRingSeconds",
         "infoRingInPlace", "infoTitle",
         "maneuverRing", "webView", "webTouch", "webAudio",
-        "experimentFpsSixThree",
+        "videoPaceFps",
         "experimentMotorcycle",
         "experimentRtpPacing", "experimentDebugDscp", "experimentAdaptiveBitrate", "experimentWifiBind", "experimentStartGuard",
         "experimentEncoderWatch", "experimentFocusGap", "experimentNightMemory", "experimentEncoderLowLatency",
@@ -68,8 +68,6 @@ object SettingsInUse {
             "tolerant dash silence watch (12 s noted, 60 s ends the session) and control packets 12 ms apart".takeIf { settings.experimentTolerantRx },
             "Android Auto woken (its settings opened) before a dial that may find it frozen by Android".takeIf { settings.experimentWakeAa },
             "Qualcomm encoder asked not to hold frames (the maker's low-latency key)".takeIf { settings.experimentEncoderLowLatency },
-            "video at ${DashConfig.EXPERIMENT_FPS63_FULL_FPS} fps (${DashConfig.EXPERIMENT_FPS63_REDUCED_FPS} fps in the reduced profile)"
-                .takeIf { settings.experimentFpsSixThree },
             "head unit announced to Android Auto as a motorcycle (vehicle id ${com.reau.app.aa.ServiceDiscoveryResponse.VEHICLE_ID_MOTORCYCLE})"
                 .takeIf { settings.experimentMotorcycle },
         )

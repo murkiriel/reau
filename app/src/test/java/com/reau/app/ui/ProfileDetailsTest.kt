@@ -31,7 +31,7 @@ class ProfileDetailsTest {
         val rows = video.substringAfter("fun StreamProfileRows").substringBefore("fun NavProfileRows")
         for (tag in ProfileDetails.ROWS) assertTrue("$tag is one of the rows of StreamProfileRows", rows.contains("\"$tag\""))
         // The stream's rows are asked for by the details row alone; the group itself never draws them.
-        assertEquals(1, Regex("""StreamProfileRows\(s\)""").findAll(video).count())
+        assertEquals(1, Regex("""StreamProfileRows\(s, change\)""").findAll(video).count())
         assertFalse(screen.contains("StreamProfileRows"))
         assertTrue(video.substringAfter("fun ProfileDetailsRow").contains("if (ProfileDetails.rowsShown(open).isNotEmpty())"))
         assertTrue("the state starts from the constant", video.contains("rememberSaveable { mutableStateOf(ProfileDetails.START_OPEN) }"))
@@ -40,7 +40,7 @@ class ProfileDetailsTest {
     @Test
     fun `the group shows each profile by name, then the navigation profiles, then the details row`() {
         val group = screen.substringAfter("private fun VideoProfilesGroup").substringBefore("tag = \"group_video_profiles\"")
-        val order = listOf("\"profile_a\"", "\"profile_b\"", "NavProfileRows()", "ProfileDetailsRow(s)").map { group.indexOf(it) }
+        val order = listOf("\"profile_a\"", "\"profile_b\"", "NavProfileRows()", "ProfileDetailsRow(s, change)").map { group.indexOf(it) }
         assertTrue("all four are there: $order", order.all { it >= 0 })
         assertEquals("in that order", order.sorted(), order)
     }

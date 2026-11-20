@@ -44,7 +44,8 @@ import java.util.concurrent.TimeUnit
 internal class VideoLoop(
     private val compositor: DashCompositor,
     private val dash: Dash,
-    private val settings: Settings = Settings(),
+    // A var: a stream whose smaller picture no encoder takes starts again at the full frame ([startAtFullFrame]).
+    private var settings: Settings = Settings(),
     private val thermalStatus: () -> Int = { THERMAL_UNKNOWN },
     private val log: (String) -> Unit = { RideDiagnostics.log("stream", it) },
     private val link: () -> LinkSample? = { null },
@@ -52,6 +53,10 @@ internal class VideoLoop(
     private val navSample: () -> StreamGovernor.NavSample? = { null },
     /** Whether Android Auto's screen in front is a light one (its app menu), read every poll. */
     private val lightScreen: () -> Boolean = { false },
+    /** The dash's last reading of the low-fuel reminder (`0C05`), read every poll; only one that came in this dash session counts ([ReserveCap]). */
+    private val reserveReading: () -> com.reau.app.dash.DashReading? = { null },
+    /** When the dash session began, in the phone's wall clock: a reading older than this is from another session. The default is this loop's own start. */
+    private val sessionStartedAtMs: Long = ReserveCap.nowMs(),
     /** The stats text on the dash's video: told when the stream starts and stops, and its numbers each second. */
     private val stats: StatsFeed? = null,
 ) {
@@ -99,8 +104,10 @@ internal class VideoLoop(
         val colorMatrix: Boolean = false,
         /** Experimental ([com.reau.app.settings.REauSettings.experimentEncoderLowLatency]): a Qualcomm encoder is also asked for the maker's low-latency key ([com.reau.app.dash.video.VendorLowLatency]). */
         val encoderLowLatency: Boolean = false,
-        /** Experimental ([com.reau.app.settings.REauSettings.experimentFpsSixThree]): the reduced profile is the exact half of the full pace (6 and 3 fps), not on an even step. */
-        val exactHalfReduced: Boolean = false,
+        /** The bitrate of profile B, the exact half of profile A's in the table ([com.reau.app.settings.REauSettings.profileReducedBps]). */
+        val reducedBitrateBps: Int = DashConfig.PROFILE_REDUCED_BPS,
+        /** The size the encoder is built for ([com.reau.app.settings.REauSettings.frameSize]): fixed for the whole stream, so another size is another stream. */
+        val frame: DashConfig.FrameSize = DashConfig.FULL_FRAME,
     ) {
         /**
          * These settings with what the rider's own settings decide of the stream: the rate ceiling and clock, the bitrate (the experimental
@@ -119,8 +126,25 @@ internal class VideoLoop(
             encoderMuteWatch = rider.experimentEncoderWatch,
             colorMatrix = rider.experimentColorMatrix,
             encoderLowLatency = rider.experimentEncoderLowLatency,
-            exactHalfReduced = rider.experimentFpsSixThree,
+            reducedBitrateBps = rider.profileReducedBps,
+            frame = rider.frameSize,
         )
+
+        /**
+         * These settings at the full frame, for when no encoder of the phone takes the smaller picture: the pace and bitrates of the
+         * [DashConfig.FULL_FRAME_FALLBACK_FPS] profile (a bitrate the rider asked lower, the experimental 200 kbps target, is kept) and the 526×300 picture,
+         * so the dash is never left without an image. A stream already at the full frame is returned as it is.
+         */
+        fun atFullFrame(): Settings {
+            if (frame == DashConfig.FULL_FRAME) return this
+            val fallback = DashConfig.streamProfile(DashConfig.FULL_FRAME_FALLBACK_FPS)
+            return copy(
+                ceilingFps = fallback.fullFps,
+                bitrateBps = minOf(bitrateBps, fallback.fullBps),
+                reducedBitrateBps = fallback.reducedBps,
+                frame = fallback.frame,
+            )
+        }
     }
 
     private var encoder: DashEncoder? = null
@@ -157,8 +181,8 @@ internal class VideoLoop(
         val ceiling = ThermalCeiling.capFor(status, settings.ceilingFps)
         if (thermalCapped(ceiling, settings.ceilingFps)) logThermal(status)
         val g = StreamGovernor(
-            ceiling, settings.clockSlowPercent, settings.windowMs, settings.bitrateBps, settings.keyframeSec, lightScreenFps = settings.lightScreenFps,
-            exactHalfReduced = settings.exactHalfReduced,
+            ceiling, settings.clockSlowPercent, settings.windowMs, settings.bitrateBps, settings.keyframeSec,
+            reducedBitrateBps = settings.reducedBitrateBps, lightScreenFps = settings.lightScreenFps,
         )
         val rec = recordInto(settings.recordDir, settings.recordFrames)?.let {
             H264Recorder(it, settings.recordFrames, H264Recorder.nameFor(System.currentTimeMillis()), settings.recordRolling, log)
@@ -176,7 +200,7 @@ internal class VideoLoop(
             },
         )
         reportCodecsOfNextEncoder = true
-        val fresh = buildEncoder(out, g.encoderFps, g.activeBitrateBps, g.encoderKeyframeSec) ?: return false
+        val fresh = buildEncoder(out, g.encoderFps, g.activeBitrateBps, g.encoderKeyframeSec) ?: return startAtFullFrame(rec)
         out.switchTo(fresh)
         outputFailing = false
         failedPolls = 0
@@ -188,24 +212,43 @@ internal class VideoLoop(
         adapter = BitrateAdapter.whenOn(settings.adaptiveBitrate)
         muteWatch = EncoderMuteWatch.whenOn(settings.encoderMuteWatch)
         log(
-            "video loop start: ${g.fps} fps (ceiling $ceiling), keyframe ${g.keyframeSec}s fixed" +
+            "video loop start: ${g.fps} fps (ceiling $ceiling, ${g.profilesText}), " +
+                "picture ${settings.frame.width}x${settings.frame.height}, keyframe ${g.keyframeSec}s fixed" +
                 " (encoder asked ${DashEncoder.iFrameIntervalText(g.encoderKeyframeSec, g.encoderFps)}, pace up to ${g.gopFps} fps)" +
                 ", ${g.activeBitrateBps / 1000} kbps (${settings.bitrateBps / 1000} chosen) ${settings.bitrateMode ?: "default"}, " +
                 "clock ${settings.clockSlowPercent}% slow" +
                 (if (settings.rtpPacing) ", RTP packets spaced out (experiment)" else "") +
                 (if (settings.adaptiveBitrate) ", bitrate follows the encoder's real output (experiment)" else "") +
-                (if (settings.encoderMuteWatch) ", a mute encoder is rebuilt (experiment)" else "") +
-                (if (settings.exactHalfReduced) ", 6/3 fps profiles (experiment)" else ""),
+                (if (settings.encoderMuteWatch) ", a mute encoder is rebuilt (experiment)" else ""),
         )
         stats?.panelStarted()
         stats?.stream(settings.bitrateMode, g.keyframeSec, fixed = true)
         apply(g.start(SystemClock.elapsedRealtime()))
         com.reau.app.data.ProjectionSummary.current.streaming(on = true, SystemClock.elapsedRealtime())
-        compositor.setOutput(checkNotNull(fresh.inputSurface), onFrameSubmitted = fresh::frameSubmitted)
+        compositor.setOutput(checkNotNull(fresh.inputSurface), settings.frame, onFrameSubmitted = fresh::frameSubmitted)
         poller = Executors.newSingleThreadScheduledExecutor { Thread(it, "video-loop") }.also {
             it.scheduleWithFixedDelay(::poll, POLL_MS, POLL_MS, TimeUnit.MILLISECONDS)
         }
         return true
+    }
+
+    /**
+     * No encoder of the phone could be prepared. With the smaller picture of the 12 fps profile that may be the picture's fault (a size no encoder takes),
+     * so the stream starts again at the full frame and the pace and bitrate of the 8 fps profile ([Settings.atFullFrame]), with a line in the log that
+     * says so; the dash must not be left without an image. At the full frame already there is nothing more to try: false, as before.
+     */
+    private fun startAtFullFrame(recorder: H264Recorder?): Boolean {
+        val requested = settings
+        val fallback = requested.atFullFrame()
+        if (fallback == requested) return false
+        recorder?.close()
+        settings = fallback
+        log(
+            "${RideDiagnostics.WARN}no encoder took the ${requested.frame.width}x${requested.frame.height} picture " +
+                "of the ${requested.ceilingFps} fps profile: " +
+                "back to ${fallback.frame.width}x${fallback.frame.height} at ${fallback.ceilingFps} fps, ${fallback.bitrateBps / 1000} kbps",
+        )
+        return start()
     }
 
     /**
@@ -223,8 +266,10 @@ internal class VideoLoop(
 
     @Synchronized
     fun stop() {
-        if (governor == null) return
+        val ending = governor ?: return
         governor = null
+        // What each pace cost in bits over the whole stream, before the loop's own stop line.
+        ending.paceSummary()?.let(log)
         com.reau.app.data.ProjectionSummary.current.streaming(on = false, SystemClock.elapsedRealtime())
         poller?.shutdownNow()
         poller = null
@@ -270,10 +315,11 @@ internal class VideoLoop(
                 logThermal(status)
             }
             compositor.burstGapMs = burstGap(status)
+            val polledAtMs = SystemClock.elapsedRealtime()
             apply(
                 g.onPoll(
                     StreamGovernor.Poll(
-                        nowMs = SystemClock.elapsedRealtime(),
+                        nowMs = polledAtMs,
                         compositor = compositor.takeStats(),
                         framesOut = counts.frames,
                         bytesOut = counts.bytes,
@@ -290,10 +336,13 @@ internal class VideoLoop(
                         navSample = runCatching { navSample() }.getOrNull(),
                         // The heat stops the faster pace from the first sign of it ('moderate'): the ceiling of a stream fixed at 4 fps has no step under it.
                         lightScreen = lightScreenOn(settings.lightScreenFps, status, lightScreen),
+                        lowFuel = runCatching { ReserveCap.lowFuel(reserveReading(), sessionStartedAtMs) }.getOrDefault(false),
                         encode = timed?.latency ?: StageStats.EMPTY,
                     ),
                 ),
             )
+            // What each pace cost in bits, every 5 minutes of stream (and once more at the end, in [stop]).
+            g.periodicPaceSummary(polledAtMs)?.let(log)
         }.onFailure { log("video loop poll failed: $it") }
     }
 
@@ -375,7 +424,7 @@ internal class VideoLoop(
         encoder = fresh
         adapter?.setTarget(wanted.bitrateBps)
         // The old encoder goes on the GL thread, after the new surface is attached and the old one let go (see clearOutput).
-        compositor.swapOutputThen(checkNotNull(fresh.inputSurface), onFrameSubmitted = fresh::frameSubmitted, after = { old?.release() })
+        compositor.swapOutputThen(checkNotNull(fresh.inputSurface), settings.frame, onFrameSubmitted = fresh::frameSubmitted, after = { old?.release() })
         stats?.stream(settings.bitrateMode, wanted.keyframeSec, fixed = true)
         log(
             "encoder rebuilt: ${wanted.fps} fps, keyframe ${wanted.keyframeSec}s (encoder asked " +
@@ -389,7 +438,7 @@ internal class VideoLoop(
     /** An encoder whose output thread hands every buffer to [out]; [encoderKeyframeSec] is its own keyframe interval (the rider's, or longer: [DashLogic.encoderKeyframeSec]). */
     private fun buildEncoder(out: RtpOutput, fps: Int, bitrateBps: Int, encoderKeyframeSec: Int): DashEncoder? {
         lateinit var created: DashEncoder
-        created = DashEncoder { data, isKey, ptsMs -> out.onEncoded(created, data, isKey, ptsMs) }
+        created = DashEncoder(settings.frame) { data, isKey, ptsMs -> out.onEncoded(created, data, isKey, ptsMs) }
         // What the phone offers and what the codec accepted go to the ride log once for a stream: the first encoder tells it, a rebuilt one does not.
         created.reportCodecs = reportCodecsOfNextEncoder
         reportCodecsOfNextEncoder = false

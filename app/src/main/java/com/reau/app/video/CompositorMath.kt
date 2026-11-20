@@ -71,6 +71,21 @@ object CompositorMath {
         if (cover.right > 0) add(RectPx(w - cover.right, 0, cover.right, h))
     }
 
+    /**
+     * [r], a rectangle in the pixels of the dash's 526×300 frame (GL pixels, from the bottom), as it falls on an output [outW]×[outH] that the dash
+     * stretches over its whole screen: each EDGE is scaled and rounded, so neighbouring rectangles still meet and a rectangle is never a pixel off
+     * on one side only. On an output of the frame's own size it is [r] itself. This is the one place where the smaller picture of the 12 fps profile
+     * comes in: everything is placed in the frame and shrunk here, on the way to the encoder's surface.
+     */
+    fun toOutput(r: RectPx, outW: Int, outH: Int): RectPx {
+        fun edge(v: Int, out: Int, frame: Int) = Math.floorDiv(v.toLong() * out + frame / 2, frame.toLong()).toInt()
+        val left = edge(r.x, outW, DashGlass.FRAME_W)
+        val right = edge(r.x + r.w, outW, DashGlass.FRAME_W)
+        val bottom = edge(r.y, outH, DashGlass.FRAME_H)
+        val top = edge(r.y + r.h, outH, DashGlass.FRAME_H)
+        return RectPx(left, bottom, right - left, top - bottom)
+    }
+
     /** The blurred background is drawn on a copy of the frame this many times smaller on each side. */
     const val BACKDROP_DIVISOR = 4
 

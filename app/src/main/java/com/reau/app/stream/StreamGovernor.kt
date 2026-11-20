@@ -46,15 +46,10 @@ internal class StreamGovernor(
     private val bitrateCeilingBps: Int = DashConfig.MAX_STREAM_BITRATE_BPS,
     /** The keyframe interval, in seconds, for the whole stream. 0 (a stored "automatic", which is no more) or less is read as [DEFAULT_KEYFRAME_SEC]. */
     keyframeSec: Int = DashConfig.KEYFRAME_INTERVAL_AUTO,
-    /** The bitrate of profile 2 (REDUCED), set live with its pace; profile 1's is [bitrateCeilingBps]. */
+    /** The bitrate of profile 2 (REDUCED), set live with its pace; profile 1's is [bitrateCeilingBps]. The table's half of it ([DashConfig.StreamProfile.reducedBps]). */
     private val reducedBitrateBps: Int = DashConfig.PROFILE_REDUCED_BPS,
     /** The pace on a light screen of Android Auto ([LightScreen]); 0: off, the pace is always the profile's. */
     private val lightScreenFps: Int = 0,
-    /**
-     * The debug build's experiment ([com.reau.app.settings.REauSettings.experimentFpsSixThree]): the reduced tier is the exact half of the full pace
-     * (6 gives 3), not rounded to an even step. False (the default): half of it on an even step, as always (4 gives 2).
-     */
-    private val exactHalfReduced: Boolean = false,
 ) {
     /** What happened since the previous poll ([dashAcks] is the dash's running total). */
     data class Poll(
@@ -77,6 +72,12 @@ internal class StreamGovernor(
         val navSample: NavSample? = null,
         /** Android Auto's screen in front is a light one (its app menu). */
         val lightScreen: Boolean = false,
+        /**
+         * The bike is in the reserve (decision D117, plan 32): its low-fuel reminder (`0C05`, [com.reau.app.dash.DashReport.lowFuel]) is ON, as read in THIS
+         * dash session ([ReserveCap.lowFuel]; a reading kept from an older session says nothing). While true the pace never goes above
+         * [DashConfig.RESERVE_CAP_FPS] and the bitrate of profile A never above [DashConfig.RESERVE_CAP_BPS], light screens included.
+         */
+        val lowFuel: Boolean = false,
         /** Each frame's time in the encoder in this poll (the same time [encodeNs] sums), for the window's worst and 95th percentile. */
         val encode: StageStats = StageStats.EMPTY,
     )
@@ -181,11 +182,49 @@ internal class StreamGovernor(
 
     private var dashAckSeen = false
 
-    /** The pace of the stream now: the profile's, or the light screens' on a light screen. */
-    val fps: Int get() = if (lightOn) LightScreen.fps(profileFps, lightScreenFps) else profileFps
+    // What each pace really cost in bits ([PaceBitrateLog]); its line goes to the log every 5 minutes and at the end ([paceSummary]).
+    private val paceLog = PaceBitrateLog()
 
-    /** The pace of the profile (the navigation tier, or the full pace with none), without the light-screen pace: what the heat is judged against. */
-    val profileFps: Int get() = navTier?.let(::tierFps) ?: fullFps
+    /** The reserve's ceiling is on ([Poll.lowFuel] as of the last poll); it moves the pace and the live bitrate only, like a tier, never the encoder. */
+    private var reserveOn = false
+
+    /** What the stream is at now, for [PaceBitrateLog]: the light screens, profile B, profile A held under the reserve's ceiling, or profile A. */
+    private fun paceKind(): PaceBitrateLog.Kind = when {
+        lightOn -> PaceBitrateLog.Kind.LIGHT
+        navTier == QualityTier.REDUCED -> PaceBitrateLog.Kind.B
+        reserveOn && fullFps > DashConfig.RESERVE_CAP_FPS -> PaceBitrateLog.Kind.RESERVE
+        else -> PaceBitrateLog.Kind.A
+    }
+
+    /** The log's line of the end of the stream: the average bitrate of each pace over the whole stream; null while none has any time. */
+    fun paceSummary(): String? = paceLog.line()
+
+    /**
+     * The same line every 5 minutes of stream: [nowMs] is the loop's clock, the one of [Poll.nowMs]; null until the interval is over. It is not an
+     * [Action] on purpose: the golden traces of the governor (GovernadorOuroTest) are of its actions, and a line about the log itself does not belong in them.
+     */
+    fun periodicPaceSummary(nowMs: Long): String? = paceLog.periodicLine(nowMs)
+
+    /** Both profiles as the stream starts, for the "video loop start" line: pace and target bitrate of A and of B (the exact half of A, [DashConfig.STREAM_PROFILES]). */
+    val profilesText: String
+        get() = "profile A $fullFps fps / ${activeBitrateBps / 1000} kbps, " +
+            "B ${(fullFps / 2).coerceAtLeast(NAV_MIN_FPS)} fps / ${minOf(activeBitrateBps, reducedBitrateBps) / 1000} kbps"
+
+    /** The pace of the stream now: the profile's, or the light screens' on a light screen. */
+    val fps: Int get() = underReserve(if (lightOn) LightScreen.fps(profileFps, lightScreenFps) else profileFps)
+
+    /**
+     * The pace of the profile (the navigation tier, or the full pace with none), without the light-screen pace: what the heat is judged against.
+     * In the reserve it is the capped pace ([underReserve]), profile B being the exact half of that.
+     */
+    val profileFps: Int get() = navTier?.let(::tierFps) ?: underReserve(fullFps)
+
+    /** [pace] under the reserve's ceiling ([DashConfig.RESERVE_CAP_FPS]) while the bike is in the reserve; as it is otherwise. */
+    private fun underReserve(pace: Int): Int = if (reserveOn) minOf(pace, DashConfig.RESERVE_CAP_FPS) else pace
+
+    /** Profile A's live bitrate ceiling: [activeBitrateBps], or in the reserve no more than [DashConfig.RESERVE_CAP_BPS]. The encoder is built for the uncapped one. */
+    private val liveActiveBitrateBps: Int
+        get() = if (reserveOn) minOf(activeBitrateBps, DashConfig.RESERVE_CAP_BPS) else activeBitrateBps
 
     /** The keyframe interval of the stream, in seconds: the one it was started with, never changed. */
     val keyframeSec: Int = keyframeSec.takeIf { it > 0 } ?: DEFAULT_KEYFRAME_SEC
@@ -212,25 +251,22 @@ internal class StreamGovernor(
     /** The most the live bitrate goes to now: [activeBitrateBps], or [reducedBitrateBps] in the REDUCED tier. */
     private val tierBitrateBps: Int
         // On the app menu the reduced profile's half bitrate goes too: the menu is nearly still, and 8 fps of it fit in the full one.
-        get() = if (navTier == QualityTier.REDUCED && !lightOn) minOf(activeBitrateBps, reducedBitrateBps) else activeBitrateBps
+        get() = if (navTier == QualityTier.REDUCED && !lightOn) minOf(liveActiveBitrateBps, reducedBitrateLimit) else liveActiveBitrateBps
+
+    /** Profile B's bitrate: the table's half; in the reserve no more than the half of the capped profile A ([DashConfig.RESERVE_CAP_BPS]). */
+    private val reducedBitrateLimit: Int
+        get() = if (reserveOn) minOf(reducedBitrateBps, DashConfig.streamProfile(DashConfig.RESERVE_CAP_FPS).reducedBps) else reducedBitrateBps
 
     /**
      * FULL is the full pace — the Settings' own ceiling — never above what the dash has already shown it can hold.
      * REDUCED is half of it, snapped to an even step — allowed down to [NAV_MIN_FPS] (2, REau's idle pace too,
      * `DashEncoder.kt`'s "4 fps active / 2 fps idle"), below [DashConfig.MIN_STREAM_FPS] on purpose: that floor is
-     * about the full pace, not this deliberate, bounded reduction. With [exactHalfReduced] (the debug build's 6/3 experiment) it is the exact half,
-     * odd or not, from the same floor.
+     * about the full pace, not this deliberate, bounded reduction. Profile B is always the EXACT half of A, odd or not (4/2, 6/3, 8/4: the table of
+     * [DashConfig.STREAM_PROFILES]), from the same floor; in the reserve it is the half of the capped A ([underReserve]).
      */
     private fun tierFps(tier: QualityTier): Int = when (tier) {
-        QualityTier.FULL -> fullFps
-        QualityTier.REDUCED -> snapNavFps(fullFps / 2)
-    }
-
-    private fun snapNavFps(fps: Int): Int {
-        val clamped = fps.coerceAtLeast(NAV_MIN_FPS)
-        // The 6/3 experiment keeps the exact half, odd or not.
-        if (exactHalfReduced) return clamped
-        return clamped - (clamped - NAV_MIN_FPS) % DashConfig.STREAM_FPS_STEP
+        QualityTier.FULL -> underReserve(fullFps)
+        QualityTier.REDUCED -> (underReserve(fullFps) / 2).coerceAtLeast(NAV_MIN_FPS)
     }
 
     private var pace: DashCompositor.Pace? = null
@@ -257,6 +293,8 @@ internal class StreamGovernor(
     fun start(nowMs: Long): List<Action> {
         pace = null
         bitrateBps = 0
+        reserveOn = false
+        paceLog.start(nowMs)
         lastPictureAtMs = null
         window = null
         statsStartMs = -1L
@@ -269,17 +307,21 @@ internal class StreamGovernor(
     }
 
     fun onPoll(p: Poll): List<Action> {
+        // The frames and bytes of this poll were sent at the pace in force before it changes anything.
+        paceLog.add(paceKind(), fps, p.framesOut, p.bytesOut, p.nowMs)
         if (p.compositor.drawn > 0) lastPictureAtMs = p.nowMs
+        val reserveChange = updateReserve(p)
         val lightChange = updateLight(p)
         val moving = lastPictureAtMs?.let { p.nowMs - it < MOTION_HOLD_MS } ?: false
         val full = DashLogic.fullRate(moving, p.firstFrameConfirmed)
         val tierChange = updateNavOverride(p.navSample, p.nowMs)
         val actions = mutableListOf<Action>()
+        reserveChange?.let { actions += it }
         tierChange?.let { actions += it }
         lightChange?.let { actions += it }
         actions += paceChange(p.firstFrameConfirmed)
         actions += bitrateChange(full)
-        // A tier change, a light screen and a profile switched on or off move the pace and the live bitrate only: what the
+        // A tier change, a light screen, the reserve and a profile switched on or off move the pace and the live bitrate only: what the
         // encoder is built for ([encoderFps]) never moves, so no poll asks for a new encoder here.
         actions += idleSync(full, p.nowMs)
         actions += account(p, full)
@@ -365,6 +407,19 @@ internal class StreamGovernor(
         }
     }
 
+    /**
+     * The reserve's ceiling (D117), read live every poll: one line in the log when it goes on and one when it goes off, none while it stays as
+     * it is. The pace and the live bitrate follow in this same poll ([paceChange], [bitrateChange]); the encoder is never asked to be rebuilt.
+     */
+    private fun updateReserve(p: Poll): Action? {
+        if (p.lowFuel == reserveOn) return null
+        val was = fps
+        reserveOn = p.lowFuel
+        return Action.Log(
+            if (reserveOn) "reserve: pace capped at ${DashConfig.RESERVE_CAP_FPS} fps (was $was)" else "reserve: pace cap lifted (was $was, now $fps fps)",
+        )
+    }
+
     /** Whether the light-screen pace is on after this poll; a line in the log when it changes. */
     private fun updateLight(p: Poll): Action? {
         if (lightScreenFps <= 0) return null
@@ -388,7 +443,7 @@ internal class StreamGovernor(
 
     private fun bitrateChange(full: Boolean): List<Action> {
         // Still, profile 1 halves its bitrate; profile 2 already is at the half, and stays there.
-        val wanted = if (full) tierBitrateBps else minOf(tierBitrateBps, activeBitrateBps / 2)
+        val wanted = if (full) tierBitrateBps else minOf(tierBitrateBps, liveActiveBitrateBps / 2)
         if (wanted == bitrateBps) return emptyList()
         bitrateBps = wanted
         return listOf(Action.SetBitrate(wanted))

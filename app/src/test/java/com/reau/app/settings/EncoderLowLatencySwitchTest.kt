@@ -86,7 +86,7 @@ class EncoderLowLatencySwitchTest {
     fun `the encoder carries the switch into its ask, and its format into the codec with the key only when the format says so`() {
         // MediaFormat is a stub in the JVM tests (setInteger does nothing), so the last links of the chain can only be read from the source.
         val encoder = File("src/main/java/com/reau/app/dash/video/DashEncoder.kt").readText()
-        assertTrue("the switch is in the ask", encoder.contains("Ask(fpsHint, bitrateBps, iFrameIntervalSec, colorMatrix, vendorLowLatency)"))
+        assertTrue("the switch is in the ask", encoder.contains("Ask(fpsHint, bitrateBps, iFrameIntervalSec, colorMatrix, vendorLowLatency, frame)"))
         assertTrue("a spec is made into a format with its own flag", encoder.contains("buildFormat(ask, spec.lowLatency, spec.bitrateMode, spec.color, spec.vendorLowLatency)"))
         assertTrue("the key is set from the flag of the format", encoder.contains("VendorLowLatency.keysFor(vendor).forEach { (k, v) -> setInteger(k, v) }"))
         assertTrue("the factory of the real codec gets the format of the spec", encoder.contains("startCodec(n, buildFormat(ask, spec), d)"))

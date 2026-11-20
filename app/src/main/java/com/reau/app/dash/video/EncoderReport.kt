@@ -2,6 +2,7 @@ package com.reau.app.dash.video
 
 import android.media.MediaCodec
 import android.media.MediaFormat
+import com.reau.app.dash.DashConfig
 import com.reau.app.data.RideDiagnostics
 import com.reau.app.util.CodecReport
 
@@ -12,12 +13,12 @@ import com.reau.app.util.CodecReport
  */
 internal object EncoderReport {
     /** The `codecs:` line: the phone's AVC encoders as the one look at the codec list of the process saw them ([candidates]) and the one in use. */
-    fun choice(c: MediaCodec, candidates: String?) {
+    fun choice(c: MediaCodec, candidates: String?, frame: DashConfig.FrameSize) {
         runCatching {
             val hardware = c.codecInfo.let { it.isHardwareAccelerated && !it.isSoftwareOnly }
             RideDiagnostics.log(
                 "stream",
-                CodecReport.line("encoder", MIME, "${DashEncoder.WIDTH}x${DashEncoder.HEIGHT} baseline", candidates ?: "not listed", c.name, hardware),
+                CodecReport.line("encoder", MIME, "${frame.width}x${frame.height} baseline", candidates ?: "not listed", c.name, hardware),
             )
         }
     }

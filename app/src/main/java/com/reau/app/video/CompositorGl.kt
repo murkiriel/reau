@@ -22,6 +22,7 @@ import android.opengl.GLUtils
 import android.opengl.Matrix
 import android.os.Handler
 import android.view.Surface
+import com.reau.app.dash.DashConfig
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
@@ -88,6 +89,14 @@ internal class CompositorGl {
     private val texMatrix = FloatArray(16)
 
     val hasOutput: Boolean get() = windowSurface != EGL14.EGL_NO_SURFACE
+
+    // The size of the output surface (the encoder's). Everything is placed in the dash's 526x300 frame and shrunk to this at the last step
+    // ([toOutput]), so the 12 fps profile's smaller picture needs nothing else to know it. Only the dash's output has it: the preview, the
+    // web viewers' output and the small copies of the picture are drawn at their own sizes.
+    private var outputW = DashGlass.FRAME_W
+    private var outputH = DashGlass.FRAME_H
+
+    private fun toOutput(r: RectPx) = CompositorMath.toOutput(r, outputW, outputH)
 
     // Full-screen quad (triangle strip): pos.xy + tex.uv interleaved.
     private val quad: FloatBuffer = ByteBuffer
@@ -353,7 +362,7 @@ internal class CompositorGl {
         val bottom = 1f - (y + height) / h * 2f
         overlayQuad.clear()
         overlayQuad.put(floatArrayOf(left, bottom, 0f, 1f, right, bottom, 1f, 1f, left, top, 0f, 0f, right, top, 1f, 0f))
-        GLES20.glViewport(0, 0, DashGlass.FRAME_W, DashGlass.FRAME_H)
+        GLES20.glViewport(0, 0, outputW, outputH)
         GLES20.glUseProgram(overlayProgram)
         overlayQuad.position(0)
         GLES20.glVertexAttribPointer(overlayPosition, 2, GLES20.GL_FLOAT, false, QUAD_STRIDE, overlayQuad)
@@ -418,9 +427,11 @@ internal class CompositorGl {
     /** Takes the newest picture into the texture. False if there was none to take or the surface is gone. */
     fun latch(): Boolean = runCatching { checkNotNull(surfaceTexture).updateTexImage() }.isSuccess
 
-    /** Makes [encoderSurface] the output, letting go of the previous one first. */
-    fun attachOutput(encoderSurface: Surface) {
+    /** Makes [encoderSurface], whose buffers are [size] (the encoder's), the output, letting go of the previous one first. */
+    fun attachOutput(encoderSurface: Surface, size: DashConfig.FrameSize = DashConfig.FULL_FRAME) {
         detachOutput()
+        outputW = size.width
+        outputH = size.height
         windowSurface = EGL14.eglCreateWindowSurface(eglDisplay, eglConfig, encoderSurface, intArrayOf(EGL14.EGL_NONE), 0)
         check(hasOutput) { "eglCreateWindowSurface failed: 0x${Integer.toHexString(EGL14.eglGetError())}" }
     }
@@ -504,7 +515,8 @@ internal class CompositorGl {
         GLES20.glEnable(GLES20.GL_SCISSOR_TEST)
         GLES20.glClearColor(0f, 0f, 0f, 1f)
         for (r in rects) {
-            GLES20.glScissor(r.x, r.y, r.w, r.h)
+            val out = toOutput(r)
+            GLES20.glScissor(out.x, out.y, out.w, out.h)
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
         }
         GLES20.glDisable(GLES20.GL_SCISSOR_TEST)
@@ -513,12 +525,12 @@ internal class CompositorGl {
     /** With a [backdrop] (the blurred background, CompositorMath.backdrop), its two passes come first, under the picture. */
     fun draw(window: CompositorMath.TexWindow?, viewport: RectPx, backdrop: CompositorMath.Backdrop? = null) {
         EGL14.eglMakeCurrent(eglDisplay, windowSurface, windowSurface, eglContext)
-        GLES20.glViewport(0, 0, DashGlass.FRAME_W, DashGlass.FRAME_H)
+        GLES20.glViewport(0, 0, outputW, outputH)
         GLES20.glClearColor(0f, 0f, 0f, 1f)
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
         if (window == null) return
         if (backdrop != null) drawBackdrop(backdrop)
-        drawQuad(window, viewport)
+        drawQuad(window, toOutput(viewport))
     }
 
     // The blurred background (CompositorMath.backdrop): a small framebuffer with a texture and a program of their own, all made on
@@ -545,7 +557,8 @@ internal class CompositorGl {
         drawQuad(plan.window, plan.small, LOOK_FILTER)
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
         // Second pass: that copy blurred (3x3), a little darker, over the whole frame.
-        GLES20.glViewport(plan.frame.x, plan.frame.y, plan.frame.w, plan.frame.h)
+        val frame = toOutput(plan.frame)
+        GLES20.glViewport(frame.x, frame.y, frame.w, frame.h)
         GLES20.glUseProgram(backdropProgram)
         val position = GLES20.glGetAttribLocation(backdropProgram, "aPosition")
         val texCoord = GLES20.glGetAttribLocation(backdropProgram, "aTexCoord")

@@ -15,7 +15,7 @@ import com.reau.app.util.CodecReport
 
 /**
  * MediaCodec H.264 encoder for the dash stream:
- *   526 × 300, Baseline L4.1, 1-second IDR interval.
+ *   526 × 300 (or the smaller picture of the 12 fps profile, [DashConfig.REDUCED_FRAME]), Baseline L4.1, 1-second IDR interval.
  *
  * Cadence/bitrate are DRIVEN BY THE FRAME LOOP, not fixed here (the stream package's pacing). The
  * dash shows a map well at only **2–4 fps / 200–400 kbps** (the two profiles of [DashConfig]). A map doesn't need video frame rates, and
@@ -36,15 +36,17 @@ import com.reau.app.util.CodecReport
  * frame, and in use the phone topped out near 15.5 fps that way. Whenever the codec happened to fall one frame
  * behind, the wait vanished and the same run reached 22 fps, so the loop's capacity depended on chance.
  *
+ * [frame] is the size the encoder is built for, fixed for its whole life: the dash is told a size by the SPS of a stream, so a stream with another
+ * size is another encoder (and a clean keyframe), never a change in the middle of one. The compositor shrinks what it composed in 526 × 300 to it.
+ *
  * @param onFrame  called on the output thread with (annexBBytes, isKeyFrame, ptsMs) for each output buffer, ptsMs
  *   being the presentation time the frame was posted to [inputSurface] with.
  */
 class DashEncoder(
+    private val frame: DashConfig.FrameSize = DashConfig.FULL_FRAME,
     private val onFrame: (ByteArray, Boolean, Long) -> Unit,
 ) {
     companion object {
-        const val WIDTH   = 526
-        const val HEIGHT  = 300
         // Encoder frame-rate HINT only (actual rate = how fast the loop feeds the surface); the full profile's, from DashConfig.
         const val FPS     = DashConfig.PROFILE_FULL_FPS
         // What prepare() uses when the caller gives no bitrate (the stream always gives the profile's own, and changes it with
@@ -109,6 +111,8 @@ class DashEncoder(
             val fpsHint: Int, val bitrateBps: Int, val iFrameIntervalSec: Int, val colorMatrix: Boolean,
             /** The experimental switch of the maker's low-latency key; it is set in the format only for a Qualcomm encoder ([VendorLowLatency.asked]). */
             val vendorLowLatency: Boolean = false,
+            /** The size of the picture the encoder is built for. */
+            val frame: DashConfig.FrameSize = DashConfig.FULL_FRAME,
         )
 
         /** One format of the ladder of [startNamed], before it is made: [buildFormat] makes it, and a test can read it without Android. */
@@ -118,7 +122,7 @@ class DashEncoder(
             buildFormat(ask, spec.lowLatency, spec.bitrateMode, spec.color, spec.vendorLowLatency)
 
         internal fun buildFormat(ask: Ask, lowLatency: Boolean, rate: Int? = null, color: Boolean = false, vendor: Boolean = false): MediaFormat =
-            MediaFormat.createVideoFormat(MIME, WIDTH, HEIGHT).apply {
+            MediaFormat.createVideoFormat(MIME, ask.frame.width, ask.frame.height).apply {
                 setInteger(MediaFormat.KEY_COLOR_FORMAT,
                     MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
                 setInteger(MediaFormat.KEY_BIT_RATE, ask.bitrateBps)
@@ -242,20 +246,20 @@ class DashEncoder(
         bitrateMode: BitrateMode? = null,
         colorMatrix: Boolean = false,
     ): Boolean {
-        val ask = Ask(fpsHint, bitrateBps, iFrameIntervalSec, colorMatrix, vendorLowLatency)
+        val ask = Ask(fpsHint, bitrateBps, iFrameIntervalSec, colorMatrix, vendorLowLatency, frame)
         // Every AVC encoder that can take the size and Baseline, hardware first (a software fallback runs the CPU hot, which
         // is exactly what this whole project exists to avoid); the system's own pick is the last try.
         val names: List<String?> = encoderNames() + null
         val failures = mutableListOf<String>()
         for (name in names) {
             val rate = rateMode(bitrateMode) { mode -> modeOffered(name, mode) }
-            val detail = "fpsHint=$fpsHint bitrateBps=$bitrateBps profile=baseline " +
+            val detail = "size=${frame.width}x${frame.height} fpsHint=$fpsHint bitrateBps=$bitrateBps profile=baseline " +
                 "iFrameIntervalSec=${iFrameIntervalText(iFrameIntervalSec, fpsHint)} repeatAfterUs=$REPEAT_AFTER_US bitrateMode=${rate.label}"
             val started = startNamed(name, ask, rate, detail) { n, spec, d -> startCodec(n, buildFormat(ask, spec), d) }
             started.onSuccess { c ->
                 lastPrepareError = null
                 codec = c
-                if (reportCodecs) EncoderReport.choice(c, candidateReport)
+                if (reportCodecs) EncoderReport.choice(c, candidateReport, frame)
                 return true
             }
             val why = started.exceptionOrNull()?.let { CodecErrors.describe(it, name) }
@@ -274,7 +278,7 @@ class DashEncoder(
      * stream's size and Baseline. Looked up once per process ([CodecNames]); the names are joined, since it keeps one string.
      */
     private fun encoderNames(): List<String> {
-        val joined = CodecNames.pick("dash encoders ${WIDTH}x$HEIGHT baseline") {
+        val joined = CodecNames.pick("dash encoders ${frame.width}x${frame.height} baseline") {
             val candidates = runCatching {
                 MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
                     .filter { info -> info.isEncoder && info.supportedTypes.any { it.equals(MIME, true) } }
@@ -283,7 +287,7 @@ class DashEncoder(
                         EncoderOrder.Candidate(
                             name = info.name,
                             hardware = info.isHardwareAccelerated && !info.isSoftwareOnly,
-                            sizeSupported = caps?.videoCapabilities?.isSizeSupported(WIDTH, HEIGHT),
+                            sizeSupported = caps?.videoCapabilities?.isSizeSupported(frame.width, frame.height),
                             baselineSupported = caps?.profileLevels?.any { it.profile == MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline },
                         )
                     }

@@ -13,6 +13,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.SystemClock
 import android.view.Surface
+import com.reau.app.dash.DashConfig
 import com.reau.app.data.RideDiagnostics
 import com.reau.app.stream.DashLogic
 import com.reau.app.util.StageClock
@@ -266,14 +267,15 @@ class DashCompositor(private val log: (String) -> Unit) {
     }
 
     /**
-     * Points the compositor at an encoder's input surface (526×300) and starts the clock; a frame goes out at
+     * Points the compositor at an encoder's input surface, [size] of it (526×300, or the smaller picture of the 12 fps profile: what is composed
+     * in 526×300 is shrunk to it on the way out, [CompositorMath.toOutput]) and starts the clock; a frame goes out at
      * once. [onFrameSubmitted] is called with each frame's time right before the frame is posted (the encoder's
      * `frameSubmitted`). Returns only when the switch is done: from then on nothing more is drawn on a previous
      * output, so its encoder can be released. The video clock carries on across outputs. A caller's trailing lambda
      * (`setOutput(surface) { pts -> … }`) is the frame callback; to release the encoder that was there, [swapOutputThen].
      */
-    fun setOutput(encoderSurface: Surface, onFrameSubmitted: (Long) -> Unit = {}) =
-        switchOutput(encoderSurface, onFrameSubmitted, after = {})
+    fun setOutput(encoderSurface: Surface, size: DashConfig.FrameSize = DashConfig.FULL_FRAME, onFrameSubmitted: (Long) -> Unit = {}) =
+        switchOutput(encoderSurface, size, onFrameSubmitted, after = {})
 
     /**
      * [setOutput] that also runs [after] on the GL thread right after the previous output is let go, so what it releases (the
@@ -281,14 +283,14 @@ class DashCompositor(private val log: (String) -> Unit) {
      * no default for either callback: a trailing lambda written to release the old encoder used to compile, with the one-function
      * form, as the frame callback.
      */
-    fun swapOutputThen(encoderSurface: Surface, onFrameSubmitted: (Long) -> Unit, after: () -> Unit) =
-        switchOutput(encoderSurface, onFrameSubmitted, after)
+    fun swapOutputThen(encoderSurface: Surface, size: DashConfig.FrameSize = DashConfig.FULL_FRAME, onFrameSubmitted: (Long) -> Unit, after: () -> Unit) =
+        switchOutput(encoderSurface, size, onFrameSubmitted, after)
 
-    private fun switchOutput(encoderSurface: Surface, onFrameSubmitted: (Long) -> Unit, after: () -> Unit) {
+    private fun switchOutput(encoderSurface: Surface, size: DashConfig.FrameSize, onFrameSubmitted: (Long) -> Unit, after: () -> Unit) {
         onGlThreadThen(after) {
             runCatching {
                 dropOutput()
-                gl.attachOutput(encoderSurface)
+                gl.attachOutput(encoderSurface, size)
                 this.onFrameSubmitted = onFrameSubmitted
                 postFailing = false
                 // Due now: the first tick sends a frame without waiting for the idle interval.
@@ -296,7 +298,10 @@ class DashCompositor(private val log: (String) -> Unit) {
                 tickSpanMs = 0L
                 nextTickAtMs = 0L
                 handler.post(tick)
-                log("compositor output set: draw ${viewport.w}x${viewport.h} at (${viewport.x},${viewport.y} from the bottom), pace $pace")
+                log(
+                    "compositor output set: draw ${viewport.w}x${viewport.h} at (${viewport.x},${viewport.y} from the bottom) " +
+                        "of the ${DashGlass.FRAME_W}x${DashGlass.FRAME_H} frame, output ${size.width}x${size.height}, pace $pace",
+                )
             }.onFailure { log("${RideDiagnostics.ERROR}compositor setOutput failed: $it") }
         }
     }

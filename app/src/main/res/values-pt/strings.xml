@@ -416,8 +416,6 @@
     <string name="exp_color_sub">Experimental: o codificador do painel é pedido em BT.601, faixa limitada, SDR. Se o codec recusar, é pedido como antes, e o registro diz o que ele aceitou. Vale a partir do próximo vídeo</string>
     <string name="exp_encoder_low_latency_title">Baixa latência do codificador (Qualcomm)</string>
     <string name="exp_encoder_low_latency_sub">Experimental: pede ao codificador Qualcomm (o do painel) que não segure quadros. Vale só para celulares Qualcomm; qualquer outro codificador é pedido como sempre. Se o codec recusar, é pedido de novo sem a chave. O efeito se vê no tempo de codificação do registro. Vale a partir do próximo vídeo</string>
-    <string name="exp_fps63_title">Vídeo a 6 fps (3 fps no perfil reduzido)</string>
-    <string name="exp_fps63_sub">Experimental, só na versão de depuração: o vídeo ao painel vai a 6 fps no perfil A e a 3 fps no B, em vez de 4 e 2; os bitrates não mudam. O mapa se move com mais fluidez, com cerca de 40 por cento a mais de tráfego de rádio e um pouco mais de bateria. Ainda em teste. Vale na hora, e o vídeo recomeça</string>
     <string name="exp_protocol_six_title">Protocolo 6.0 do Android Auto</string>
     <string name="exp_protocol_six_sub">Experimental: o aperto de mão pede a versão 6.0 do protocolo (hoje, 1.7). Se o Android Auto recusar ou o aperto de mão falhar, volta ao 1.7 até o app fechar, e o registro diz o que foi pedido e respondido. Vale a partir da próxima vez que ligar</string>
     <string name="exp_tolerant_rx_title">Vigia do painel mais tolerante</string>
@@ -459,7 +457,10 @@
     <string name="fps_title">Teto de quadros/s</string>
     <string name="profiles_fps_sub">Perfil A: %1$d. Perfil B: %2$d. Fixo</string>
     <string name="profiles_info">O REau usa dois perfis de vídeo fixos para o painel: o A, com %1$d fps e %2$d kbps, a imagem mais fluida, e o B, a metade disso (%3$d fps e %4$d kbps), mais leve para o Wi-Fi e para o painel. Quem escolhe entre eles são o perfil por manobra e o perfil por velocidade, logo abaixo. Esses valores não se mudam.</string>
-    <string name="profiles_bitrate_sub">Perfil A: 400 kbps. Perfil B: %1$d kbps. Fixo</string>
+    <string name="profiles_bitrate_sub">Perfil A: %1$d kbps. Perfil B: %2$d kbps. Fixo</string>
+    <string name="pace_option">%1$d fps</string>
+    <string name="pace_sub">Perfil A: %1$d fps. Perfil B: %2$d fps, a metade exata. Só na versão de depuração. Na reserva o ritmo é limitado a %3$d fps</string>
+    <string name="pace_small_sub">Perfil A: %1$d fps. Perfil B: %2$d fps, a metade exata. A imagem é menor (%4$dx%5$d) e o painel a estica pela tela toda, o que alivia o decodificador dele. Só na versão de depuração. Na reserva o ritmo é limitado a %3$d fps</string>
     <string name="bitrate_title">Taxa de bits</string>
     <string name="bitrate_value">%1$d kbps</string>
     <string name="bitrate_mode_title">Modo da taxa</string>

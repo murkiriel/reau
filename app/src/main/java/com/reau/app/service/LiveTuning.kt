@@ -87,10 +87,12 @@ object LiveTuning {
             before.infoTitle != after.infoTitle ||
             before.maneuverRing != after.maneuverRing
 
-    /** What a stream to the dash is made with. */
+    /**
+     * What a stream to the dash is made with. [frameSize] is the encoder's picture: it is fixed for the whole stream (a change of size needs a
+     * new encoder, SPS and PPS and a clean keyframe, never in the middle of one), so a pace with another picture is a new stream like any other.
+     */
     private val REauSettings.stream get() = listOf(
-        fpsCeiling, clockSlowPercent, effectiveStreamBitrateBps, bitrateMode, keyframeSec, experimentRtpPacing, experimentAdaptiveBitrate,
+        fpsCeiling, frameSize, clockSlowPercent, effectiveStreamBitrateBps, bitrateMode, keyframeSec, experimentRtpPacing, experimentAdaptiveBitrate,
         experimentEncoderWatch,
-        experimentFpsSixThree,
     )
 }

@@ -23,7 +23,12 @@ class VideoLoopReadsOfTheGovernorTest {
     fun `the loop reads of the governor only the values the golden traces record, and calls only its four entry points`() {
         val members = Regex("""\bg\.(\w+)""").findAll(code).map { it.groupValues[1] }.toSortedSet()
         assertEquals(
-            sortedSetOf("fps", "profileFps", "encoderFps", "activeBitrateBps", "keyframeSec", "encoderKeyframeSec", "gopFps", "start", "onPoll", "syncRequested", "rebuildAction"),
+            // The last three (plan 32) only write to the log: the profiles in the line of the start and what each pace cost in bits, every 5 minutes and at the end.
+            // They change no action and no value the golden traces record.
+            sortedSetOf(
+                "fps", "profileFps", "encoderFps", "activeBitrateBps", "keyframeSec", "encoderKeyframeSec", "gopFps", "start", "onPoll", "syncRequested", "rebuildAction",
+                "profilesText", "periodicPaceSummary",
+            ),
             members,
         )
     }

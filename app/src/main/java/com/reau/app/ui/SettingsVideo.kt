@@ -27,6 +27,7 @@ import com.reau.app.settings.REauSettings
 import com.reau.app.ui.components.Info
 import com.reau.app.ui.components.LockedRow
 import com.reau.app.ui.components.MsIcon
+import com.reau.app.ui.components.SegmentedRow
 import com.reau.app.ui.components.hairline
 import com.reau.app.ui.theme.REauSpace
 
@@ -44,7 +45,7 @@ internal fun ProfileNameRow(titleRes: Int, subRes: Int, tag: String) {
  * and is closed again at the next visit to the screen.
  */
 @Composable
-internal fun ProfileDetailsRow(s: REauSettings) {
+internal fun ProfileDetailsRow(s: REauSettings, change: (REauSettings) -> Unit) {
     var open by rememberSaveable { mutableStateOf(ProfileDetails.START_OPEN) }
     Column(Modifier.fillMaxWidth()) {
         Row(
@@ -70,31 +71,46 @@ internal fun ProfileDetailsRow(s: REauSettings) {
         }
         if (ProfileDetails.rowsShown(open).isNotEmpty()) {
             HorizontalDivider(thickness = 1.dp, color = hairline(0.14f, 0.6f))
-            StreamProfileRows(s)
+            StreamProfileRows(s, change)
         }
     }
 }
 
 /**
- * The stream's four values, fixed (REauSettings.sanitized): two profiles, nothing else. Shown, not to be touched.
- * The navigation profiles below choose between them.
+ * The stream's four values (REauSettings.sanitized): two profiles, nothing else. A release build only shows them, locked at 4 fps; a debug build
+ * picks profile A's pace (4, 6, 8 or 12 fps, [DashConfig.STREAM_PROFILES]) and the bitrates follow the table, B being the exact half of A. The
+ * navigation profiles below choose between A and B.
  */
 @Composable
-internal fun StreamProfileRows(s: REauSettings) {
-    LockedRow(
-        stringResource(R.string.fps_title), "${s.fpsCeiling}", "fps",
-        sub = stringResource(R.string.profiles_fps_sub, s.fpsCeiling, s.profileReducedFps),
-        info = Info(
-            stringResource(R.string.fps_title),
-            stringResource(
-                R.string.profiles_info, s.fpsCeiling, DashConfig.PROFILE_FULL_BPS / 1000,
-                s.profileReducedFps, DashConfig.PROFILE_REDUCED_BPS / 1000,
+internal fun StreamProfileRows(s: REauSettings, change: (REauSettings) -> Unit) {
+    if (com.reau.app.BuildConfig.DEBUG) {
+        SegmentedRow(
+            stringResource(R.string.fps_title), DashConfig.PACE_CHOICES.map { stringResource(R.string.pace_option, it) to "pace_$it" },
+            DashConfig.PACE_CHOICES.indexOf(s.fpsCeiling), { change(s.copy(videoPaceFps = DashConfig.PACE_CHOICES[it])) },
+            sub = if (s.frameSize == DashConfig.FULL_FRAME) {
+                stringResource(R.string.pace_sub, s.fpsCeiling, s.profileReducedFps, DashConfig.RESERVE_CAP_FPS)
+            } else {
+                // The 12 fps profile: the picture is smaller and the dash stretches it, which the rider is told next to the pace.
+                stringResource(R.string.pace_small_sub, s.fpsCeiling, s.profileReducedFps, DashConfig.RESERVE_CAP_FPS, s.frameSize.width, s.frameSize.height)
+            },
+            now = true, tag = "fps",
+        )
+    } else {
+        LockedRow(
+            stringResource(R.string.fps_title), "${s.fpsCeiling}", "fps",
+            sub = stringResource(R.string.profiles_fps_sub, s.fpsCeiling, s.profileReducedFps),
+            info = Info(
+                stringResource(R.string.fps_title),
+                stringResource(
+                    R.string.profiles_info, s.fpsCeiling, s.streamBitrateBps / 1000,
+                    s.profileReducedFps, s.profileReducedBps / 1000,
+                ),
             ),
-        ),
-    )
+        )
+    }
     LockedRow(
         stringResource(R.string.bitrate_title), stringResource(R.string.bitrate_value, s.streamBitrateBps / 1000), "bitrate",
-        sub = stringResource(R.string.profiles_bitrate_sub, DashConfig.PROFILE_REDUCED_BPS / 1000),
+        sub = stringResource(R.string.profiles_bitrate_sub, s.streamBitrateBps / 1000, s.profileReducedBps / 1000),
     )
     LockedRow(stringResource(R.string.bitrate_mode_title), stringResource(R.string.bitrate_cbr), "bitrate_mode")
     LockedRow(stringResource(R.string.keyframe_title), "${s.keyframeSec} s", "keyframe")
