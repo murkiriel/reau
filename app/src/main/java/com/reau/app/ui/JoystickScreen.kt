@@ -262,9 +262,5 @@ private val ACTIONS = mapOf(
     Action.ZOOM_IN to R.string.joystick_action_zoom_in,
     Action.ZOOM_OUT to R.string.joystick_action_zoom_out,
     Action.SWAP_MAP_MUSIC to R.string.joystick_action_swap_map_music,
-    Action.FOCUS_UP to R.string.joystick_action_focus_up,
-    Action.FOCUS_DOWN to R.string.joystick_action_focus_down,
-    Action.FOCUS_LEFT to R.string.joystick_action_focus_left,
-    Action.FOCUS_RIGHT to R.string.joystick_action_focus_right,
     Action.INFO_RING to R.string.joystick_action_info_ring,
 )

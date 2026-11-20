@@ -59,9 +59,9 @@ class SwapMapMusicActionTest {
     }
 
     @Test
-    fun `the volume actions stay, and with the arrows are the keys and the steps the page still offers`() {
+    fun `the volume actions stay, as the steps the page still offers`() {
         val names = Action.entries.map { it.name }
-        assertTrue(names.containsAll(listOf("VOLUME_UP", "VOLUME_DOWN", "FOCUS_UP", "FOCUS_DOWN", "FOCUS_LEFT", "FOCUS_RIGHT")))
+        assertTrue(names.containsAll(listOf("VOLUME_UP", "VOLUME_DOWN")))
         assertEquals(AaCommand.Volume(1), Action.VOLUME_UP.command(assistant = false))
         assertEquals(AaCommand.Volume(-1), Action.VOLUME_DOWN.command(assistant = false))
     }
@@ -171,10 +171,10 @@ class SwapMapMusicActionTest {
     fun `the pages saved before still read as they did`() {
         val before = listOf(
             "NOTHING", "WHEEL_PREVIOUS", "WHEEL_NEXT", "CONFIRM", "BACK", "HOME", "PLAY_PAUSE", "NEXT_SONG", "PREVIOUS_SONG",
-            "VOLUME_UP", "VOLUME_DOWN", "ASSISTANT", "ZOOM_IN", "ZOOM_OUT", "FOCUS_UP", "FOCUS_DOWN", "FOCUS_LEFT", "FOCUS_RIGHT", "INFO_RING",
+            "VOLUME_UP", "VOLUME_DOWN", "ASSISTANT", "ZOOM_IN", "ZOOM_OUT", "INFO_RING",
         )
         assertTrue(Action.entries.map { it.name }.containsAll(before))
-        assertEquals("nothing else but the swap", before.size + 1, Action.entries.size)
+        assertEquals("nothing else but the swap, and the four focus arrows are gone", before.size + 1, Action.entries.size)
     }
 
     // ── the screen's list ──

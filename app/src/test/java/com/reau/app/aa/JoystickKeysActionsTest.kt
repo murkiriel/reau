@@ -5,8 +5,6 @@ import com.reau.app.aa.JoystickBindings.Control
 import com.reau.app.aa.JoystickBindings.Gesture
 import com.reau.app.aa.JoystickBindings.Mode
 import com.reau.app.aa.JoystickBindings.Slot
-import com.reau.app.dash.EchoLabel
-import com.reau.app.dash.protocol.DashButtonEvent
 import com.reau.app.settings.REauSettings
 import java.io.File
 import org.junit.Assert.assertEquals
@@ -15,25 +13,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The joystick actions that send one of Android Auto's keys (P31 Joy): the four focus arrows (the keys up, down, left and right, 19 to 22). The media and
- * phone buttons stay declared to Android Auto (the swap of the map and the music sends the media one; the actions that opened the music app and the phone
- * by themselves are gone, P32A). The keys are declared to Android Auto, each action sends its key and echoes its name, the rider can pick them on any
- * control that takes an action, no control has them by default, they are saved by name, and their names are in the three languages.
+ * The keys Android Auto is told this head unit has (P31 Joy) and the four focus arrows ("Focus up", "Focus down", "Focus left", "Focus right") that were
+ * actions of the joystick and are gone (P32S, the rider's say): a page saved with one of them reads as the slot's default, and nothing of them is written back.
+ * The media and phone buttons stay declared to Android Auto (the swap of the map and the music sends the media one).
  */
 class JoystickKeysActionsTest {
-    private val keyed = mapOf(
-        Action.FOCUS_UP to 19,
-        Action.FOCUS_DOWN to 20,
-        Action.FOCUS_LEFT to 21,
-        Action.FOCUS_RIGHT to 22,
-    )
-
-    private val labels = mapOf(
-        Action.FOCUS_UP to EchoLabel.FOCUS_UP,
-        Action.FOCUS_DOWN to EchoLabel.FOCUS_DOWN,
-        Action.FOCUS_LEFT to EchoLabel.FOCUS_LEFT,
-        Action.FOCUS_RIGHT to EchoLabel.FOCUS_RIGHT,
-    )
+    private val gone = listOf("FOCUS_UP", "FOCUS_DOWN", "FOCUS_LEFT", "FOCUS_RIGHT")
 
     @Test
     fun `the media and phone buttons are 65537 and 65540 and are declared to Android Auto once each`() {
@@ -49,123 +34,48 @@ class JoystickKeysActionsTest {
     }
 
     @Test
-    fun `every key an action sends is one Android Auto was told this head unit has`() {
-        for ((action, code) in keyed) {
-            assertTrue("$action: $code is declared", code in ServiceDiscoveryResponse.SUPPORTED_KEYCODES)
-        }
+    fun `the focus arrows are not actions any more`() {
+        val names = Action.entries.map { it.name }
+        for (name in gone) assertFalse(name, name in names)
     }
 
     @Test
-    fun `each action sends its key, with or without Gemini's switch`() {
-        for ((action, code) in keyed) {
-            assertEquals("$action", AaCommand.Key(code), action.command(assistant = false))
-            assertEquals("$action", AaCommand.Key(code), action.command(assistant = true))
-        }
-    }
-
-    @Test
-    fun `the joystick sends the key and echoes the name when a control has the action, in both modes`() {
-        for ((action, code) in keyed) {
-            val page = JoystickBindings.DEFAULT.with(Slot(Mode.MEDIA, Control.UP, Gesture.ONCE), action)
-                .with(Slot(Mode.MAP, Control.DOWN, Gesture.ONCE), action)
-            val media = JoystickMap(page).press(DashButtonEvent.VolumeUp(0x06), 0)
-            assertEquals("$action in the media mode", listOf<AaCommand>(AaCommand.Key(code)), media.sent)
-            assertEquals("$action echoes", labels.getValue(action), media.echo)
-            val map = JoystickMap(page).press(DashButtonEvent.Unknown(0x15), 0)
-            assertEquals("$action in the map mode", listOf<AaCommand>(AaCommand.Key(code)), map.sent)
-            assertEquals("$action echoes", labels.getValue(action), map.echo)
-        }
-    }
-
-    @Test
-    fun `they are on the list of every control, and no control has them by default or on a new install`() {
-        for ((action, _) in keyed) {
-            for (slot in JoystickBindings.SLOTS) {
-                assertTrue("${slot.key} offers $action", action in Action.entries.filter { it.allowedAt(slot) })
-                if (!JoystickBindings.isLocked(slot)) {
-                    assertEquals("${slot.key}: picked", action, JoystickBindings.DEFAULT.with(slot, action)[slot])
-                }
-                assertTrue("${slot.key} does not start with $action", JoystickBindings.defaultOf(slot) != action)
-                assertTrue(
-                    "${slot.key} does not start with $action on a new install",
-                    JoystickBindings.decode(REauSettings.DEFAULT_JOYSTICK)[slot] != action,
-                )
+    fun `a page saved with a focus arrow drops it, and the slot goes back to its default`() {
+        for (old in gone) {
+            val page = JoystickBindings.decode("media.up.once=$old;media.left.once=$old;media.down.once=$old;map.down.once=$old")
+            for (slot in listOf(
+                Slot(Mode.MEDIA, Control.UP, Gesture.ONCE), Slot(Mode.MEDIA, Control.LEFT, Gesture.ONCE),
+                Slot(Mode.MEDIA, Control.DOWN, Gesture.ONCE), Slot(Mode.MAP, Control.DOWN, Gesture.ONCE),
+            )) {
+                assertEquals("$old at ${slot.key}", JoystickBindings.defaultOf(slot), page[slot])
             }
-            assertFalse(REauSettings.DEFAULT_JOYSTICK, action.name in REauSettings.DEFAULT_JOYSTICK)
+            assertEquals("nothing is kept of it: $old", "", page.encode())
         }
     }
 
     @Test
-    fun `a locked control still takes no action, these included`() {
-        val locked = Slot(Mode.MAP, Control.UP, Gesture.ONCE)
-        for ((action, _) in keyed) {
-            assertEquals(Action.NOTHING, JoystickBindings.DEFAULT.with(locked, action)[locked])
-            assertEquals(Action.NOTHING, JoystickBindings.decode("map.up.once=${action.name}")[locked])
-        }
+    fun `the rest of a saved page is kept next to a focus arrow, and is read the same when written back`() {
+        val saved = "media.up.once=FOCUS_UP;media.left.once=PLAY_PAUSE;media.right.once=FOCUS_RIGHT;media.center.once=NEXT_SONG;map.left.once=ZOOM_OUT"
+        val page = JoystickBindings.decode(saved)
+        assertEquals(Action.NOTHING, page[Slot(Mode.MEDIA, Control.UP, Gesture.ONCE)])
+        assertEquals(Action.PLAY_PAUSE, page[Slot(Mode.MEDIA, Control.LEFT, Gesture.ONCE)])
+        assertEquals(Action.WHEEL_NEXT, page[Slot(Mode.MEDIA, Control.RIGHT, Gesture.ONCE)])
+        assertEquals(Action.NEXT_SONG, page[Slot(Mode.MEDIA, Control.CENTER, Gesture.ONCE)])
+        assertEquals(Action.ZOOM_OUT, page[Slot(Mode.MAP, Control.LEFT, Gesture.ONCE)])
+        assertEquals("media.left.once=PLAY_PAUSE;media.center.once=NEXT_SONG;map.left.once=ZOOM_OUT", page.encode())
+        assertEquals(page, JoystickBindings.decode(page.encode()))
+        for (name in gone) assertFalse(name, name in REauSettings.DEFAULT_JOYSTICK)
     }
 
     @Test
-    fun `they are saved by name and read back, next to older choices`() {
-        val slot = Slot(Mode.MEDIA, Control.UP, Gesture.ONCE)
-        for ((action, _) in keyed) {
-            val page = JoystickBindings.DEFAULT.with(slot, action)
-            assertEquals("media.up.once=${action.name}", page.encode())
-            assertEquals(page, JoystickBindings.decode(page.encode()))
-            assertEquals(
-                Action.SWAP_MAP_MUSIC,
-                JoystickBindings.decode("media.up.once=${action.name};media.left.once=SWAP_MAP_MUSIC")[Slot(Mode.MEDIA, Control.LEFT, Gesture.ONCE)],
-            )
-        }
-        assertEquals(setOf("FOCUS_UP", "FOCUS_DOWN", "FOCUS_LEFT", "FOCUS_RIGHT"), keyed.keys.map { it.name }.toSet())
-    }
-
-    @Test
-    fun `the arrows do not warn on the right side`() {
-        val right = Slot(Mode.MEDIA, Control.RIGHT, Gesture.ONCE)
-        for (action in listOf(Action.FOCUS_UP, Action.FOCUS_DOWN, Action.FOCUS_LEFT, Action.FOCUS_RIGHT)) {
-            assertFalse("$action", GhostSideWarning.warns(right, action))
-        }
-        assertFalse(GhostSideWarning.warns(Slot(Mode.MEDIA, Control.LEFT, Gesture.ONCE), Action.SWAP_MAP_MUSIC))
-    }
-
-    @Test
-    fun `the names on the screen and in the echo are in the three languages`() {
-        val screen = mapOf(
-            "values" to mapOf(
-                "focus_up" to "Focus up",
-                "focus_down" to "Focus down", "focus_left" to "Focus left", "focus_right" to "Focus right",
-            ),
-            "values-pt" to mapOf(
-                "focus_up" to "Foco para cima",
-                "focus_down" to "Foco para baixo", "focus_left" to "Foco para a esquerda", "focus_right" to "Foco para a direita",
-            ),
-            "values-es" to mapOf(
-                "focus_up" to "Foco hacia arriba",
-                "focus_down" to "Foco hacia abajo", "focus_left" to "Foco a la izquierda", "focus_right" to "Foco a la derecha",
-            ),
-        )
-        val echo = mapOf(
-            "values" to mapOf(
-                "focus_up" to "Focus up",
-                "focus_down" to "Focus down", "focus_left" to "Focus left", "focus_right" to "Focus right",
-            ),
-            "values-pt" to mapOf(
-                "focus_up" to "Foco acima",
-                "focus_down" to "Foco abaixo", "focus_left" to "Foco à esquerda", "focus_right" to "Foco à direita",
-            ),
-            "values-es" to mapOf(
-                "focus_up" to "Foco arriba",
-                "focus_down" to "Foco abajo", "focus_left" to "Foco izquierda", "focus_right" to "Foco derecha",
-            ),
-        )
-        for (folder in screen.keys) {
+    fun `the screen and the echo have nothing of the focus arrows, in the three languages`() {
+        for (folder in listOf("values", "values-pt", "values-es")) {
             val strings = File("src/main/res/$folder/strings.xml").readText()
-            for ((name, text) in screen.getValue(folder)) {
-                assertEquals("$folder $name", text, Regex("""<string name="joystick_action_$name">(.*?)</string>""").find(strings)?.groupValues?.get(1))
-            }
-            for ((name, text) in echo.getValue(folder)) {
-                assertEquals("$folder echo $name", text, Regex("""<string name="echo_$name">(.*?)</string>""").find(strings)?.groupValues?.get(1))
-            }
+            assertFalse("$folder: a focus name is left", Regex("""name="(joystick_action|echo)_focus_""").containsMatchIn(strings))
+        }
+        for (path in listOf("ui/JoystickScreen.kt", "dash/ActionEcho.kt", "aa/JoystickBindings.kt")) {
+            val code = File("src/main/java/com/reau/app/$path").readText()
+            for (name in gone) assertFalse("$path still has $name", name in code.lines().filterNot { it.trim().startsWith("*") || it.trim().startsWith("//") }.joinToString("\n"))
         }
     }
 }

@@ -183,10 +183,6 @@
     <string name="joystick_action_zoom_in">Zoom in</string>
     <string name="joystick_action_zoom_out">Zoom out</string>
     <string name="joystick_action_swap_map_music">Switch map and music</string>
-    <string name="joystick_action_focus_up">Focus up</string>
-    <string name="joystick_action_focus_down">Focus down</string>
-    <string name="joystick_action_focus_left">Focus left</string>
-    <string name="joystick_action_focus_right">Focus right</string>
     <string name="joystick_ghost_side">This side sometimes fires together with the center.</string>
     <string name="permissions_title">Permissions</string>
     <string name="permissions_intro">What leaves the phone goes to the dash, to your network only with the network server on, and to the internet only for weather and updates (more in \"REau and your data\").</string>
@@ -930,10 +926,6 @@
     <string name="echo_assistant">Gemini</string>
     <string name="echo_zoom_in">Zoom in</string>
     <string name="echo_zoom_out">Zoom out</string>
-    <string name="echo_focus_up">Focus up</string>
-    <string name="echo_focus_down">Focus down</string>
-    <string name="echo_focus_left">Focus left</string>
-    <string name="echo_focus_right">Focus right</string>
     <string name="echo_swap_map_music">Map/music</string>
     <string name="echo_swap_to_music">Music</string>
     <string name="echo_swap_to_map">Map</string>

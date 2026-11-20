@@ -56,15 +56,6 @@ data class JoystickBindings(private val chosen: Map<Slot, Action> = emptyMap()) 
         SWAP_MAP_MUSIC({ AaCommand.SwapMapMusic }),
 
         /**
-         * Android Auto's focus arrows (the keys up, down, left and right), to walk the focus where the wheel's next and previous do not reach.
-         * On no control by default.
-         */
-        FOCUS_UP({ AaCommand.Key(ServiceDiscoveryResponse.KEY_UP) }),
-        FOCUS_DOWN({ AaCommand.Key(ServiceDiscoveryResponse.KEY_DOWN) }),
-        FOCUS_LEFT({ AaCommand.Key(ServiceDiscoveryResponse.KEY_LEFT) }),
-        FOCUS_RIGHT({ AaCommand.Key(ServiceDiscoveryResponse.KEY_RIGHT) }),
-
-        /**
          * The info ring's own switch: it sends Android Auto nothing, the dash's down button in its map mode (0x15) shows and hides REau's
          * ring on the video ([com.reau.app.dash.RingCycle]). Only that button sends that code, so only that slot can have it ([allowedAt]).
          */
@@ -160,8 +151,8 @@ data class JoystickBindings(private val chosen: Map<Slot, Action> = emptyMap()) 
 
         /**
          * The names of actions that no longer exist, and what a page saved with them reads as: the two that opened the music app and the navigation
-         * became one ([Action.SWAP_MAP_MUSIC]); the ones that opened the phone and switched among the first three apps are gone (a name left out here
-         * is left out when read, and its slot goes back to its default).
+         * became one ([Action.SWAP_MAP_MUSIC]); the ones that opened the phone and switched among the first three apps are gone, and so are the four focus
+         * arrows ("Focus up", "Focus down", "Focus left", "Focus right"; a name left out here is left out when read, and its slot goes back to its default).
          */
         private val RENAMED = mapOf("OPEN_MUSIC" to Action.SWAP_MAP_MUSIC, "OPEN_NAVIGATION" to Action.SWAP_MAP_MUSIC)
 

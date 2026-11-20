@@ -50,10 +50,6 @@ enum class EchoLabel(val res: Int) {
     ZOOM_IN(R.string.echo_zoom_in),
     ZOOM_OUT(R.string.echo_zoom_out),
     SWAP_MAP_MUSIC(R.string.echo_swap_map_music),
-    FOCUS_UP(R.string.echo_focus_up),
-    FOCUS_DOWN(R.string.echo_focus_down),
-    FOCUS_LEFT(R.string.echo_focus_left),
-    FOCUS_RIGHT(R.string.echo_focus_right),
     INFO_RING(R.string.echo_info_ring),
     ANSWER_CALL(R.string.echo_answer_call),
     REJECT_CALL(R.string.echo_reject_call),
@@ -91,10 +87,6 @@ enum class EchoLabel(val res: Int) {
             Action.ZOOM_IN -> ZOOM_IN
             Action.ZOOM_OUT -> ZOOM_OUT
             Action.SWAP_MAP_MUSIC -> SWAP_MAP_MUSIC
-            Action.FOCUS_UP -> FOCUS_UP
-            Action.FOCUS_DOWN -> FOCUS_DOWN
-            Action.FOCUS_LEFT -> FOCUS_LEFT
-            Action.FOCUS_RIGHT -> FOCUS_RIGHT
             Action.INFO_RING -> INFO_RING
         }
     }

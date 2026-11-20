@@ -183,10 +183,6 @@
     <string name="joystick_action_zoom_in">Aproximar</string>
     <string name="joystick_action_zoom_out">Afastar</string>
     <string name="joystick_action_swap_map_music">Alternar mapa e música</string>
-    <string name="joystick_action_focus_up">Foco para cima</string>
-    <string name="joystick_action_focus_down">Foco para baixo</string>
-    <string name="joystick_action_focus_left">Foco para a esquerda</string>
-    <string name="joystick_action_focus_right">Foco para a direita</string>
     <string name="joystick_ghost_side">Este lado às vezes dispara junto do centro.</string>
     <string name="permissions_title">Permissões</string>
     <string name="permissions_intro">O que sai do celular vai ao painel, à sua rede só com o servidor de rede e à internet só para clima e atualização (veja \"O REau e os seus dados\").</string>
@@ -919,10 +915,6 @@
     <string name="echo_assistant">Gemini</string>
     <string name="echo_zoom_in">Aproximar</string>
     <string name="echo_zoom_out">Afastar</string>
-    <string name="echo_focus_up">Foco acima</string>
-    <string name="echo_focus_down">Foco abaixo</string>
-    <string name="echo_focus_left">Foco à esquerda</string>
-    <string name="echo_focus_right">Foco à direita</string>
     <string name="echo_swap_map_music">Mapa/música</string>
     <string name="echo_swap_to_music">Música</string>
     <string name="echo_swap_to_map">Mapa</string>
