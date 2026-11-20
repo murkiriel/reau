@@ -70,6 +70,12 @@ internal class StreamGovernor(
         val lightScreen: Boolean = false,
         /** Each frame's time in the encoder in this poll (the same time [encodeNs] sums), for the window's worst and 95th percentile. */
         val encode: StageStats = StageStats.EMPTY,
+        /**
+         * The debug build's FPS test card: the pace it forces on the stream (the rider's choice already under the heat's ceiling, [ThermalCeiling]) and the
+         * choice itself, or null with the card off. Read live every poll, like [link].
+         */
+        val fpsTest: Int? = null,
+        val fpsTestAsked: Int? = null,
     )
 
     /**
@@ -177,6 +183,7 @@ internal class StreamGovernor(
 
     /** What the stream is at now, for [PaceBitrateLog]: the light screens, profile B, or profile A. */
     private fun paceKind(): PaceBitrateLog.Kind = when {
+        testFps != null -> PaceBitrateLog.Kind.TEST
         lightOn -> PaceBitrateLog.Kind.LIGHT
         navTier == QualityTier.REDUCED -> PaceBitrateLog.Kind.B
         else -> PaceBitrateLog.Kind.A
@@ -195,8 +202,15 @@ internal class StreamGovernor(
     val profilesText: String
         get() = "profile A $fullFps fps / ${activeBitrateBps / 1000} kbps, B ${profileBFps(fullFps)} fps / ${activeBitrateBps / 1000} kbps"
 
-    /** The pace of the stream now: the profile's, or the light screens' on a light screen. */
-    val fps: Int get() = if (lightOn) LightScreen.fps(profileFps, lightScreenFps) else profileFps
+    /**
+     * The pace of the stream now: the FPS test card's when it is on ([testFps]: it is above the profiles, the light screens and so, in the compositor, the rest, to
+     * measure the dash at the pace chosen), else the profile's, or the light screens' on a light screen.
+     */
+    val fps: Int get() = testFps ?: if (lightOn) LightScreen.fps(profileFps, lightScreenFps) else profileFps
+
+    /** The pace the debug build's FPS test card forces, null while it is off; set by [useTestRate] (the loop at the start, every poll after). */
+    var testFps: Int? = null
+        private set
 
     /** The pace of the profile (the navigation tier, or the full pace with none), without the light-screen pace: what the heat is judged against. */
     val profileFps: Int get() = navTier?.let(::tierFps) ?: fullFps
@@ -213,9 +227,10 @@ internal class StreamGovernor(
     /**
      * The fastest pace the stream can have on this encoder: the light screens' ([lightScreenFps], 6) when it is above the encoder's rate hint
      * ([encoderFps], 6 unless a hot phone lowered it), else the hint itself. The encoder's keyframe interval is counted in frames at the hint,
-     * so it is made longer than the rider's seconds at this pace ([encoderKeyframeSec]) and the loop asks for the keyframes by the clock.
+     * so it is made longer than the rider's seconds at this pace ([encoderKeyframeSec]) and the loop asks for the keyframes by the clock. The FPS test card's pace
+     * counts too, so a test above the encoder's rate keeps the keyframe at 1 s ([onPoll] asks for a new encoder when the interval to ask for changes).
      */
-    val gopFps: Int get() = if (lightScreenFps > 0) maxOf(encoderFps, lightScreenFps) else encoderFps
+    val gopFps: Int get() = maxOf(if (lightScreenFps > 0) maxOf(encoderFps, lightScreenFps) else encoderFps, testFps ?: 0)
 
     /** The `KEY_I_FRAME_INTERVAL` for the encoder, in seconds: [keyframeSec] made longer for [gopFps] ([DashLogic.encoderKeyframeSec]). */
     val encoderKeyframeSec: Int get() = DashLogic.encoderKeyframeSec(keyframeSec, gopFps, encoderFps)
@@ -236,6 +251,9 @@ internal class StreamGovernor(
     private fun profileBFps(full: Int): Int = (full / 2).coerceAtLeast(NAV_MIN_FPS)
 
     private var pace: DashCompositor.Pace? = null
+
+    // The keyframe interval the running encoder was asked for ([encoderKeyframeSec] at its start or rebuild): when the test card changes what it should be, the encoder is rebuilt.
+    private var builtKeyframeSec = 0
     private var bitrateBps = 0
     private var lastPictureAtMs: Long? = null
     private var lastSyncAtMs = 0L
@@ -259,6 +277,7 @@ internal class StreamGovernor(
     fun start(nowMs: Long): List<Action> {
         pace = null
         bitrateBps = 0
+        builtKeyframeSec = encoderKeyframeSec
         paceLog.start(nowMs)
         lastPictureAtMs = null
         window = null
@@ -275,6 +294,7 @@ internal class StreamGovernor(
         // The frames and bytes of this poll were sent at the pace in force before it changes anything.
         paceLog.add(paceKind(), fps, p.framesOut, p.bytesOut, p.nowMs)
         if (p.compositor.drawn > 0) lastPictureAtMs = p.nowMs
+        val testChange = useTestRate(p.fpsTest, p.fpsTestAsked)
         val lightChange = updateLight(p)
         val moving = lastPictureAtMs?.let { p.nowMs - it < MOTION_HOLD_MS } ?: false
         val full = DashLogic.fullRate(moving, p.firstFrameConfirmed)
@@ -282,6 +302,8 @@ internal class StreamGovernor(
         val actions = mutableListOf<Action>()
         tierChange?.let { actions += it }
         lightChange?.let { actions += it }
+        testChange?.let { actions += it }
+        actions += encoderIntervalChange()
         actions += paceChange(p.firstFrameConfirmed)
         actions += bitrateChange()
         // A tier change, a light screen and a profile switched on or off move the pace only: what the
@@ -368,6 +390,29 @@ internal class StreamGovernor(
             tiers.any { it == wins } -> wins
             else -> loses
         }
+    }
+
+    /**
+     * The FPS test card's pace ([fps], null with the card off) for the stream from now on, with what the rider [asked] (the heat may have taken some of it): above the profiles, the
+     * light screens and the input burst. A log line when it changes, which says when the heat lowered it. Nothing else of the stream moves: the bitrate ceiling and the picture are fixed.
+     */
+    fun useTestRate(fps: Int?, asked: Int?): Action? {
+        if (fps == testFps) return null
+        val before = this.fps
+        testFps = fps
+        val line = if (fps == null) {
+            "fps test card: off, pace back to the profile's ${this.fps} fps (was $before)"
+        } else {
+            "fps test card: pace $fps fps (was $before)" + if (asked != null && asked != fps) ", $asked asked, lowered by the heat" else ""
+        }
+        return Action.Log(line)
+    }
+
+    /** A new encoder when the keyframe interval it was built for is not the one to ask for now ([gopFps] moved with the test card); the loop rebuilds it as it does a failed one. */
+    private fun encoderIntervalChange(): List<Action> {
+        if (builtKeyframeSec == 0 || encoderKeyframeSec == builtKeyframeSec) return emptyList()
+        builtKeyframeSec = encoderKeyframeSec
+        return listOf(rebuildAction())
     }
 
     /** Whether the light-screen pace is on after this poll; a line in the log when it changes. */

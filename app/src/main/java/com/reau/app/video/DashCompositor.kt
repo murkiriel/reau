@@ -76,6 +76,9 @@ class DashCompositor(private val log: (String) -> Unit) {
      */
     @Volatile var burstGapMs = 0L
 
+    /** The last pace asked for the FPS test card by [setFpsTest], so a poll that asks for the same thing again posts nothing. */
+    @Volatile private var askedTestRate = 0
+
     /** Told what Android Auto's picture looks like ([PictureLook]), about every [com.reau.app.stream.InputBurst.lookEveryMs], on the compositor's thread; null: no look is taken. */
     @Volatile var onLook: ((PictureLook.Kind) -> Unit)? = null
     private var lastLookAtMs = 0L
@@ -137,6 +140,14 @@ class DashCompositor(private val log: (String) -> Unit) {
     private var overlayText = StatsOverlay.latest
     private var buttonOverlay = ButtonOverlay()
     private var buttonText: ButtonText? = null
+
+    // The FPS test card (GL thread only): its picture is drawn on one bitmap kept for all the frames; [testDelivered] is the count of frames the encoder was really handed since it was
+    // switched on (the number on the next card); [fpsTestRate] is the pace it is on at, 0 for off ([setFpsTest]).
+    private val testInk = FpsTestCardInk()
+    private var fpsTestRate = 0
+    private var testDelivered = 0L
+    private var testWindowFrames = 0
+    private var testWindowAtMs = 0L
 
     /** The words of the "picture stuck" badge on the dash's video, or null for none (Android Auto's picture is alive). */
     private var staleBadge: String? = null
@@ -577,7 +588,7 @@ class DashCompositor(private val log: (String) -> Unit) {
         override fun run() {
             if (!gl.hasOutput) return
             sinceLastFrameMs += tickSpanMs
-            when (CompositorMath.decide(newImage, sinceLastFrameMs, pace.activeMs, pace.idleMs)) {
+            when (CompositorRules.tickAction(newImage, fpsTestRate > 0, sinceLastFrameMs, pace)) {
                 TickAction.DRAW -> emitFrame(repeat = false)
                 TickAction.REPEAT -> emitFrame(repeat = true)
                 TickAction.WAIT -> Unit
@@ -596,6 +607,7 @@ class DashCompositor(private val log: (String) -> Unit) {
      * grid re-anchored on it, so the video clock keeps the real time between frames and the next tick is a whole interval away.
      */
     private fun drawSoon() {
+        if (fpsTestRate > 0) return // the test card goes out at the ticks only
         val wait = CompositorMath.burstWaitMs(newImage, lastFrameAtMs, SystemClock.uptimeMillis(), burstGapMs) ?: return
         if (burstPending) return
         burstPending = true
@@ -607,7 +619,7 @@ class DashCompositor(private val log: (String) -> Unit) {
      * to a quarter of a second away: the dash's own maneuver ring changes the moment the dash gets its card, and this one rides on the video.
      */
     private fun redrawSoon() {
-        if (!gl.hasOutput || burstPending) return
+        if (!gl.hasOutput || burstPending || fpsTestRate > 0) return
         burstPending = true
         handler.postDelayed(ringDraw, CompositorMath.redrawWaitMs(lastFrameAtMs, SystemClock.uptimeMillis()))
     }
@@ -677,19 +689,70 @@ class DashCompositor(private val log: (String) -> Unit) {
         frameBusy.track { drawAndPost(repeat) }
     }
 
+    /**
+     * The FPS test card on at [rate] frames a second, or off (0). Set by the video loop (it follows the rider's switch, the pace chosen and the heat's ceiling). While it is on every tick of the
+     * clock draws a NEW frame, the numbered card ([FpsTestCard]) instead of Android Auto's picture, whether Android Auto sent a picture or not, and nothing is drawn outside the ticks (no burst,
+     * no redraw for the ring or the legend), so the frames go out at the pace and no other. The two texts of the debug settings stay over the card. Taken on the GL thread; going on starts the
+     * count again at 0, and each switch is a line in the log.
+     */
+    fun setFpsTest(rate: Int) {
+        val wanted = rate.coerceAtLeast(0)
+        if (wanted == askedTestRate) return
+        askedTestRate = wanted
+        onGlThread(wait = false) { applyTestRate(wanted) }
+    }
+
+    private fun applyTestRate(rate: Int) {
+        val wasOn = fpsTestRate > 0
+        fpsTestRate = rate
+        if ((rate > 0) == wasOn) return
+        if (rate > 0) {
+            testDelivered = 0L
+            testWindowFrames = 0
+            testWindowAtMs = SystemClock.uptimeMillis()
+            log(FpsTestCard.switchLine(on = true, fps = rate, delivered = 0L))
+        } else {
+            testInk.release()
+            gl.setTestCard(null)
+            log(FpsTestCard.switchLine(on = false, fps = 0, delivered = testDelivered))
+        }
+    }
+
+    /** A frame of the card went to the encoder: it counts, and every [FpsTestCard.SUMMARY_EVERY_MS] the log says how many were delivered. */
+    private fun countTestFrame(rate: Int) {
+        testDelivered++
+        testWindowFrames++
+        val now = SystemClock.uptimeMillis()
+        val elapsed = now - testWindowAtMs
+        if (elapsed < FpsTestCard.SUMMARY_EVERY_MS) return
+        log(FpsTestCard.summaryLine(testWindowFrames, elapsed, testDelivered, rate))
+        testWindowFrames = 0
+        testWindowAtMs = now
+    }
+
     private fun drawAndPost(repeat: Boolean) {
         val startNs = System.nanoTime()
-        gl.draw(window.takeIf { hasImage }, viewport, backdrop)
-        if (backdrop != null && gl.backdropFailed) {
-            backdrop = null
-            log("${RideDiagnostics.WARN}compositor: the blurred background could not be made and is off (the border stays black)")
+        val testRate = fpsTestRate
+        if (testRate > 0) {
+            // Only the card (black, then the card), then the two texts the rider switched on over it; the ring, the legend and the badge are not on a test card.
+            gl.draw(null, viewport, null)
+            gl.setTestCard(testInk.draw(FpsTestCard.cells(testDelivered, testRate), area.width, area.height))
+            gl.drawTestCard()
+            if (overlay.on) gl.drawOverlay(overlay.x, overlay.y)
+            if (buttonOverlay.on) gl.drawButton(buttonOverlay.x, buttonOverlay.y)
+        } else {
+            gl.draw(window.takeIf { hasImage }, viewport, backdrop)
+            if (backdrop != null && gl.backdropFailed) {
+                backdrop = null
+                log("${RideDiagnostics.WARN}compositor: the blurred background could not be made and is off (the border stays black)")
+            }
+            gl.fillBlack(cover)
+            if (overlay.on) gl.drawOverlay(overlay.x, overlay.y)
+            if (buttonOverlay.on) gl.drawButton(buttonOverlay.x, buttonOverlay.y)
+            if (infoRing != null) gl.drawRing()
+            if (legend != null) gl.drawLegend()
+            if (staleBadge != null) gl.drawBadge()
         }
-        gl.fillBlack(cover)
-        if (overlay.on) gl.drawOverlay(overlay.x, overlay.y)
-        if (buttonOverlay.on) gl.drawButton(buttonOverlay.x, buttonOverlay.y)
-        if (infoRing != null) gl.drawRing()
-        if (legend != null) gl.drawLegend()
-        if (staleBadge != null) gl.drawBadge()
 
         val clock = CompositorRules.advance(lastStampMs, ptsMs, sinceLastFrameMs, pace.clockSlowPercent)
         ptsMs = clock.ptsMs
@@ -698,6 +761,7 @@ class DashCompositor(private val log: (String) -> Unit) {
         val posted = gl.post(stampMs)
         if (CompositorRules.refusalToTell(posted, postFailing)) log("${RideDiagnostics.WARN}compositor: the output surface refused a frame (encoder gone?)")
         postFailing = !posted
+        if (testRate > 0 && posted) countTestFrame(testRate)
         if (gl.hasPreview && hasImage) drawPreview()
 
         lastStampMs = stampMs
@@ -758,6 +822,13 @@ class DashCompositor(private val log: (String) -> Unit) {
 internal object CompositorRules {
     /** How long a frame begun at [startedAtMs] has been running at [nowMs]: 0 when none is (0 is "between frames") or the clock went back. */
     fun busyMs(startedAtMs: Long, nowMs: Long): Long = if (startedAtMs == 0L) 0L else (nowMs - startedAtMs).coerceAtLeast(0L)
+
+    /**
+     * What a tick of the clock does. With the FPS test card on ([testCard]) every tick is a new frame, the card changing at each one, whether Android Auto sent a
+     * picture or not: never a repeat at the idle interval and never a wait, so the frames go out at the pace of the clock and not at Android Auto's.
+     */
+    fun tickAction(newImage: Boolean, testCard: Boolean, sinceLastFrameMs: Long, pace: DashCompositor.Pace): TickAction =
+        CompositorMath.decide(newImage || testCard, sinceLastFrameMs, pace.activeMs, pace.idleMs)
 
     /** A pace as the clock can use it: a tick of at least a millisecond, and a repeat never sooner than the tick. */
     fun normalized(pace: DashCompositor.Pace): DashCompositor.Pace =

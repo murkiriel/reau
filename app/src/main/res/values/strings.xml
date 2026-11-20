@@ -459,6 +459,10 @@
     <string name="button_title">Button code on the video</string>
     <string name="button_overlay">Draws the code of the last button the dash sent (such as \"0x05  PlayPause\") and, smaller, what REau did with it, over the dash video in orange with a black outline. The text stays until another button is pressed; when on, the position (X and Y) and the size appear here. For testing and only in the debug build: it applies right away and sits over the map.</string>
     <string name="section_button">Button code on the video</string>
+    <string name="section_fps_test_card">FPS test card</string>
+    <string name="fps_test_card_title">FPS test card</string>
+    <string name="fps_test_card_info">Replaces the dash picture with a numbered test card. Film the dash: each frame has its number, a green cell, an even/odd square and the number in binary; a number that is missing is a lost frame, a repeated one is a frame the dash showed twice. The pace you pick applies only while the test is on. Only in the debug build, it applies right away, and the map disappears while it is on.</string>
+    <string name="fps_test_card_rate_title">Test rate</string>
     <string name="section_info_ring">Info ring on the dash</string>
     <string name="info_ring_title">Info ring</string>
     <string name="info_ring_sub">Rain, wind and thunder over the map; you switch on the other cards</string>

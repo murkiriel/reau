@@ -114,6 +114,7 @@ internal fun FitPanel(s: REauSettings, change: (REauSettings) -> Unit, screen: A
         if (com.reau.app.BuildConfig.DEBUG) {
             StatsSection(s, change)
             ButtonSection(s, change)
+            FpsTestCardSection(s, change)
         }
     }
 }
@@ -385,6 +386,34 @@ private fun ButtonSection(s: REauSettings, change: (REauSettings) -> Unit) {
             if (s.buttonOverlay) {
                 HorizontalDivider(thickness = 1.dp, color = hairline(0.14f, 0.6f))
                 ButtonSteps(s, change)
+            }
+        }
+    }
+}
+
+/**
+ * The FPS test card (debug builds only), under the other two: its switch and, with it on, the pace it runs at ([REauSettings.FPS_TEST_CARD_RATES] as segments, tags
+ * `fps_test_card_rate`, `fps_test_card_rate_4`...). No place and no size: the card is the whole picture.
+ */
+@Composable
+private fun FpsTestCardSection(s: REauSettings, change: (REauSettings) -> Unit) {
+    val shape = MaterialTheme.shapes.medium
+    Column(verticalArrangement = Arrangement.spacedBy(LABEL_GAP)) {
+        GroupLabel(null, stringResource(R.string.section_fps_test_card))
+        Column(Modifier.fillMaxWidth().clip(shape).background(MaterialTheme.colorScheme.surfaceContainer)) {
+            SwitchRow(
+                stringResource(R.string.fps_test_card_title), s.fpsTestCard, { change(s.copy(fpsTestCard = it)) }, "fps_test_card",
+                info = Info(stringResource(R.string.fps_test_card_title), stringResource(R.string.fps_test_card_info)),
+            )
+            if (s.fpsTestCard) {
+                HorizontalDivider(thickness = 1.dp, color = hairline(0.14f, 0.6f))
+                SegmentedRow(
+                    stringResource(R.string.fps_test_card_rate_title),
+                    REauSettings.FPS_TEST_CARD_RATES.map { it.toString() to "fps_test_card_rate_$it" },
+                    REauSettings.FPS_TEST_CARD_RATES.indexOf(REauSettings.nearestFpsTestRate(s.fpsTestCardFps)),
+                    { change(s.copy(fpsTestCardFps = REauSettings.FPS_TEST_CARD_RATES[it])) },
+                    tag = "fps_test_card_rate",
+                )
             }
         }
     }

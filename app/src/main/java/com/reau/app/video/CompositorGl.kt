@@ -84,6 +84,11 @@ internal class CompositorGl {
     private var ringTexture = 0
     private var ringW = 0
     private var ringH = 0
+
+    // The FPS test card (FpsTestCardInk): the same program, a texture of its own that is written again for every frame, from one bitmap that is kept.
+    private var testTexture = 0
+    private var testW = 0
+    private var testH = 0
     private val overlayQuad: FloatBuffer = ByteBuffer.allocateDirect(4 * 4 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
     private var inputSurface: Surface? = null
     private val texMatrix = FloatArray(16)
@@ -286,6 +291,27 @@ internal class CompositorGl {
         ringH = bitmap.height
     }
 
+    /**
+     * The picture of the FPS test card ([FpsTestCardInk.draw]), whole frame, or null for none. Written into the texture at once, so the caller keeps its bitmap and draws on it again for the
+     * next frame: a texture of the same size is written over ([GLUtils.texSubImage2D]), not made again. Drawn by [drawTestCard].
+     */
+    fun setTestCard(bitmap: Bitmap?) {
+        if (bitmap == null) {
+            testW = 0
+            testH = 0
+            return
+        }
+        if (overlayProgram == 0) initOverlay()
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, testTexture)
+        if (testW == bitmap.width && testH == bitmap.height) {
+            GLUtils.texSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0, bitmap)
+        } else {
+            GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0)
+            testW = bitmap.width
+            testH = bitmap.height
+        }
+    }
+
     private fun initOverlay() {
         val vs = """
             attribute vec4 aPosition;
@@ -307,13 +333,14 @@ internal class CompositorGl {
         overlayProgram = buildProgram(vs, fs)
         overlayPosition = GLES20.glGetAttribLocation(overlayProgram, "aPosition")
         overlayTexCoord = GLES20.glGetAttribLocation(overlayProgram, "aTexCoord")
-        val ids = IntArray(5)
-        GLES20.glGenTextures(5, ids, 0)
+        val ids = IntArray(6)
+        GLES20.glGenTextures(6, ids, 0)
         overlayTexture = ids[0]
         badgeTexture = ids[1]
         ringTexture = ids[2]
         buttonTexture = ids[3]
         legendTexture = ids[4]
+        testTexture = ids[5]
         for (texture in ids) {
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texture)
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
@@ -329,6 +356,9 @@ internal class CompositorGl {
      * bitmap is premultiplied, so it blends as (1, 1 − alpha).
      */
     fun drawOverlay(x: Int, y: Int) = drawQuad(overlayTexture, overlayW, overlayH, x, y)
+
+    /** Lays the FPS test card over the whole output, the picture of Android Auto not drawn under it. Nothing without a picture from [setTestCard]. */
+    fun drawTestCard() = drawQuad(testTexture, testW, testH, 0, 0)
 
     /** Lays the last-button text with its box's top-left corner at ([x], [y]), as [drawOverlay] does. Nothing without a picture from [setButton]. */
     fun drawButton(x: Int, y: Int) = drawQuad(buttonTexture, buttonW, buttonH, x, y)

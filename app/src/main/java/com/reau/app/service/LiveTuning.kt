@@ -37,6 +37,12 @@ object LiveTuning {
         STATS_OVERLAY,
         BUTTON_OVERLAY,
 
+        /**
+         * The debug build's FPS test card, on or off or at another pace: nothing to apply here, the video loop reads [REauSettings.fpsTestRate] from the live settings at each poll
+         * (a quarter of a second), so the card and the pace change with the projection running and no new stream. The step only puts the change in the ride log.
+         */
+        FPS_TEST,
+
         /** The web server's two switches: the server up or down and the touch allowed or not, at once. */
         WEB,
 
@@ -72,6 +78,7 @@ object LiveTuning {
         if (before.joystick != after.joystick || before.actionEcho != after.actionEcho || before.joystickLegend != after.joystickLegend) add(Step.JOYSTICK)
         if (before.overlay != after.overlay) add(Step.STATS_OVERLAY)
         if (before.buttonLook != after.buttonLook) add(Step.BUTTON_OVERLAY)
+        if (before.fpsTestRate != after.fpsTestRate) add(Step.FPS_TEST)
         if (webChanged(before, after)) add(Step.WEB)
         if (dashExtrasChanged(before, after)) add(Step.DASH_EXTRAS)
     }

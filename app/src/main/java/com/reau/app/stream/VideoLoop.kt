@@ -54,6 +54,11 @@ internal class VideoLoop(
     private val lightScreen: () -> Boolean = { false },
     /** The stats text on the dash's video: told when the stream starts and stops, and its numbers each second. */
     private val stats: StatsFeed? = null,
+    /**
+     * The pace the debug build's FPS test card asks for ([REauSettings.fpsTestRate]), or null with the card off, read every poll: while it is on the stream runs at this pace,
+     * above the profiles, the light screens and the input burst, under the heat's ceiling only ([ThermalCeiling]).
+     */
+    private val fpsTest: () -> Int? = { null },
 ) {
     /** What the loop needs of the dash session. */
     interface Dash {
@@ -146,6 +151,10 @@ internal class VideoLoop(
             ceiling, settings.clockSlowPercent, settings.windowMs, settings.bitrateBps, settings.keyframeSec,
             lightScreenFps = settings.lightScreenFps,
         )
+        // The test card's pace from the first frame (it also sets the keyframe interval the encoder is built for), and the card itself on the compositor.
+        val asked = runCatching { fpsTest() }.getOrNull()
+        val testRate = testRateFor(asked, status)
+        g.useTestRate(testRate, asked)?.let { apply(listOf(it)) }
         val rec = recordInto(settings.recordDir, settings.recordFrames)?.let {
             H264Recorder(it, settings.recordFrames, H264Recorder.nameFor(System.currentTimeMillis()), settings.recordRolling, log)
         }
@@ -179,6 +188,7 @@ internal class VideoLoop(
         stats?.stream(settings.bitrateMode, g.keyframeSec, fixed = true)
         apply(g.start(SystemClock.elapsedRealtime()))
         com.reau.app.data.ProjectionSummary.current.streaming(on = true, SystemClock.elapsedRealtime())
+        compositor.setFpsTest(testRate ?: 0)
         compositor.setOutput(checkNotNull(fresh.inputSurface), settings.frame, onFrameSubmitted = fresh::frameSubmitted)
         poller = Executors.newSingleThreadScheduledExecutor { Thread(it, "video-loop") }.also {
             it.scheduleWithFixedDelay(::poll, POLL_MS, POLL_MS, TimeUnit.MILLISECONDS)
@@ -228,6 +238,7 @@ internal class VideoLoop(
         val stopping = encoder
         encoder = null
         compositor.clearOutput { stopping?.release() }
+        compositor.setFpsTest(0)
         recorder?.close()
         recorder = null
         log("video loop stop (${output?.heldBack ?: 0} frames held back before a keyframe, ${output?.idrWithheld ?: 0} keyframes withheld for lack of SPS/PPS)")
@@ -258,7 +269,10 @@ internal class VideoLoop(
                 lastThermal = status
                 logThermal(status)
             }
-            compositor.burstGapMs = burstGap(status)
+            // The test card's pace for this poll: the rider's choice under the heat's ceiling. With it on there is no burst after a touch: the frames go out at the pace.
+            val asked = runCatching { fpsTest() }.getOrNull()
+            val testRate = testRateFor(asked, status)
+            compositor.burstGapMs = if (testRate != null) 0L else burstGap(status)
             val polledAtMs = SystemClock.elapsedRealtime()
             apply(
                 g.onPoll(
@@ -281,9 +295,13 @@ internal class VideoLoop(
                         // The heat stops the faster pace from the first sign of it ('moderate'): the heat has only the steps of ThermalCeiling under the fixed 6 fps.
                         lightScreen = lightScreenOn(settings.lightScreenFps, status, lightScreen),
                         encode = timed?.latency ?: StageStats.EMPTY,
+                        fpsTest = testRate,
+                        fpsTestAsked = asked,
                     ),
                 ),
             )
+            // The compositor labels the card with the pace in force, which the governor has just decided.
+            compositor.setFpsTest(if (g.testFps != null) g.fps else 0)
             // What each pace cost in bits, every 5 minutes of stream (and once more at the end, in [stop]).
             g.periodicPaceSummary(polledAtMs)?.let(log)
         }.onFailure { log("video loop poll failed: $it") }
@@ -301,6 +319,9 @@ internal class VideoLoop(
         g.syncRequested("withheld", nowMs)
         log("keyframe withheld for lack of SPS/PPS: a new one asked for")
     }
+
+    /** The pace the test card forces now: what the rider [asked] (null: the card is off) under what the phone's heat allows ([ThermalCeiling.capFor]); null with the card off. */
+    private fun testRateFor(asked: Int?, thermalStatus: Int): Int? = asked?.let { testRateUnderHeat(it, thermalStatus) }
 
     /**
      * The compositor draws a new picture at once while the rider's input is fresh ([InputBurst]) ([REauSettings.lightScreenFps]), a phone cooler
@@ -403,6 +424,9 @@ internal class VideoLoop(
         /** Whether the faster pace for a light screen applies now: it is set, the phone is cooler than 'moderate', and the screen says light. */
         internal fun lightScreenOn(lightScreenFps: Int, thermalStatus: Int, lightScreenNow: () -> Boolean): Boolean =
             lightScreenFps > 0 && thermalStatus < THERMAL_MODERATE && runCatching { lightScreenNow() }.getOrDefault(false)
+
+        /** The test card's pace [asked] brought under the heat's ceiling: the same steps as the stream's own ([ThermalCeiling.capFor]), never above what was asked. */
+        internal fun testRateUnderHeat(asked: Int, thermalStatus: Int): Int = ThermalCeiling.capFor(thermalStatus, asked)
 
         private const val POLL_MS = 250L
 

@@ -22,6 +22,9 @@ internal class PaceBitrateLog(private val everyMs: Long = SUMMARY_EVERY_MS) {
 
         /** The light screens of Android Auto, faster than profile B and never above A. */
         LIGHT("light"),
+
+        /** The debug build's FPS test card, which sets its own pace over all the others ([StreamGovernor.fps]). */
+        TEST("test"),
     }
 
     private data class Key(val kind: Kind, val fps: Int)

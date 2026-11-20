@@ -1117,6 +1117,8 @@ internal class LiveSides(
             val fresh = VideoLoop(compositor, dash, videoSettings, thermalStatus, link = linkSample, navSample = navSample,
                 lightScreen = { com.reau.app.stream.LightScreen.wanted(com.reau.app.aa.AaScreens.watch.screen.value) },
                 stats = statsFeed,
+                // The debug build's FPS test card, read from the live settings at each poll of the loop: on, off or another pace takes effect at once, with no new stream.
+                fpsTest = { tuned?.fpsTestRate },
             )
             if (fresh.start()) {
                 followFallback(fresh.frame)

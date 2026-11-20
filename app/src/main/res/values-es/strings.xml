@@ -448,6 +448,10 @@
     <string name="button_title">Código de botón sobre el video</string>
     <string name="button_overlay">Dibuja sobre el video del tablero el código del último botón que envió el tablero (por ejemplo \"0x05  PlayPause\") y, más pequeño, lo que REau hizo con él, en naranja con contorno negro. El texto se queda hasta que se pulse otro botón; activado, aquí aparecen la posición (X e Y) y el tamaño. Es para pruebas y solo de la compilación de depuración: se aplica de inmediato y el texto queda sobre el mapa.</string>
     <string name="section_button">Código de botón sobre el video</string>
+    <string name="section_fps_test_card">Cuadro de prueba de FPS</string>
+    <string name="fps_test_card_title">Cuadro de prueba de FPS</string>
+    <string name="fps_test_card_info">Cambia la imagen del tablero por un cuadro de prueba numerado. Filma el tablero: cada cuadro tiene su número, una casilla verde, un cuadrado par/impar y el número en binario; un número que falta es un cuadro perdido, uno repetido es un cuadro que el tablero mostró dos veces. El ritmo elegido vale solo mientras la prueba esté activada. Solo de la compilación de depuración, se aplica de inmediato, y el mapa desaparece mientras esté activada.</string>
+    <string name="fps_test_card_rate_title">Ritmo de la prueba</string>
     <string name="section_info_ring">Anillo de información en el tablero</string>
     <string name="info_ring_title">Anillo de información</string>
     <string name="info_ring_sub">Lluvia, viento y tormenta sobre el mapa; las demás tarjetas las activas tú</string>

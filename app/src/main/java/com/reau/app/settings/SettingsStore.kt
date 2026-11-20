@@ -225,6 +225,8 @@ class SettingsStore(private val prefs: SharedPreferences) {
             buttonX = prefs.getInt(KEY_BUTTON_X, defaults.buttonX),
             buttonY = prefs.getInt(KEY_BUTTON_Y, defaults.buttonY),
             buttonSize = prefs.getInt(KEY_BUTTON_SIZE, defaults.buttonSize),
+            fpsTestCard = prefs.getBoolean(KEY_FPS_TEST_CARD, defaults.fpsTestCard),
+            fpsTestCardFps = prefs.getInt(KEY_FPS_TEST_CARD_FPS, defaults.fpsTestCardFps),
             dashPhoneStatus = prefs.getBoolean(KEY_DASH_PHONE_STATUS, defaults.dashPhoneStatus),
             dashAlbumArt = prefs.getBoolean(KEY_DASH_ALBUM_ART, defaults.dashAlbumArt),
             maneuverRing = prefs.getBoolean(KEY_MANEUVER_RING, defaults.maneuverRing),
@@ -327,6 +329,8 @@ class SettingsStore(private val prefs: SharedPreferences) {
             putInt(KEY_BUTTON_X, s.buttonX)
             putInt(KEY_BUTTON_Y, s.buttonY)
             putInt(KEY_BUTTON_SIZE, s.buttonSize)
+            putBoolean(KEY_FPS_TEST_CARD, s.fpsTestCard)
+            putInt(KEY_FPS_TEST_CARD_FPS, s.fpsTestCardFps)
             putBoolean(KEY_DASH_PHONE_STATUS, s.dashPhoneStatus)
             putBoolean(KEY_DASH_ALBUM_ART, s.dashAlbumArt)
             putBoolean(KEY_MANEUVER_RING, s.maneuverRing)
@@ -435,6 +439,8 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val KEY_BUTTON_X = "button_x"
         private const val KEY_BUTTON_Y = "button_y"
         private const val KEY_BUTTON_SIZE = "button_size"
+        private const val KEY_FPS_TEST_CARD = "fps_test_card"
+        private const val KEY_FPS_TEST_CARD_FPS = "fps_test_card_fps"
         private const val KEY_DASH_PHONE_STATUS = "dash_phone_status"
         private const val KEY_DASH_ALBUM_ART = "dash_album_art"
         private const val KEY_MANEUVER_RING = "maneuver_ring"

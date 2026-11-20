@@ -170,6 +170,13 @@ data class REauSettings(
     val buttonY: Int = ButtonOverlay.DEFAULT_Y,
     val buttonSize: Int = ButtonOverlay.DEFAULT_SIZE,
     /**
+     * The FPS test card ([com.reau.app.video.FpsTestCard]): the picture sent to the dash is only a numbered test card, at the pace of [fpsTestCardFps]
+     * whatever Android Auto sends, to film the dash and count the frames. Off by default and a debug build's only, like the two texts above.
+     */
+    val fpsTestCard: Boolean = false,
+    /** The pace of the test card while it is on, one of [FPS_TEST_CARD_RATES] ([sanitized] brings it to the nearest); it does not touch the pace of the normal video. */
+    val fpsTestCardFps: Int = DEFAULT_FPS_TEST_CARD_FPS,
+    /**
      * The dash's heartbeat carries the phone's real battery, charging, GPS
      * and cell signal ([com.reau.app.service.PhoneStatusReader]) instead of the capture's 62 % and always-on GPS and
      * signal. On by default; the switch is there to go back if the joystick or the video ever act up with it.
@@ -255,6 +262,9 @@ data class REauSettings(
 
     /** The last-button text on the dash's video: debug builds only, like [overlay]. */
     val buttonLook: ButtonOverlay get() = ButtonOverlay(buttonOverlay && com.reau.app.BuildConfig.DEBUG, buttonX, buttonY, buttonSize)
+
+    /** The pace the test card forces on the stream, or null (the normal pace): only with the card on in a debug build, like [overlay]. */
+    val fpsTestRate: Int? get() = if (fpsTestCard && com.reau.app.BuildConfig.DEBUG) nearestFpsTestRate(fpsTestCardFps) else null
 
     /** The apps' fit (Waze, Google Maps, Spotify...), the fields of before. */
     val appsFit: FitParams get() = FitParams(fit, cropPercent, cropX, cropY, moveX, moveY, zoom, cover)
@@ -388,6 +398,9 @@ data class REauSettings(
             // The two texts over the dash's video are a debug build's: a value left on by one build must not draw in the other.
             statsOverlay = statsOverlay && debugBuild,
             buttonOverlay = buttonOverlay && debugBuild,
+            // The test card is a debug build's too, and its pace is one of the offered.
+            fpsTestCard = fpsTestCard && debugBuild,
+            fpsTestCardFps = nearestFpsTestRate(fpsTestCardFps),
             videoFrame = DashConfig.VIDEO_FRAME.id,
             clockSlowPercent = 0,
             phoneTouch = true,
@@ -463,6 +476,14 @@ data class REauSettings(
 
         /** [value] when it is one of [DENSITIES]; anything else goes back to the default, 180 (it is not rounded to a neighbour). */
         fun allowedDensity(value: Int): Int = if (value in DENSITIES) value else DEFAULT_DENSITY
+
+        /** The paces the FPS test card is offered at. */
+        val FPS_TEST_CARD_RATES = listOf(4, 6, 8, 10, 12)
+
+        /** The offered pace nearest to [value]; the lower one on a tie (5 gives 4, 7 gives 6, 0 gives 4, 13 gives 12). */
+        fun nearestFpsTestRate(value: Int): Int = FPS_TEST_CARD_RATES.minBy { kotlin.math.abs(it.toLong() - value) }
+
+        const val DEFAULT_FPS_TEST_CARD_FPS = 6
 
         val FPS = 4..30
         val CROP = 20..100
