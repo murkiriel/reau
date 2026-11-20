@@ -391,7 +391,7 @@ data class REauSettings(
             videoFrame = DashConfig.VIDEO_FRAME.id,
             clockSlowPercent = 0,
             phoneTouch = true,
-            density = nearestDensity(density),
+            density = allowedDensity(density),
             marginW = marginW.coerceIn(0, AaVideo.WIDTH - MIN_PICTURE),
             marginH = marginH.coerceIn(0, AaVideo.HEIGHT - MIN_PICTURE),
             navProfileMode = NavProfileMode.PESSIMISTA,
@@ -461,8 +461,8 @@ data class REauSettings(
         /** The Android Auto DPIs the rider can pick (plan 32, 20/11/2026); 180 is the default. */
         val DENSITIES = listOf(180, 190, 200)
 
-        /** The offered DPI closest to [value]; on a tie, the smaller one (the list is ascending and [minBy] keeps the first). */
-        fun nearestDensity(value: Int): Int = DENSITIES.minBy { kotlin.math.abs(it.toLong() - value) }
+        /** [value] when it is one of [DENSITIES]; anything else goes back to the default, 180 (it is not rounded to a neighbour). */
+        fun allowedDensity(value: Int): Int = if (value in DENSITIES) value else DEFAULT_DENSITY
 
         val FPS = 4..30
         val CROP = 20..100

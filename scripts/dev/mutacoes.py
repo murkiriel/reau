@@ -4440,12 +4440,16 @@ MUTATIONS += [
 
 # Plano 32 (20/11/2026): o DPI do Android Auto é uma escolha entre 180, 190 e 200 (P32D), não mais um contador de 80 a 640.
 MUTATIONS += [
-    ("P32D DPI: num empate o valor maior é o escolhido", MAIN + "settings/REauSettings.kt",
-     "DENSITIES.minBy { kotlin.math.abs(it.toLong() - value) }", "DENSITIES.reversed().minBy { kotlin.math.abs(it.toLong() - value) }", ["REauSettingsTest"]),
-    ("P32D DPI: a distância estoura com um valor muito negativo", MAIN + "settings/REauSettings.kt",
-     "kotlin.math.abs(it.toLong() - value)", "kotlin.math.abs(it - value)", ["REauSettingsTest"]),
+    ("P32D DPI: o que está fora da lista vai para o valor de cima", MAIN + "settings/REauSettings.kt",
+     "if (value in DENSITIES) value else DEFAULT_DENSITY", "if (value in DENSITIES) value else DENSITIES.last()", ["REauSettingsTest"]),
+    ("P32D DPI: o que está fora da lista vai para o valor do meio", MAIN + "settings/REauSettings.kt",
+     "if (value in DENSITIES) value else DEFAULT_DENSITY", "if (value in DENSITIES) value else DENSITIES[1]", ["REauSettingsTest"]),
+    ("P32D DPI: um valor da lista também vira 180", MAIN + "settings/REauSettings.kt",
+     "if (value in DENSITIES) value else DEFAULT_DENSITY", "DEFAULT_DENSITY", ["REauSettingsTest"]),
+    ("P32D DPI: o que está fora da lista é arredondado para o vizinho", MAIN + "settings/REauSettings.kt",
+     "if (value in DENSITIES) value else DEFAULT_DENSITY", "DENSITIES.minBy { kotlin.math.abs(it.toLong() - value) }", ["REauSettingsTest"]),
     ("P32D DPI: o que está fora da lista não é trazido para ela", MAIN + "settings/REauSettings.kt",
-     "density = nearestDensity(density),", "density = density,", ["REauSettingsTest"]),
+     "density = allowedDensity(density),", "density = density,", ["REauSettingsTest"]),
     ("P32D DPI: a lista oferece 210 no lugar de 200", MAIN + "settings/REauSettings.kt",
      "val DENSITIES = listOf(180, 190, 200)", "val DENSITIES = listOf(180, 190, 210)", ["REauSettingsTest", "DensityChoiceTest"]),
     ("P32D DPI: o segmento marcado não é o da configuração", MAIN + "ui/FitPanel.kt",

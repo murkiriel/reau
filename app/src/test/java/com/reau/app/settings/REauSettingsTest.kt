@@ -117,7 +117,7 @@ class REauSettingsTest {
             density = 9_999, marginW = -5, marginH = 900,
             cropPercent = 3, fpsCeiling = 99, clockSlowPercent = 4, moveX = -999, moveY = 999,
         ).sanitized()
-        assertEquals("the nearest of the three offered", 200, wild.density)
+        assertEquals("not one of the three offered: the default", 180, wild.density)
         assertEquals(0, wild.marginW)
         assertEquals("at least 16 px of picture left", 480 - 16, wild.marginH)
         assertEquals(20, wild.cropPercent)
@@ -130,23 +130,23 @@ class REauSettingsTest {
         assertEquals(180 to 6, low.density to low.fpsCeiling)
     }
 
-    /** Plan 32 (20/11/2026): the DPI is one of 180, 190 and 200; whatever else was saved goes to the nearest, the smaller on a tie. */
+    /** Plan 32 (20/11/2026): the DPI is one of 180, 190 and 200; whatever else was saved goes back to the default, 180, not to a neighbour. */
     @Test
-    fun `the density is one of the three offered, any other goes to the nearest and a tie to the smaller`() {
+    fun `the density is one of the three offered, any other goes back to 180`() {
         val expected = mapOf(
-            160 to 180, 185 to 180, 195 to 190, 240 to 200, 180 to 180, 190 to 190, 200 to 200,
-            -5 to 180, 0 to 180, 170 to 180, 175 to 180, 187 to 190, 192 to 190, 205 to 200, 640 to 200, Int.MAX_VALUE to 200, Int.MIN_VALUE to 180,
+            160 to 180, 185 to 180, 195 to 180, 210 to 180, 240 to 180, 180 to 180, 190 to 190, 200 to 200,
+            -5 to 180, 0 to 180, 170 to 180, 199 to 180, 201 to 180, 640 to 180, Int.MAX_VALUE to 180, Int.MIN_VALUE to 180,
         )
         for ((asked, kept) in expected) {
-            assertEquals("asked $asked", kept, REauSettings.nearestDensity(asked))
+            assertEquals("asked $asked", kept, REauSettings.allowedDensity(asked))
             assertEquals("asked $asked, sanitized", kept, REauSettings(density = asked).sanitized().density)
         }
         assertEquals("a new install is on 180", 180, REauSettings().density)
     }
 
     @Test
-    fun `a density an older build saved out of the list is read already normalized and saved back so`() {
-        for ((stored, kept) in mapOf(160 to 180, 185 to 180, 195 to 190, 240 to 200, 180 to 180, 190 to 190, 200 to 200)) {
+    fun `a density an older build saved out of the list is read as 180 and saved back so`() {
+        for ((stored, kept) in mapOf(160 to 180, 185 to 180, 195 to 180, 210 to 180, 240 to 180, 180 to 180, 190 to 190, 200 to 200)) {
             val prefs = KeystoreBackedPrefsTest.FakePrefs()
             prefs.edit().putInt("density", stored).apply()
             val store = SettingsStore(prefs)
@@ -672,7 +672,7 @@ class REauSettingsTest {
     fun `what is saved is saved sane`() {
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
         SettingsStore(prefs).save(REauSettings(density = 5_000))
-        assertEquals(200, prefs.getInt("density", 0))
+        assertEquals(180, prefs.getInt("density", 0))
     }
 
     // The map-mode choices of the page saved before the one-tap joystick are forgotten on the first reading; the media
