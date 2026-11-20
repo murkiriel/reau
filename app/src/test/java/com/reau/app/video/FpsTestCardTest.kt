@@ -149,7 +149,9 @@ class FpsTestCardTest {
         val draw = ink.substringAfter("fun draw(").substringBefore("/** Lets go")
         assertEquals("one place makes the bitmap", 1, Regex("""createBitmap\(""").findAll(ink).count())
         assertTrue(draw, draw.contains("if (bmp == null || bmp.width != width || bmp.height != height)"))
-        assertTrue("the texture is written over, not made again, for the same size", File("src/main/java/com/reau/app/video/CompositorGl.kt").readText().contains("GLUtils.texSubImage2D"))
+        val set = File("src/main/java/com/reau/app/video/CompositorGl.kt").readText().substringAfter("fun setTestCard(").substringBefore("private fun initOverlay")
+        assertTrue("the texture is written over, not made again, for the same size", set.contains("if (testW == bitmap.width && testH == bitmap.height) {\n            GLUtils.texSubImage2D("))
+        assertTrue("and made again only when the size changes", set.contains("} else {\n            GLUtils.texImage2D("))
     }
 
     @Test
