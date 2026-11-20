@@ -328,27 +328,33 @@ class DashWifiManager(
      * declaring a refusal (ride of 19/11/2026, 01:26: "the dash is stuck" 1.8 s into a join that had worked). One step under [requestLock]:
      * nothing is taken for a manager switched off, or whose request is no longer [dead] (a newer one is out). The request that ended is let
      * go for good, so none is left open (Android has already dropped it; the call only makes sure) and the only callback left is the watcher
-     * of the network taken. False when there was nothing to take (the network went in between): the caller gives the refusal it always gave.
+     * of the network taken. The answer is [JoinRules.Adoption]: ADOPTED; STALE (switched off, or a newer request is out: nothing is touched, one line is logged
+     * and the caller does nothing more); GONE (the network went in between): the caller gives the refusal it always gave.
      * A socket that Android then refuses (EPERM) goes the way it always went: [bindResult].
      */
-    private fun adoptTheNetworkThePhoneJoined(dead: ConnectivityManager.NetworkCallback, tookMs: Long, quickInARow: Int): Boolean {
+    private fun adoptTheNetworkThePhoneJoined(dead: ConnectivityManager.NetworkCallback, tookMs: Long, quickInARow: Int): JoinRules.Adoption {
         synchronized(requestLock) {
-            if (!wantConnected || networkCallback !== dead) return false
-            runCatching { cm.unregisterNetworkCallback(dead) }
-            callbackRegistered = false
-            networkCallback = null
-            val line = "unavailable after ${tookMs}ms (initial connect) — " +
-                "dash network already up (joined by the phone itself): adopting it instead of a refusal; " +
-                "quick=$quickInARow joined=$joinedOnce firstApproval=$requestFirstApproval approvedBefore=${approvedBefore()}; ${lastScanEvidence()}"
-            Log.i(TAG, "WiFi unavailable (${tookMs}ms) — the dash's network is already up: adopting it")
-            com.reau.app.data.RideDiagnostics.log("wifi", line)
-            val taken = useAlreadyConnectedNetwork()
-            if (!taken) {
-                com.reau.app.data.RideDiagnostics.warn(
+            val outcome = JoinRules.adoption(wantConnected, requestIsCurrent = networkCallback === dead) {
+                runCatching { cm.unregisterNetworkCallback(dead) }
+                callbackRegistered = false
+                networkCallback = null
+                val line = "unavailable after ${tookMs}ms (initial connect) — " +
+                    "dash network already up (joined by the phone itself): adopting it instead of a refusal; " +
+                    "quick=$quickInARow joined=$joinedOnce firstApproval=$requestFirstApproval approvedBefore=${approvedBefore()}; ${lastScanEvidence()}"
+                Log.i(TAG, "WiFi unavailable (${tookMs}ms) — the dash's network is already up: adopting it")
+                com.reau.app.data.RideDiagnostics.log("wifi", line)
+                useAlreadyConnectedNetwork()
+            }
+            when (outcome) {
+                JoinRules.Adoption.ADOPTED -> Unit
+                JoinRules.Adoption.STALE -> com.reau.app.data.RideDiagnostics.log(
+                    "wifi", "unavailable of a request that is no longer the one in force (switched off or a newer one is out): nothing adopted, nothing given up",
+                )
+                JoinRules.Adoption.GONE -> com.reau.app.data.RideDiagnostics.warn(
                     "wifi", "the dash network that was up went before it could be adopted: the refusal stands as it always did",
                 )
             }
-            return taken
+            return outcome
         }
     }
 
@@ -651,7 +657,8 @@ class DashWifiManager(
             when {
                 outcome == JoinRules.Unavailable.RetryMidSession -> retryAfterUnavailable(tookMs)
                 // The phone already has the dash's network up (it joined by itself): that is the answer to the request, not a refusal.
-                outcome == JoinRules.Unavailable.AdoptExisting && adoptTheNetworkThePhoneJoined(this, tookMs, early) -> Unit
+                outcome == JoinRules.Unavailable.AdoptExisting &&
+                    adoptTheNetworkThePhoneJoined(this, tookMs, early) != JoinRules.Adoption.GONE -> Unit
                 else -> giveUpAfterUnavailable(outcome, seenNow, tookMs, early)
             }
         }

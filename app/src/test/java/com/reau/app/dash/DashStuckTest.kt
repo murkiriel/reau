@@ -138,17 +138,45 @@ class DashStuckTest {
     fun `the callback adopts the network under the lock, lets the request go and leaves the refusal when it cannot`() {
         val manager = java.io.File("src/main/java/com/reau/app/dash/DashWifiManager.kt").readText()
         val callback = manager.substringAfter("override fun onUnavailable()").substringBefore("override fun onLosing(")
-        assertTrue(callback, "outcome == JoinRules.Unavailable.AdoptExisting && adoptTheNetworkThePhoneJoined(this, tookMs, early) -> Unit" in callback)
+        assertTrue(
+            callback,
+            "outcome == JoinRules.Unavailable.AdoptExisting &&\n                    adoptTheNetworkThePhoneJoined(this, tookMs, early) != JoinRules.Adoption.GONE -> Unit" in callback,
+        )
         assertTrue(callback, "else -> giveUpAfterUnavailable(outcome, seenNow, tookMs, early)" in callback)
         assertTrue(callback, "dashNetworkUp = { findAlreadyConnectedDashNetwork() != null }" in callback)
         val giveUp = manager.substringAfter("private fun giveUpAfterUnavailable(").substringBefore("Canonical place to read the connected SSID")
         assertTrue("the refusal stays for an adoption that did not hold", "?: refusal(seenInScan, tookMs, requestTimeoutMs, joinedOnce, quickRefusals)" in giveUp)
         val adoption = manager.substringAfter("private fun adoptTheNetworkThePhoneJoined(").substringBefore("private fun askForTheNetwork")
         assertTrue(adoption, "synchronized(requestLock)" in adoption)
-        assertTrue("a stale request or a switch-off adopts nothing", "if (!wantConnected || networkCallback !== dead) return false" in adoption)
+        assertTrue("a stale request or a switch-off adopts nothing", "JoinRules.adoption(wantConnected, requestIsCurrent = networkCallback === dead)" in adoption)
+        assertTrue("it says one of three things", "): JoinRules.Adoption {" in adoption)
+        assertTrue("a stale callback only logs one line", "JoinRules.Adoption.STALE -> com.reau.app.data.RideDiagnostics.log(" in adoption)
+        assertFalse("and touches no state", "wantConnected = false" in adoption || "WifiConnStatus.ERROR" in adoption)
         assertTrue("the request that ended is let go", "cm.unregisterNetworkCallback(dead)" in adoption)
         assertTrue(adoption.indexOf("networkCallback = null") in 0 until adoption.indexOf("useAlreadyConnectedNetwork()"))
         assertTrue(adoption, "dash network already up (joined by the phone itself): adopting it instead of a refusal" in adoption)
-        assertTrue("the same path as any network the phone joined by itself", "val taken = useAlreadyConnectedNetwork()" in adoption)
+        assertTrue("the same path as any network the phone joined by itself", "useAlreadyConnectedNetwork()" in adoption)
+    }
+
+    @Test
+    fun `an adoption of a stale callback is neither taken nor refused, only a gone network is refused`() {
+        var asked = false
+        val take = { asked = true; true }
+        assertEquals("switched off", JoinRules.Adoption.STALE, JoinRules.adoption(wantConnected = false, requestIsCurrent = true, taken = take))
+        assertEquals("a newer request is out", JoinRules.Adoption.STALE, JoinRules.adoption(wantConnected = true, requestIsCurrent = false, taken = take))
+        assertEquals("both", JoinRules.Adoption.STALE, JoinRules.adoption(wantConnected = false, requestIsCurrent = false, taken = take))
+        assertFalse("a stale callback takes nothing", asked)
+        assertEquals(JoinRules.Adoption.ADOPTED, JoinRules.adoption(wantConnected = true, requestIsCurrent = true, taken = take))
+        assertTrue(asked)
+        assertEquals("the network went in between", JoinRules.Adoption.GONE, JoinRules.adoption(wantConnected = true, requestIsCurrent = true) { false })
+    }
+
+    /** Only GONE reaches the refusal; ADOPTED and STALE do nothing more in the callback. */
+    @Test
+    fun `the callback gives up only for a gone network`() {
+        val manager = java.io.File("src/main/java/com/reau/app/dash/DashWifiManager.kt").readText()
+        val callback = manager.substringAfter("override fun onUnavailable()").substringBefore("override fun onLosing(")
+        assertEquals(1, Regex("""!= JoinRules\.Adoption\.GONE -> Unit""").findAll(callback).count())
+        assertFalse("a stale callback is no refusal", "Adoption.STALE ->" in callback)
     }
 }

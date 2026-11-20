@@ -97,6 +97,30 @@ internal object JoinRules {
         else -> Unavailable.Refused(refusal(seenInScan(), attempt.tookMs, attempt.timeoutMs, attempt.joinedBefore, attempt.earlyInARow))
     }
 
+    /** What came of the adoption of a network the phone joined by itself ([adoption]). */
+    enum class Adoption {
+        /** The network was taken: the request that ended is answered, no refusal. */
+        ADOPTED,
+
+        /** Nothing to do with this callback any more: the manager is switched off or a newer request is out. No state is touched, no refusal is given. */
+        STALE,
+
+        /** The network went before it could be taken: the refusal stands, as it always did. */
+        GONE,
+    }
+
+    /**
+     * The adoption's outcome, in the order of the checks: a manager switched off ([wantConnected]) or a callback that is no longer the request in force
+     * ([requestIsCurrent]) is [Adoption.STALE], whatever the network does, and [taken] is not asked; otherwise [taken] (it takes the network, true when it did)
+     * says [Adoption.ADOPTED] or [Adoption.GONE]. Only [Adoption.GONE] gives the refusal: giving it for a stale callback would write ERROR and
+     * `wantConnected = false` over the newer request, which would stay open in Android with nobody listening.
+     */
+    internal fun adoption(wantConnected: Boolean, requestIsCurrent: Boolean, taken: () -> Boolean): Adoption = when {
+        !wantConnected || !requestIsCurrent -> Adoption.STALE
+        taken() -> Adoption.ADOPTED
+        else -> Adoption.GONE
+    }
+
     /** What the join that ended says of itself, for the verdict of [refusal]: how long it took, the wait it was given, whether the dash had worked, and the quick refusals in a row. */
     internal data class Attempt(val tookMs: Long, val timeoutMs: Int, val joinedBefore: Boolean, val earlyInARow: Int)
 
