@@ -16,13 +16,13 @@ class VideoLoopRulesTest {
 
     @Test
     fun `the compositor draws at once while the input is fresh only with the faster pace set, a phone cooler than moderate and pictures on the dash`() {
-        assertEquals(InputBurst.GAP_MS, VideoLoop.burstGapFor(lightScreenFps = 4, thermalStatus = cool, firstFrameConfirmed = true))
-        assertEquals(InputBurst.GAP_MS, VideoLoop.burstGapFor(4, light, true))
-        assertEquals(InputBurst.GAP_MS, VideoLoop.burstGapFor(4, VideoLoop.THERMAL_UNKNOWN, true))
-        assertEquals("the pace is not set", 0L, VideoLoop.burstGapFor(0, cool, true))
-        assertEquals("moderate heat", 0L, VideoLoop.burstGapFor(4, moderate, true))
-        assertEquals("hotter", 0L, VideoLoop.burstGapFor(4, 4, true))
-        assertEquals("the dash shows no picture yet", 0L, VideoLoop.burstGapFor(4, cool, false))
+        assertEquals(250L, VideoLoop.burstGapFor(lightScreenFps = 4, thermalStatus = cool, firstFrameConfirmed = true, profileFps = 4))
+        assertEquals(250L, VideoLoop.burstGapFor(4, light, true, 4))
+        assertEquals(250L, VideoLoop.burstGapFor(4, VideoLoop.THERMAL_UNKNOWN, true, 4))
+        assertEquals("the pace is not set", 0L, VideoLoop.burstGapFor(0, cool, true, 4))
+        assertEquals("moderate heat", 0L, VideoLoop.burstGapFor(4, moderate, true, 4))
+        assertEquals("hotter", 0L, VideoLoop.burstGapFor(4, 4, true, 4))
+        assertEquals("the dash shows no picture yet", 0L, VideoLoop.burstGapFor(4, cool, false, 4))
     }
 
     @Test

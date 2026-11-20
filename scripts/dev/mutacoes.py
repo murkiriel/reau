@@ -807,7 +807,7 @@ MUTATIONS = [
      "thermalStatus < THERMAL_MODERATE && firstFrameConfirmed", "thermalStatus <= THERMAL_MODERATE && firstFrameConfirmed",
      ["VideoLoopRulesTest"]),
     ("VideoLoop: a rajada vale antes de o painel confirmar o primeiro quadro", MAIN + "stream/VideoLoop.kt",
-     "if (lightScreenFps > 0 && thermalStatus < THERMAL_MODERATE && firstFrameConfirmed) InputBurst.GAP_MS else 0L", "if (lightScreenFps > 0 && thermalStatus < THERMAL_MODERATE) InputBurst.GAP_MS else 0L",
+     "if (lightScreenFps > 0 && thermalStatus < THERMAL_MODERATE && firstFrameConfirmed) InputBurst.gapMs(profileFps) else 0L", "if (lightScreenFps > 0 && thermalStatus < THERMAL_MODERATE) InputBurst.gapMs(profileFps) else 0L",
      ["VideoLoopRulesTest"]),
     ("VideoLoop: a tela clara vale com o ritmo desligado", MAIN + "stream/VideoLoop.kt",
      "lightScreenFps > 0 && thermalStatus < THERMAL_MODERATE && runCatching", "thermalStatus < THERMAL_MODERATE && runCatching",
@@ -4536,7 +4536,7 @@ MUTATIONS += [
     ("P32T ritmo: o ritmo do teste é contado no perfil A no resumo de bitrate", MAIN + "stream/StreamGovernor.kt",
      "        testFps != null -> PaceBitrateLog.Kind.TEST\n", "", ["FpsTestCardGovernorTest"]),
     ("P32T ritmo: a rajada depois do toque continua com o teste ligado", MAIN + "stream/VideoLoop.kt",
-     "compositor.burstGapMs = if (testRate != null) 0L else burstGap(status)", "compositor.burstGapMs = burstGap(status)", ["FpsTestCardTest"]),
+     "compositor.burstGapMs = if (testRate != null) 0L else burstGap(status, g.encoderFps)", "compositor.burstGapMs = burstGap(status, g.encoderFps)", ["FpsTestCardTest"]),
     ("P32T ritmo: o compositor não é avisado do ritmo em vigor", MAIN + "stream/VideoLoop.kt",
      "compositor.setFpsTest(if (g.testFps != null) g.fps else 0)", "compositor.setFpsTest(if (g.testFps != null) 6 else 0)", ["FpsTestCardTest"]),
     ("P32T ritmo: o quadro de teste não sai com o fim do fluxo", MAIN + "stream/VideoLoop.kt",
@@ -4738,6 +4738,14 @@ MUTATIONS += [
      '<string name="driving_side_left">Mão inglesa</string>', '<string name="driving_side_left">Mão esquerda</string>', ["DrivingSideChoiceTest"]),
     ("P32M lado: a rotatória do formato antigo sem lado ganha direção", MAIN + "aa/AapNavigationStatus.kt",
      "!detail.hasSide() || detail.side == NavigationStatus.NextTurnDetail.Side.UNSPECIFIED ->", "false ->", ["AapControlNavigationTest"]),
+]
+
+# Leva P32Z (20/11/2026): as cinco correções da revisão do plano 32.
+MUTATIONS += [
+    ("P32Z rajada: o intervalo da rajada ignora o ritmo do perfil", MAIN + "stream/InputBurst.kt",
+     "maxOf(GAP_MS, (MS_PER_S + profileFps - 1) / profileFps)", "GAP_MS", ["InputBurstTest", "VideoLoopRulesTest", "VideoPaceGovernorTest"]),
+    ("P32Z rajada: o anel de informações redesenha mais depressa que o ritmo do perfil", MAIN + "video/DashCompositor.kt",
+     "val gapMs = maxOf(CompositorMath.RING_REDRAW_GAP_MS, frameGapFloorMs)", "val gapMs = CompositorMath.RING_REDRAW_GAP_MS", ["InputBurstTest"]),
 ]
 
 

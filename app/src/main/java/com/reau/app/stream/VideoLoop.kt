@@ -189,6 +189,7 @@ internal class VideoLoop(
         apply(g.start(SystemClock.elapsedRealtime()))
         com.reau.app.data.ProjectionSummary.current.streaming(on = true, SystemClock.elapsedRealtime())
         compositor.setFpsTest(testRate ?: 0)
+        compositor.frameGapFloorMs = InputBurst.gapMs(g.encoderFps)
         compositor.setOutput(checkNotNull(fresh.inputSurface), settings.frame, onFrameSubmitted = fresh::frameSubmitted)
         poller = Executors.newSingleThreadScheduledExecutor { Thread(it, "video-loop") }.also {
             it.scheduleWithFixedDelay(::poll, POLL_MS, POLL_MS, TimeUnit.MILLISECONDS)
@@ -272,7 +273,8 @@ internal class VideoLoop(
             // The test card's pace for this poll: the rider's choice under the heat's ceiling. With it on there is no burst after a touch: the frames go out at the pace.
             val asked = runCatching { fpsTest() }.getOrNull()
             val testRate = testRateFor(asked, status)
-            compositor.burstGapMs = if (testRate != null) 0L else burstGap(status)
+            compositor.burstGapMs = if (testRate != null) 0L else burstGap(status, g.encoderFps)
+            compositor.frameGapFloorMs = InputBurst.gapMs(g.encoderFps)
             val polledAtMs = SystemClock.elapsedRealtime()
             apply(
                 g.onPoll(
@@ -325,9 +327,10 @@ internal class VideoLoop(
 
     /**
      * The compositor draws a new picture at once while the rider's input is fresh ([InputBurst]) ([REauSettings.lightScreenFps]), a phone cooler
-     * than 'moderate' and the dash showing pictures; 0: off.
+     * than 'moderate' and the dash showing pictures; 0: off. Never closer than a frame of the profile's pace ([profileFps], profile A in force).
      */
-    private fun burstGap(thermalStatus: Int): Long = burstGapFor(settings.lightScreenFps, thermalStatus, dash.firstFrameConfirmed)
+    private fun burstGap(thermalStatus: Int, profileFps: Int): Long =
+        burstGapFor(settings.lightScreenFps, thermalStatus, dash.firstFrameConfirmed, profileFps)
 
     private fun apply(actions: List<StreamGovernor.Action>) {
         for (action in actions) {
@@ -416,10 +419,11 @@ internal class VideoLoop(
 
         /**
          * The gap the compositor draws a new picture at once with while the rider's input is fresh ([InputBurst]): only with the faster
-         * pace set, a phone cooler than 'moderate' and the dash showing pictures; 0: off.
+         * pace set, a phone cooler than 'moderate' and the dash showing pictures; 0: off. It is [InputBurst.gapMs] of the profile's pace
+         * ([profileFps]): the burst brings the next frame forward and never takes the video above the pace in force.
          */
-        internal fun burstGapFor(lightScreenFps: Int, thermalStatus: Int, firstFrameConfirmed: Boolean): Long =
-            if (lightScreenFps > 0 && thermalStatus < THERMAL_MODERATE && firstFrameConfirmed) InputBurst.GAP_MS else 0L
+        internal fun burstGapFor(lightScreenFps: Int, thermalStatus: Int, firstFrameConfirmed: Boolean, profileFps: Int): Long =
+            if (lightScreenFps > 0 && thermalStatus < THERMAL_MODERATE && firstFrameConfirmed) InputBurst.gapMs(profileFps) else 0L
 
         /** Whether the faster pace for a light screen applies now: it is set, the phone is cooler than 'moderate', and the screen says light. */
         internal fun lightScreenOn(lightScreenFps: Int, thermalStatus: Int, lightScreenNow: () -> Boolean): Boolean =

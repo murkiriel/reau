@@ -76,6 +76,12 @@ class DashCompositor(private val log: (String) -> Unit) {
      */
     @Volatile var burstGapMs = 0L
 
+    /**
+     * The least time between two frames drawn off the tick for the info ring ([redrawSoon]): never closer than a frame of the profile's pace
+     * ([com.reau.app.stream.InputBurst.gapMs]), so the ring cannot take the video above it. 0 (the default): only [CompositorMath.RING_REDRAW_GAP_MS]. Set by the video loop.
+     */
+    @Volatile var frameGapFloorMs = 0L
+
     /** The last pace asked for the FPS test card by [setFpsTest], so a poll that asks for the same thing again posts nothing. */
     @Volatile private var askedTestRate = 0
 
@@ -621,7 +627,8 @@ class DashCompositor(private val log: (String) -> Unit) {
     private fun redrawSoon() {
         if (!gl.hasOutput || burstPending || fpsTestRate > 0) return
         burstPending = true
-        handler.postDelayed(ringDraw, CompositorMath.redrawWaitMs(lastFrameAtMs, SystemClock.uptimeMillis()))
+        val gapMs = maxOf(CompositorMath.RING_REDRAW_GAP_MS, frameGapFloorMs)
+        handler.postDelayed(ringDraw, CompositorMath.redrawWaitMs(lastFrameAtMs, SystemClock.uptimeMillis(), gapMs))
     }
 
     private val ringDraw = Runnable {

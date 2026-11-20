@@ -165,7 +165,7 @@ class FpsTestCardTest {
     @Test
     fun `the loop gives the card its pace from the settings, under the heat, and takes the burst away while it is on`() {
         val loop = File("src/main/java/com/reau/app/stream/VideoLoop.kt").readText()
-        assertTrue(loop.contains("compositor.burstGapMs = if (testRate != null) 0L else burstGap(status)"))
+        assertTrue(loop.contains("compositor.burstGapMs = if (testRate != null) 0L else burstGap(status, g.encoderFps)"))
         assertTrue(loop.contains("compositor.setFpsTest(if (g.testFps != null) g.fps else 0)"))
         assertTrue(loop.contains("ThermalCeiling.capFor(thermalStatus, asked)"))
         assertTrue("the card goes off with the stream", loop.substringAfter("fun stop()").substringBefore("private fun poll").contains("compositor.setFpsTest(0)"))

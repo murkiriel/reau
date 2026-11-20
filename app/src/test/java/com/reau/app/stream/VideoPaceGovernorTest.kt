@@ -171,10 +171,12 @@ class VideoPaceGovernorTest {
     }
 
     @Test
-    fun `the input burst is as it was, a light screen's business whatever the pace`() {
-        assertEquals(InputBurst.GAP_MS, VideoLoop.burstGapFor(VideoPace.ORIGINAL.lightScreenFps, thermalStatus = 0, firstFrameConfirmed = true))
-        assertEquals(InputBurst.GAP_MS, VideoLoop.burstGapFor(VideoPace.REAU.lightScreenFps, thermalStatus = 0, firstFrameConfirmed = true))
-        assertEquals(0L, VideoLoop.burstGapFor(0, thermalStatus = 0, firstFrameConfirmed = true))
+    fun `the input burst is a light screen's business and never goes above the pace of the profile`() {
+        val original = VideoLoop.burstGapFor(VideoPace.ORIGINAL.lightScreenFps, thermalStatus = 0, firstFrameConfirmed = true, profileFps = VideoPace.ORIGINAL.fullFps)
+        val reau = VideoLoop.burstGapFor(VideoPace.REAU.lightScreenFps, thermalStatus = 0, firstFrameConfirmed = true, profileFps = VideoPace.REAU.fullFps)
+        assertTrue("Original (4 fps): $original", original >= 250L)
+        assertTrue("REau (6 fps): $reau", reau >= 167L)
+        assertEquals(0L, VideoLoop.burstGapFor(0, thermalStatus = 0, firstFrameConfirmed = true, profileFps = VideoPace.REAU.fullFps))
     }
 
     private companion object {
