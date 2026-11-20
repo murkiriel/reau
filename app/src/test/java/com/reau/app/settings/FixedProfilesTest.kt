@@ -17,9 +17,11 @@ import org.junit.Test
 class FixedProfilesTest {
 
     @Test
-    fun `the defaults are profile 1`() {
+    fun `the defaults are profile 1 in a release build, and the debug build starts at 6 fps`() {
+        val release = REauSettings().sanitized(debugBuild = false)
+        assertEquals(listOf(4, 400_000), listOf(release.fpsCeiling, release.streamBitrateBps))
         val s = REauSettings()
-        assertEquals(4, s.fpsCeiling)
+        assertEquals("the debug build's first choice (VideoChoiceStoreTest)", 6, s.fpsCeiling)
         assertEquals(400_000, s.streamBitrateBps)
         assertEquals(BitrateMode.CBR, s.bitrateMode)
         assertEquals(1, s.keyframeSec)
@@ -36,7 +38,7 @@ class FixedProfilesTest {
 
     @Test
     fun `a value set in code is brought back to profile 1`() {
-        val s = REauSettings(fpsCeiling = 16, streamBitrateBps = 900_000, bitrateMode = BitrateMode.VBR, keyframeSec = 2).sanitized()
+        val s = REauSettings(fpsCeiling = 16, streamBitrateBps = 900_000, bitrateMode = BitrateMode.VBR, keyframeSec = 2).sanitized(debugBuild = false)
         assertEquals(listOf(4, 400_000, 1), listOf(s.fpsCeiling, s.streamBitrateBps, s.keyframeSec))
         assertEquals(BitrateMode.CBR, s.bitrateMode)
         assertEquals("automatic keyframe is gone too", 1, REauSettings(keyframeSec = 0).sanitized().keyframeSec)
@@ -48,7 +50,8 @@ class FixedProfilesTest {
         prefs.edit().putBoolean("conservative_video_20261010", true).putInt("fps_ceiling", 12).putInt("stream_bitrate", 1_024_000)
             .putString("bitrate_mode", "VBR").putInt("keyframe_sec", 2).putInt("density", 200).apply()
         val s = SettingsStore(prefs).load()
-        assertEquals(listOf(4, 400_000, 1), listOf(s.fpsCeiling, s.streamBitrateBps, s.keyframeSec))
+        // The old keys of the pace and the bitrate are not read any more: a release build is fixed at 4 fps, a debug build starts at its own default.
+        assertEquals(listOf(if (com.reau.app.BuildConfig.DEBUG) 6 else 4, 400_000, 1), listOf(s.fpsCeiling, s.streamBitrateBps, s.keyframeSec))
         assertEquals(BitrateMode.CBR, s.bitrateMode)
         assertEquals("the rest stays", 200, s.density)
     }
@@ -59,7 +62,7 @@ class FixedProfilesTest {
         prefs.edit().putInt("fps_ceiling", 12).putBoolean("aa_slow_pace", true).putInt("aa_slow_pace_fps", 18)
             .putBoolean("aa_new_protocol", false).putInt("density", 200).putBoolean("gemini", false).apply()
         val s = SettingsStore(prefs).load()
-        assertEquals(4, s.fpsCeiling)
+        assertEquals(if (com.reau.app.BuildConfig.DEBUG) 6 else 4, s.fpsCeiling)
         assertEquals("protocol 1.7, always", true, s.aaNewProtocol)
         assertEquals("the rest stays", 200 to false, s.density to s.gemini)
     }
@@ -69,7 +72,8 @@ class FixedProfilesTest {
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
         SettingsStore(prefs).save(REauSettings(fpsCeiling = 8, bitrateMode = BitrateMode.VBR))
         val back = SettingsStore(prefs).load()
-        assertEquals(listOf(4, 400_000, 1), listOf(back.fpsCeiling, back.streamBitrateBps, back.keyframeSec))
+        // a debug build keeps the pace the rider chose, a release is fixed at 4
+        assertEquals(listOf(if (com.reau.app.BuildConfig.DEBUG) 8 else 4, 400_000, 1), listOf(back.fpsCeiling, back.streamBitrateBps, back.keyframeSec))
         assertEquals("and again at the next start", back, SettingsStore(prefs).load())
     }
 

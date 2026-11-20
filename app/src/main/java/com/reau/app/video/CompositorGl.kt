@@ -90,8 +90,8 @@ internal class CompositorGl {
 
     val hasOutput: Boolean get() = windowSurface != EGL14.EGL_NO_SURFACE
 
-    // The size of the output surface (the encoder's). Everything is placed in the dash's 526x300 frame and shrunk to this at the last step
-    // ([toOutput]), so the 12 fps profile's smaller picture needs nothing else to know it. Only the dash's output has it: the preview, the
+    // The size of the output surface (the encoder's). Everything is placed in the dash's 526x300 frame and scaled to this at the last step
+    // ([toOutput]), so a chosen picture size (528x304, or a smaller one) needs nothing else to know it. Only the dash's output has it: the preview, the
     // web viewers' output and the small copies of the picture are drawn at their own sizes.
     private var outputW = DashGlass.FRAME_W
     private var outputH = DashGlass.FRAME_H

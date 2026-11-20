@@ -74,8 +74,8 @@ object CompositorMath {
     /**
      * [r], a rectangle in the pixels of the dash's 526×300 frame (GL pixels, from the bottom), as it falls on an output [outW]×[outH] that the dash
      * stretches over its whole screen: each EDGE is scaled and rounded, so neighbouring rectangles still meet and a rectangle is never a pixel off
-     * on one side only. On an output of the frame's own size it is [r] itself. This is the one place where the smaller picture of the 12 fps profile
-     * comes in: everything is placed in the frame and shrunk here, on the way to the encoder's surface.
+     * on one side only. On an output of the frame's own size it is [r] itself; on a larger one (528x304) it is stretched a little, on a smaller one shrunk.
+     * This is the one place where the chosen picture size comes in: everything is placed in the frame and scaled here, on the way to the encoder's surface.
      */
     fun toOutput(r: RectPx, outW: Int, outH: Int): RectPx {
         fun edge(v: Int, out: Int, frame: Int) = Math.floorDiv(v.toLong() * out + frame / 2, frame.toLong()).toInt()
@@ -87,9 +87,9 @@ object CompositorMath {
     }
 
     /**
-     * Whether an output [outW]×[outH] is smaller than the dash's frame on a side: the stream of a smaller picture (the 12 fps profile's, the medium one
-     * of the 8 fps). Android Auto's 800×480 is then shrunk 0.44 to 0.53 times, which one bilinear fetch per pixel (the graphics chip's two-by-two
-     * average) turns into jagged text and lines, so only these outputs take the area filter ([CompositorGl.draw]); the frame's own size is drawn as always.
+     * Whether an output [outW]×[outH] is smaller than the dash's frame on a side: the stream of a smaller picture (480x272 and the others of
+     * [com.reau.app.dash.VideoChoice.FRAMES] under 526x300). Android Auto's 800×480 is then shrunk 0.56 to 0.64 times, which one bilinear fetch per pixel (the graphics chip's two-by-two
+     * average) turns into jagged text and lines, so only these outputs take the area filter ([CompositorGl.draw]); the frame's own size and the larger 528x304 are drawn as always.
      */
     fun needsAreaFilter(outW: Int, outH: Int): Boolean = outW < DashGlass.FRAME_W || outH < DashGlass.FRAME_H
 

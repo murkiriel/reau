@@ -11,9 +11,6 @@ object DashConfig {
     const val STREAM_FPS_STEP = 2
     const val DEFAULT_STREAM_FPS = 4
 
-    /** The id of the default profile, 4 fps ([STREAM_PROFILES]). */
-    const val DEFAULT_PROFILE_ID = "4"
-
     /** Hard ceiling for every bitrate path: the value validated on this panel; 1.2 Mbps made the dash hitch. */
     const val MAX_STREAM_BITRATE_BPS = 1_024_000
     const val DEFAULT_STREAM_BITRATE_BPS = MAX_STREAM_BITRATE_BPS
@@ -33,9 +30,10 @@ object DashConfig {
     }
 
     /**
-     * The two stream profiles, the only ones: profile 1 is 4 fps at 400 kbps, constant, a keyframe every
-     * second; profile 2 is half of it, 2 fps at 200 kbps. The encoder is built once for profile 1; profile 2 only feeds it
-     * fewer frames, so a change of profile never replaces the encoder.
+     * What a release build runs: profile A is 4 fps at 400 kbps, constant, a keyframe every second. Profile B (the navigation's reduced tier) is
+     * half of A's PACE, 2 fps, at the same bitrate ceiling: the choices are pure (plan 32), the bitrate is never halved by a tier or by a still picture.
+     * A debug build chooses the pace, the ceiling and the picture ([VideoChoice]). The encoder is built once for A's pace; B only feeds it fewer
+     * frames, so a change of tier never replaces the encoder. [PROFILE_REDUCED_BPS] is only the default of an encoder prepared with no bitrate.
      */
     const val PROFILE_FULL_FPS = 4
     const val PROFILE_FULL_BPS = 400_000
@@ -53,82 +51,26 @@ object DashConfig {
     const val EXPERIMENT_TARGET_BPS = 200_000
     const val EXPERIMENT_FLOOR_BPS = 64_000
 
-    /** The size of a picture the dash decodes, in pixels. */
-    data class FrameSize(val width: Int, val height: Int)
+    /** The size of a picture the dash decodes, in pixels. [id] is its stable text, "526x300", what a debug build's choice is stored by. */
+    data class FrameSize(val width: Int, val height: Int) {
+        val id: String get() = "${width}x$height"
+    }
 
     /**
-     * The dash's frame, 526x300: what everything is composed in (the mask, the ring, the title, the overlays), and what the encoder is built for
-     * unless the profile asks for a smaller picture.
+     * The dash's frame, 526x300: what everything is composed in (the mask, the ring, the title, the overlays), and what the release build's encoder is
+     * built for. A debug build may ask for another picture ([VideoChoice.FRAMES]); only the encoder's output then has that size, and the compositor
+     * scales what it composed on the way out.
      */
     val FULL_FRAME = FrameSize(526, 300)
 
     /**
-     * The smaller picture of the 12 fps profile (plan 32, phase 2): 368x208, multiples of 16 and of nearly the same shape as [FULL_FRAME]. The dash
-     * decodes H.264 in software, so fewer pixels per frame is what lets it take 12 of them a second; the dash stretches the picture over its whole
-     * screen. Only the encoder's output has this size: the compositor still composes in [FULL_FRAME] and shrinks the result on the way out.
-     */
-    val REDUCED_FRAME = FrameSize(368, 208)
-
-    /**
-     * The medium picture of the 8 fps "8m" profile (plan 32): 448x256, 28x16 macroblocks, no crop, nearly the shape of [FULL_FRAME]. It is there to
-     * tell, on the bike, whether the shake of the reserve icon comes from the load (macroblocks a second) or from the rate (frames a second), with
-     * the same 8 fps as the full frame and 0.73 of its pixels. Handled as [REDUCED_FRAME] is: the compositor shrinks what it composed.
-     */
-    val MEDIUM_FRAME = FrameSize(448, 256)
-
-    /**
-     * One profile of the stream and what goes with it. [id] is its stable name: what the debug build's choice is stored by, since two profiles
-     * may share a pace (8 fps has two pictures). Profile B is always the EXACT half of A, in the pace and in the bitrate (so 6 fps gives
-     * 3, the one odd rate that [snapStreamFps] would not give). The encoder is built once for A's rate; B only feeds it fewer frames, at the
-     * lower bitrate, set live. A profile here is a choice of the debug build ([PROFILE_IDS]); the release build stays at [DEFAULT_PROFILE_ID].
-     * [frame] is the size the encoder is built for, A and B alike; it never changes during a stream.
-     */
-    data class StreamProfile(val id: String, val fullFps: Int, val fullBps: Int, val frame: FrameSize = FULL_FRAME) {
-        val reducedFps: Int get() = fullFps / 2
-        val reducedBps: Int get() = fullBps / 2
-    }
-
-    /**
-     * The table of profiles, the only place that knows which bitrate and which picture go with which pace (plan 32, 19/11/2026): "4" is 4 fps at
-     * 400 kbps (B: 2 at 200), "6" 6 fps at 400 kbps (B: 3 at 200), "8" 8 fps at 600 kbps (B: 4 at 300), "8m" the same 8 fps and bitrates in the
-     * medium picture, and "12" 12 fps at 800 kbps in the smaller picture (B: 6 at 400). The first is the default and what a release build runs.
-     * The ids are stored: they are never renamed or reused.
-     */
-    val STREAM_PROFILES = listOf(
-        StreamProfile(DEFAULT_PROFILE_ID, PROFILE_FULL_FPS, PROFILE_FULL_BPS),
-        StreamProfile("6", 6, 400_000),
-        StreamProfile("8", 8, 600_000),
-        StreamProfile("8m", 8, 600_000, MEDIUM_FRAME),
-        StreamProfile("12", 12, 800_000, REDUCED_FRAME),
-    )
-
-    /** The ids of the profiles that can be chosen, in the order of [STREAM_PROFILES]. */
-    val PROFILE_IDS: List<String> = STREAM_PROFILES.map { it.id }
-
-    /**
-     * What a stream falls back to when no encoder of the phone takes its smaller picture: the profile "8", 8 fps at the [FULL_FRAME] (so the
-     * stream is never left without an image), see [com.reau.app.stream.VideoLoop.Settings.atFullFrame]. For "8m" that is the same pace on the
-     * full frame; for "12" it is a slower pace.
-     */
-    const val FALLBACK_PROFILE_ID = "8"
-
-    /** The profile of [id]; an id that is not in the table (an old or damaged value) reads as the default, "4". */
-    fun profileById(id: String?): StreamProfile = STREAM_PROFILES.firstOrNull { it.id == id } ?: STREAM_PROFILES.first()
-
-    /**
-     * The first profile with the pace [fps] (so 8 is "8", the full frame, and not "8m"); a pace that is not in the table (an old or damaged
-     * value) reads as the default, 4 fps. For the reserve's ceiling and for the choice stored before the profiles had ids.
-     */
-    fun streamProfile(fps: Int): StreamProfile = STREAM_PROFILES.firstOrNull { it.fullFps == fps } ?: STREAM_PROFILES.first()
-
-    /**
-     * The ceiling of the pace while the bike is in the reserve (decision D117, plan 32): profile A goes down to this pace, and its bitrate to
-     * [RESERVE_CAP_BPS], whatever pace was chosen; a pace below it is left as it is. The light screens too.
+     * The ceiling of the pace while the bike is in the reserve (decision D117, plan 32): the stream goes down to this pace and to [RESERVE_CAP_BPS],
+     * whatever was chosen; a pace or bitrate below it is left as it is. The light screens too.
      */
     const val RESERVE_CAP_FPS = 6
 
-    /** The bitrate of the profile of [RESERVE_CAP_FPS]: the most profile A has in the reserve. */
-    val RESERVE_CAP_BPS: Int get() = streamProfile(RESERVE_CAP_FPS).fullBps
+    /** The most the bitrate is in the reserve: 400 kbps, the bitrate the owner approved at [RESERVE_CAP_FPS]. */
+    const val RESERVE_CAP_BPS = 400_000
 
     /**
      * "Automatic", as a stored setting may still say: the stream used to pick 1 or 2 s itself. Nothing picks any more (cut on 14/11/2026):

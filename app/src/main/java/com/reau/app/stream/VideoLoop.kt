@@ -4,6 +4,7 @@ import android.os.SystemClock
 import com.reau.app.data.RideDiagnostics
 import com.reau.app.dash.BitrateMode
 import com.reau.app.dash.DashConfig
+import com.reau.app.dash.VideoChoice
 import com.reau.app.dash.video.DashEncoder
 import com.reau.app.dash.video.PendingFrames
 import com.reau.app.settings.REauSettings
@@ -108,8 +109,8 @@ internal class VideoLoop(
         val reducedBitrateBps: Int = DashConfig.PROFILE_REDUCED_BPS,
         /** The size the encoder is built for ([com.reau.app.settings.REauSettings.frameSize]): fixed for the whole stream, so another size is another stream. */
         val frame: DashConfig.FrameSize = DashConfig.FULL_FRAME,
-        /** The id of the profile of the table the stream is made from ([com.reau.app.settings.REauSettings.videoProfileId]), for the log. */
-        val profileId: String = DashConfig.DEFAULT_PROFILE_ID,
+        /** A debug build's three choices are pure ([com.reau.app.settings.REauSettings.manualVideo]): no profile B, no start ramp, no still halving ([StreamGovernor]). */
+        val manual: Boolean = false,
         /** A debug build's switch ([com.reau.app.settings.REauSettings.reserveCapOn]): off, the reserve does not cap the pace or the bitrate ([StreamGovernor]). */
         val reserveCap: Boolean = true,
     ) {
@@ -130,29 +131,17 @@ internal class VideoLoop(
             encoderMuteWatch = rider.experimentEncoderWatch,
             colorMatrix = rider.experimentColorMatrix,
             encoderLowLatency = rider.experimentEncoderLowLatency,
-            reducedBitrateBps = rider.profileReducedBps,
+            reducedBitrateBps = rider.streamBitrateBps / 2,
             frame = rider.frameSize,
-            profileId = rider.streamProfile.id,
+            manual = rider.manualVideo,
             reserveCap = rider.reserveCapOn,
         )
 
         /**
-         * These settings at the full frame, for when no encoder of the phone takes the smaller picture: the pace and bitrates of the
-         * [DashConfig.FALLBACK_PROFILE_ID] profile (a bitrate the rider asked lower, the experimental 200 kbps target, is kept) and the 526×300 picture,
-         * so the dash is never left without an image: for the 12 fps profile that is 8 fps, for the 8 fps one in the medium picture the same pace on the
-         * full frame. A stream already at the full frame is returned as it is.
+         * These settings at the dash's own 526x300 frame, for when no encoder of the phone takes the picture that was chosen: the same pace and the same
+         * bitrate ceiling, only the picture changes, so the dash is never left without an image. A stream already at that frame is returned as it is.
          */
-        fun atFullFrame(): Settings {
-            if (frame == DashConfig.FULL_FRAME) return this
-            val fallback = DashConfig.profileById(DashConfig.FALLBACK_PROFILE_ID)
-            return copy(
-                ceilingFps = fallback.fullFps,
-                bitrateBps = minOf(bitrateBps, fallback.fullBps),
-                reducedBitrateBps = fallback.reducedBps,
-                frame = fallback.frame,
-                profileId = fallback.id,
-            )
-        }
+        fun atFullFrame(): Settings = if (frame == DashConfig.FULL_FRAME) this else copy(frame = DashConfig.FULL_FRAME)
     }
 
     private var encoder: DashEncoder? = null
@@ -191,6 +180,7 @@ internal class VideoLoop(
         val g = StreamGovernor(
             ceiling, settings.clockSlowPercent, settings.windowMs, settings.bitrateBps, settings.keyframeSec,
             reducedBitrateBps = settings.reducedBitrateBps, lightScreenFps = settings.lightScreenFps, reserveCapOn = settings.reserveCap,
+            manual = settings.manual,
         )
         val rec = recordInto(settings.recordDir, settings.recordFrames)?.let {
             H264Recorder(it, settings.recordFrames, H264Recorder.nameFor(System.currentTimeMillis()), settings.recordRolling, log)
@@ -221,7 +211,7 @@ internal class VideoLoop(
         muteWatch = EncoderMuteWatch.whenOn(settings.encoderMuteWatch)
         log(
             "video loop start: ${g.fps} fps (ceiling $ceiling, ${g.profilesText}), " +
-                "profile ${settings.profileId}, picture ${settings.frame.width}x${settings.frame.height}, keyframe ${g.keyframeSec}s fixed" +
+                "${videoChoiceText(settings.ceilingFps, settings.bitrateBps, settings.frame)}, keyframe ${g.keyframeSec}s fixed" +
                 " (encoder asked ${DashEncoder.iFrameIntervalText(g.encoderKeyframeSec, g.encoderFps)}, pace up to ${g.gopFps} fps)" +
                 ", ${g.activeBitrateBps / 1000} kbps (${settings.bitrateBps / 1000} chosen) ${settings.bitrateMode ?: "default"}, " +
                 "clock ${settings.clockSlowPercent}% slow" +
@@ -241,9 +231,9 @@ internal class VideoLoop(
     }
 
     /**
-     * No encoder of the phone could be prepared. With a smaller picture (the 12 fps profile's or the medium one of the 8 fps) that may be the picture's
-     * fault (a size no encoder takes), so the stream starts again at the full frame and the pace and bitrate of the profile "8" ([Settings.atFullFrame]),
-     * with a line in the log that says so; the dash must not be left without an image. At the full frame already there is nothing more to try: false, as before.
+     * No encoder of the phone could be prepared. With a picture other than the dash's own 526x300 that may be the picture's fault (a size no encoder
+     * takes), so the stream starts again at 526x300 with the same pace and the same ceiling ([Settings.atFullFrame]), with a WARN line that says so; the dash
+     * must not be left without an image. At 526x300 already there is nothing more to try: false, as before.
      */
     private fun startAtFullFrame(recorder: H264Recorder?): Boolean {
         val requested = settings
@@ -251,11 +241,7 @@ internal class VideoLoop(
         if (fallback == requested) return false
         recorder?.close()
         settings = fallback
-        log(
-            "${RideDiagnostics.WARN}no encoder took the ${requested.frame.width}x${requested.frame.height} picture " +
-                "of the profile ${requested.profileId} (${requested.ceilingFps} fps): back to the profile ${fallback.profileId}, " +
-                "${fallback.frame.width}x${fallback.frame.height} at ${fallback.ceilingFps} fps, ${fallback.bitrateBps / 1000} kbps",
-        )
+        log(fallbackLine(requested.frame, requested.ceilingFps, requested.bitrateBps))
         return start()
     }
 
@@ -457,6 +443,24 @@ internal class VideoLoop(
     }
 
     companion object {
+        /**
+         * The three choices as the "video loop start" line says them: pace, ceiling, picture, the guide for that pace and picture
+         * ([VideoChoice.recommendedKbps]) and the load in macroblocks a second ([VideoChoice.loadMbPerSec]), with a note when it is above what the dash
+         * showed it holds ([VideoChoice.SAFE_LOAD_MB_PER_SEC]).
+         */
+        internal fun videoChoiceText(fps: Int, bitrateBps: Int, frame: DashConfig.FrameSize): String {
+            val load = VideoChoice.loadMbPerSec(fps, frame)
+            return "choice $fps fps / ${bitrateBps / 1000} kbps cap / ${frame.width}x${frame.height} " +
+                "(recommended ${VideoChoice.recommendedKbps(fps, frame)} kbps, load $load MB/s" +
+                (if (VideoChoice.heavy(fps, frame)) ", above the ${VideoChoice.SAFE_LOAD_MB_PER_SEC} MB/s the dash showed it holds" else "") + ")"
+        }
+
+        /** The WARN line of the fall back to the dash's own frame, with the pace and ceiling that are kept. */
+        internal fun fallbackLine(frame: DashConfig.FrameSize, fps: Int, bitrateBps: Int): String =
+            "${RideDiagnostics.WARN}no encoder took the ${frame.width}x${frame.height} picture: " +
+                "back to ${DashConfig.FULL_FRAME.width}x${DashConfig.FULL_FRAME.height} " +
+                "at the same $fps fps and ${bitrateBps / 1000} kbps cap"
+
         /** The full pace of a stream made without the rider's settings (the tests; the app's own comes from [Settings.withRider], [DashConfig.PROFILE_FULL_FPS]). */
         internal const val DEFAULT_CEILING_FPS = 16
 

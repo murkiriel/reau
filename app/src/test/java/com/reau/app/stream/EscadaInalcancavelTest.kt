@@ -41,18 +41,23 @@ class EscadaInalcancavelTest {
             for (debug in listOf(true, false)) {
                 val s = settings.sanitized(debugBuild = debug)
                 val said = "stored $settings"
-                assertEquals(said, 4, s.fpsCeiling)
+                // A release build is fixed at 4 fps and 400 kbps; a debug build keeps its own choices, brought into the offer (VideoChoiceStoreTest).
+                if (!debug) {
+                    assertEquals(said, 4, s.fpsCeiling)
+                    assertEquals(said, 400_000, s.streamBitrateBps)
+                } else {
+                    assertTrue(said, s.fpsCeiling in 4..12 && s.streamBitrateBps in 400_000..1_000_000)
+                }
                 assertEquals(said, 1, s.keyframeSec)
                 assertEquals(said, BitrateMode.CBR, s.bitrateMode)
-                assertEquals(said, 400_000, s.streamBitrateBps)
                 assertEquals(said, 0, s.clockSlowPercent)
                 assertTrue(said, s.maneuverFpsProfile && s.speedFpsProfile && s.maneuverData)
                 assertEquals(said, NavProfileMode.PESSIMISTA, s.navProfileMode)
 
                 val stream = VideoLoop.Settings().withRider(s)
-                assertEquals(said, 4, stream.ceilingFps)
+                assertEquals(said, s.fpsCeiling, stream.ceilingFps)
                 assertEquals(said, 1, stream.keyframeSec)
-                assertEquals(said, 400_000, stream.bitrateBps)
+                assertEquals(said, s.streamBitrateBps, stream.bitrateBps)
                 assertEquals(said, 6, stream.lightScreenFps)
                 assertEquals("the adaptive bitrate experiment is the one other bitrate", 200_000, VideoLoop.Settings().withRider(s.copy(experimentAdaptiveBitrate = true)).bitrateBps)
             }

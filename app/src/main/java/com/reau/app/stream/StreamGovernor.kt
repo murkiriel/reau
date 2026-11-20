@@ -55,6 +55,13 @@ internal class StreamGovernor(
      * reserve: the governor then never caps ([reserveOn] stays false) and only says in the log when the reserve begins and ends.
      */
     private val reserveCapOn: Boolean = true,
+    /**
+     * The three choices of a debug build (pace, ceiling, picture; plan 32) are pure: the stream runs at the chosen pace and ceiling from its first frame, with
+     * no profile B (the navigation never lowers the tier), no start at half the pace until the dash has shown a frame, and no halving of the bitrate while the
+     * picture is still. What stays is what is not a profile: the light screens, the reserve's ceiling and the heat's. A release build is not manual: it keeps
+     * profiles A and B, the start ramp and the still bitrate exactly as they were.
+     */
+    private val manual: Boolean = false,
 ) {
     /** What happened since the previous poll ([dashAcks] is the dash's running total). */
     data class Poll(
@@ -219,8 +226,12 @@ internal class StreamGovernor(
 
     /** Both profiles as the stream starts, for the "video loop start" line: pace and target bitrate of A and of B (the exact half of A, [DashConfig.STREAM_PROFILES]). */
     val profilesText: String
-        get() = "profile A $fullFps fps / ${activeBitrateBps / 1000} kbps, " +
-            "B ${(fullFps / 2).coerceAtLeast(NAV_MIN_FPS)} fps / ${minOf(activeBitrateBps, reducedBitrateBps) / 1000} kbps"
+        get() = if (manual) {
+            "manual $fullFps fps / ${activeBitrateBps / 1000} kbps, no profile B"
+        } else {
+            "profile A $fullFps fps / ${activeBitrateBps / 1000} kbps, " +
+                "B ${(fullFps / 2).coerceAtLeast(NAV_MIN_FPS)} fps / ${minOf(activeBitrateBps, reducedBitrateBps) / 1000} kbps"
+        }
 
     /** The pace of the stream now: the profile's, or the light screens' on a light screen. */
     val fps: Int get() = underReserve(if (lightOn) LightScreen.fps(profileFps, lightScreenFps) else profileFps)
@@ -258,7 +269,13 @@ internal class StreamGovernor(
     val encoderKeyframeSec: Int get() = DashLogic.encoderKeyframeSec(keyframeSec, gopFps, encoderFps)
 
     /** The bitrate the encoder is built for, and the one profile 1 sets while frames keep coming: the rider's ceiling. */
-    val activeBitrateBps: Int get() = DashLogic.effectiveActiveBitrate(bitrateCeilingBps, encoderFps)
+    val activeBitrateBps: Int
+        // A manual stream is held to the ceiling the rider chose: it is not raised for the bits a frame gets (12 fps at 400 kbps would be lifted to 500).
+        get() = if (manual) {
+            bitrateCeilingBps.coerceIn(0, DashConfig.MAX_STREAM_BITRATE_BPS)
+        } else {
+            DashLogic.effectiveActiveBitrate(bitrateCeilingBps, encoderFps)
+        }
 
     /** The most the live bitrate goes to now: [activeBitrateBps], or [reducedBitrateBps] in the REDUCED tier. */
     private val tierBitrateBps: Int
@@ -267,7 +284,7 @@ internal class StreamGovernor(
 
     /** Profile B's bitrate: the table's half; in the reserve no more than the half of the capped profile A ([DashConfig.RESERVE_CAP_BPS]). */
     private val reducedBitrateLimit: Int
-        get() = if (reserveOn) minOf(reducedBitrateBps, DashConfig.streamProfile(DashConfig.RESERVE_CAP_FPS).reducedBps) else reducedBitrateBps
+        get() = if (reserveOn) minOf(reducedBitrateBps, DashConfig.RESERVE_CAP_BPS / 2) else reducedBitrateBps
 
     /**
      * FULL is the full pace — the Settings' own ceiling — never above what the dash has already shown it can hold.
@@ -371,6 +388,8 @@ internal class StreamGovernor(
      * most of the encoder rebuilds measured in use. A log line when the tier changes (null: no override).
      */
     private fun updateNavOverride(sample: NavSample?, nowMs: Long): Action? {
+        // Manual choices have no profile B: the navigation's tiers are not read, and the pace and bitrate are the chosen ones.
+        if (manual) return null
         navProfilesOn = sample != null && (sample.maneuverProfileEnabled || sample.speedProfileEnabled)
         val before = navTier
         val verdict = combineNavTier(sample)
@@ -462,15 +481,15 @@ internal class StreamGovernor(
 
     private fun paceChange(firstFrameConfirmed: Boolean): List<Action> {
         val (activeMs, idleMs) = DashLogic.frameIntervalsMsForFps(fps)
-        val wanted = DashCompositor.Pace(if (firstFrameConfirmed) activeMs else idleMs, idleMs, clockSlowPercent)
+        val wanted = DashCompositor.Pace(if (firstFrameConfirmed || manual) activeMs else idleMs, idleMs, clockSlowPercent)
         if (wanted == pace) return emptyList()
         pace = wanted
         return listOf(Action.SetPace(wanted))
     }
 
     private fun bitrateChange(full: Boolean): List<Action> {
-        // Still, profile 1 halves its bitrate; profile 2 already is at the half, and stays there.
-        val wanted = if (full) tierBitrateBps else minOf(tierBitrateBps, liveActiveBitrateBps / 2)
+        // Still, profile 1 halves its bitrate; profile 2 already is at the half, and stays there. Manual choices keep the chosen ceiling whatever the picture does.
+        val wanted = if (full || manual) tierBitrateBps else minOf(tierBitrateBps, liveActiveBitrateBps / 2)
         if (wanted == bitrateBps) return emptyList()
         bitrateBps = wanted
         return listOf(Action.SetBitrate(wanted))

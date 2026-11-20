@@ -22,9 +22,9 @@ import java.util.Random
 /** One stream configuration. The two real ones are what `REauSettings.sanitized()` leaves: [REAL_400] and, with the adaptive bitrate experiment, [REAL_200]. */
 internal data class GovernorConfig(val name: String, val ceilingFps: Int, val bitrateBps: Int, val keyframeSec: Int, val lightScreenFps: Int) {
     companion object {
-        /** The stream as the app starts it: the rider's settings, sanitized, through `VideoLoop.Settings.withRider`. */
+        /** The stream as a release build starts it (4 fps, 400 kbps; a debug build's own choices are PaceGovernorTest's): the rider's settings, sanitized, through `VideoLoop.Settings.withRider`. */
         fun real(adaptiveBitrate: Boolean): GovernorConfig {
-            val s = VideoLoop.Settings().withRider(REauSettings(experimentAdaptiveBitrate = adaptiveBitrate).sanitized())
+            val s = VideoLoop.Settings().withRider(REauSettings(experimentAdaptiveBitrate = adaptiveBitrate).sanitized(debugBuild = false))
             return GovernorConfig("${s.bitrateBps / 1000} kbps", s.ceilingFps, s.bitrateBps, s.keyframeSec, s.lightScreenFps)
         }
 

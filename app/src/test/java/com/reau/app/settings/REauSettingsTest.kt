@@ -33,8 +33,9 @@ class REauSettingsTest {
         assertEquals(180, s.density)
         assertEquals(0 to 0, s.marginW to s.marginH)
         assertEquals(Fit.WHOLE_VISIBLE, s.fit)
-        // The conservative envelope's 4 (profile 1, FixedProfilesTest).
-        assertEquals(4, s.fpsCeiling)
+        // A debug build starts at 6 fps; the conservative envelope's 4 is the release's (profile 1, FixedProfilesTest).
+        assertEquals(6, s.fpsCeiling)
+        assertEquals(4, s.sanitized(debugBuild = false).fpsCeiling)
         assertEquals(0, s.clockSlowPercent)
         assertEquals("on in the debug build the tests run, off in a release (FixedProfilesTest)", com.reau.app.BuildConfig.DEBUG to com.reau.app.BuildConfig.DEBUG, s.recordVideo to s.recordSessions)
     }
@@ -109,7 +110,8 @@ class REauSettingsTest {
         assertEquals(0, wild.marginW)
         assertEquals("at least 16 px of picture left", 480 - 16, wild.marginH)
         assertEquals(20, wild.cropPercent)
-        assertEquals("fixed: profile 1 is 4 fps (FixedProfilesTest)", 4, wild.fpsCeiling)
+        assertEquals("a pace out of the offer is brought to its end in a debug build, and a release is fixed at 4 (FixedProfilesTest)", 12, wild.fpsCeiling)
+        assertEquals(4, REauSettings(fpsCeiling = 99).sanitized(debugBuild = false).fpsCeiling)
         assertEquals("not one of the clock options", 0, wild.clockSlowPercent)
         assertEquals(-150 to 150, wild.moveX to wild.moveY)
 
@@ -498,7 +500,8 @@ class REauSettingsTest {
         val s = SettingsStore(prefs).load()
         assertEquals(80, s.density)
         assertEquals("an unknown fit is read as the default", REauSettings().fit, s.fit)
-        assertEquals("the stream's four values are fixed (FixedProfilesTest)", listOf(4, 400_000, 1), listOf(s.fpsCeiling, s.streamBitrateBps, s.keyframeSec))
+        // The old keys of the pace and the bitrate are not read; a release build is fixed at 4 fps / 400 kbps, a debug build starts at its default (FixedProfilesTest).
+        assertEquals("the stream's values", listOf(if (com.reau.app.BuildConfig.DEBUG) 6 else 4, 400_000, 1), listOf(s.fpsCeiling, s.streamBitrateBps, s.keyframeSec))
     }
 
     @Test

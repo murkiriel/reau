@@ -473,9 +473,13 @@
     <string name="profiles_info">REau uses two fixed video profiles for the dash: A, %1$d fps and %2$d kbps, the smoother picture, and B, half of that (%3$d fps and %4$d kbps), lighter on the Wi-Fi and the dash. The maneuver profile and the speed profile, just below, choose between them. These values can’t be changed.</string>
     <string name="profiles_bitrate_sub">Profile A: %1$d kbps. Profile B: %2$d kbps. Fixed</string>
     <string name="pace_option">%1$d fps</string>
-    <string name="pace_option_picture">%1$d fps, %2$dx%3$d</string>
-    <string name="pace_sub">Profile A: %1$d fps. Profile B: %2$d fps, the exact half. Debug build only. In the reserve the pace is capped at %3$d fps</string>
-    <string name="pace_small_sub">Profile A: %1$d fps. Profile B: %2$d fps, the exact half. The picture is smaller (%4$dx%5$d) and the dash stretches it over its whole screen, which is easier on its decoder. Debug build only. In the reserve the pace is capped at %3$d fps</string>
+    <string name="pace_sub">Debug build only. Free choice of the pace, 4 to 12 fps, apart from the bitrate and the picture. In the reserve the pace is capped at %1$d fps</string>
+    <string name="bitrate_cap_title">Bitrate cap</string>
+    <string name="bitrate_cap_sub">Debug build only. The most the encoder may use, 400 to 1000 kbps. Recommended for this pace and picture: %1$d kbps. Only a guide, nothing is forced</string>
+    <string name="frame_title">Picture size</string>
+    <string name="frame_option">%1$dx%2$d</string>
+    <string name="frame_sub">Debug build only. Every size is a multiple of 16. 528x304 is the dash’s own 526x300 aligned to 16. The dash stretches the picture over its whole screen, and a smaller one is easier on its decoder</string>
+    <string name="load_warning">Above the load the dash showed it holds (6 fps in the full picture, %2$d MB/s): this mix asks for %1$d MB/s, and the reserve icon may shake.</string>
     <string name="reserve_cap_title">Cap at %1$d fps in the reserve</string>
     <string name="reserve_cap_sub">Debug build only. On (the default): with the bike in the reserve the pace is capped at %1$d fps. Off: the reserve limits neither the pace nor the bitrate, to compare the profiles with the reserve icon lit. The ride log says when the reserve begins with the cap off. Counts at once, the video starts again</string>
     <string name="bitrate_title">Bitrate</string>

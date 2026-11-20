@@ -5,7 +5,7 @@ import android.media.MediaFormat
 /**
  * The colour description the dash's encoder is asked for with the experimental switch
  * ([com.reau.app.settings.REauSettings.experimentColorMatrix]): BT.601, limited range, SDR transfer, through `KEY_COLOR_STANDARD`, `KEY_COLOR_RANGE` and
- * `KEY_COLOR_TRANSFER`. The picture is 526 x 300 (368 x 208 in the 12 fps profile, as small), a size every decoder reads as BT.601 when the stream says nothing, so that is what the encoder is told
+ * `KEY_COLOR_TRANSFER`. The picture is 526 x 300 (448 x 256 to 528 x 304 when a debug build chose another), a size every decoder reads as BT.601 when the stream says nothing, so that is what the encoder is told
  * to convert with and to write in the stream. Without the switch no colour key is set and the encoder converts as its own default says, as always.
  *
  * A codec that refuses the keys is asked again without them ([DashEncoder.prepare]); [acceptedLine] and [refusedLine] are what the ride log says of it.

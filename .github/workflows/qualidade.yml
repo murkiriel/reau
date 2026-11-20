@@ -62,18 +62,18 @@ jobs:
           retention-days: 30
 
   mutacao:
-    name: Teste de mutação (fatia ${{ matrix.fatia }} de 20)
+    name: Teste de mutação (fatia ${{ matrix.fatia }} de 21)
     runs-on: ubuntu-24.04
-    # 2 337 mutações em 20/11/2026 (python3 scripts/dev/mutacoes.py --lista conta), cada uma um Gradle de testes. Com o daemon ligado e o código já compilado
-    # cada uma leva de 10 a 60 s; uma fatia de um vinte avos (117) leva de 19 a 117 min, dentro do limite de 120 (com dezenove fatias, de 123, o pior caso
-    # passaria de 120 min; com dez, de 234, de 234).
+    # 2 391 mutações em 20/11/2026 (python3 scripts/dev/mutacoes.py --lista conta), cada uma um Gradle de testes. Com o daemon ligado e o código já compilado
+    # cada uma leva de 10 a 60 s; uma fatia de um vinte e um avos (114) leva de 19 a 114 min, dentro do limite de 120 (com vinte fatias, de 120, o pior caso
+    # chegaria aos 120 min sem folga para a partida; com dez, de 240, passaria).
     # Medir a cada execução e ajustar o número de fatias se a lista crescer (o script aceita qualquer N).
     # (mutacao-mensal.yml roda uma fatia de doze por mês, como rede mais leve.)
     timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        fatia: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+        fatia: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]
     env:
       # O daemon fica ligado nesta tarefa: com `daemon=false` cada mutação pagava a partida do Gradle (o que passava de 4 horas no total).
       GRADLE_OPTS: -Dorg.gradle.console=plain
@@ -94,12 +94,12 @@ jobs:
       # Sai com 1 se alguma mutação sobreviver ou o trecho dela sumiu do arquivo; o log é guardado de qualquer jeito.
       - name: Mutações
         shell: bash # com -e e -o pipefail: o código de saída do Python (1 se uma mutação sobrevive) não é engolido pelo tee
-        run: python3 scripts/dev/mutacoes.py --fatia ${{ matrix.fatia }}/20 2>&1 | tee mutacoes.log
+        run: python3 scripts/dev/mutacoes.py --fatia ${{ matrix.fatia }}/21 2>&1 | tee mutacoes.log
 
       - name: Resumo das mutações
         if: always()
         run: |
-          { echo "### Teste de mutação, fatia ${{ matrix.fatia }} de 20"; echo '```'; tail -n 25 mutacoes.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          { echo "### Teste de mutação, fatia ${{ matrix.fatia }} de 21"; echo '```'; tail -n 25 mutacoes.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Guardar o log
         if: always()

@@ -1,6 +1,7 @@
 package com.reau.app.stream
 
 import com.reau.app.dash.DashConfig
+import com.reau.app.dash.VideoChoice
 import com.reau.app.stream.StreamGovernor.Action
 import com.reau.app.video.DashCompositor
 import org.junit.Assert.assertEquals
@@ -9,20 +10,31 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The pace of profile A (4, 6, 8 or 12 fps, [DashConfig.STREAM_PROFILES]) and the reserve's ceiling (D117, plan 32) as the stream governor lives them:
- * profile B is the exact half of A in the pace and in the bitrate; in the reserve A goes down to 6 fps and 400 kbps and B to the half of
- * that, the light screens never above 6, and none of it ever rebuilds the encoder. What reaches the governor from the settings is VideoPaceTest's.
+ * The pace of profile A and the reserve's ceiling (D117, plan 32) as the stream governor lives them in a release build (not manual): profile B is the
+ * exact half of A in the pace and in the bitrate; in the reserve A goes down to 6 fps and 400 kbps and B to the half of that, the light screens never
+ * above 6, and none of it ever rebuilds the encoder. The debug build's manual choices (no profile B, no start ramp, no halving while still; the reserve,
+ * the light screens and the heat stay) are the second half of this file. What reaches the governor from the settings is VideoChoiceStoreTest's.
  */
 class PaceGovernorTest {
     private var nowMs = 0L
 
-    private fun governor(pace: Int, lightScreenFps: Int = DashConfig.LIGHT_SCREEN_FPS, reserveCap: Boolean = true): StreamGovernor {
-        val profile = DashConfig.streamProfile(pace)
-        return StreamGovernor(
-            profile.fullFps, bitrateCeilingBps = profile.fullBps, keyframeSec = DashConfig.PROFILE_KEYFRAME_SEC,
-            reducedBitrateBps = profile.reducedBps, lightScreenFps = lightScreenFps, reserveCapOn = reserveCap,
-        )
+    /** What a pace was given as a ceiling in the first plan-32 build: the bitrate A of a release-like stream at that pace (B is the half of it). */
+    private fun bitrateOf(pace: Int) = when (pace) {
+        8 -> 600_000
+        12 -> 800_000
+        else -> 400_000
     }
+
+    private fun governor(
+        pace: Int,
+        lightScreenFps: Int = DashConfig.LIGHT_SCREEN_FPS,
+        reserveCap: Boolean = true,
+        bitrate: Int = bitrateOf(pace),
+        manual: Boolean = false,
+    ): StreamGovernor = StreamGovernor(
+        pace, bitrateCeilingBps = bitrate, keyframeSec = DashConfig.PROFILE_KEYFRAME_SEC,
+        reducedBitrateBps = bitrate / 2, lightScreenFps = lightScreenFps, reserveCapOn = reserveCap, manual = manual,
+    )
 
     /** One poll 250 ms after the one before, with [drawn] new pictures (the stream moves when there are some). */
     private fun StreamGovernor.poll(
@@ -30,6 +42,7 @@ class PaceGovernorTest {
         navSample: StreamGovernor.NavSample? = null,
         lowFuel: Boolean = false,
         light: Boolean = false,
+        confirmed: Boolean = true,
     ): List<Action> {
         nowMs += POLL_MS
         return onPoll(
@@ -37,7 +50,7 @@ class PaceGovernorTest {
                 nowMs = nowMs,
                 compositor = DashCompositor.Stats(sourceFrames = drawn * 2, drawn = drawn, repeated = 0, composeNs = drawn * 2_000_000L, tickWaitsMs = emptyList()),
                 framesOut = drawn, bytesOut = drawn * 1_000L, lateFrames = 0, encodeNs = drawn * 8_000_000L,
-                dashAcks = 0L, firstFrameConfirmed = true, navSample = navSample, lowFuel = lowFuel, lightScreen = light,
+                dashAcks = 0L, firstFrameConfirmed = confirmed, navSample = navSample, lowFuel = lowFuel, lightScreen = light,
             ),
         ).filterNot { it is Action.Stats }
     }
@@ -47,7 +60,13 @@ class PaceGovernorTest {
     )
 
     /** A started governor, one picture in, then 10 s of the maneuver profile far from the maneuver: the next change of tier is not held back. */
-    private fun started(pace: Int, lightScreenFps: Int = DashConfig.LIGHT_SCREEN_FPS, reserveCap: Boolean = true): StreamGovernor = governor(pace, lightScreenFps, reserveCap).also {
+    private fun started(
+        pace: Int,
+        lightScreenFps: Int = DashConfig.LIGHT_SCREEN_FPS,
+        reserveCap: Boolean = true,
+        bitrate: Int = bitrateOf(pace),
+        manual: Boolean = false,
+    ): StreamGovernor = governor(pace, lightScreenFps, reserveCap, bitrate, manual).also {
         it.start(nowMs)
         it.poll(1)
         repeat(41) { _ -> it.poll(1, maneuverSample(distance = 1200)) }
@@ -65,8 +84,8 @@ class PaceGovernorTest {
     // ---- the pace of profile A and the exact half of it for B
 
     @Test
-    fun `each pace of the table gives profile A its pace and bitrate and profile B the exact half of both`() {
-        for ((pace, a, b) in listOf(Triple(4, 400_000, 200_000), Triple(6, 400_000, 200_000), Triple(8, 600_000, 300_000), Triple(12, 800_000, 400_000))) {
+    fun `each pace gives profile A its pace and bitrate and profile B the exact half of both`() {
+        for ((pace, a, b) in listOf(Triple(4, 400_000, 200_000), Triple(6, 400_000, 200_000), Triple(8, 600_000, 300_000))) {
             val g = started(pace)
             assertEquals("A at $pace", pace, g.fps)
             assertEquals("the encoder is built for it", pace, g.encoderFps)
@@ -124,13 +143,12 @@ class PaceGovernorTest {
     }
 
     @Test
-    fun `no frame gets less than the least bits in any profile of the table`() {
-        val least = DashLogic.MIN_BITS_PER_FRAME
-        for (p in DashConfig.STREAM_PROFILES) {
-            assertTrue("A at ${p.fullFps}", p.fullBps / p.fullFps >= least)
-            assertTrue("B at ${p.fullFps}", p.reducedBps / p.reducedFps >= least)
-            assertEquals("the bitrate is not raised for ${p.fullFps} fps", p.fullBps, DashLogic.effectiveActiveBitrate(p.fullBps, p.fullFps))
+    fun `a manual stream keeps every mix of the debug build's pace and ceiling as chosen, even where a frame gets fewer bits than the least`() {
+        for (fps in VideoChoice.FPS_OPTIONS) for (kbps in VideoChoice.CAP_OPTIONS_KBPS) {
+            assertEquals("$fps fps at $kbps kbps", kbps * 1000, governor(fps, bitrate = kbps * 1000, manual = true).activeBitrateBps)
         }
+        assertTrue("12 fps at 400 kbps is under the least bits a frame gets", 400_000 / 12 < DashLogic.MIN_BITS_PER_FRAME)
+        for (fps in listOf(4, 6, 8)) assertEquals("not manual, $fps fps at 400 kbps", 400_000.coerceAtLeast(DashLogic.minBitrateForFps(fps)), governor(fps, bitrate = 400_000).activeBitrateBps)
     }
 
     @Test
@@ -151,7 +169,7 @@ class PaceGovernorTest {
         assertEquals("profile A 8 fps / 600 kbps, B 4 fps / 300 kbps", governor(8).profilesText)
         assertEquals("profile A 6 fps / 400 kbps, B 3 fps / 200 kbps", governor(6).profilesText)
         assertEquals("profile A 4 fps / 400 kbps, B 2 fps / 200 kbps", governor(4).profilesText)
-        assertEquals("profile A 12 fps / 800 kbps, B 6 fps / 400 kbps", governor(12).profilesText)
+        assertEquals("manual 6 fps / 500 kbps, no profile B", governor(6, bitrate = 500_000, manual = true).profilesText)
     }
 
     // ---- the reserve's ceiling
@@ -220,36 +238,13 @@ class PaceGovernorTest {
         assertTrue("got $lifted", Action.SetBitrate(300_000) in lifted)
     }
 
-    @Test
-    fun `in the reserve the 12 fps profile goes down to 6 fps and 400 kbps without a rebuild, and B to 3 fps and 200 kbps`() {
-        val g = started(12)
-        assertEquals(12, g.fps)
-        val entered = g.poll(lowFuel = true)
-        assertEquals(6, g.fps)
-        assertEquals(listOf("reserve: pace capped at 6 fps (was 12)"), entered.reserveLogs())
-        assertTrue("got $entered", Action.SetPace(DashCompositor.Pace(167, 334, 0)) in entered)
-        assertTrue("got $entered", Action.SetBitrate(400_000) in entered)
-        assertTrue(entered.none { it is Action.Rebuild })
-        assertEquals("the encoder, and so its size, stays as it was built", listOf(12, 800_000), listOf(g.encoderFps, g.activeBitrateBps))
-        val capped = g.reduce(lowFuel = true)
-        assertEquals(3, g.fps)
-        assertTrue("got $capped", Action.SetBitrate(200_000) in capped)
-        val lifted = g.reduce(lowFuel = false)
-        assertEquals("B of 12 outside the reserve", 6, g.fps)
-        assertTrue("got $lifted", Action.SetBitrate(400_000) in lifted)
-        assertTrue(lifted.none { it is Action.Rebuild })
-        val back = (1..41).flatMap { _ -> g.full(lowFuel = false) }
-        assertEquals(12, g.fps)
-        assertTrue("got $back", Action.SetBitrate(800_000) in back)
-    }
-
     // ---- the debug switch that turns the reserve's ceiling off
 
     @Test
     fun `with the cap switched off the reserve changes neither the pace nor the bitrate nor the encoder, and says so once`() {
         for (pace in listOf(8, 12)) {
             val g = started(pace, reserveCap = false)
-            val bitrate = DashConfig.streamProfile(pace).fullBps
+            val bitrate = bitrateOf(pace)
             val entered = g.poll(lowFuel = true)
             assertEquals("pace $pace stays", pace, g.fps)
             assertEquals(pace, g.profileFps)
@@ -406,6 +401,153 @@ class PaceGovernorTest {
             g.periodicPaceSummary(nowMs)
         }
         assertEquals(lines.toString(), 2, lines.size)
+    }
+
+    // ---- a release build is not manual: profiles A and B, the start ramp and the still halving, as they were
+
+    @Test
+    fun `a release stream starts at the half pace and the half bitrate until the dash shows a frame, then goes to A`() {
+        val g = governor(4)
+        val start = g.start(nowMs)
+        assertTrue("got $start", Action.SetPace(DashCompositor.Pace(500, 500, 0)) in start)
+        assertTrue("got $start", Action.SetBitrate(200_000) in start)
+        val first = g.poll(drawn = 1, confirmed = true)
+        assertTrue("got $first", Action.SetPace(DashCompositor.Pace(250, 500, 0)) in first)
+        assertTrue("got $first", Action.SetBitrate(400_000) in first)
+    }
+
+    @Test
+    fun `a release stream halves the bitrate while the picture is still and goes back when it moves`() {
+        val g = started(4)
+        val still = (1..8).flatMap { _ -> g.poll(drawn = 0) }
+        assertTrue("got $still", Action.SetBitrate(200_000) in still)
+        assertTrue(Action.SetBitrate(400_000) in g.poll(drawn = 1))
+    }
+
+    @Test
+    fun `a release stream has profile B at 2 fps and 200 kbps, from the maneuver far away`() {
+        val g = started(4)
+        val reduced = g.reduce()
+        assertEquals(2, g.fps)
+        assertTrue("got $reduced", Action.SetBitrate(200_000) in reduced)
+    }
+
+    // ---- the debug build's manual choices
+
+    @Test
+    fun `a manual stream runs at the chosen pace and ceiling, odd paces and 2 and 3 fps included, and the encoder is built for them`() {
+        for (pace in VideoChoice.FPS_OPTIONS) {
+            val g = started(pace, bitrate = 700_000, manual = true)
+            assertEquals("pace $pace", pace, g.fps)
+            assertEquals(pace, g.profileFps)
+            assertEquals(pace, g.encoderFps)
+            assertEquals(700_000, g.activeBitrateBps)
+            assertEquals(pace, g.rebuildAction().fps)
+        }
+    }
+
+    @Test
+    fun `a manual stream is held to the chosen ceiling at 10 and 12 fps, and a release stream is raised to give each frame its bits`() {
+        for (pace in listOf(10, 12)) {
+            val g = started(pace, bitrate = 400_000, manual = true)
+            assertEquals("manual $pace fps at 400", 400_000, g.activeBitrateBps)
+            assertEquals(pace, g.encoderFps)
+            assertEquals(pace, g.fps)
+            assertEquals("a rebuilt encoder takes the chosen ceiling", 400_000, g.rebuildAction().bitrateBps)
+            assertEquals("the mix of the rider's 1000", 1_000_000, started(pace, bitrate = 1_000_000, manual = true).activeBitrateBps)
+        }
+        assertEquals("a ceiling over the dash's own is brought down to it", DashConfig.MAX_STREAM_BITRATE_BPS, governor(8, bitrate = 5_000_000, manual = true).activeBitrateBps)
+        assertEquals("not manual: 12 fps at 400 is raised to the 500 that gives a frame its least bits", 500_000, governor(12, bitrate = 400_000).activeBitrateBps)
+        assertEquals("and 4 fps is not", 400_000, governor(4, bitrate = 400_000).activeBitrateBps)
+    }
+
+    @Test
+    fun `the clock ticks at the chosen pace up to 12 fps`() {
+        val g = governor(12, bitrate = 800_000, manual = true)
+        val start = g.start(nowMs)
+        assertTrue("got $start", Action.SetPace(DashCompositor.Pace(83, 250, 0)) in start)
+        val g10 = governor(10, bitrate = 700_000, manual = true)
+        assertTrue(Action.SetPace(DashCompositor.Pace(100, 250, 0)) in g10.start(nowMs))
+    }
+
+    @Test
+    fun `a manual stream has no profile B, whatever the navigation says, in the pace or in the bitrate`() {
+        for (pace in listOf(4, 6, 10, 12)) {
+            val g = started(pace, bitrate = 600_000, manual = true)
+            val far = (1..60).flatMap { _ -> g.reduce() }
+            assertEquals("pace $pace far from the maneuver", pace, g.fps)
+            assertTrue("pace $pace: got $far", far.none { it is Action.SetPace || it is Action.SetBitrate || it is Action.Rebuild })
+            assertTrue("no nav line", far.filterIsInstance<Action.Log>().none { it.line.startsWith("nav profile") })
+            val speed = StreamGovernor.NavSample(true, true, 5000, 120.0, com.reau.app.dash.NavProfileMode.PESSIMISTA)
+            (1..60).forEach { _ -> g.poll(1, speed) }
+            assertEquals("pace $pace at speed", pace, g.fps)
+            assertEquals(600_000, g.activeBitrateBps)
+        }
+    }
+
+    @Test
+    fun `a manual stream starts at the chosen pace and ceiling, with no ramp at half`() {
+        val g = governor(6, bitrate = 500_000, manual = true)
+        val start = g.start(nowMs)
+        assertTrue("got $start", Action.SetPace(DashCompositor.Pace(167, 334, 0)) in start)
+        assertTrue("got $start", Action.SetBitrate(500_000) in start)
+        val unconfirmed = g.poll(drawn = 1, confirmed = false)
+        assertTrue("before the dash shows a frame: got $unconfirmed", unconfirmed.none { it is Action.SetPace || it is Action.SetBitrate })
+        assertEquals(6, g.fps)
+    }
+
+    @Test
+    fun `a manual stream keeps the chosen ceiling while the picture is still`() {
+        val g = started(6, bitrate = 600_000, manual = true)
+        val still = (1..40).flatMap { _ -> g.poll(drawn = 0) }
+        assertTrue("got $still", still.none { it is Action.SetBitrate })
+        assertEquals(6, g.fps)
+    }
+
+    @Test
+    fun `a manual stream keeps the reserve's ceiling, 6 fps and 400 kbps, and gives the choice back when it ends`() {
+        val g = started(8, bitrate = 800_000, manual = true)
+        val entered = g.poll(lowFuel = true)
+        assertEquals(6, g.fps)
+        assertEquals(listOf("reserve: pace capped at 6 fps (was 8)"), entered.reserveLogs())
+        assertTrue("got $entered", Action.SetBitrate(400_000) in entered)
+        assertTrue(entered.none { it is Action.Rebuild })
+        val lifted = g.poll(lowFuel = false)
+        assertEquals(8, g.fps)
+        assertTrue("got $lifted", Action.SetBitrate(800_000) in lifted)
+        val low = started(4, bitrate = 400_000, manual = true)
+        val under = low.poll(lowFuel = true)
+        assertEquals("a pace under the cap is left as it is", 4, low.fps)
+        assertTrue("got $under", under.none { it is Action.SetPace || it is Action.SetBitrate })
+    }
+
+    @Test
+    fun `a manual stream with the reserve's cap switched off is not capped`() {
+        val g = started(8, bitrate = 800_000, reserveCap = false, manual = true)
+        val entered = g.poll(lowFuel = true)
+        assertEquals(8, g.fps)
+        assertTrue("got $entered", entered.none { it is Action.SetPace || it is Action.SetBitrate })
+        assertEquals(listOf("reserve: cap off by the debug switch (pace stays 8 fps)"), entered.reserveLogs())
+    }
+
+    @Test
+    fun `a manual stream keeps the light screens' pace`() {
+        val g = started(4, lightScreenFps = 6, manual = true)
+        assertEquals(4, g.fps)
+        g.poll(light = true)
+        assertEquals(6, g.fps)
+        g.poll(light = false)
+        repeat(60) { _ -> g.poll(light = false) }
+        assertEquals(4, g.fps)
+    }
+
+    @Test
+    fun `a manual stream's summary has the chosen pace as A and never a line of B`() {
+        val g = started(10, manual = true)
+        repeat(8) { _ -> g.reduce() }
+        val line = g.paceSummary()!!
+        assertTrue(line, "A 10 fps" in line)
+        assertFalse(line, "B " in line.replace("bitrate by pace", ""))
     }
 
     private companion object {

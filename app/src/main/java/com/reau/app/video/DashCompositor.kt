@@ -267,8 +267,8 @@ class DashCompositor(private val log: (String) -> Unit) {
     }
 
     /**
-     * Points the compositor at an encoder's input surface, [size] of it (526×300, or the smaller picture of the 12 fps profile: what is composed
-     * in 526×300 is shrunk to it on the way out, [CompositorMath.toOutput]) and starts the clock; a frame goes out at
+     * Points the compositor at an encoder's input surface, [size] of it (526×300, or the picture a debug build chose, 448x256 to 528x304: what is composed
+     * in 526×300 is scaled to it on the way out, [CompositorMath.toOutput]) and starts the clock; a frame goes out at
      * once. [onFrameSubmitted] is called with each frame's time right before the frame is posted (the encoder's
      * `frameSubmitted`). Returns only when the switch is done: from then on nothing more is drawn on a previous
      * output, so its encoder can be released. The video clock carries on across outputs. A caller's trailing lambda
