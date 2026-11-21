@@ -2,6 +2,7 @@
 split it exactly, and a file left mutated by a killed run is put back."""
 import contextlib
 import io
+import re
 import sys
 import tempfile
 import unittest
@@ -10,6 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mutacoes  # noqa: E402
 import mutate  # noqa: E402
+import run_unit  # noqa: E402
 
 
 class ListaTest(unittest.TestCase):
@@ -63,6 +65,74 @@ class CommandForTest(unittest.TestCase):
     def test_every_python_test_named_in_the_list_exists(self):
         faltam = [f"{m[0]}: {c}" for m in mutacoes.MUTATIONS for c in m[4] if c.endswith(".py") and not (mutate.ROOT / "scripts" / c).is_file()]
         self.assertEqual([], faltam)
+
+
+    def test_every_jvm_test_class_named_in_the_list_exists(self):
+        """A class that is gone (or renamed) makes Gradle fail with "No tests found for given includes", and the mutation reads as invalid."""
+        sources = " ".join(p.read_text(encoding="utf-8") for folder in ("test", "sharedTest") for p in (mutate.ROOT / "app" / "src" / folder).rglob("*.kt"))
+        declared = set(re.findall(r"^\s*(?:internal |private |open |abstract )*class (\w+)", sources, flags=re.MULTILINE))
+        faltam = [f"{m[0]}: {c}" for m in mutacoes.MUTATIONS for c in m[4] if not c.endswith(".py") and c not in declared]
+        self.assertEqual([], faltam)
+
+    def test_no_mutation_aims_at_a_file_that_is_gone(self):
+        faltam = [f"{m[0]}: {m[1]}" for m in mutacoes.MUTATIONS if not (mutate.ROOT / m[1]).is_file()]
+        self.assertEqual([], faltam)
+
+
+class CauseTest(unittest.TestCase):
+    """What run_unit says when Gradle fails with no compile error and no failed test."""
+
+    def test_the_what_went_wrong_block_is_said_without_the_hints_after_it(self):
+        out = "> Task :app:testDebugUnitTest FAILED\n\nFAILURE: Build failed with an exception.\n\n* What went wrong:\nExecution failed for task ':app:testDebugUnitTest'.\n> No tests found for given includes: [*.GoneTest] (--tests filter)\n\n* Try:\n> Run with --scan\n"
+        said = run_unit.cause(out)
+        self.assertIn("No tests found for given includes: [*.GoneTest]", said)
+        self.assertIn("Execution failed for task", said)
+        self.assertNotIn("--scan", said)
+
+    def test_without_that_block_the_end_of_the_output_is_said(self):
+        said = run_unit.cause("\n".join(f"line {n}" for n in range(40)))
+        self.assertIn("line 39", said)
+        self.assertNotIn("line 10\n", said)
+        self.assertIn("(nenhuma saída)", run_unit.cause(""))
+
+
+class PreflightTest(unittest.TestCase):
+    """The check before the first Gradle mutation: a Gradle that does not end green with nothing mutated stops the run, with the cause said."""
+
+    class Done:
+        def __init__(self, code, out):
+            self.returncode, self.stdout, self.stderr = code, out, ""
+
+    def go(self, wanted, code, out):
+        asked = []
+
+        def run(command, **kwargs):
+            asked.append(command)
+            return self.Done(code, out)
+
+        said = io.StringIO()
+        with contextlib.redirect_stdout(said):
+            ok = mutacoes.preflight(wanted, run=run)
+        return ok, said.getvalue(), asked
+
+    def test_a_green_gradle_goes_on_and_the_test_runs_the_classes_of_the_first_jvm_mutation(self):
+        wanted = [("a", "x.py", "1", "2", ["test_a.py"]), ("b", "x.kt", "1", "2", ["BTest", "CTest"])]
+        ok, said, asked = self.go(wanted, 0, "VERDE")
+        self.assertTrue(ok)
+        self.assertEqual(1, len(asked))
+        self.assertEqual(["BTest", "CTest"], asked[0][-2:])
+        self.assertIn("VERDE", said)
+
+    def test_a_gradle_that_breaks_stops_the_run_and_says_why(self):
+        ok, said, _ = self.go([("b", "x.kt", "1", "2", ["BTest"])], 2, "NÃO COMPILOU\nsem erro de compilação nem teste que falhou; o Gradle diz:\nNo space left on device")
+        self.assertFalse(ok)
+        self.assertIn("nenhuma mutação foi rodada", said)
+        self.assertIn("No space left on device", said)
+
+    def test_only_python_tests_need_no_gradle(self):
+        ok, _, asked = self.go([("a", "x.py", "1", "2", ["test_a.py"])], 1, "")
+        self.assertTrue(ok)
+        self.assertEqual([], asked)
 
 
 class FatiaTest(unittest.TestCase):

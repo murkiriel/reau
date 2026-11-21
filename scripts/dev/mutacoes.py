@@ -3,7 +3,7 @@
 Each mutation changes one decision in code that the work of 20/10/2026 wrote or fixed (a boundary, a missing condition, a swapped
 branch) and runs only the unit tests of that code (scripts/dev/run_unit.py): a mutation the tests do not catch ("NÃO PEGA") means a
 test that does not really lock the decision. Exit code 1 when any mutation survives or its snippet is no longer in the file (the list
-needs a look after a change), 0 when all were caught.
+needs a look after a change), 0 when all were caught, 3 when the Gradle did not even end green with no mutation (preflight: no mutation is run).
 
 Usage (from the repo root):  python3 scripts/dev/mutacoes.py [--fatia I/N] [--lista] [filter ...]
   filter:      only the mutations whose name contains one of them
@@ -12,6 +12,7 @@ Usage (from the repo root):  python3 scripts/dev/mutacoes.py [--fatia I/N] [--li
 Each mutation is one Gradle test run: some seconds with a warm daemon, so the workflow keeps the daemon on and splits the list in slices.
 A run killed in the middle leaves one source file mutated: the next run puts it back before it starts (mutate.recover).
 """
+import subprocess
 import sys
 from pathlib import Path
 
@@ -2602,39 +2603,6 @@ MUTATIONS = [
     ('Leva 8a 13/11 versionCode: a release também recebe o código do debug', 'app/build.gradle.kts',
      'onVariants(selector().withBuildType("debug")) { variant ->', 'onVariants { variant ->',
      ['VersionCodeSchemeTest']),
-    ('Leva 8a 13/11 Assinatura: um SHA-256 de 40 dígitos vale', MAIN + 'update/SigningCheck.kt',
-     'private const val HEX_LENGTH = 64', 'private const val HEX_LENGTH = 40',
-     ['SigningCheckTest']),
-    ('Leva 8a 13/11 Assinatura: a letra maiúscula não vira minúscula', MAIN + 'update/SigningCheck.kt',
-     ".filterNot { it == ':' || it.isWhitespace() }.lowercase()", ".filterNot { it == ':' || it.isWhitespace() }",
-     ['SigningCheckTest']),
-    ('Leva 8a 13/11 Assinatura: os dois-pontos não são tirados', MAIN + 'update/SigningCheck.kt',
-     "hex.filterNot { it == ':' || it.isWhitespace() }", 'hex.filterNot { it.isWhitespace() }',
-     ['SigningCheckTest']),
-    ('Leva 8a 13/11 Assinatura: a linha da tela tem 8 pares e não 16', MAIN + 'update/SigningCheck.kt',
-     'private const val PAIRS_PER_LINE = 16', 'private const val PAIRS_PER_LINE = 8',
-     ['SigningCheckTest']),
-    ('Leva 8a 13/11 Assinatura: os pares saem em minúsculas', MAIN + 'update/SigningCheck.kt',
-     '.map { it.uppercase() }', '.map { it }',
-     ['SigningCheckTest']),
-    ('Leva 8a 13/11 Assinatura: um segundo signatário ao lado do esperado ainda bate', MAIN + 'update/SigningCheck.kt',
-     'signers.size == 1 && signers[0] == project -> Verdict.MATCH', 'project in signers -> Verdict.MATCH',
-     ['SigningCheckTest']),
-    ('Leva 8a 13/11 Assinatura: sem a impressão digital do projeto diz que diferem', MAIN + 'update/SigningCheck.kt',
-     'project == null -> Verdict.NOT_SET', 'project == null -> Verdict.DIFFERENT',
-     ['SigningCheckTest']),
-    ('Leva 8a 13/11 Assinatura: uma impressão digital instalada quebrada vale como outra', MAIN + 'update/SigningCheck.kt',
-     'signers.isNullOrEmpty() || signers.any { it == null } -> Verdict.UNREADABLE', 'signers.isNullOrEmpty() -> Verdict.UNREADABLE',
-     ['SigningCheckTest']),
-    ('Leva 8a 13/11 Assinatura: o que não se lê passa depois do que não está definido', MAIN + 'update/SigningCheck.kt',
-     '            signers.isNullOrEmpty() || signers.any { it == null } -> Verdict.UNREADABLE\n            project == null -> Verdict.NOT_SET\n', '            project == null -> Verdict.NOT_SET\n            signers.isNullOrEmpty() || signers.any { it == null } -> Verdict.UNREADABLE\n',
-     ['SigningCheckTest']),
-    ('Leva 8a 13/11 Assinatura: a impressão digital é um SHA-1', MAIN + 'update/SigningCheck.kt',
-     'MessageDigest.getInstance("SHA-256")', 'MessageDigest.getInstance("SHA-1")',
-     ['SigningCheckTest']),
-    ('Leva 8a 13/11 Assinatura: lê o histórico de assinaturas e não as de agora', MAIN + 'update/SigningCheck.kt',
-     'info?.apkContentsSigners?.map', 'info?.signingCertificateHistory?.map',
-     ['SigningCheckTest']),
     ('Leva 8a 13/11 Atestação: a ação fica pela tag e não pelo commit', '.github/workflows/ci.yml',
      'actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2', 'actions/attest-build-provenance@v4.2.2',
      ['ApkAttestationTest']),
@@ -2659,21 +2627,6 @@ MUTATIONS = [
     ('Leva 8a 13/11 Site: uma imagem fica sem página que a use', 'docs/pt/faq.html',
      'href="../assets/img/settings.jpg"><img width="900" height="1440" src="../assets/img/settings.jpg"', 'href="../assets/img/settings_en.jpg"><img width="900" height="1440" src="../assets/img/settings_en.jpg"',
      ['SiteOrphansTest']),
-    ('Leva 8a 13/11 Assinatura: a constante do projeto tem um dígito trocado', MAIN + 'update/SigningCheck.kt',
-     'EXPECTED_SHA256 = "63f5c3ba687699b0b4288a878bd8372bed2c9632222d7f673ea71073aa208970"', 'EXPECTED_SHA256 = "63f5c3ba687699b0b4288a878bd8372bed2c9632222d7f673ea71073aa208971"',
-     ['SigningCheckTest']),
-    ('Leva 8a 13/11 Assinatura: a constante do projeto fica vazia', MAIN + 'update/SigningCheck.kt',
-     'EXPECTED_SHA256 = "63f5c3ba687699b0b4288a878bd8372bed2c9632222d7f673ea71073aa208970"', 'EXPECTED_SHA256 = ""',
-     ['SigningCheckTest']),
-    ('Leva 8a 13/11 Assinatura: a build de debug com outra assinatura diz que difere', MAIN + 'update/SigningCheck.kt',
-     '            debugBuild -> Verdict.DEBUG_BUILD\n', '',
-     ['SigningCheckTest']),
-    ('Leva 8a 13/11 Assinatura: a release também é tratada como build de debug', MAIN + 'update/SigningCheck.kt',
-     '            debugBuild -> Verdict.DEBUG_BUILD\n', '            true -> Verdict.DEBUG_BUILD\n',
-     ['SigningCheckTest']),
-    ('Leva 8a 13/11 Assinatura: a build de debug com a assinatura do projeto diz depuração', MAIN + 'update/SigningCheck.kt',
-     '            signers.size == 1 && signers[0] == project -> Verdict.MATCH\n            debugBuild -> Verdict.DEBUG_BUILD\n', '            debugBuild -> Verdict.DEBUG_BUILD\n            signers.size == 1 && signers[0] == project -> Verdict.MATCH\n',
-     ['SigningCheckTest']),
     ('Leva 8a 13/11 Atestação: a página em português cita o gh attestation', 'docs/pt/install.html',
      'apksigner verify --print-certs REau-0.3.0.apk', 'gh attestation verify REau-0.3.0.apk',
      ['ApkAttestationTest']),
@@ -2821,7 +2774,7 @@ MUTATIONS = [
     ("Governador G0 14/11: a troca de perfil não espera os 10 s", MAIN + "stream/StreamGovernor.kt",
      "nowMs - tierChangedAtMs < NAV_DWELL_MS -> before", "false -> before", ["GovernadorOuroTest"]),
     ("Governador G0 14/11: o teto do calor passa abaixo do piso de 4", MAIN + "stream/ThermalCeiling.kt",
-     "return DashConfig.snapStreamFps(hot).coerceAtMost(base)", "return hot.coerceAtMost(base)", ["EscadaInalcancavelTest"]),
+     "return DashConfig.snapStreamFps(hot).coerceAtMost(base)", "return hot.coerceAtMost(base)", ["EscadaInalcancavelTest", "ThermalCeilingTest"]),
     # Governador G1 14/11 (14/11/2026, plan 27, step G1): the fps ladder is cut. The governor runs at one full pace for the whole stream; the golden traces of G0
     # hold that nothing but the text in brackets of the window's line moved (the old governor that ran beside it in the tests left the tree in step G3).
     ("Governador G1 14/11: sem perfil o ritmo é o mínimo da navegação e não o cheio", MAIN + "stream/StreamGovernor.kt",
@@ -4795,6 +4748,23 @@ def parse(argv):
     return part, only_list, filters
 
 
+def preflight(wanted, run=subprocess.run):
+    """Before the first Gradle mutation: the tests of its classes, with nothing mutated, have to end VERDE. A Gradle that cannot run (a CI slice
+    on 20/11/2026: 84 mutations in a row "NÃO COMPILOU", seven seconds each, no cause) would otherwise burn the slice and call
+    every mutation invalid. Returns whether to go on; when not, it has said why."""
+    first = next((m for m in wanted if not all(c.endswith(".py") for c in m[4])), None)
+    if first is None:
+        return True
+    done = run(command_for(first[4]), cwd=mutate.ROOT, env=mutate.ENV, capture_output=True, text=True, encoding="utf-8", errors="replace",
+               stdin=subprocess.DEVNULL, timeout=mutate.TIMEOUT_S)
+    out = (done.stdout + done.stderr).strip()
+    if done.returncode == 0:
+        print(f"Sem mutação, os testes de {', '.join(first[4])}: {out.splitlines()[-1] if out else 'sem saída'}", flush=True)
+        return True
+    print(f"O Gradle não fecha VERDE nem sem mutação (testes de {', '.join(first[4])}); nenhuma mutação foi rodada:\n{out[-2500:]}", flush=True)
+    return False
+
+
 def main(argv):
     part, only_list, filters = parse(argv)
     back = mutate.recover()
@@ -4808,6 +4778,8 @@ def main(argv):
         for m in wanted:
             print(" ", m[0])
         return 0
+    if not preflight(wanted):
+        return 3
     caught = 0
     for name, rel, old, new, classes in wanted:
         caught += mutate.run([(name, rel, old, new)], command_for(classes)) or 0

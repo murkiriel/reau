@@ -108,7 +108,7 @@ def run(mutations, command, tail=3):
             continue
         out = (done.stdout + done.stderr).strip().splitlines()
         if "NÃO COMPILOU" in "\n".join(out):
-            print(f"{name}: NÃO COMPILOU (mutação inválida)\n   " + "\n   ".join(out[-tail:]), flush=True)
+            print(f"{name}: NÃO COMPILOU (mutação inválida)\n   " + "\n   ".join(out[-max(tail, 12):]), flush=True)
         elif done.returncode:
             caught += 1
             why = [line for line in out if "FALHOU" in line or "AssertionError" in line or "expected" in line][:2]

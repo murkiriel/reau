@@ -1,6 +1,5 @@
 package com.reau.app
 
-import com.reau.app.update.SigningCheck
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -64,7 +63,6 @@ class ApkAttestationTest {
     @Test
     fun `the install page checks the APK by the signature's fingerprint in the three languages, and promises nothing about the attestation`() {
         val official = "63f5c3ba687699b0b4288a878bd8372bed2c9632222d7f673ea71073aa208970"
-        assertEquals("the page says what the app compares with", official, SigningCheck.EXPECTED_SHA256)
         for (language in listOf("pt", "en", "es")) {
             val page = File(root, "docs/$language/install.html").readText()
             val section = page.substringAfter("id=\"conferir-apk\"").substringBefore("id=\"migracao\"")

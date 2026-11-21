@@ -79,6 +79,8 @@ class EscadaInalcancavelTest {
         }
         for (status in 2..6) {
             assertTrue("status $status lowers the ceiling", ThermalCeiling.capFor(status, 6) < 6)
+            // 6 * 5 / 8 = 3 and 6 / 2 = 3 are under the dash's floor: the snap takes them to 4, not to 3 (and 4 of 4 stays 4: ThermalCeilingTest).
+            assertTrue("status $status stays at the 4 fps floor or above", ThermalCeiling.capFor(status, 6) >= DashConfig.MIN_STREAM_FPS)
             assertTrue("and says so", VideoLoop.thermalCapped(ThermalCeiling.capFor(status, 6), 6))
             assertFalse("6 fps is no longer allowed at status $status", ThermalCeiling.allows(status, 6, 6))
         }
