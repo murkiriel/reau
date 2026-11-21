@@ -913,8 +913,12 @@ class DashWifiManager(
     private fun stuckAtFirstTry(ruled: Refusal): Refusal {
         val seen = scan.read()
         val nowUs = SystemClock.elapsedRealtime() * MICROS_PER_MILLI
-        val verdict = judgeStuck(seen, DashStuck.sighting(seen, pendingSsid, pendingPrefix, nowUs))
-        if (verdict?.remembered == true && ruled != Refusal.NOT_FOUND && ruled != Refusal.GONE_AFTER_JOIN) return Refusal.DASH_STUCK
+        val sighting = DashStuck.sighting(seen, pendingSsid, pendingPrefix, nowUs)
+        val verdict = judgeStuck(seen, sighting)
+        // The later tries of the same start (the rider already told) keep the words of a hung dash on the screen while the memory holds.
+        val held = verdict?.remembered == true ||
+            StuckMemory.sinceVerdictMs(pendingSsid, pendingPrefix, sighting, MonotonicClock.nowMs()) != null
+        if (held && ruled != Refusal.NOT_FOUND && ruled != Refusal.GONE_AFTER_JOIN) return Refusal.DASH_STUCK
         if (ruled == Refusal.DASH_STUCK) StuckMemory.remember(pendingSsid, pendingPrefix, MonotonicClock.nowMs())
         return ruled
     }
