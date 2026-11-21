@@ -242,7 +242,8 @@ class DashWifiManager(
             _state.value = WifiState()
         }
         bindRefusals.bound()
-        clearStuck()
+        // The notice goes with the service, but the verdict is kept: only the ignition clears a hung dash (StuckMemory, ride of 21/11/2026).
+        clearStuck(forgetVerdict = false)
     }
 
     // ── Internal ──────────────────────────────────────────────────────────
@@ -706,8 +707,9 @@ class DashWifiManager(
         val seenInScan = seenNow ?: scan.verdict(pendingSsid, pendingPrefix)
         quickRefusals = early
         // After an adoption that did not hold (the network went in between), the verdict is the one it always was.
-        val refusal = (outcome as? JoinRules.Unavailable.Refused)?.refusal
+        val ruled = (outcome as? JoinRules.Unavailable.Refused)?.refusal
             ?: refusal(seenInScan, tookMs, requestTimeoutMs, joinedOnce, quickRefusals)
+        val refusal = stuckAtFirstTry(ruled)
         val message = refusal.message(pendingSsid).let { (text, name) -> context.getString(text, name) }
         Log.w(TAG, "WiFi unavailable (${tookMs}ms) — seenInScan=$seenInScan refusal=$refusal")
         com.reau.app.data.RideDiagnostics.warn(
@@ -880,14 +882,49 @@ class DashWifiManager(
         val seen = scan.read()
         val nowUs = SystemClock.elapsedRealtime() * MICROS_PER_MILLI
         val sighting = DashStuck.sighting(seen, pendingSsid, pendingPrefix, nowUs)
-        val verdict = stuck.failedTry(MonotonicClock.nowMs(), sighting) ?: return
-        val rssi = seen.orEmpty().filter { matchesPendingSsid(it.ssid, pendingSsid, pendingPrefix) }.maxOfOrNull { it.level }
-        com.reau.app.data.RideDiagnostics.warn("wifi", DashStuck.line(verdict.absentMs, verdict.tries, rssi))
-        onDashStuck?.invoke(true)
+        judgeStuck(seen, sighting)
     }
 
-    /** The absence is over (the dash is back, or the rider switched off): the rider's notice goes if it was shown. */
-    private fun clearStuck() {
+    /**
+     * The verdict of a failed try ([sighting] of the dash in [seen]), from [StuckDashWatch] or, at the first try of a start, from [StuckMemory]
+     * (ride of 21/11/2026: the rider switched the projection off and on three times after the notice, and each start needed the whole count
+     * again). Said to the ride log and to the rider once, and remembered for the starts that follow. Null when there is none.
+     */
+    private fun judgeStuck(seen: List<ScanSeen>?, sighting: DashStuck.Sighting): DashStuck.Verdict? {
+        val nowMs = MonotonicClock.nowMs()
+        val since = StuckMemory.sinceVerdictMs(pendingSsid, pendingPrefix, sighting, nowMs)
+        val verdict = stuck.failedTry(nowMs, sighting, remembered = since != null) ?: return null
+        val rssi = seen.orEmpty().filter { matchesPendingSsid(it.ssid, pendingSsid, pendingPrefix) }.maxOfOrNull { it.level }
+        com.reau.app.data.RideDiagnostics.warn(
+            "wifi",
+            if (verdict.remembered) DashStuck.rememberedLine(since ?: 0L, rssi) else DashStuck.line(verdict.absentMs, verdict.tries, rssi),
+        )
+        StuckMemory.remember(pendingSsid, pendingPrefix, nowMs)
+        onDashStuck?.invoke(true)
+        return verdict
+    }
+
+    /**
+     * The initial connect's [ruled] refusal with the memory of a hung dash applied: a first try that failed with the dash in the scan at a good
+     * signal, while [StuckMemory] holds a verdict of it, is [Refusal.DASH_STUCK] at once and tells the rider (the quick-refusal rule alone raises
+     * no notification and needs three refusals). A [Refusal.DASH_STUCK] ruled by that count is remembered, so the next start is at once. A try
+     * with the dash gone from the scan makes [StuckMemory] forget (the ignition was cycled).
+     */
+    private fun stuckAtFirstTry(ruled: Refusal): Refusal {
+        val seen = scan.read()
+        val nowUs = SystemClock.elapsedRealtime() * MICROS_PER_MILLI
+        val verdict = judgeStuck(seen, DashStuck.sighting(seen, pendingSsid, pendingPrefix, nowUs))
+        if (verdict?.remembered == true && ruled != Refusal.NOT_FOUND && ruled != Refusal.GONE_AFTER_JOIN) return Refusal.DASH_STUCK
+        if (ruled == Refusal.DASH_STUCK) StuckMemory.remember(pendingSsid, pendingPrefix, MonotonicClock.nowMs())
+        return ruled
+    }
+
+    /**
+     * The absence is over (the dash is back, or the rider switched off): the rider's notice goes if it was shown. [forgetVerdict]: the dash is
+     * really back, so [StuckMemory] lets go too; the manual disconnect keeps it.
+     */
+    private fun clearStuck(forgetVerdict: Boolean = true) {
+        if (forgetVerdict) StuckMemory.forget()
         if (stuck.back()) {
             com.reau.app.data.RideDiagnostics.log("wifi", "the dash is back (or REau was switched off): the notice of the hung dash is taken away")
             onDashStuck?.invoke(false)

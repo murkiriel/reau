@@ -86,6 +86,15 @@ class DashRecoveryIsWiredTest {
     }
 
     @Test
+    fun `the memory of a hung dash is kept by the manual disconnect and let go when the dash is joined or at the first try`() {
+        assertTrue(wifi.between("fun disconnect()", "// ── Internal").contains("clearStuck(forgetVerdict = false)"))
+        assertTrue("the join of the callback forgets", wifi.between("override fun onAvailable(", "override fun onCapabilitiesChanged").contains("clearStuck()"))
+        assertTrue("the network the phone joined forgets", wifi.between("private fun useAlreadyConnectedNetwork()", "everConnected = true").contains("clearStuck()"))
+        assertTrue("the initial connect asks the memory", wifi.between("private fun giveUpAfterUnavailable(", "val message =").contains("stuckAtFirstTry(ruled)"))
+        assertTrue("so does the failed try of a watch", wifi.between("private fun noteFailedTry()", "private fun judgeStuck(").contains("judgeStuck(seen, sighting)"))
+    }
+
+    @Test
     fun `the send tail is written when the Wi-Fi is lost and when a watchdog fires, and fed by the video loop`() {
         assertTrue(wifi.contains("DashHeard.tail?.reportOnce(\"the Wi-Fi was lost\""))
         assertTrue(session.contains("stats.sendTail.reportOnce(why, open)"))

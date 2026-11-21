@@ -55,8 +55,76 @@ internal object DashStuck {
         "dash visible but refusing for ${absentMs / 1_000} s ($tries tries${rssiDbm?.let { ", $it dBm" } ?: ""}) — " +
             "dash Wi-Fi likely hung; rider told to cycle ignition"
 
-    /** What a verdict says: how many tries and how long. */
-    data class Verdict(val tries: Int, val absentMs: Long)
+    /**
+     * What a verdict says: how many tries and how long. [remembered]: it was given at the first try because [StuckMemory] still held the
+     * last verdict of the same dash, not because [MIN_TRIES] tries went by.
+     */
+    data class Verdict(val tries: Int, val absentMs: Long, val remembered: Boolean = false)
+
+    /** The line for the ride log of a verdict given at once by [StuckMemory]: [sinceMs] after the last one, with the dash at [rssiDbm]. */
+    fun rememberedLine(sinceMs: Long, rssiDbm: Int?): String =
+        "dash still hung since the last verdict ${sinceMs / 1_000} s ago (first try of this start${rssiDbm?.let { ", $it dBm" } ?: ""}): " +
+            "the notice is shown at once; only the ignition clears it"
+}
+
+/**
+ * What the process remembers of a hung dash across the rider's switching REau's projection off and on (ride log of 21/11/2026, 07:25 to 07:29):
+ * the dash's Wi-Fi hung for real at 07:25:25, [StuckDashWatch] gave the verdict at 07:26:00 and the rider was told to cycle the ignition. He
+ * switched the projection off and on three times instead. Each switch-off took the notice away ([DashWifiManager.disconnect]) and the next start
+ * needed three quick refusals again (47 s) before the words came back, with no notification at all in the initial connect. Only the ignition
+ * clears a hung dash, so the verdict outlives the projection: the first failed try of the next start, with the dash in the scan at a good
+ * signal ([DashStuck.Sighting.GOOD]), shows the notice at once.
+ *
+ * Forgotten when the dash is really joined (it is back), when a try ends with the dash gone from the scan ([DashStuck.Sighting.GONE]: the
+ * ignition was switched off, which is what clears it), and [REMEMBER_MS] after the last verdict. NOT forgotten by the manual disconnect, which is
+ * the very case. Pure: the monotonic clock is given, not read. Thread-safe: the manager's callbacks and the projection call it.
+ */
+internal object StuckMemory {
+    /** How long a verdict is kept: a rider who gave up and tried again later than this deserves the full check again. */
+    const val REMEMBER_MS = 300_000L
+
+    private var ssid: String? = null
+    private var prefix = false
+    private var verdictAtMs = 0L
+
+    /** The dash called [pendingSsid] ([pendingPrefix]: it is a prefix) was judged hung at [nowMs]. */
+    @Synchronized
+    fun remember(pendingSsid: String, pendingPrefix: Boolean, nowMs: Long) {
+        ssid = pendingSsid
+        prefix = pendingPrefix
+        verdictAtMs = nowMs
+    }
+
+    /** The dash is back, or the ignition was switched off: nothing is held. */
+    @Synchronized
+    fun forget() {
+        ssid = null
+    }
+
+    /**
+     * For a try that just failed at [nowMs] with the dash [sighting] in the scan: how long ago the last verdict of the same dash was when it
+     * still holds and the dash is there ([DashStuck.Sighting.GOOD]), else null. A try with the dash gone forgets the verdict
+     * ([DashStuck.Sighting.GONE]); one the scan says nothing about ([DashStuck.Sighting.UNKNOWN]) neither fires nor forgets. A verdict older
+     * than [REMEMBER_MS] is forgotten too.
+     */
+    @Synchronized
+    fun sinceVerdictMs(pendingSsid: String, pendingPrefix: Boolean, sighting: DashStuck.Sighting, nowMs: Long): Long? {
+        val held = ssid ?: return null
+        val since = nowMs - verdictAtMs
+        if (since !in 0..REMEMBER_MS || sighting == DashStuck.Sighting.GONE) {
+            ssid = null
+            return null
+        }
+        return since.takeIf { sighting == DashStuck.Sighting.GOOD && sameDash(held, prefix, pendingSsid, pendingPrefix) }
+    }
+
+    /** The same dash: equal names, or one a prefix of the other's (a start by `RE_` and one by the exact name saved from the first). */
+    private fun sameDash(a: String, aPrefix: Boolean, b: String, bPrefix: Boolean): Boolean = when {
+        aPrefix && bPrefix -> a.startsWith(b) || b.startsWith(a)
+        aPrefix -> DashSsid.matchesPendingSsid(b, a, true)
+        bPrefix -> DashSsid.matchesPendingSsid(a, b, true)
+        else -> a == b
+    }
 }
 
 /**
@@ -81,9 +149,17 @@ internal class StuckDashWatch {
         told = false
     }
 
-    /** A try for the dash's Wi-Fi ended without it, with the dash [sighting] in the scan; the verdict the first time it is a hung dash, else null. */
+    /**
+     * A try for the dash's Wi-Fi ended without it, with the dash [sighting] in the scan; the verdict the first time it is a hung dash, else null.
+     * [remembered]: [StuckMemory] still holds a verdict of this dash. Then the first try with the dash [DashStuck.Sighting.GOOD] is the verdict,
+     * with no loss, no speech and no count needed (21/11/2026: a new start after the rider switched the projection off is not a new absence).
+     */
     @Synchronized
-    fun failedTry(nowMs: Long, sighting: DashStuck.Sighting): DashStuck.Verdict? {
+    fun failedTry(nowMs: Long, sighting: DashStuck.Sighting, remembered: Boolean = false): DashStuck.Verdict? {
+        if (remembered && sighting == DashStuck.Sighting.GOOD && !told) {
+            told = true
+            return DashStuck.Verdict(tries = 1, absentMs = lostAtMs?.let { nowMs - it } ?: 0L, remembered = true)
+        }
         val lostAt = lostAtMs ?: return null
         if (!spoke || told) return null
         when (sighting) {
