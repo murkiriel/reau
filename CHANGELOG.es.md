@@ -46,6 +46,7 @@ English: [CHANGELOG.md](CHANGELOG.md) · Português (pt-BR): [CHANGELOG.pt-br.md
 - **Con Spotify al frente y sonando, la franja dorada del tablero muestra la canción y el botón de pausa** (el título, el artista y los tres botones, como en las otras pantallas), incluso cuando la página del Joystick no tiene control de música (aún no probado en la moto).
 - **La flecha de la rotonda en el tablero se dibujaba al revés** (el error se vio en la moto; la corrección aún no): en Brasil Android Auto dice antihorario y el tablero la dibujaba horaria.
 - **El Wi-Fi del tablero deja de llamarse "trabado" cuando el teléfono ya se unió a él**, y una solicitud de red antigua ya no tumba una más nueva (aún sin ver en la moto).
+- **Un tablero cuyo Wi-Fi se trabó de verdad sigue siendo dicho trabado después de que apagas y enciendes la proyección de REau** (**aún sin probar en la moto**): durante 5 minutos, el primer intento del arranque siguiente ya muestra el aviso (antes tardaba unos 45 s en volver). Solo el encendido de la moto destraba el tablero. Y REau aleja sus mensajes de rutina al tablero (reloj, estado del teléfono, tarjetas) 150 ms de cada cuadro clave del video, cuando el enlace con el tablero está más ocupado.
 - **El video ya no pasa del ritmo del perfil después de un toque del joystick.**
 - **Cambiar el ritmo del video justo cuando el tablero se caía podía dejar el video trabado hasta apagar la proyección.**
 - **Más territorios de circulación por la izquierda** en el lado de circulación automático.

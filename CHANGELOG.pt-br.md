@@ -47,6 +47,7 @@ aparecem).
 - **Com o Spotify na frente e tocando, a faixa dourada do painel mostra a música e o botão de pausa** (o título, o artista e os três botões, como nas outras telas), mesmo quando a página do Joystick não tem controle de música (ainda não testado na moto).
 - **A seta da rotatória no painel era desenhada ao contrário** (o erro foi visto na moto; a correção ainda não): no Brasil o Android Auto diz anti-horário e o painel desenhava horário.
 - **O Wi-Fi do painel deixa de ser chamado de "travado" quando o celular já entrou nele**, e um pedido de rede antigo não derruba mais um mais novo (ainda não visto na moto).
+- **Um painel cujo Wi-Fi travou de verdade continua sendo dito travado depois que você desliga e liga a projeção do REau** (**ainda não testado na moto**): por 5 minutos, a primeira tentativa da partida seguinte já mostra o aviso (antes ele levava uns 45 s para voltar). Só a ignição da moto destrava o painel. E o REau afasta as suas mensagens de rotina ao painel (relógio, estado do celular, cartões) 150 ms de cada quadro-chave do vídeo, quando a ligação com o painel está mais ocupada.
 - **O vídeo não passa mais do ritmo do perfil depois de um toque no joystick.**
 - **Trocar o ritmo do vídeo no exato momento em que o painel caía podia deixar o vídeo preso até desligar a projeção.**
 - **Mais territórios de mão inglesa** no lado da via automático.

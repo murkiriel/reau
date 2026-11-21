@@ -46,6 +46,7 @@ Português (pt-BR): [CHANGELOG.pt-br.md](CHANGELOG.pt-br.md) · Español: [CHANG
 - **With Spotify in front and playing, the dash's gold band shows the song and the pause button** (the song, the artist and the three buttons, as on the other screens), even when the Joystick page has no music control (not yet tried on the bike).
 - **The roundabout arrow on the dash was drawn the other way round** (the error was seen on the bike; the fix was not yet): in Brazil Android Auto says counter-clockwise and the dash drew it clockwise.
 - **The dash's Wi-Fi is no longer called "stuck" when the phone has already joined it**, and an old network request no longer drops a newer one (not yet seen on the bike).
+- **A dash whose Wi-Fi really hung is still said to be hung after you switch REau's projection off and on** (**not yet tried on the bike**): for 5 minutes, the first try of the next start already shows the notice (before, it took about 45 s to come back). Only the motorcycle's ignition clears a hung dash. And REau keeps its routine messages to the dash (clock, phone status, cards) 150 ms away from each keyframe of the video, when the dash's link is busiest.
 - **The video no longer goes above the profile's pace after a joystick tap.**
 - **Changing the video pace at the exact moment the dash dropped could leave the video stuck until the projection was turned off.**
 - **More left-hand traffic territories** in the Automatic driving side.
