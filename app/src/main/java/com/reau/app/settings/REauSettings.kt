@@ -36,7 +36,7 @@ data class REauSettings(
      */
     val cropX: Int? = -34,
     val cropY: Int? = 54,
-    val moveX: Int = 20,
+    val moveX: Int = 0,
     val moveY: Int = 0,
     /** The apps' zoom in % (100: as the fit gives it; [FrameFit.ZOOM]). */
     val zoom: Int = 100,
@@ -131,9 +131,10 @@ data class REauSettings(
     val actionEcho: Boolean = true,
     /**
      * When the dash's mode changes between its map and its media (and with the first tap of the projection), a card on the dash's video says for
-     * 3 s what each direction of the joystick does in that mode, by the rider's page ([com.reau.app.dash.ActionLegend]). On by default; read at each tap.
+     * 3 s what each direction of the joystick does in that mode, by the rider's page ([com.reau.app.dash.ActionLegend]). Off by default (21/11/2026, the
+     * owner's phone's settings made the defaults); read at each tap.
      */
-    val joystickLegend: Boolean = true,
+    val joystickLegend: Boolean = false,
     /**
      * A minute after the joystick, one touch takes Android Auto's blue focus
      * away ([com.reau.app.aa.FocusClearer]); on by default. Taken at the next start.
@@ -204,16 +205,17 @@ data class REauSettings(
     val dashWeather: Boolean = true,
     /**
      * The info ring on the dash's video, on the right where the dash draws nothing (rain, wind, storms, UV, air quality, the sun and
-     * the day's temperatures, [com.reau.app.weather.InfoRing]). Off by default (30/10/2026; it was on from 28/10/2026): on Waze it covers the
-     * speed limit and the speed, which the owner knows and accepts, so it is the rider's to switch on. On, it has nothing to show until the location is
+     * the day's temperatures, [com.reau.app.weather.InfoRing]). On by default since 21/11/2026 (the owner's phone's settings made the defaults),
+     * written in the title ([infoTitle]) so the video is left alone; from 30/10/2026 it was the rider's to switch on, because drawn on the video
+     * it covers Waze's speed limit and speed (it was on from 28/10/2026). On, it has nothing to show until the location is
      * known: it asks the internet for the weather, as "Clima no painel" does, which it does not need on: the ring asks for the weather by itself.
      */
-    val infoRing: Boolean = false,
+    val infoRing: Boolean = true,
     /**
-     * With the info ring: which of its data it may say (bits of [com.reau.app.weather.RingData]). At first only the rain, the wind and the thunder
-     * ([com.reau.app.weather.RingData.DEFAULT], 12/11/2026); the other cards are one tick each away.
+     * With the info ring: which of its data it may say (bits of [com.reau.app.weather.RingData]). All of them by default since 21/11/2026 (the owner's
+     * phone's settings made the defaults); from 12/11/2026 it was only the rain, the wind and the thunder ([com.reau.app.weather.RingData.DEFAULT]).
      */
-    val infoRingData: Int = com.reau.app.weather.RingData.DEFAULT,
+    val infoRingData: Int = com.reau.app.weather.RingData.ALL,
     /** With the info ring: it turns from one page to the next every [infoRingSeconds] (on), or stays on the most urgent one (off). */
     val infoRingCarousel: Boolean = true,
     val infoRingSeconds: Int = com.reau.app.weather.RingOptions.DEFAULT_SECONDS,
@@ -221,9 +223,9 @@ data class REauSettings(
     val infoRingInPlace: Boolean = false,
     /**
      * With the info ring on (P31 Título, 18/11/2026): its pages are written in the title of the dash's gold band, turning with the street (or
-     * "REau"), and the ring is not drawn on the video: one or the other. Off by default, so the ring is what it was.
+     * "REau"), and the ring is not drawn on the video: one or the other. On by default since 21/11/2026 (the owner's phone's settings made the defaults).
      */
-    val infoTitle: Boolean = false,
+    val infoTitle: Boolean = true,
     /**
      * A server on the local network that shows Android Auto in a
      * browser ([com.reau.app.web.WebBridge]). Off by default, and only up while the projection runs.

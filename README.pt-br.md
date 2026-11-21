@@ -31,7 +31,7 @@ pela rede Wi-Fi do painel.
   cartões do painel.
 - Usa o joystick do guidão para comandar o Android Auto (mapa, menu, música, chamadas e Gemini, que vem ligado e passa a funcionar quando você libera o microfone): tocando, a esquerda atende e a
   direita ou o centro recusam; em ligação, o centro desliga e cima e baixo mudam o volume.
-- Um anel de informações sobre a imagem, à direita do painel (vem desligado, com uma chave): chuva, vento, tempestade, UV, qualidade do ar, o sol, as temperaturas do dia e a bateria, o sinal e o GPS do celular, uma coisa de cada vez (de fábrica só a chuva, o vento e a trovoada; os outros cartões você liga). Precisa da localização e da internet para o clima.
+- Um anel de informações sobre a imagem, à direita do painel (vem ligado, com uma chave; as páginas dele são escritas no título da faixa dourada do painel): chuva, vento, tempestade, UV, qualidade do ar, o sol, as temperaturas do dia e a bateria, o sinal e o GPS do celular, uma coisa de cada vez (de fábrica com todos os cartões; você desliga os que não quiser). Precisa da localização e da internet para o clima.
 - Fala português, inglês e espanhol: segue o idioma do celular, e há um seletor nos Ajustes.
 - Ajusta a qualidade do vídeo pela distância da próxima manobra e pela velocidade.
 - Liga com um toque longo no ícone do REau ("Ligar") ou por um bloco das Configurações rápidas, para ligar em casa, antes do capacete.
@@ -73,7 +73,7 @@ Há um APK publicado na página de Releases do projeto; para compilar o seu em v
 
 O REau não tem conta, anúncio nem coleta de dados. A tela **"O REau e os seus dados"**, no próprio app, diz o que
 fica guardado no celular e o que sai dele, com o motivo. O que sai do celular vai para o painel e, só com o servidor de rede
-opcional ligado, para outros aparelhos da sua rede local; as únicas idas à internet são o clima (Open-Meteo, para o painel, que vem ligado, ou o anel de informações, que vem desligado: não pede nada até você liberar a localização, e cada um tem uma chave) e a verificação de atualização em Ajustes (o botão “Verificar atualização” e, uma vez por dia, sozinha, a chave “Avisar quando houver atualização”, ligada de fábrica), que só pergunta ao GitHub qual é a última versão. A permissão de localização também deixa o Android dar ao REau a lista de redes Wi-Fi, para ver a do painel, com o app atrás de outro (Android Auto, Waze) ou com a tela apagada; o REau não lê a posição para isso, e o Android pode mostrar o ícone de localização durante a projeção.
+opcional ligado, para outros aparelhos da sua rede local; as únicas idas à internet são o clima (Open-Meteo, para o painel e para o anel de informações, que vêm ligados: nada é pedido até você liberar a localização, e cada um tem uma chave) e a verificação de atualização em Ajustes (o botão “Verificar atualização” e, uma vez por dia, sozinha, a chave “Avisar quando houver atualização”, ligada de fábrica), que só pergunta ao GitHub qual é a última versão. A permissão de localização também deixa o Android dar ao REau a lista de redes Wi-Fi, para ver a do painel, com o app atrás de outro (Android Auto, Waze) ou com a tela apagada; o REau não lê a posição para isso, e o Android pode mostrar o ícone de localização durante a projeção.
 
 ## Segurança
 

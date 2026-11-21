@@ -9,9 +9,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The info ring starts with three cards, the rain, the wind and the thunder (the owner's decision, 12/11/2026). The others stay in the code and are
- * one tick each away (the checkboxes of "O que o anel diz"). A phone that kept "every card" (the old default) goes to the new default
- * once; any narrower choice, and everything saved afterwards, is left as the rider made it.
+ * The info ring starts with every card again since 21/11/2026 (the owner's phone's settings made the defaults). From 12/11/2026 to 21/11/2026 it started
+ * with three, the rain, the wind and the thunder ([RingData.DEFAULT], still in the code), and a phone that kept "every card" was moved to those three
+ * once. That move is gone: every choice of the rider, "every card" included, is left as it is, and only the mark is written.
  */
 class InfoRingDefaultCardsTest {
     private fun prefs(vararg saved: Pair<String, Int>, other: Boolean = true) = KeystoreBackedPrefsTest.FakePrefs().also { p ->
@@ -23,23 +23,24 @@ class InfoRingDefaultCardsTest {
     }
 
     @Test
-    fun `a new setting says the rain, the wind and the thunder and nothing else`() {
+    fun `a new setting says every card since 21-11-2026, the rain, the wind and the thunder only was the default from 12-11-2026`() {
         assertEquals(RingData.RAIN.bit or RingData.WIND.bit or RingData.STORM.bit, RingData.DEFAULT)
         assertEquals(7, RingData.DEFAULT)
-        assertEquals(RingData.DEFAULT, REauSettings().infoRingData)
-        for (data in RingData.entries) {
-            assertEquals("$data at first", data == RingData.RAIN || data == RingData.WIND || data == RingData.STORM, RingData.shown(REauSettings().infoRingData, data))
-        }
+        assertEquals(RingData.ALL, REauSettings().infoRingData)
+        assertEquals(2047, REauSettings().infoRingData)
+        for (data in RingData.entries) assertTrue("$data at first", RingData.shown(REauSettings().infoRingData, data))
     }
 
     @Test
-    fun `every page of the rain, of the wind and of the thunder is on at first and every other page is off`() {
+    fun `every page is on at first, and the three cards of 12-11-2026 (RingData DEFAULT) are still the rain, the wind and the thunder`() {
+        val every = RingKind.entries.filter { RingData.shown(REauSettings().infoRingData, RingData.of(it)) }.toSet()
+        assertEquals("every page, with the new default", RingKind.entries.toSet(), every)
         val on = RingKind.entries.filter { RingData.shown(RingData.DEFAULT, RingData.of(it)) }.toSet()
         assertEquals(
             setOf(RingKind.RAIN_SOON, RingKind.RAIN_NOW, RingKind.WIND_DANGER, RingKind.WIND_ALERT, RingKind.WIND_ATTENTION, RingKind.THUNDER), on,
         )
         for (kind in listOf(RingKind.UV, RingKind.AIR, RingKind.SUN, RingKind.SKY, RingKind.TEMPS, RingKind.BATTERY, RingKind.LINK, RingKind.GPS)) {
-            assertFalse("$kind is off at first", kind in on)
+            assertFalse("$kind is off with the three cards", kind in on)
         }
     }
 
@@ -53,18 +54,26 @@ class InfoRingDefaultCardsTest {
     }
 
     @Test
-    fun `a store with nothing saved reads the new default`() {
-        assertEquals(RingData.DEFAULT, SettingsStore(KeystoreBackedPrefsTest.FakePrefs()).load().infoRingData)
+    fun `a store with nothing saved reads the new default, every card`() {
+        assertEquals(RingData.ALL, SettingsStore(KeystoreBackedPrefsTest.FakePrefs()).load().infoRingData)
     }
 
     @Test
-    fun `a phone that kept every card, the old default, goes to the new default once`() {
+    fun `a phone that kept every card keeps it, only the mark is written (21-11-2026, it was moved to the three cards once from 12-11-2026)`() {
         for (old in listOf(RingData.ALL, RingData.BEFORE_PHONE_CARDS)) {
             val p = prefs("info_ring_data" to old)
-            assertEquals("kept $old", RingData.DEFAULT, SettingsStore(p).load().infoRingData)
-            assertEquals("and it is written, not only read", RingData.DEFAULT, p.getInt("info_ring_data", -1))
-            assertTrue("and the move is marked as made, so it is never made again", p.getBoolean("info_ring_cards_20261112", false))
+            assertEquals("kept $old (the old 255 reads as every card)", RingData.ALL, SettingsStore(p).load().infoRingData)
+            assertEquals("and the choice is left as it was written", old, p.getInt("info_ring_data", -1))
+            assertTrue("and only the mark is written, so the setting is never touched by this", p.getBoolean("info_ring_cards_20261112", false))
         }
+    }
+
+    @Test
+    fun `a phone that has the three cards of 12-11-2026 keeps them, it is the rider's choice now`() {
+        val p = prefs("info_ring_data" to RingData.DEFAULT)
+        assertEquals(RingData.DEFAULT, SettingsStore(p).load().infoRingData)
+        assertEquals(RingData.DEFAULT, p.getInt("info_ring_data", -1))
+        assertEquals(RingData.DEFAULT, SettingsStore(p).load().infoRingData)
     }
 
     @Test
@@ -75,27 +84,31 @@ class InfoRingDefaultCardsTest {
     }
 
     @Test
-    fun `a phone with settings saved but no choice for the cards gets the new default`() {
-        assertEquals(RingData.DEFAULT, SettingsStore(prefs()).load().infoRingData)
+    fun `a phone with settings saved but no choice for the cards gets the new default, every card`() {
+        assertEquals(RingData.ALL, SettingsStore(prefs()).load().infoRingData)
     }
 
     @Test
-    fun `the move is made once, so a rider who ticks every card again keeps them`() {
+    fun `no move is made, so a rider who unticks a card and ticks every card again keeps them`() {
         val p = prefs("info_ring_data" to RingData.ALL)
         val first = SettingsStore(p).load()
-        assertEquals(RingData.DEFAULT, first.infoRingData)
-        // The rider ticks every card; saving carries the mark, and the next start does not take them back.
+        assertEquals(RingData.ALL, first.infoRingData)
+        // The rider unticks the GPS card, then ticks every card again; saving carries the mark, and no start takes them back.
+        SettingsStore(p).save(first.copy(infoRingData = RingData.ALL and RingData.GPS.bit.inv()))
+        assertEquals(RingData.ALL and RingData.GPS.bit.inv(), SettingsStore(p).load().infoRingData)
         SettingsStore(p).save(first.copy(infoRingData = RingData.ALL))
         assertEquals(RingData.ALL, SettingsStore(p).load().infoRingData)
         assertEquals(RingData.ALL, SettingsStore(p).load().infoRingData)
     }
 
     @Test
-    fun `a phone that started with the new default and saved keeps a later every card too`() {
+    fun `a phone that started with the new default and saved keeps the default, and a later narrower choice too`() {
         val p = KeystoreBackedPrefsTest.FakePrefs()
         val store = SettingsStore(p)
-        store.save(store.load().copy(infoRingData = RingData.ALL))
+        store.save(store.load())
         assertEquals(RingData.ALL, SettingsStore(p).load().infoRingData)
+        store.save(store.load().copy(infoRingData = RingData.DEFAULT))
+        assertEquals(RingData.DEFAULT, SettingsStore(p).load().infoRingData)
     }
 
     @Test

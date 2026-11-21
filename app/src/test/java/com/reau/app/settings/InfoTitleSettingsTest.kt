@@ -13,7 +13,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The switch "Informações no título (no lugar do anel)" (P31 Título, "infoTitle"): off by default, kept, taken while running, named with letters
+ * The switch "Informações no título (no lugar do anel)" (P31 Título, "infoTitle"): off by default until 21/11/2026, on by default since then (the owner's phone's settings made the defaults), kept, taken while running, named with letters
  * only, logged with the settings in use, in the info ring's group of the settings screen in the three languages, and the ring is not drawn with it on.
  */
 class InfoTitleSettingsTest {
@@ -23,11 +23,13 @@ class InfoTitleSettingsTest {
         Regex("""<string name="$name">(.*?)</string>""", RegexOption.DOT_MATCHES_ALL).find(File("src/main/res/$folder/strings.xml").readText())!!.groupValues[1]
 
     @Test
-    fun `it is off on a new install, with nothing stored and sanitized, and the ring stays as it was`() {
-        assertFalse(REauSettings().infoTitle)
-        assertFalse(SettingsStore(KeystoreBackedPrefsTest.FakePrefs()).load().infoTitle)
-        assertFalse(REauSettings().sanitized().infoTitle)
-        assertTrue(InfoRingFeed.ringDrawn(infoRing = true, infoTitle = REauSettings().infoTitle))
+    fun `it is on on a new install since 21-11-2026, with nothing stored and sanitized, so the ring is written in the title and not drawn`() {
+        assertTrue(REauSettings().infoTitle)
+        assertTrue(SettingsStore(KeystoreBackedPrefsTest.FakePrefs()).load().infoTitle)
+        assertTrue(REauSettings().sanitized().infoTitle)
+        assertTrue("the ring is on with it", REauSettings().infoRing)
+        assertFalse("and it is not drawn on the video", InfoRingFeed.ringDrawn(infoRing = REauSettings().infoRing, infoTitle = REauSettings().infoTitle))
+        assertTrue("the ring as it was, with the title off", InfoRingFeed.ringDrawn(infoRing = true, infoTitle = REauSettings().copy(infoTitle = false).infoTitle))
     }
 
     @Test
@@ -53,7 +55,7 @@ class InfoTitleSettingsTest {
 
     @Test
     fun `a change is taken by the running projection at once, with the ring's extras`() {
-        val before = REauSettings(infoRing = true)
+        val before = REauSettings(infoRing = true, infoTitle = false)
         assertEquals(setOf(LiveTuning.Step.DASH_EXTRAS), LiveTuning.steps(before, before.copy(infoTitle = true)))
         assertEquals(setOf(LiveTuning.Step.DASH_EXTRAS), LiveTuning.steps(before.copy(infoTitle = true), before))
         assertEquals(emptySet<LiveTuning.Step>(), LiveTuning.steps(before, before.copy()))
@@ -61,10 +63,11 @@ class InfoTitleSettingsTest {
 
     @Test
     fun `the settings line of the ride log says it, with a name of letters only`() {
-        assertTrue(" infoRingInPlace=false infoTitle=false webView=" in SettingsInUse.line(REauSettings()))
+        assertTrue(" infoRingInPlace=false infoTitle=true webView=" in SettingsInUse.line(REauSettings()))
+        assertTrue(" infoRingInPlace=false infoTitle=false webView=" in SettingsInUse.line(REauSettings(infoTitle = false)))
         assertTrue(" infoTitle=true " in SettingsInUse.line(REauSettings(infoRing = true, infoTitle = true)) + " ")
         assertTrue("infoTitle".all { it.isLetter() })
-        assertEquals(listOf("infoTitle: false -> true"), REauSettings().changesTo(REauSettings(infoTitle = true)))
+        assertEquals(listOf("infoTitle: true -> false"), REauSettings().changesTo(REauSettings(infoTitle = false)))
         assertTrue(source("settings/SettingsStore.kt"), "private const val KEY_INFO_TITLE = \"infoTitle\"" in source("settings/SettingsStore.kt"))
     }
 
@@ -95,9 +98,10 @@ class InfoTitleSettingsTest {
 
     @Test
     fun `the title needs no GPS, so the foreground service does not ask for the GPS card's use`() {
-        val all = REauSettings(infoRing = true, useLocation = true, infoRingData = RingData.ALL)
+        val all = REauSettings(infoRing = true, infoTitle = false, useLocation = true, infoRingData = RingData.ALL)
         assertTrue(ProjectionService.foregroundNeeds(all, true, true).gps)
         assertFalse(ProjectionService.foregroundNeeds(all.copy(infoTitle = true), true, true).gps)
+        assertFalse("and so with the new defaults (21/11/2026)", ProjectionService.foregroundNeeds(REauSettings(), true, true).gps)
     }
 
     @Test

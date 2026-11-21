@@ -29,7 +29,7 @@ in developer mode. It receives the video, fits the picture to the dash's screen 
 - Also sends the music that is playing (when the joystick page has a music control), calls and the weather, for the dash's cards.
 - Uses the handlebar joystick to control Android Auto (map, menu, music, calls and Gemini, which comes on and works once you allow the microphone): while ringing, left answers and right or
   center decline; during a call, center hangs up and up and down change the volume.
-- An info ring over the picture, on the right of the dash (off by default, with a switch): rain, wind, storms, UV, air quality, the sun, the day's temperatures and the phone's battery, signal and GPS, one at a time (only the rain, the wind and the thunder at first; you switch on the other cards). It needs the location and the internet for the weather.
+- An info ring over the picture, on the right of the dash (on by default, with a switch; its pages are written in the title of the dash's gold band): rain, wind, storms, UV, air quality, the sun, the day's temperatures and the phone's battery, signal and GPS, one at a time (every card at first; you switch off the ones you don't want). It needs the location and the internet for the weather.
 - Speaks Portuguese, English and Spanish: it follows the phone's language, and the settings have a switch.
 - Adjusts the video quality by the distance to the next maneuver and by speed.
 - Starts from a long press on REau's icon ("Turn on") or from a Quick Settings tile, so it can be switched on at home before the helmet.
@@ -71,7 +71,7 @@ An APK is published on the project's Releases page; to build your own instead, G
 
 REau has no account, no ads and no data collection. The **"REau and your data"** screen, inside the app, says what
 stays on the phone and what leaves it, and why. What leaves the phone goes to the dash and, only with the optional network
-server on, to other devices on your local network; the only trips to the internet are the weather (Open-Meteo, for the dash, on by default, or the info ring, off by default: it asks nothing until you allow the location, and each has a switch) and the update check in Settings (the “Check for updates” button and, once a day by itself, the “Notify when there is an update” switch, on by default), which asks GitHub only for the latest version number. The location permission also lets Android give REau the list of Wi-Fi networks, to see the dash's, while the app is behind another one (Android Auto, Waze) or the screen is off; REau reads no position for that, and Android may show the location icon during the projection.
+server on, to other devices on your local network; the only trips to the internet are the weather (Open-Meteo, for the dash and for the info ring, both on by default: nothing is asked until you allow the location, and each has a switch) and the update check in Settings (the “Check for updates” button and, once a day by itself, the “Notify when there is an update” switch, on by default), which asks GitHub only for the latest version number. The location permission also lets Android give REau the list of Wi-Fi networks, to see the dash's, while the app is behind another one (Android Auto, Waze) or the screen is off; REau reads no position for that, and Android may show the location icon during the projection.
 
 ## Safety
 

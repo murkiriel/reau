@@ -22,7 +22,7 @@ class AaScreenDefaultsTest {
         "density" to s.density, "marginW" to s.marginW, "marginH" to s.marginH,
         // The "Navegação" tab (Waze, Google Maps): crop of the centre, 74%.
         "navFit" to s.navFit,
-        // The "Outros" tab: the whole picture, a crop of 64% placed at (-34, 54); the moves were never stored (20 and 0 as before).
+        // The "Outros" tab: the whole picture, a crop of 64% placed at (-34, 54); the apps' move is 0 and 0 since 21/11/2026 (it was 20 and 0).
         "appsFit" to s.appsFit,
         // The menu's own fit, on.
         "menuFit" to s.menuFit, "menuFitKept" to s.menuFitKept,
@@ -40,7 +40,7 @@ class AaScreenDefaultsTest {
     private val expected: Map<String, Any?> = mapOf(
         "density" to 180, "marginW" to 0, "marginH" to 0,
         "navFit" to FitParams(Fit.CROP, 74, 90, 62, 0, 0, 100, none),
-        "appsFit" to FitParams(Fit.WHOLE_VISIBLE, 64, -34, 54, 20, 0, 100, none),
+        "appsFit" to FitParams(Fit.WHOLE_VISIBLE, 64, -34, 54, 0, 0, 100, none),
         "menuFit" to FitParams(Fit.WHOLE_VISIBLE, 90, 32, 20, 20, 0, 100, none),
         "menuFitKept" to FitParams(Fit.WHOLE_VISIBLE, 90, 32, 20, 20, 0, 100, none),
         "dashMask" to true,
@@ -48,8 +48,8 @@ class AaScreenDefaultsTest {
         "buttonOverlay" to false, "buttonX" to 170, "buttonY" to 96, "buttonSize" to 32,
         "fpsTestCard" to false, "fpsTestCardFps" to 6,
         "maneuverRing" to false,
-        // infoRingData 7: the rain, the wind and the thunder (12/11/2026; it was every card, 2047)
-        "infoRing" to false, "infoRingData" to 7, "infoRingCarousel" to true, "infoRingSeconds" to 7, "infoRingInPlace" to false, "infoTitle" to false,
+        // 21/11/2026 (the owner's phone's settings): the ring on, with every card (2047), written in the title; it was off, with the rain, the wind and the thunder (7, 12/11/2026)
+        "infoRing" to true, "infoRingData" to 2047, "infoRingCarousel" to true, "infoRingSeconds" to 7, "infoRingInPlace" to false, "infoTitle" to true,
         "dashWeather" to true, "useLocation" to true,
     )
 

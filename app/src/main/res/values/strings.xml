@@ -470,7 +470,7 @@
     <string name="fps_test_card_rate_title">Test rate</string>
     <string name="section_info_ring">Info ring on the dash</string>
     <string name="info_ring_title">Info ring</string>
-    <string name="info_ring_sub">Rain, wind and thunder over the map; you switch on the other cards</string>
+    <string name="info_ring_sub">Every card on by default (rain, wind, storms, UV, air, sun, temperatures, phone status), in the dash’s title; you untick the ones you do not want</string>
     <string name="info_ring_info">Draws a ring on the right of the dash’s picture, where the dash draws nothing, with one thing at a time that matters on the road: the weather (rain, wind, storms, UV, air quality, sun, temperatures) and the phone’s battery, signal and GPS. The dash’s down button in map mode shows and hides it; a dashed outline means an old forecast. It asks Open-Meteo for the weather every 15 minutes, from the rounded place of \"Use location\"; off, nothing is asked or kept, unless \"Weather on the dash\" is on.</string>
     <string name="info_ring_needs_location">Needs \"Use location\" on (Settings \u2192 Theme) and an internet connection on the phone.</string>
     <string name="info_ring_place_title">In the maneuver ring’s place</string>
@@ -939,7 +939,7 @@
     <string name="action_echo">Each joystick tap that does something shows the action’s short name (Next song, Back, Answer) for 1.5 seconds in the title of the dash’s gold band, where the street name goes, and then the title comes back. With a handlebar joystick that is not precise, you see on the dash what the tap really did; a tap that does nothing shows nothing. On by default; a change applies at once.</string>
     <string name="joystick_legend_title">Joystick legend on the dash</string>
     <string name="joystick_legend_sub">Shows what each direction does</string>
-    <string name="joystick_legend">When the dash changes between its map and media modes, and at the first tap of the projection, a small card shows for 3 seconds in the middle of the picture what each direction of the joystick does in that mode, as set on the joystick page. The dash does not say its mode, so REau learns it from the tap and the card comes with the first tap of the new mode; it does not appear during a call. On by default; a change applies at once.</string>
+    <string name="joystick_legend">When the dash changes between its map and media modes, and at the first tap of the projection, a small card shows for 3 seconds in the middle of the picture what each direction of the joystick does in that mode, as set on the joystick page. The dash does not say its mode, so REau learns it from the tap and the card comes with the first tap of the new mode; it does not appear during a call. Off by default (since 21/11/2026); a change applies at once.</string>
 
     <!-- The tips page ("Dicas"), opened by the lightbulb of the main screen's bar; one title and one text for each tip of Tips.ALL. -->
     <string name="tips_title">Tips</string>

@@ -50,20 +50,14 @@ class SettingsStore(private val prefs: SharedPreferences) {
     }
 
     /**
-     * The info ring starts with three cards (rain, wind and thunder; [com.reau.app.weather.RingData.DEFAULT]) since 12/11/2026. A phone whose settings
-     * were saved before it, with "every card" kept (the old default; a rider who ticked them all on purpose looks the same), goes to the
-     * new default once, and then the rider ticks what is wanted. Any narrower choice was the rider's own and is left as it is. Everything saved
-     * from then on carries the mark, so a rider who ticks every card again keeps them. A phone with nothing saved just gets the default.
+     * From 12/11/2026 to 21/11/2026 the info ring started with three cards (rain, wind and thunder; [com.reau.app.weather.RingData.DEFAULT]),
+     * and a phone saved before that with "every card" was moved to the three once. Since 21/11/2026 every card is the default again (the owner's
+     * phone's settings made the defaults), so nothing is moved any more: the rider's cards are left as they are and only the mark is written, as
+     * before, so the setting is never touched by this again.
      */
     private fun ringCardsOnce() {
         if (prefs.contains(KEY_RING_CARDS) || prefs.all.isEmpty()) return
-        val everyCard = setOf(com.reau.app.weather.RingData.ALL, com.reau.app.weather.RingData.BEFORE_PHONE_CARDS)
-        prefs.edit {
-            if (prefs.getInt(KEY_INFO_RING_DATA, com.reau.app.weather.RingData.DEFAULT) in everyCard) {
-                putInt(KEY_INFO_RING_DATA, com.reau.app.weather.RingData.DEFAULT)
-            }
-            putBoolean(KEY_RING_CARDS, true)
-        }
+        prefs.edit { putBoolean(KEY_RING_CARDS, true) }
     }
 
     /**

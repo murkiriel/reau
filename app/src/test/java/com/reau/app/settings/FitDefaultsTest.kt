@@ -16,7 +16,8 @@ import org.junit.Test
  * fits of today.
  */
 class FitDefaultsTest {
-    private val apps = FitParams(Fit.WHOLE_VISIBLE, 64, -34, 54, 20, 0)
+    // The apps' move is 0 since 21/11/2026 (the owner's phone's settings; it was 20); the menu's own fit keeps its 20.
+    private val apps = FitParams(Fit.WHOLE_VISIBLE, 64, -34, 54, 0, 0)
     private val nav = FitParams(Fit.CROP, 74, 90, 62, 0, 0)
     private val menu = FitParams(Fit.WHOLE_VISIBLE, 90, 32, 20, 20, 0)
 

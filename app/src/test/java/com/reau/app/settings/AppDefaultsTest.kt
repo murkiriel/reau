@@ -18,7 +18,7 @@ class AppDefaultsTest {
         assertEquals(180, s.density)
         assertEquals(0 to 0, s.marginW to s.marginH)
         // The fits of the owner's phone, taken as the defaults on 25/10/2026 and again on 28/10/2026 (the apps' crop 64% at -34, 54) (no zoom, no black bands)
-        assertEquals(FitParams(Fit.WHOLE_VISIBLE, 64, -34, 54, 20, 0), s.appsFit)
+        assertEquals(FitParams(Fit.WHOLE_VISIBLE, 64, -34, 54, 0, 0), s.appsFit) // the apps' move 0 since 21/11/2026 (it was 20)
         assertEquals(FitParams(Fit.WHOLE_VISIBLE, 90, 32, 20, 20, 0), s.menuFit)
         assertEquals(FitParams(Fit.CROP, 74, 90, 62, 0, 0), s.navFit)
         // The video is fixed at 6 fps in a debug and in a release build (profile A, FixedProfilesTest).

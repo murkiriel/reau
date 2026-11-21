@@ -459,7 +459,7 @@
     <string name="fps_test_card_rate_title">Ritmo de la prueba</string>
     <string name="section_info_ring">Anillo de información en el tablero</string>
     <string name="info_ring_title">Anillo de información</string>
-    <string name="info_ring_sub">Lluvia, viento y tormenta sobre el mapa; las demás tarjetas las activas tú</string>
+    <string name="info_ring_sub">Todas las tarjetas activadas por defecto (lluvia, viento, tormenta, UV, aire, sol, temperaturas, estado del teléfono), en el título del tablero; desmarcas las que no quieras</string>
     <string name="info_ring_info">Dibuja un anillo a la derecha de la imagen del tablero, donde el tablero no dibuja nada, con un dato a la vez que importa en la ruta: el clima (lluvia, viento, tormentas, UV, aire, sol, temperaturas) y la batería, la señal y el GPS del teléfono. El botón abajo del tablero en el modo mapa lo muestra y lo oculta; un contorno discontinuo indica un pronóstico viejo. Consulta a Open-Meteo cada 15 minutos, desde el lugar redondeado de \"Usar la ubicación\"; apagado, no se pide ni se guarda nada, salvo que \"Clima en el tablero\" esté activado.</string>
     <string name="info_ring_needs_location">Necesita \"Usar la ubicación\" activado (Ajustes → Tema) y conexión a internet en el teléfono.</string>
     <string name="info_ring_place_title">En el lugar del anillo de maniobras</string>
@@ -929,7 +929,7 @@
     <string name="action_echo">Cada toque del joystick que hace algo muestra el nombre corto de la acción (Canción siguiente, Atrás, Contestar) durante 1,5 segundos en el título de la franja dorada del tablero, donde va el nombre de la calle, y luego el título vuelve. Con un joystick de manillar que no es preciso, ves en el tablero lo que el toque realmente hizo; un toque que no hace nada no muestra nada. Activado por defecto; el cambio se aplica de inmediato.</string>
     <string name="joystick_legend_title">Leyenda del joystick en el tablero</string>
     <string name="joystick_legend_sub">Muestra qué hace cada dirección</string>
-    <string name="joystick_legend">Cuando el tablero cambia entre el modo mapa y el modo multimedia, y en el primer toque de la proyección, una tarjeta pequeña muestra durante 3 segundos, en medio de la imagen, qué hace cada dirección del joystick en ese modo, según la página del joystick. El tablero no dice en qué modo está, así que REau lo sabe por el toque y la tarjeta aparece en el primer toque del modo nuevo; no aparece durante una llamada. Activado por defecto; el cambio se aplica de inmediato.</string>
+    <string name="joystick_legend">Cuando el tablero cambia entre el modo mapa y el modo multimedia, y en el primer toque de la proyección, una tarjeta pequeña muestra durante 3 segundos, en medio de la imagen, qué hace cada dirección del joystick en ese modo, según la página del joystick. El tablero no dice en qué modo está, así que REau lo sabe por el toque y la tarjeta aparece en el primer toque del modo nuevo; no aparece durante una llamada. Desactivado por defecto (desde 21/11/2026); el cambio se aplica de inmediato.</string>
 
     <!-- The tips page ("Dicas"), opened by the lightbulb of the main screen's bar; one title and one text for each tip of Tips.ALL. -->
     <string name="tips_title">Consejos</string>

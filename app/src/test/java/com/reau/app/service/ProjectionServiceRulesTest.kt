@@ -35,8 +35,8 @@ class ProjectionServiceRulesTest {
 
     @Test
     fun `the location type is asked for with the precise permission, whatever the ring, the GPS card or the location switch`() {
-        val ringOff = REauSettings(infoRing = false) // the default of the single app
-        assertTrue("ring off (the default)", ProjectionService.foregroundNeeds(ringOff, recordAudioGranted = false, fineLocationGranted = true).location)
+        val ringOff = REauSettings(infoRing = false) // the ring off (it was the default until 21/11/2026)
+        assertTrue("ring off", ProjectionService.foregroundNeeds(ringOff, recordAudioGranted = false, fineLocationGranted = true).location)
         assertTrue(
             "'Usar a localização' off",
             ProjectionService.foregroundNeeds(ringOff.copy(useLocation = false), true, fineLocationGranted = true).location,
@@ -53,7 +53,8 @@ class ProjectionServiceRulesTest {
 
     @Test
     fun `the location type does not make the GPS card read, that still needs the ring, the switch, the card and the permission`() {
-        val all = REauSettings(infoRing = true, useLocation = true, infoRingData = RingData.ALL)
+        // The title (on by default since 21/11/2026) needs no GPS, so the ring is set to be drawn on the video here: the GPS card is read only then.
+        val all = REauSettings(infoRing = true, infoTitle = false, useLocation = true, infoRingData = RingData.ALL)
         assertTrue(ProjectionService.foregroundNeeds(all, true, true).gps)
         assertFalse("ring off", ProjectionService.foregroundNeeds(all.copy(infoRing = false), true, true).gps)
         assertFalse("'Usar a localização' off", ProjectionService.foregroundNeeds(all.copy(useLocation = false), true, true).gps)
@@ -62,8 +63,18 @@ class ProjectionServiceRulesTest {
     }
 
     @Test
+    fun `the defaults of 21-11-2026 (ring on, written in the title, every card) make the foreground service ask for no GPS, only for the location type`() {
+        val fresh = REauSettings()
+        assertTrue(fresh.infoRing && fresh.infoTitle && fresh.useLocation)
+        val needs = ProjectionService.foregroundNeeds(fresh, recordAudioGranted = true, fineLocationGranted = true)
+        assertFalse("the title listens to no GPS", needs.gps)
+        assertTrue("the location type is for the Wi-Fi list, as before", needs.location)
+        assertTrue(needs.microphone)
+    }
+
+    @Test
     fun `the two needs are independent`() {
-        val both = REauSettings(gemini = true, infoRing = true, useLocation = true, infoRingData = RingData.ALL)
+        val both = REauSettings(gemini = true, infoRing = true, infoTitle = false, useLocation = true, infoRingData = RingData.ALL)
         val needs = ProjectionService.foregroundNeeds(both, recordAudioGranted = true, fineLocationGranted = true)
         assertTrue(needs.microphone && needs.location)
         val noMic = ProjectionService.foregroundNeeds(REauSettings(gemini = false, infoRing = false), true, true)

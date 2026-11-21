@@ -22,7 +22,7 @@ class SettingsInUseTest {
     }
 
     @Test
-    fun `the line of the default settings says the ones that change a ride, in the order of the settings`() {
+    fun `the line of the default settings says the ones that change a ride, in the order of the settings (the ring, its cards and the title on, the legend off since 21-11-2026)`() {
         assertEquals(
             "settings in use: density=${fields.getValue("density")} marginW=0 marginH=0 fit=WHOLE_VISIBLE cropPercent=${fields.getValue("cropPercent")} " +
                 "videoPace=REAU fpsCeiling=${fields.getValue("fpsCeiling")} streamBitrateBps=${fields.getValue("streamBitrateBps")} bitrateMode=CBR " +
@@ -30,8 +30,8 @@ class SettingsInUseTest {
                 "recordVideo=${com.reau.app.BuildConfig.DEBUG} recordSessions=${com.reau.app.BuildConfig.DEBUG} cardImage=default mapTheme=AUTO drivingSideMode=AUTO maneuverData=true maneuverFpsProfile=true " +
                 "speedFpsProfile=true navProfileMode=PESSIMISTA autoJoinWifi=true detailedLog=${com.reau.app.BuildConfig.DEBUG} rideLog=true useLocation=true " +
                 "logKeepDays=${if (com.reau.app.BuildConfig.DEBUG) 0 else 30} noDashStopMinutes=20 answerCalls=true phoneTouch=true dashMusic=true dashCaller=true aaNewProtocol=true " +
-                "gemini=true actionEcho=true joystickLegend=true clearAaFocus=true dashMask=true spokenAlerts=false " +
-                "statsOverlay=false buttonOverlay=false fpsTestCard=false fpsTestCardFps=6 dashPhoneStatus=true dashAlbumArt=true maneuverRing=false dashWeather=true infoRing=false infoRingData=7 infoRingCarousel=true infoRingSeconds=7 infoRingInPlace=false infoTitle=false webView=false webTouch=false webAudio=PHONE " +
+                "gemini=true actionEcho=true joystickLegend=false clearAaFocus=true dashMask=true spokenAlerts=false " +
+                "statsOverlay=false buttonOverlay=false fpsTestCard=false fpsTestCardFps=6 dashPhoneStatus=true dashAlbumArt=true maneuverRing=false dashWeather=true infoRing=true infoRingData=2047 infoRingCarousel=true infoRingSeconds=7 infoRingInPlace=false infoTitle=true webView=false webTouch=false webAudio=PHONE " +
                 "videoFrame=528x304 announceMotorcycle=true",
             SettingsInUse.line(REauSettings()),
         )

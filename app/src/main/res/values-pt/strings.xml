@@ -458,7 +458,7 @@
     <string name="fps_test_card_rate_title">Ritmo do contador</string>
     <string name="section_info_ring">Anel de informações no painel</string>
     <string name="info_ring_title">Anel de informações</string>
-    <string name="info_ring_sub">Chuva, vento e trovoada sobre o mapa; os outros cartões você liga</string>
+    <string name="info_ring_sub">Todos os cartões ligados por padrão (chuva, vento, trovoada, UV, ar, sol, temperaturas, estado do celular), no título do painel; você desmarca os que não quer</string>
     <string name="info_ring_info">Desenha um anel à direita da imagem do painel, onde o painel não desenha nada, com uma coisa de cada vez que importa na estrada: o clima (chuva, vento, trovoada, UV, ar, sol, temperaturas) e a bateria, o sinal e o GPS do celular. O botão para baixo do painel no modo mapa o mostra e o esconde; contorno tracejado quer dizer previsão velha. Consulta o Open-Meteo a cada 15 minutos, no lugar arredondado de \"Usar a localização\"; desligado, nada é consultado nem guardado, a não ser que \"Clima no painel\" esteja ligado.</string>
     <string name="info_ring_needs_location">Precisa de \"Usar a localização\" ligado (Ajustes \u2192 Tema) e de internet no celular.</string>
     <string name="info_ring_place_title">No lugar do anel de manobras</string>
@@ -928,7 +928,7 @@
     <string name="action_echo">Cada toque do joystick que faz alguma coisa mostra o nome curto da ação (Próxima música, Voltar, Atender) por 1,5 segundo no título da faixa dourada do painel, onde fica o nome da rua, e depois o título volta. Com um joystick de guidão que não é preciso, você vê no painel o que o toque realmente fez; um toque que não faz nada não mostra nada. Ligada por padrão; a mudança vale na hora.</string>
     <string name="joystick_legend_title">Legenda do joystick no painel</string>
     <string name="joystick_legend_sub">Mostra o que cada direção faz</string>
-    <string name="joystick_legend">Quando o painel muda entre o modo mapa e o modo mídia, e no primeiro toque da projeção, um cartão pequeno mostra por 3 segundos, no meio da imagem, o que cada direção do joystick faz naquele modo, conforme a página do joystick. O painel não diz em que modo está, então o REau descobre pelo toque e o cartão vem no primeiro toque do modo novo; ele não aparece durante uma ligação. Ligada por padrão; a mudança vale na hora.</string>
+    <string name="joystick_legend">Quando o painel muda entre o modo mapa e o modo mídia, e no primeiro toque da projeção, um cartão pequeno mostra por 3 segundos, no meio da imagem, o que cada direção do joystick faz naquele modo, conforme a página do joystick. O painel não diz em que modo está, então o REau descobre pelo toque e o cartão vem no primeiro toque do modo novo; ele não aparece durante uma ligação. Desligada por padrão (desde 21/11/2026); a mudança vale na hora.</string>
 
     <!-- The tips page ("Dicas"), opened by the lightbulb of the main screen's bar; one title and one text for each tip of Tips.ALL. -->
     <string name="tips_title">Dicas</string>

@@ -251,27 +251,29 @@ class REauSettingsTest {
         assertEquals(0b1010, loaded(0b1010))
         assertEquals(com.reau.app.weather.RingData.ALL, loaded(com.reau.app.weather.RingData.ALL))
         assertEquals("a choice of the old kinds, as the rider left it", 0b1111_1110, loaded(0b1111_1110))
-        assertEquals("a new setting starts with the rain, the wind and the thunder only (12/11/2026)", com.reau.app.weather.RingData.DEFAULT, REauSettings().infoRingData)
+        assertEquals("a new setting starts with every card (21/11/2026; the rain, the wind and the thunder only from 12/11/2026)", com.reau.app.weather.RingData.ALL, REauSettings().infoRingData)
     }
 
-    /** The info ring is off by default (30/10/2026; on from 28/10/2026): on Waze it covers the speed limit; the rider switches it on, and the choice is kept. */
+    /** The info ring is on by default since 21/11/2026 (the owner's phone's settings; off from 30/10/2026, on from 28/10/2026), in the title; the rider's choice is kept. */
     @Test
-    fun `the info ring is off by default and its choice is saved`() {
-        assertEquals(false, REauSettings().infoRing)
+    fun `the info ring is on by default since 21-11-2026 and its choice is saved`() {
+        assertEquals(true, REauSettings().infoRing)
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
+        SettingsStore(prefs).save(REauSettings(infoRing = false))
+        assertEquals(false, SettingsStore(prefs).load().infoRing)
         SettingsStore(prefs).save(REauSettings(infoRing = true))
         assertEquals(true, SettingsStore(prefs).load().infoRing)
-        assertEquals(false, SettingsStore(KeystoreBackedPrefsTest.FakePrefs()).load().infoRing)
+        assertEquals(true, SettingsStore(KeystoreBackedPrefsTest.FakePrefs()).load().infoRing)
     }
 
-    /** The info ring says the rain, the wind and the thunder at first (12/11/2026; every kind before), as a carousel of 7 seconds; the rider's choices are kept and held in range. */
+    /** The info ring says every kind at first (21/11/2026; only the rain, the wind and the thunder from 12/11/2026), as a carousel of 7 seconds; the rider's choices are kept and held in range. */
     @Test
-    fun `the info ring's choices are rain, wind and thunder, a carousel of seven seconds, and are saved`() {
+    fun `the info ring's choices are every kind, a carousel of seven seconds, and are saved`() {
         val d = REauSettings()
-        assertEquals(com.reau.app.weather.RingData.DEFAULT, d.infoRingData)
+        assertEquals(com.reau.app.weather.RingData.ALL, d.infoRingData)
         assertEquals(true, d.infoRingCarousel)
         assertEquals(7, d.infoRingSeconds)
-        assertEquals(com.reau.app.weather.RingOptions(data = com.reau.app.weather.RingData.DEFAULT), d.infoRingOptions)
+        assertEquals(com.reau.app.weather.RingOptions(data = com.reau.app.weather.RingData.ALL), d.infoRingOptions)
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
         SettingsStore(prefs).save(REauSettings(infoRingData = 0b1010, infoRingCarousel = false, infoRingSeconds = 12, infoRingInPlace = true))
         val back = SettingsStore(prefs).load()
