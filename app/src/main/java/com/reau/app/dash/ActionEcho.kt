@@ -57,7 +57,7 @@ enum class EchoLabel(val res: Int) {
 
     /**
      * The echo of the swap, by where the tap went ([com.reau.app.aa.SwapMapMusic.Target]): the destination's name. [SWAP_MAP_MUSIC] is its name in the legend, where
-     * the screen is not known yet; the title says one of these two.
+     * the screen is not known yet; the title says one of these two, and the same for the two actions that open them for good ([of]).
      */
     SWAP_TO_MUSIC(R.string.echo_swap_to_music),
     SWAP_TO_MAP(R.string.echo_swap_to_map),
@@ -87,6 +87,9 @@ enum class EchoLabel(val res: Int) {
             Action.ZOOM_IN -> ZOOM_IN
             Action.ZOOM_OUT -> ZOOM_OUT
             Action.SWAP_MAP_MUSIC -> SWAP_MAP_MUSIC
+            // Opened for good, so the title says the destination from the start, as the swap's does after the tap.
+            Action.OPEN_NAVIGATION -> SWAP_TO_MAP
+            Action.OPEN_MUSIC -> SWAP_TO_MUSIC
             Action.INFO_RING -> INFO_RING
         }
     }

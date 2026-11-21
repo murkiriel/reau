@@ -48,6 +48,7 @@ class JoystickEchoTest {
             Action.BACK to EchoLabel.BACK, Action.HOME to EchoLabel.HOME, Action.PLAY_PAUSE to EchoLabel.PLAY_PAUSE,
             Action.NEXT_SONG to EchoLabel.NEXT_SONG, Action.PREVIOUS_SONG to EchoLabel.PREVIOUS_SONG, Action.ASSISTANT to EchoLabel.ASSISTANT,
             Action.ZOOM_IN to EchoLabel.ZOOM_IN, Action.ZOOM_OUT to EchoLabel.ZOOM_OUT, Action.SWAP_MAP_MUSIC to EchoLabel.SWAP_MAP_MUSIC,
+            Action.OPEN_NAVIGATION to EchoLabel.SWAP_TO_MAP, Action.OPEN_MUSIC to EchoLabel.SWAP_TO_MUSIC,
         )
         for ((action, label) in wanted) {
             val m = JoystickMap(page(Mode.MEDIA, Control.UP, action), assistant = true)

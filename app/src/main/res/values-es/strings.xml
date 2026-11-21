@@ -183,6 +183,8 @@
     <string name="joystick_action_zoom_in">Acercar</string>
     <string name="joystick_action_zoom_out">Alejar</string>
     <string name="joystick_action_swap_map_music">Alternar mapa y música</string>
+    <string name="joystick_action_open_map">Abrir mapa</string>
+    <string name="joystick_action_open_music">Abrir música</string>
     <string name="joystick_ghost_side">Este lado a veces se dispara junto con el centro.</string>
     <string name="permissions_title">Permisos</string>
     <string name="permissions_intro">Lo que sale del teléfono va al tablero, a tu red solo con el servidor de red y a internet solo para el clima y las actualizaciones (mira \"REau y tus datos\").</string>

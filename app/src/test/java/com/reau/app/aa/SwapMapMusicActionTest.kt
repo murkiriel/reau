@@ -117,18 +117,6 @@ class SwapMapMusicActionTest {
     }
 
     @Test
-    fun `a page saved with the old action that opened the navigation reads as the swap`() {
-        assertEquals(Action.SWAP_MAP_MUSIC, JoystickBindings.decode("media.up.once=OPEN_NAVIGATION")[mediaUp])
-        assertEquals(Action.SWAP_MAP_MUSIC, JoystickBindings.decode("map.down.once=OPEN_NAVIGATION")[mapDown])
-    }
-
-    @Test
-    fun `a page saved with the old action that opened the music reads as the swap`() {
-        assertEquals(Action.SWAP_MAP_MUSIC, JoystickBindings.decode("media.up.once=OPEN_MUSIC")[mediaUp])
-        assertEquals(Action.SWAP_MAP_MUSIC, JoystickBindings.decode("map.down.once=OPEN_MUSIC")[mapDown])
-    }
-
-    @Test
     fun `a page saved with the phone or the switch of apps drops them, and the slot goes back to its default`() {
         for (old in listOf("OPEN_PHONE", "CYCLE_APPS")) {
             val page = JoystickBindings.decode("media.up.once=$old;media.left.once=$old;media.down.once=$old")
@@ -140,20 +128,20 @@ class SwapMapMusicActionTest {
     }
 
     @Test
-    fun `the four old names in one saved page, each read by its own rule, the rest kept`() {
+    fun `the old names in one saved page, each read by its own rule, the rest kept`() {
         val saved = "media.up.once=OPEN_NAVIGATION;media.left.once=OPEN_PHONE;media.right.once=OPEN_MUSIC;media.center.once=CYCLE_APPS;" +
             "map.left.once=ZOOM_OUT;map.right.once=ZOOM_IN;media.down.once=VOLUME_UP"
         val page = JoystickBindings.decode(saved)
-        assertEquals(Action.SWAP_MAP_MUSIC, page[mediaUp])
+        assertEquals("the opener of the map is an action again, read as itself", Action.OPEN_NAVIGATION, page[mediaUp])
         assertEquals("the phone's slot is the default again", Action.WHEEL_PREVIOUS, page[mediaLeft])
-        assertEquals(Action.SWAP_MAP_MUSIC, page[Slot(Mode.MEDIA, Control.RIGHT, Gesture.ONCE)])
+        assertEquals(Action.OPEN_MUSIC, page[Slot(Mode.MEDIA, Control.RIGHT, Gesture.ONCE)])
         assertEquals("the switch of apps' slot is the default again", Action.CONFIRM, page[Slot(Mode.MEDIA, Control.CENTER, Gesture.ONCE)])
         assertEquals(Action.ZOOM_OUT, page[Slot(Mode.MAP, Control.LEFT, Gesture.ONCE)])
         assertEquals(Action.ZOOM_IN, page[Slot(Mode.MAP, Control.RIGHT, Gesture.ONCE)])
         assertEquals(Action.VOLUME_UP, page[Slot(Mode.MEDIA, Control.DOWN, Gesture.ONCE)])
-        // Written back with the new name, the dropped ones gone, in the page's order.
+        // Written back as read, the dropped ones gone, in the page's order.
         assertEquals(
-            "media.right.once=SWAP_MAP_MUSIC;media.up.once=SWAP_MAP_MUSIC;media.down.once=VOLUME_UP;map.left.once=ZOOM_OUT;map.right.once=ZOOM_IN",
+            "media.right.once=OPEN_MUSIC;media.up.once=OPEN_NAVIGATION;media.down.once=VOLUME_UP;map.left.once=ZOOM_OUT;map.right.once=ZOOM_IN",
             page.encode(),
         )
         assertEquals("what is written is read the same", page, JoystickBindings.decode(page.encode()))
@@ -162,9 +150,9 @@ class SwapMapMusicActionTest {
     @Test
     fun `the old names are not actions any more, and are never written`() {
         val names = Action.entries.map { it.name }
-        for (gone in listOf("OPEN_MUSIC", "OPEN_NAVIGATION", "OPEN_PHONE", "CYCLE_APPS")) assertFalse(gone, gone in names)
-        val page = JoystickBindings.decode("media.up.once=OPEN_NAVIGATION;media.left.once=OPEN_MUSIC")
-        for (gone in listOf("OPEN_MUSIC", "OPEN_NAVIGATION")) assertFalse(gone, gone in page.encode())
+        for (gone in listOf("OPEN_PHONE", "CYCLE_APPS")) assertFalse(gone, gone in names)
+        val page = JoystickBindings.decode("media.up.once=OPEN_PHONE;media.left.once=CYCLE_APPS")
+        for (gone in listOf("OPEN_PHONE", "CYCLE_APPS")) assertFalse(gone, gone in page.encode())
     }
 
     @Test
@@ -174,7 +162,7 @@ class SwapMapMusicActionTest {
             "VOLUME_UP", "VOLUME_DOWN", "ASSISTANT", "ZOOM_IN", "ZOOM_OUT", "INFO_RING",
         )
         assertTrue(Action.entries.map { it.name }.containsAll(before))
-        assertEquals("nothing else but the swap, and the four focus arrows are gone", before.size + 1, Action.entries.size)
+        assertEquals("nothing else but the swap and the two that open the map and the music, and the four focus arrows are gone", before.size + 3, Action.entries.size)
     }
 
     // ── the screen's list ──
@@ -183,11 +171,11 @@ class SwapMapMusicActionTest {
     fun `the removed actions are not on the list the screen offers, and the swap is`() {
         val offered = Action.entries.filter { it.allowedAt(mediaUp) }.map { it.name }
         assertTrue("SWAP_MAP_MUSIC" in offered)
-        for (gone in listOf("OPEN_MUSIC", "OPEN_NAVIGATION", "OPEN_PHONE", "CYCLE_APPS")) assertFalse(gone, gone in offered)
+        for (gone in listOf("OPEN_PHONE", "CYCLE_APPS")) assertFalse(gone, gone in offered)
         // The screen's own table of names has a row for the swap and none for the removed ones.
         val screen = source("ui/JoystickScreen.kt")
         assertTrue(screen, screen.contains("Action.SWAP_MAP_MUSIC to R.string.joystick_action_swap_map_music"))
-        for (gone in listOf("OPEN_MUSIC", "OPEN_NAVIGATION", "OPEN_PHONE", "CYCLE_APPS")) assertFalse("the screen still names $gone", screen.contains(gone))
+        for (gone in listOf("OPEN_PHONE", "CYCLE_APPS")) assertFalse("the screen still names $gone", screen.contains(gone))
     }
 
     @Test
@@ -256,7 +244,7 @@ class SwapMapMusicActionTest {
     fun `the removed actions' names are gone from the three languages`() {
         for (folder in listOf("values", "values-pt", "values-es")) {
             val strings = File("src/main/res/$folder/strings.xml").readText()
-            for (gone in listOf("joystick_action_open_music", "joystick_action_open_navigation", "joystick_action_open_phone", "joystick_action_cycle_apps")) {
+            for (gone in listOf("joystick_action_open_navigation", "joystick_action_open_phone", "joystick_action_cycle_apps")) {
                 assertFalse("$folder still has $gone", strings.contains("\"$gone\""))
             }
             for (gone in listOf("echo_open_music", "echo_open_navigation", "echo_open_phone", "echo_cycle_apps")) {
