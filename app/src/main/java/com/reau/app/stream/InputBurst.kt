@@ -31,8 +31,18 @@ internal object InputBurst {
     // The screen changes a second or two after an input (the app picked in the menu takes that long to draw): the picture is looked at more often then.
     private val lookInput = FreshInput(LOOK_QUICK_WINDOW_MS)
 
-    /** The least time between two frames drawn this way: about 12 a second at most, so a long scroll cannot flood the encoder. */
+    /** The least time between two frames drawn this way, whatever the profile: a long scroll cannot flood the encoder. [gapMs] raises it to the profile's pace. */
     const val GAP_MS = 80L
+
+    /**
+     * The least time between two frames drawn at once (a burst after an input, or a redraw for the info ring) with the profile's pace [profileFps] in force:
+     * never closer than one frame of that pace, so the video never goes above it (owner's decision of 20/11/2026: at 12 fps the dash ignores the buttons).
+     * The burst only brings the next frame forward, it does not add frames over the pace: 167 ms at 6 fps, 250 ms at 4. Rounded up, so it is never faster.
+     * With no pace known (0 or less) it is [GAP_MS].
+     */
+    fun gapMs(profileFps: Int): Long = if (profileFps <= 0) GAP_MS else maxOf(GAP_MS, (MS_PER_S + profileFps - 1) / profileFps)
+
+    private const val MS_PER_S = 1_000L
 
     @Synchronized fun sent(nowMs: Long) {
         input.sent(nowMs)

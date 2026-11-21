@@ -28,7 +28,7 @@ import com.reau.app.video.DashMask
 @Composable
 fun PanelMaskOverlay(mask: AaScreenMask, modifier: Modifier = Modifier) {
     Canvas(modifier) {
-        val m = DashMask.of(mask.mapping, mask.sourceW, mask.sourceH, size.width.toInt(), size.height.toInt()) ?: return@Canvas
+        val m = DashMask.of(mask.mapping, mask.sourceW, mask.sourceH, size.width.toInt(), size.height.toInt(), mask.area) ?: return@Canvas
         val all = Path().apply { addRect(Rect(0f, 0f, size.width, size.height)) }
         val box = m.shownBox
         val inFrame = Path()

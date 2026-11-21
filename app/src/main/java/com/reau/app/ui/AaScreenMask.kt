@@ -11,5 +11,7 @@ class AaScreenMask(
     val mapping: FrameFit.Mapping,
     val sourceW: Int,
     val sourceH: Int,
+    /** The area the fit is made for and the dash's video is composed in ([REauSettings.frameSize]). */
+    val area: com.reau.app.dash.DashConfig.FrameSize = com.reau.app.dash.DashConfig.FULL_FRAME,
     val onChange: (Boolean) -> Unit,
 )

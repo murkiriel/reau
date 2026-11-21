@@ -8,13 +8,13 @@ import org.junit.Test
 
 /**
  * Against the dash lagging at speed: the rider's bitrate counts with the automatic frame rate
- * too, the keyframe can be fixed, and every 5 s line says how fast the bike went and how the bike's Wi-Fi was.
+ * too, the keyframe is fixed, and every 5 s line says how fast the bike went and how the bike's Wi-Fi was.
  */
 class StreamGovernorConservativeTest {
     private var nowMs = 0L
 
     private fun governor(fps: Int = 4, bitrateBps: Int = 200_000, keyframeSec: Int = 1) =
-        StreamGovernor(AutoFpsController.Plan(fps, fps), bitrateCeilingBps = bitrateBps, fixedKeyframeSec = keyframeSec)
+        StreamGovernor(fps, bitrateCeilingBps = bitrateBps, keyframeSec = keyframeSec)
 
     private fun StreamGovernor.poll(drawn: Int = 0, bytesOut: Long = drawn * 1_000L, link: LinkSample? = null): List<Action> {
         nowMs += POLL_MS
@@ -42,11 +42,12 @@ class StreamGovernorConservativeTest {
     }
 
     @Test
-    fun `at 4 frames a second and 200 kbps the stream runs at 200 moving and 100 still`() {
+    fun `at 4 frames a second and 200 kbps the stream runs at 200 whether the picture moves or is still`() {
         val g = governor()
-        assertTrue(Action.SetBitrate(100_000) in g.start(nowMs))
+        assertTrue(Action.SetBitrate(200_000) in g.start(nowMs))
         assertEquals(200_000, g.activeBitrateBps)
-        assertTrue(Action.SetBitrate(200_000) in (1..3).flatMap { g.poll(drawn = 1) })
+        val after = (1..3).flatMap { g.poll(drawn = 1) } + (1..12).flatMap { g.poll(drawn = 0) } + (1..4).flatMap { g.poll(drawn = 1) }
+        assertTrue("nothing halves it: got ${after.filterIsInstance<Action.SetBitrate>()}", after.none { it is Action.SetBitrate })
     }
 
     @Test
@@ -57,9 +58,9 @@ class StreamGovernorConservativeTest {
     }
 
     @Test
-    fun `a fixed keyframe interval never changes, even with the bitrate used up`() {
+    fun `the keyframe interval never changes, even with the bitrate used up`() {
         val g = started(keyframeSec = 1)
-        // 192 kbps out of 200: what the automatic keyframe reads as a tight budget, and moves to 2 s.
+        // 192 kbps out of 200: the tight budget that moved the interval to 2 s when it chose itself.
         val actions = (1..14).flatMap { g.window(fps = 4, bytes = 120_000) }
         assertTrue("got ${actions.filterIsInstance<Action.Rebuild>()}", actions.none { it is Action.Rebuild })
         assertEquals(1, g.keyframeSec)
@@ -67,11 +68,12 @@ class StreamGovernorConservativeTest {
     }
 
     @Test
-    fun `the automatic keyframe still decides by itself`() {
+    fun `a stored 0, the automatic keyframe that is no more, runs as 1 s and never changes either`() {
         val g = started(keyframeSec = 0)
         val actions = (1..14).flatMap { g.window(fps = 4, bytes = 120_000) }
-        assertTrue(Action.Rebuild(4, 2, 200_000) in actions)
-        assertEquals(2, g.keyframeSec)
+        assertTrue("got ${actions.filterIsInstance<Action.Rebuild>()}", actions.none { it is Action.Rebuild })
+        assertEquals(1, g.keyframeSec)
+        assertTrue(actions.filterIsInstance<Action.Log>().last().line.contains(" kf=1s "))
     }
 
     @Test

@@ -4,13 +4,58 @@ English (padrão): [CHANGELOG.md](CHANGELOG.md) · Español: [CHANGELOG.es.md](C
 
 Todas as mudanças importantes do REau ficam aqui, da mais nova para a mais antiga, no formato do
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). O app segue o versionamento semântico na forma `0.y.z`
-(ainda sem 1.0, então qualquer coisa pode mudar entre versões menores): as builds de release se chamam `0.2.0`, e as builds
-de debug acrescentam a data e a hora da compilação depois de `-dev+` (`0.2.0-dev+AA.MM.DD-HH.MM`, por exemplo
-`0.2.0-dev+26.10.28-09.37`). As versões aparecem da mais nova para a mais antiga; os dias anteriores à 0.1.0 ficam abaixo
+(ainda sem 1.0, então qualquer coisa pode mudar entre versões menores): as builds de release se chamam `0.3.0`, e as builds
+de debug acrescentam a data e a hora da compilação depois de `-dev+` (`0.3.0-dev+AA.MM.DD-HH.MM`, por exemplo
+`0.3.0-dev+26.11.03-09.37`). As versões aparecem da mais nova para a mais antiga; os dias anteriores à 0.1.0 ficam abaixo
 dela como histórico do projeto, cada um reunindo o que mudou naquele dia (dias sem mudança visível para quem usa o app não
 aparecem).
 
-## [Não lançado]
+## [0.3.0]
+
+> **Se você usava a edição Lite**, leia a primeira entrada de "Alterado": esta versão é um app novo para você.
+
+### Adicionado
+- **Uma escolha de ritmo do vídeo: REau ou Original** (Ajustes > Perfis de vídeo > "Ritmo do vídeo"; vale na hora). O REau, o padrão, roda o perfil A a 6 fps e o perfil B a 3 fps; o Original roda os dois a 4 e a 2 fps, mais leve para o painel e para o Wi-Fi. Uma página nova de **Dicas** (a lâmpada da tela principal) explica por que o vídeo não passa de 6 fps, recomenda desligar o zoom automático do Waze e diz que, sem intercomunicador no capacete, dá para trocar a ação do Gemini por "Alternar mapa e música".
+- **Uma escolha do "Lado da via", para a mão inglesa** (Ajustes > No painel; Automático, Mão direita ou Mão inglesa; **ainda não testado na moto**). Onde o Android Auto não diz o sentido (a rotatória sem direção, o retorno), o painel passa a seguir o lado da via. O Automático usa o país da rede de celular, ou o do chip, sem permissão; nada é enviado a lugar algum nem escrito no registro.
+- **"Anunciar como moto"** (Ajustes > Android Auto; **vem ligado**): o REau diz ao Android Auto que é a central de uma moto, e não de um carro. Na primeira vez, o Android Auto vê um veículo novo e pode pedir de novo as permissões no celular. O que isso muda na tela do Android Auto ainda não foi avaliado.
+- **Um aviso quando há versão nova** (Ajustes > Atualizações > "Avisar quando houver atualização"; **vem ligado**; **ainda não testado na moto**): uma vez por dia, com internet, o REau pergunta ao GitHub qual é a última versão (sem conta e sem nada sobre você) e mostra uma notificação silenciosa por versão. Nada é baixado nem instalado.
+- **Ações novas do joystick** (**ainda não testadas na moto**): "Aumentar volume" e "Diminuir volume" (o volume do celular, ou o da chamada) e "Alternar mapa e música". Nenhum botão as traz de fábrica: nada muda até você escolher uma.
+- **O joystick diz o que fez** (**ainda não testado na moto**): o título do painel mostra o nome de cada ação por 1,5 s ("Nome da ação no painel") e, depois de "Próxima música" ou "Música anterior", o nome da música nova; uma legenda pequena do que cada direção faz aparece quando o painel muda entre mapa e mídia ("Legenda do joystick no painel"). As duas vêm ligadas.
+- **Um modo de música com o Spotify** (**ainda não testado na moto**): no controle de mídia, com o Spotify tocando, esquerda, direita e centro são anterior, próxima e tocar/pausar, o que quer que a página do Joystick diga. Um toque fantasma depois de um toque lateral é ignorado.
+- **Informações no título** (Anel de informações > "Informações no título (no lugar do anel)"; vem desligado; **ainda não testado na moto**): as informações do anel vão no título da faixa dourada do painel, no lugar do anel. O anel de informações agora começa só com chuva, vento e trovoada.
+- **Um assistente de encaixe** que ajuda um celular novo a conferir se a seta da manobra e a velocidade aparecem inteiras no painel (ainda não testado em outro celular).
+- **Mais avisos ao piloto**: Wi-Fi do celular desligado (com um botão Ligar o Wi-Fi), celular quente (com som e vibração), Wi-Fi do painel travado, Android recusando a rede do painel, canal "Avisos do painel" mudo ou bloqueado e "Aguardando o Android Auto" no painel. Os **avisos falados no fone** são opcionais (vêm desligados). O aviso de rede recusada, o cartão do canal mudo, a faixa "Aguardando" e os avisos falados ainda não foram testados na moto.
+- **Setas e unidades melhores no painel**: o começo da rota é um alfinete; as entradas de via e as saídas têm desenho próprio; distâncias em milhas e pés quando o painel está em milhas; a hora de chegada em 12 horas chega ao painel; antes de o painel dizer a unidade, milhas ou quilômetros seguem o país do celular. Os desenhos novos e as milhas ainda não foram vistos na moto.
+- **Telas mais fáceis de ler** em celulares pequenos e com fonte grande; o botão Ligar/Desligar fica fixo no pé da tela principal.
+- **Só nas builds de depuração** (a versão de lançamento nunca as tem): um quadro de teste numerado para filmar o painel e conferir o ritmo do vídeo (de 4 a 12 fps), texto vermelho sobre o vídeo com os fps e o bitrate, texto laranja com o código do último botão e ferramentas de teste dos avisos, das falhas e das setas, agora traduzidas.
+
+### Alterado
+- **"Informações no título" agora mostra também a bateria do celular** (quando você marca Bateria nos dados do anel; carregando também). Sinal e GPS continuam fora do título.
+- **Um só app, `com.reau.app`, com o nome "REau": as edições Lite e Completa se fundiram** (`REau-0.3.0.apk`). De fábrica ele se comporta como a Lite: você liga à mão o servidor da unidade principal do Android Auto (o REau abre as configurações do Android Auto para você, uma vez cada vez que você liga a projeção com o REau na tela) e uma rede neural pequena no celular reconhece qual tela do Android Auto está aparecendo. **Se você usava a edição Completa**: a atualização instala por cima e mantém os ajustes e o pareamento; o servidor agora é ligado à mão. **Se você usava a edição Lite** (`com.reau.app.lite`): este é um app novo para o Android, então começa vazio: aceite os termos, refaça os ajustes e o pareamento com o painel e depois desinstale a Lite (dois apps ligados juntos disputam o único servidor da unidade principal do Android Auto; este app avisa quando o antigo ainda está instalado). Os termos de uso são um texto só.
+- **O vídeo para o painel é o mesmo em todas as builds**: 400 kbps constantes, uma imagem de 528×304 (os 526×300 do painel alinhados a 16, que o painel não estica) e um quadro-chave por segundo, no ritmo escolhido acima. A versão de lançamento, que era 4 fps e 526×300, passa a seguir o ritmo REau. **O tamanho da imagem ainda não foi visto na moto.**
+- **O DPI do Android Auto é um entre 180, 200 e 220** (Ajustes > Tela do Android Auto; padrão 180; mudar reinicia a sessão). Um valor guardado por uma versão antiga que não seja um dos três volta a 180.
+- **O REau sempre acorda o Android Auto antes de discar** (abre as configurações do Android Auto por um instante antes da primeira discagem de uma projeção), para tirar do congelamento um Android Auto restrito; não há chave para isso.
+- **Ajustes > Atualizações ficou no básico**: a versão, o botão "Verificar agora", o resultado e a chave do aviso.
+- **A rede neural que distingue as telas foi retreinada** para o Android Auto 18, o Spotify e o Organic Maps; o que o piloto vê não muda.
+- **O início rápido (o atalho do ícone e o bloco das Configurações rápidas) só liga a projeção com o celular desbloqueado.**
+
+### Removido
+- **O serviço de acessibilidade da edição Completa saiu de vez**: ele não aparece nas configurações de Acessibilidade do Android, e nenhuma tela, permissão ou texto fala dele.
+- **As chaves de teste das builds de depuração** ("Conexão experimental", "Vídeo experimental", "Painel experimental") saíram; o REau faz o que fazia com todas desligadas.
+
+### Corrigido
+- **Com o Spotify na frente e tocando, a faixa dourada do painel mostra a música e o botão de pausa** (o título, o artista e os três botões, como nas outras telas), mesmo quando a página do Joystick não tem controle de música (ainda não testado na moto).
+- **A seta da rotatória no painel era desenhada ao contrário** (o erro foi visto na moto; a correção ainda não): no Brasil o Android Auto diz anti-horário e o painel desenhava horário.
+- **O Wi-Fi do painel deixa de ser chamado de "travado" quando o celular já entrou nele**, e um pedido de rede antigo não derruba mais um mais novo (ainda não visto na moto).
+- **O vídeo não passa mais do ritmo do perfil depois de um toque no joystick.**
+- **Trocar o ritmo do vídeo no exato momento em que o painel caía podia deixar o vídeo preso até desligar a projeção.**
+- **Mais territórios de mão inglesa** no lado da via automático.
+- **Depois que o Wi-Fi do painel volta, a imagem volta**, e o painel é tentado de novo em 2 s depois de uma conexão recusada numa rede em que o celular entrou sozinho.
+- **A lista de Wi-Fi deixa de vir vazia com o REau atrás de outro app**, e um Wi-Fi fraco deixa de ser dado como nome errado do painel.
+- **Desligar a projeção deixa de terminar em erro.**
+- **Os toques dentro do mapa, na Tela do Android Auto e no navegador, eram ignorados** (ainda não comprovado no celular); o joystick ignora o toque fantasma depois de um toque lateral, também no modo mídia.
+- **Clima**: depois de um pedido que falha o REau espera mais a cada vez, e uma temperatura inválida do serviço é ignorada.
+- **Privacidade**: o lugar arredondado deixa de ser usado quando a permissão de localização é retirada, e o registro deixa de escrever o endereço da imagem escolhida para o wallpaper.
 
 ## [0.2.0] - 2026-10-29
 

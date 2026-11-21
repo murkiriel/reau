@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Rect
 import android.net.Network
 import android.os.PowerManager
+import android.os.StatFs
 import androidx.core.net.toUri
 import com.reau.app.R
 import com.reau.app.aa.AaConfig
@@ -22,11 +23,14 @@ import com.reau.app.aa.NavGuidance
 import com.reau.app.card.CardPainter
 import com.reau.app.dash.DashPairing
 import com.reau.app.dash.DashPorts
+import com.reau.app.dash.DashReadings
 import com.reau.app.dash.DashSession
 import com.reau.app.dash.DashSocket
 import com.reau.app.dash.DashWifiManager
 import com.reau.app.dash.DashWifiSuggestions
 import com.reau.app.dash.nav.AaManeuvers
+import com.reau.app.dash.nav.DrivingSide
+import com.reau.app.dash.nav.DrivingSideSource
 import com.reau.app.data.RideDiagnostics
 import com.reau.app.settings.REauSettings
 import com.reau.app.settings.SettingsStore
@@ -39,14 +43,15 @@ import com.reau.app.video.PhonePreview
 import com.reau.app.video.RectPx
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import java.io.File
-import java.util.TimeZone
 
 /**
  * The real sides of the projection, all inside the service:
@@ -90,14 +95,16 @@ internal class LiveSides(
         val thermalStatus: () -> Int = { VideoLoop.THERMAL_UNKNOWN },
         /** The call as the joystick sees it, and answering or ending it (behind a switch). */
         val calls: Calls = Calls(),
+        /** The phone's volume for the joystick's volume actions; none in a test (the actions then do nothing). */
+        val volume: com.reau.app.phone.PhoneVolume? = null,
         /** The rider's settings these sides were built from: what a change while running is told apart from. */
         val settings: REauSettings? = null,
-        /** Android Auto's head unit server switched on and off by itself (behind its switch). */
-        val server: AaServerHooks = AaServerHooks.None,
         /** How long after the joystick Android Auto's blue focus is touched away (shorter in a test). */
         val focusIdleMs: Long = com.reau.app.aa.FocusClearer.IDLE_MS,
         /** What the dash's info ring says now (null: no ring); asked every second, behind the rider's switch. */
         val infoRing: (com.reau.app.weather.InfoRingRotation) -> com.reau.app.weather.RingFrame? = { null },
+        /** What the title of the dash's gold band can say in place of the ring ("Informações no título"), from the settings now; null: nothing. */
+        val infoTitle: (REauSettings) -> com.reau.app.dash.TitleSource? = { null },
         /** The phone's own state for the dash's heartbeat (behind the switch "Mandar o estado do celular ao painel"). */
         val phoneStatus: () -> com.reau.app.dash.protocol.DashCommands.PhoneStatus? = { null },
         /** The weather for the dash's heartbeat (behind "Clima no painel"), and the refresh of it; none in a test. */
@@ -149,18 +156,21 @@ internal class LiveSides(
                 com.reau.app.web.WebSwitch.atStart(SettingsStore.open(context)) { RideDiagnostics.log("projection", it) }
                 val settings = SettingsStore.open(context).load()
                 val folder: File? = context.filesDir // for privacy: internal storage (AppFolders)
-                val recording = folder?.takeIf { settings.recordSessions }?.let { AaReceiver.Recording(File(it, "sessions")) }
+                val recording = folder?.takeIf { settings.recordSessions }?.let {
+                    // The ring is the build's (100 MB; in a debug build up to 768 MB), less when the phone has little free space.
+                    val ring = com.reau.app.data.RecordingsSpace.ringBytes(runCatching { StatFs(it.path).availableBytes }.getOrDefault(0L))
+                    AaReceiver.Recording(File(it, "sessions"), ring)
+                }
                 // Gemini (behind its switch): the voice from the headset or the phone.
                 val voice: (() -> VoiceSource)? = { PhoneVoice(context) { RideDiagnostics.log("aa", it) } }
                     .takeIf { settings.gemini }
                 return Setup(
+                    dashSocket = { DashSocket(it) },
                     aaConfig = settings.aaConfig,
                     aaOptions = AaReceiver.Options(
-                        // The Lite edition with Android Auto 17.3 or older: it dials in, asked by a broadcast. With a newer
-                        // one the receiver dials the developer server, which the rider switches on by hand (no accessibility).
-                        callIn = if (com.reau.app.Edition.lite &&
-                            com.reau.app.aa.AndroidAuto.dialsIn(com.reau.app.aa.AndroidAuto.installedVersion(context))
-                        ) {
+                        // Android Auto 17.3 or older: it dials in, asked by a broadcast. With a newer one the receiver dials the
+                        // developer server, which the rider switches on by hand.
+                        callIn = if (com.reau.app.aa.AndroidAuto.dialsIn(com.reau.app.aa.AndroidAuto.installedVersion(context))) {
                             AaReceiver.CallIn { com.reau.app.aa.AaCallsIn.poke(context) { RideDiagnostics.log("aa", it) } }
                         } else {
                             null
@@ -175,16 +185,10 @@ internal class LiveSides(
                             ),
                     ),
                     video = VideoLoop.Settings(
-                        ceilingFps = settings.fpsCeiling,
-                        clockSlowPercent = settings.clockSlowPercent,
-                        bitrateBps = settings.streamBitrateBps,
-                        bitrateMode = settings.bitrateMode,
-                        keyframeSec = settings.keyframeSec,
-                        lightScreenFps = REauSettings.lightScreenFps(),
                         recordFrames = if (settings.recordVideo && folder != null) RECORD_FRAMES else 0,
                         recordDir = folder?.let { File(it, "video") },
                         recordRolling = true,
-                    ),
+                    ).withRider(settings),
                     linkUp = { ctx, scope -> phoneLinkUp(ctx, scope) },
                     mapping = settings.mappingFor(com.reau.app.aa.AaScreens.watch.screen.value),
                     online = { phoneOnline(context) },
@@ -192,15 +196,16 @@ internal class LiveSides(
                     night = { isNightNow(context, SettingsStore.open(context).load()) },
                     thermalStatus = { phoneThermalStatus(context) },
                     calls = phoneCalls(context),
+                    volume = com.reau.app.phone.PhoneVolume(com.reau.app.phone.AudioVolume(context)),
                     settings = settings,
-                    server = AaServerStarter.hooks(context),
                     phoneStatus = PhoneStatusReader(context)::read,
                     weather = { com.reau.app.weather.WeatherKeeper.forDash() },
                     infoRing = { rotation ->
                         val now = SettingsStore.open(context).load()
                         InfoRingFeed.frame(context, rotation, now.useLocation, night = isNightNow(context, now), options = now.infoRingOptions)
                     },
-                    refreshWeather = { com.reau.app.weather.WeatherKeeper.refreshIfStale(context) },
+                    infoTitle = { now -> InfoRingFeed.titleSource(context, now.useLocation, now.infoRingOptions) },
+                    refreshWeather = { com.reau.app.weather.WeatherKeeper.refreshIfStale(context, respectBackoff = true) },
                     readings = com.reau.app.dash.DashReadings,
                     ringStep = PrefsRingStep(context),
                     zoomMemory = PrefsZoom(context),
@@ -208,11 +213,8 @@ internal class LiveSides(
             }
 
             /** Day or night as the rider's map theme says: the place learned on the screen with "Usar a localização" on, else the time zone. */
-            private fun isNightNow(context: Context, settings: REauSettings): Boolean = DayNight.Clock(
-                settings.mapTheme,
-                place = { SunPlace.saved(context, settings.useLocation) },
-                offsetMs = { TimeZone.getDefault().getOffset(System.currentTimeMillis()).toLong() },
-            ).isNight()
+            private fun isNightNow(context: Context, settings: REauSettings): Boolean =
+                DayNight.isNightNow(settings.mapTheme, SunPlace.saved(context, settings.useLocation))
 
             private fun phoneThermalStatus(context: Context): Int =
                 runCatching { context.getSystemService(PowerManager::class.java).currentThermalStatus }.getOrDefault(VideoLoop.THERMAL_UNKNOWN)
@@ -264,8 +266,27 @@ internal class LiveSides(
                         override fun seenInScan(wanted: String, isPrefix: Boolean): Boolean =
                             PhonePlace.mayScan(context) && wifi.seenInLastScan(wanted, isPrefix)
                     },
+                    // With the phone's Wi-Fi radio off no request for the dash's network is made (WifiDashLinkUp.start).
+                    radioOn = { wifi.isWifiEnabled() },
                 ).apply {
+                    onBindResult = wifi::bindResult
                     wifi.onNetworkAvailable = { bikeNetworkAvailable() }
+                    // A dash that stays in the scan and refuses every join (its Wi-Fi hung): the rider is told what clears it.
+                    // The notice is a sound on the phone, which a helmet and a jacket may muffle: three beeps also go to the phone's output (the headset).
+                    wifi.onDashStuck = { stuck ->
+                        if (stuck) {
+                            ProjectionNotification.showDashStuck(context)
+                            com.reau.app.aa.StuckDashTone.play(scope, log = { RideDiagnostics.log("audio", it) })
+                            // And, if the rider asked for it, said in words in the headset (RiderVoice: off by default).
+                            RiderVoice.speak(VoiceCue.DASH_GONE)
+                        } else {
+                            ProjectionNotification.clearDashStuck(context)
+                        }
+                    }
+                    // Android refusing the dash's network again and again: the rider is told what to look at.
+                    wifi.onBindRefused = { refused ->
+                        if (refused) ProjectionNotification.showBindRefused(context) else ProjectionNotification.clearBindRefused(context)
+                    }
                     // A reconnection the manager has under way is joined, not replaced.
                     joining = WifiDashLinkUp.Joining({ wifi.reconnectUnderWay() }, log = { RideDiagnostics.log("wifi", it) })
                 }
@@ -292,25 +313,86 @@ internal class LiveSides(
         compositor.setOverlayText(it)
     }
     private val receiver: AaReceiver?
+
+    // The joystick's "switch map and music": the key for the destination is chosen at the tap, by the screen the watch settled on ([com.reau.app.aa.SwapMapMusic]).
+    private val swapMapMusic = com.reau.app.aa.SwapMapMusic(
+        screen = { com.reau.app.aa.AaScreens.watch.screen.value },
+        app = { com.reau.app.aa.AaScreens.watch.app.value },
+        log = { RideDiagnostics.log("dash", it) },
+    )
+
     // The phone's real state in the heartbeat while the rider's switch is on; `tuned` is read at each beat.
     private val session = DashSession(
         scope, socketFactory = setup.dashSocket, linkProbe = com.reau.app.dash.PhoneLinkProbe(context)::read,
-        phoneStatusProvider = { if (tuned?.dashPhoneStatus == true) setup.phoneStatus() else null },
+        phoneStatusProvider = {
+            if (tuned?.dashPhoneStatus == true) setup.phoneStatus()?.let { PhoneStatusReader.withLocationRule(it, tuned?.useLocation == true) } else null
+        },
         weatherProvider = { if (tuned?.dashWeather == true) setup.weather() else null },
         readings = setup.readings,
     )
+    // The listener of the dash's sighting is this one's own, so the release gives back only what this instance took (a next one may hold it by then).
+    private val sightingListener: () -> Unit = { report(ProjectionEvent.DashSighted) }
+
+    // The same for the phone's Wi-Fi radio, as Android's broadcast tells it (SystemEvents): the radio on again tries the dash at once.
+    private val radioListener: (Boolean) -> Unit = { on -> report(ProjectionEvent.WifiRadio(on)) }
     private val linkUp = setup.linkUp(context, scope).also { up ->
-        up.onBikeNetwork { report(ProjectionEvent.BikeNetworkAvailable) }
-        com.reau.app.dash.DashSighting.listener = { report(ProjectionEvent.DashSighted) }
+        up.onBikeNetwork {
+            // The dash's Wi-Fi back as another Android network: the session's sockets are bound to the one that went, so the session is lost
+            // first (NetworkSwitch) and the machine, told of the Wi-Fi as always, opens the next one on the new network.
+            session.networkNow(up.bikeNetwork)
+            report(ProjectionEvent.BikeNetworkAvailable)
+        }
+        com.reau.app.dash.DashSighting.listener = sightingListener
+        WifiRadio.listener = radioListener
+        up.onWifiRadio(radioListener)
         up.onFirstJoin { report(ProjectionEvent.DashFirstJoin(it)) }
+        session.onBindResult = { network, refused -> up.onBindResult?.invoke(network, refused) }
     }
     // The album's picture for the dash's music card (behind its switch), converted once per picture.
     private val albumArt = com.reau.app.dash.AlbumArt()
-    private var loop: VideoLoop? = null
+
+    // The running video loop, behind the rule of who may put one there: a new pace comes from another thread than the panel's session (LoopSlot).
+    private val loops = LoopSlot<VideoLoop> { it.stop() }
     private val appContext = context.applicationContext
 
     // The bike's speed for the stream's log, from Android Auto's route.
     private val navSpeed = com.reau.app.stream.NavSpeed()
+
+    // What the one badge on the dash's video may say: the picture is stuck (watchAppVideo) or Android Auto is gone (watchWaiting). Waiting wins.
+    @Volatile private var badgeStale = false
+    @Volatile private var badgeWaiting = false
+
+    private fun showBadge() {
+        val text = when {
+            badgeWaiting -> appContext.getString(R.string.waiting_badge)
+            badgeStale -> appContext.getString(R.string.stale_badge)
+            else -> null
+        }
+        compositor.setStaleBadge(text, leavesWithPicture = badgeWaiting)
+    }
+
+    // The distances to the dash in miles and feet or in metres: what the dash says it is set to, else the country of the phone's own locales (not the app's language); said in the log when it changes.
+    private var navImperialSaid: Boolean? = null
+    private fun navImperial(): Boolean {
+        val panel = DashReadings.settings.value.distance
+        val region = com.reau.app.dash.nav.NavUnits.phoneRegion(appContext)
+        val imperial = com.reau.app.dash.nav.NavUnits.imperial(panel, region)
+        if (imperial != navImperialSaid) {
+            navImperialSaid = imperial
+            RideDiagnostics.log("dash", com.reau.app.dash.nav.NavUnits.line(imperial, panel, region))
+        }
+        return imperial
+    }
+
+    // The side of the road for the roundabouts Android Auto gives no direction to: the rider's choice or, in automatic, the country of the mobile network
+    // (else the SIM's), read when the projection starts and again every ten minutes while guidance goes on; the log says the side and where it came from, never the country.
+    private val drivingSide = DrivingSideSource(
+        clockMs = { android.os.SystemClock.elapsedRealtime() },
+        networkCountry = { appContext.getSystemService(android.telephony.TelephonyManager::class.java)?.networkCountryIso },
+        simCountry = { appContext.getSystemService(android.telephony.TelephonyManager::class.java)?.simCountryIso },
+        log = { RideDiagnostics.log("dash", it) },
+        mode = { tuned?.drivingSideMode ?: com.reau.app.settings.DrivingSideMode.AUTO },
+    )
 
     // The latest guidance snapshot, for the maneuver distance (navSpeed above already reads the same feed).
     @Volatile private var guidanceNow: NavGuidance = NavGuidance.INACTIVE
@@ -321,6 +403,19 @@ internal class LiveSides(
     @Volatile private var tuned: REauSettings? = setup.settings
     @Volatile private var aaConfig: AaConfig = setup.aaConfig
     @Volatile private var videoSettings: VideoLoop.Settings = setup.video
+
+    /**
+     * The area the stream really runs in when it is not the one the settings ask for: no encoder took the 528x304 and the loop fell back to the dash's 526x300
+     * ([VideoLoop.frame]). The fits are then made for it, as the dash's own are ([fitOf]); null while the stream runs in the area of the settings.
+     */
+    @Volatile private var fallbackArea: com.reau.app.dash.DashConfig.FrameSize? = null
+
+    /** [settings] for the area the stream really runs in ([fallbackArea]): the area decides the fit. */
+    private fun inStreamArea(settings: REauSettings): REauSettings = fallbackArea?.let { settings.copy(videoFrame = it.id) } ?: settings
+
+    /** The fit [settings] ask for [screen], made for the area the stream really runs in. */
+    private fun fitOf(settings: REauSettings, screen: com.reau.app.aa.AaScreen = com.reau.app.aa.AaScreens.watch.screen.value): FrameFit.Mapping =
+        inStreamArea(settings).mappingFor(screen)
     @Volatile private var pendingMapping: FrameFit.Mapping? = null
     private val live = Live()
 
@@ -344,6 +439,25 @@ internal class LiveSides(
     // the init and clear the map, and a page changed while the projection runs would be dropped.
     @Volatile private var joystick: JoystickMap? = null
 
+    // The joystick's legend on the dash's video ([com.reau.app.dash.ActionLegend]): 3 s, then the compositor takes it off. Declared before the init
+    // block too, which sets the switch and shows it.
+    private val legend: com.reau.app.dash.TimedShow<com.reau.app.dash.LegendCard> = com.reau.app.dash.TimedShow(
+        com.reau.app.dash.ActionLegend.SHOW_MS,
+        schedule = { delayMs, action ->
+            val job = scope.launch {
+                delay(delayMs)
+                action()
+            }
+            ({ job.cancel() })
+        },
+        changed = ::legendChanged,
+    )
+
+    /** What the legend shows changed (a card came, or its time ran out): the compositor draws it or takes it off. */
+    private fun legendChanged() {
+        compositor.setLegend(legend.current())
+    }
+
     // The map's zoom from the joystick, over the fit last asked for (every remap goes through it); each change is kept and the next
     // projection starts from it.
     private val liveZoom = com.reau.app.video.LiveZoom(setup.zoomMemory)
@@ -366,24 +480,26 @@ internal class LiveSides(
         AaLog.phoneNow = { com.reau.app.data.PhoneNow.text() }
         val card = setup.card
         if (card != null) {
-            // The card is drawn at the dash's own size and goes to it pixel for pixel.
-            started = compositor.start(DashGlass.FRAME_W, DashGlass.FRAME_H) && compositor.setMapping(WHOLE_FRAME)
+            // The card is drawn at the dash's own size and goes to it pixel for pixel, at the top left of the stream's area.
+            started = compositor.start(DashGlass.FRAME_W, DashGlass.FRAME_H, setup.video.frame) && compositor.setMapping(WHOLE_FRAME)
             receiver = null
         } else {
-            started = compositor.start(com.reau.app.aa.AaVideo.WIDTH, com.reau.app.aa.AaVideo.HEIGHT)
+            started = compositor.start(com.reau.app.aa.AaVideo.WIDTH, com.reau.app.aa.AaVideo.HEIGHT, setup.video.frame)
             val surface = compositor.inputSurface.takeIf { started }
             setup.mapping?.let {
                 lastFit = it
                 if (started && !compositor.setMapping(it)) RideDiagnostics.warn("projection", "the saved fit was refused, the dome is filled: $it")
             }
+            drivingSide.refresh()
             // Behind the switch: Android Auto's guidance goes to the dash's own nav bubble.
             // The route also gives the speed for the stream's log.
             val noNetwork = NoNetworkWatch(clockMs = { android.os.SystemClock.elapsedRealtime() }, online = setup.online)
-            val guidance: (com.reau.app.aa.NavGuidance) -> Unit = {
+            val show: (com.reau.app.aa.NavGuidance) -> Unit = {
                 guidanceNow = it
                 navSpeed.onGuidance(it, android.os.SystemClock.elapsedRealtime())
-                session.showGuidance(it, noNetwork = noNetwork.without())
+                session.showGuidance(it, noNetwork = noNetwork.without(), imperial = navImperial(), drivingSide = drivingSide.side())
             }
+            val guidance: (com.reau.app.aa.NavGuidance) -> Unit = show
             var options = if (setup.aaConfig.navigation) setup.aaOptions.copy(onNavigation = guidance) else setup.aaOptions
             // Behind their switches: the song and the ringing call go to the dash's own cards.
             if (setup.aaConfig.media) {
@@ -403,6 +519,8 @@ internal class LiveSides(
             // when they are announced, and the phone's speaker is only made with the first sound that is to play on it.
             // Android Auto's session open with no picture: the screen and the notification say so (the dash is black).
             options = options.copy(onVideoSilent = { silent -> report(ProjectionEvent.AndroidAutoVideo(silent)) })
+            // The decoder draws into the compositor: when the compositor is the one stuck, the decoder's silence is not its own fault.
+            options = options.copy(downstreamBusyMs = compositor::busyMs)
             options = options.copy(onAudio = { pcm ->
                 if (soundHeard.add(pcm.stream)) RideDiagnostics.log("audio", "the first sound of ${pcm.stream} arrived: ${pcm.data.size} bytes")
                 val now = tuned
@@ -413,7 +531,6 @@ internal class LiveSides(
                 AaReceiver(context, setup.aaConfig, it, { state ->
                     if (state == AaLinkState.ACTIVE) live.applyPendingFit()
                     report(ProjectionEvent.AndroidAutoChanged(state))
-                    setup.server.linkChanged(state)
                     web?.androidAutoChanged(state == AaLinkState.ACTIVE)
                 }, options)
             }
@@ -444,9 +561,12 @@ internal class LiveSides(
                 compositor.setButtonOverlay(it.buttonLook)
             }
         }
-        if (started && receiver != null) scope.launch { watchAppVideo() }
+        if (started && receiver != null) {
+            scope.launch { watchAppVideo() }
+            scope.launch { watchWaiting() }
+        }
         scope.launch { ProjectionMachine.dashLinks(session.state).collect { report(ProjectionEvent.DashChanged(it)) } }
-        // The weather for the dash: looked at every minute, fetched at most every quarter of an hour.
+        // The weather for the dash: looked at every minute, fetched at most every quarter of an hour, and after a failure with a growing wait (WeatherBackoff).
         scope.launch {
             while (isActive) {
                 if (tuned?.weatherWanted == true) runCatching { setup.refreshWeather() }
@@ -458,8 +578,7 @@ internal class LiveSides(
         // compositor draws it only when it changes.
         scope.launch {
             val rotation = com.reau.app.weather.InfoRingRotation()
-            var frame: com.reau.app.weather.RingFrame? = null
-            var tick = 0
+            val ring = InfoRingFeed.Loop(RING_TICKS_PER_LOOK, stopGps = { GpsWatch.stop(GpsOwner.RING) }, warn = { RideDiagnostics.warn("ring", it) })
             var inPlace = false
             val posts = InfoRingFeed.Posts()
             while (isActive) {
@@ -468,20 +587,15 @@ internal class LiveSides(
                     inPlace = place
                     compositor.setInfoRingPlace(place)
                 }
-                val on = started && InfoRingFeed.shown(tuned?.infoRing == true, session.infoVisible)
-                if (!on) {
-                    frame = null
-                    tick = 0
-                    GpsWatch.stop()
-                } else if (tick++ % RING_TICKS_PER_LOOK == 0) {
-                    frame = runCatching { setup.infoRing(rotation) }.getOrNull()
-                }
+                // With "Informações no título" the pages are in the dash's title and the ring is not drawn (one or the other).
+                val ringWanted = InfoRingFeed.ringDrawn(tuned?.infoRing == true, tuned?.infoTitle == true)
+                val frame = ring.step(started && InfoRingFeed.shown(ringWanted, session.infoVisible)) { setup.infoRing(rotation) }
                 if (posts.changed(frame)) compositor.setInfoRing(frame)
-                delay(InfoRingFeed.pollMs(tuned?.infoRing == true))
+                delay(InfoRingFeed.pollMs(ringWanted))
             }
         }
         // The app menu's own fit, as Android Auto changes screen (the first value is the screen now)
-        val follower = FitFollower({ tuned }, ::remap) { RideDiagnostics.log("projection", it) }
+        val follower = FitFollower({ tuned?.let(::inStreamArea) }, ::remap) { RideDiagnostics.log("projection", it) }
         if (setup.card == null) scope.launch { com.reau.app.aa.AaScreens.watch.screen.drop(1).collect { follower.on(it); session.ringFollowsScreen(it) } }
         // The dash's joystick drives Android Auto (keys and the wheel); every button is logged, known or not.
         // Gemini only where its microphone was given (the switch "Gemini pelo joystick").
@@ -495,14 +609,41 @@ internal class LiveSides(
             session.zoomLabel = joystick.bindings.zoomControls
             session.musicCardAllowed = joystick.bindings.mediaControls
             session.infoRingPress = joystick.bindings.infoRingControl
+            session.actionEcho = setup.settings.actionEcho
+            legend.enabled = setup.settings.joystickLegend
             session.maneuverCircleEnabled = setup.settings.maneuverRing
             session.ringCycleOn = setup.settings.infoRing
             session.infoInPlace = setup.settings.infoRingInPlace
+            session.infoTitle.source = { tuned?.let(setup.infoTitle) }
+            session.infoTitle.enabled = setup.settings.infoRing && setup.settings.infoTitle
             session.ringStepMemory = setup.ringStep
             session.ringStep = setup.ringStep?.step ?: 0
             session.ringFollowsScreen(com.reau.app.aa.AaScreens.watch.screen.value)
             // What the picture looks like says the screen where the displays did not (a select that opened Waze, say).
-            compositor.onLook = { look -> com.reau.app.aa.AaScreens.watch.look(look, android.os.SystemClock.elapsedRealtime()) }
+            compositor.onLook = { look ->
+                com.reau.app.aa.AaScreens.watch.look(look, android.os.SystemClock.elapsedRealtime(), com.reau.app.aa.AaApp.of(compositor.lookedScreen))
+            }
+        }
+        // The music mode (Spotify in front and playing): fed by every change of the screen, the app and the media status, so the moment the music
+        // stopped is exact; the joystick asks it at each press. Its switching on and off go to the ride log, with the reason.
+        val music = com.reau.app.aa.MusicMode { RideDiagnostics.log("dash", it) }
+        joystick.musicActive = music::active
+        var musicExpiry: Job? = null
+        scope.launch {
+            combine(com.reau.app.aa.AaScreens.watch.screen, com.reau.app.aa.AaScreens.watch.app, com.reau.app.aa.AaMedia.watch.now) { screen, app, media ->
+                music.update(screen, app, media, com.reau.app.util.MonotonicClock.nowMs())
+            }.collect {
+                // Spotify in front and playing: the music card goes whatever the page says, with the song (the buttons are the song's).
+                session.musicModePlaying = music.playing(com.reau.app.util.MonotonicClock.nowMs())
+                // The end of a pause is told to the log when it comes, not at the next press.
+                musicExpiry?.cancel()
+                music.expiresAtMs()?.let { at ->
+                    musicExpiry = launch {
+                        delay(at - com.reau.app.util.MonotonicClock.nowMs())
+                        music.active(com.reau.app.util.MonotonicClock.nowMs())
+                    }
+                }
+            }
         }
         // What the joystick asked for: the call to the phone, the rest to Android Auto.
         val send: (List<AaCommand>) -> Unit = { commands ->
@@ -512,6 +653,14 @@ internal class LiveSides(
                     is AaCommand.CallVolume -> setup.calls.volume(command.step)
                     is AaCommand.PanelZoom -> panelZoom(command.step)
                     AaCommand.PanelZoomUndo -> panelZoomUndo()
+                    is AaCommand.Volume -> volumeStep(command.step, context)
+                    // The destination is chosen now, by the screen shown; the key then goes as any other (its echo is read right after, see [swapMapMusic]).
+                    AaCommand.SwapMapMusic -> receiver?.sendInput(swapMapMusic.resolve())
+                    // The song is about to change: the dash waits for its name to say it in the title ([DashSession.songChangeAsked]), before the key goes so that the metadata cannot come first.
+                    is AaCommand.Key -> {
+                        if (JoystickMap.isSongKey(command.keycode)) session.songChangeAsked()
+                        receiver?.sendInput(command)
+                    }
                     else -> receiver?.sendInput(command)
                 }
             }
@@ -521,20 +670,89 @@ internal class LiveSides(
             ringNote = note
             showButton(com.reau.app.video.ButtonOverlay.latest ?: com.reau.app.video.ButtonText("--", "no button yet"))
         }
+        // The music mode's side is held 250 ms ([JoystickMap.HELD_SIDE_MS]): a job waits for it and sends it unless the centre dropped it. One job at a
+        // time, started by the press that holds a side.
+        var heldJob: Job? = null
+        @Suppress("LoopWithTooManyJumpStatements") // the held side's wait: nothing held ends it, a side not yet due waits again
+        val releaseHeldSide: () -> Unit = {
+            heldJob?.cancel()
+            if (joystick.heldDueMs() != null) {
+                heldJob = scope.launch {
+                    while (true) {
+                        val due = joystick.heldDueMs() ?: break
+                        val wait = due - com.reau.app.util.MonotonicClock.nowMs()
+                        if (wait > 0) {
+                            delay(wait)
+                        } else {
+                            val press = joystick.release(com.reau.app.util.MonotonicClock.nowMs()) ?: continue
+                            send(press.sent)
+                            if (com.reau.app.aa.FocusClearer.toAndroidAuto(press.sent)) focus.inputSent(android.os.SystemClock.elapsedRealtime())
+                            RideDiagnostics.log("dash", "button held side -> ${press.lines.joinToString("; ")}")
+                        }
+                    }
+                }
+            }
+        }
         session.onButton = { event ->
             // On the dash's receive thread (DashSession): sent first, the log line after.
             val press = joystick.press(event, com.reau.app.util.MonotonicClock.nowMs())
+            volumeEcho = null
             send(press.sent)
+            // What the tap did, said on the dash after it was sent: its name in the title of the gold band (a volume step says the level it reached instead), and the legend of the mode when the mode is new.
+            echoAndLegend(press, joystick, context, volumeEcho)
             if (com.reau.app.aa.FocusClearer.toAndroidAuto(press.sent)) focus.inputSent(android.os.SystemClock.elapsedRealtime())
+            releaseHeldSide()
             val call = runCatching { joystick.callForLog().name }.getOrDefault("?")
+            if (!JoystickMap.knowsCode(event)) com.reau.app.data.ProjectionSummary.current.unknownButton(event.code)
             RideDiagnostics.log("dash", JoystickMap.logLine(event::class.simpleName.orEmpty(), event.code, press.lines, call))
             // Debug only, behind its switch: the code stays on the dash's video until the next press.
             showButton(com.reau.app.video.ButtonOverlay.textFor(event, press.lines.firstOrNull() ?: "nothing"))
         }
         // Behind its switch, and only with Android Auto told of a touch screen.
         if (setup.card == null && setup.aaConfig.touch && setup.settings?.clearAaFocus == true) {
-            clearFocusWhenIdle(scope, focus, setup.focusIdleMs) { receiver?.sendInput(it) }
+            val onNavigation = { com.reau.app.aa.AaScreens.watch.screen.value == com.reau.app.aa.AaScreen.NAV }
+            clearFocusWhenIdle(scope, focus, setup.focusIdleMs, onNavigation) { receiver?.sendInput(it) }
         }
+    }
+
+    /**
+     * The name of what [press] did goes to the title of the dash's gold band ([DashSession.echoAction]), and, when the tap is the first of a
+     * mode, the legend of that mode to the video ([legend]). Each says a line in the diagnostic log when it shows, with no text of the rider's.
+     */
+    private fun echoAndLegend(press: JoystickMap.Press, map: JoystickMap, words: Context, volumeText: String? = null) {
+        press.echo?.let { named ->
+            // The swap's title is the destination ("Music" or "Map"), known only now that the tap chose it ([swapMapMusic]).
+            val label = com.reau.app.aa.SwapMapMusic.echoFor(named, swapMapMusic.lastTarget)
+            val text = volumeText ?: com.reau.app.dash.ActionEchoText.text(words, label)
+            // A song change keeps its name in the title until the new song's name comes (up to the end of the wait).
+            val taken = if (label.changesSong) session.echoSongAction(text) else session.echoAction(text)
+            if (taken) RideDiagnostics.log("dash", "action echo: ${label.name}")
+        }
+        press.legend?.let { mode ->
+            val card = com.reau.app.dash.ActionLegend.card(map.legend(mode)) { com.reau.app.dash.ActionEchoText.text(words, it) }
+            if (legend.show(card)) {
+                val acting = card.rows.count { it.text != null }
+                RideDiagnostics.log("dash", "joystick legend: ${mode.name.lowercase()} mode, $acting of ${card.rows.size} directions act")
+            }
+        }
+    }
+
+    /** The title's words for the volume step just taken ("Volume 12/30"), set by [volumeStep] while the tap is sent and read right after by its echo. */
+    @Volatile private var volumeEcho: String? = null
+
+    /**
+     * The joystick's volume action, one step: the phone's music volume, or the call's during a call ([com.reau.app.phone.PhoneVolume]), with no system panel. The
+     * dash's status goes at once, so its volume bar moves now and not at the next second; the title says the level reached. The log says the stream and the levels.
+     */
+    private fun volumeStep(step: Int, words: Context) {
+        val change = setup.volume?.step(step, setup.calls.state())
+        if (change == null) {
+            RideDiagnostics.log("projection", "joystick volume ${if (step > 0) "up" else "down"}: the phone did not take it")
+            return
+        }
+        RideDiagnostics.log("projection", change.logLine(step))
+        volumeEcho = com.reau.app.dash.ActionEchoText.volume(words, change)
+        session.sendStatusNow()
     }
 
     /** What the maneuver ring last did (see [DashSession.onRingChange]); written under every text of the last button. */
@@ -546,26 +764,32 @@ internal class LiveSides(
         compositor.setButtonText(shown)
     }
 
+    // This projection's number at AaDialNow: its end never clears the dial of a newer one.
+    private var dialNumber = 0
+
     override fun startAndroidAuto() {
         val card = setup.card
         if (card != null) return showCard(card)
         val running = receiver ?: return
-        setup.server.started { running.dialSoon() }
+        dialNumber = AaDialNow.started { running.dialSoon() }
+        // The first moments of the screen watch count from this projection's first picture, not from a look at the old one the compositor still holds:
+        // the gate is shut and the watch forgotten before Android Auto's decoder can draw (in this order, and both before start).
+        compositor.awaitNewPicture()
+        com.reau.app.aa.AaScreens.projectionStarting()
         running.start()
-        // While Android Auto's side runs, its screen is read again every second (AaScreenRereads).
-        com.reau.app.aa.AaScreens.projection(true)
     }
 
     override fun stopAndroidAuto() {
         val running = receiver ?: return
         com.reau.app.aa.AaScreens.projection(false)
         running.stop()
-        // After the receiver: the server's end would drop a session still going.
-        setup.server.stopped()
+        AaDialNow.stopped(dialNumber)
     }
 
     /** The picture's fit changed in the settings; the compositor takes a new mapping while running. */
     override val bikeNetwork: Network? get() = linkUp.bikeNetwork
+
+    override fun freezeRecording(mark: Int): Boolean = receiver?.freezeRecording(mark) ?: false
 
     override val dashVisible: Boolean get() = linkUp.dashVisible
 
@@ -661,13 +885,11 @@ internal class LiveSides(
             return
         }
         session.startStreaming()
-        loop = live.newLoop()
+        // Any loop left over is stopped before the new one is built (the slot never holds two).
+        loops.start { live.newLoop() }
     }
 
-    override fun stopVideo() {
-        loop?.stop()
-        loop = null
-    }
+    override fun stopVideo() = loops.stop()
 
     /** Every second, the pictures and bytes Android Auto sent the phone in it: the "app" numbers of the stats text. */
     private suspend fun kotlinx.coroutines.CoroutineScope.watchAppVideo() {
@@ -691,12 +913,41 @@ internal class LiveSides(
                     if (isStale) "Android Auto's picture is stuck: no new picture for $staleFor s with the bike moving"
                     else "Android Auto's picture is alive again",
                 )
-                compositor.setStaleBadge(if (isStale) appContext.getString(R.string.stale_badge) else null)
+                badgeStale = isStale
+                showBadge()
                 report(ProjectionEvent.AndroidAutoImageStale(isStale))
             }
             units = nowUnits
             bytes = nowBytes
             at = now
+        }
+    }
+
+    /**
+     * A few times a second: Android Auto's session gone for 5 s while the dash is still showing the video puts the "waiting for Android Auto"
+     * notice on it, and the first new picture takes it off ([com.reau.app.aa.WaitingForAndroidAuto]; the compositor drops it with that picture
+     * and this loop only tells the log and the state). A shorter drop leaves the last picture on the dash, as before.
+     */
+    private suspend fun kotlinx.coroutines.CoroutineScope.watchWaiting() {
+        val waiting = com.reau.app.aa.WaitingForAndroidAuto()
+        while (isActive) {
+            delay(WAITING_POLL_MS)
+            val dashShowing = ProjectionMachine.linkOf(session.state.value) == DashLink.READY
+            val change = waiting.check(
+                android.os.SystemClock.elapsedRealtime(), receiver?.state == AaLinkState.ACTIVE, dashShowing, com.reau.app.aa.AaVideoMeter.units.get(),
+            ) ?: continue
+            RideDiagnostics.log(
+                "projection",
+                when {
+                    change ->
+                        "Android Auto's session has been gone for ${com.reau.app.aa.WaitingForAndroidAuto.AFTER_MS / 1000} s with the dash connected: " +
+                            "the dash says it is waiting for Android Auto"
+                    dashShowing -> "Android Auto's picture is back: the dash's waiting notice is off"
+                    else -> "the dash is gone: the waiting notice is off"
+                },
+            )
+            badgeWaiting = change
+            showBadge()
         }
     }
 
@@ -722,7 +973,9 @@ internal class LiveSides(
                 "receiver" to { receiver?.stop() },
                 "dash session" to { session.disconnect() },
                 "link up" to { linkUp.stop() },
-                "sighting" to { com.reau.app.dash.DashSighting.listener = null },
+                "sighting" to { com.reau.app.dash.DashSighting.release(sightingListener) },
+                "wifi radio" to { WifiRadio.release(radioListener) },
+                "image gap" to { com.reau.app.dash.ImageGap.clock.forget() },
                 "scope" to { scope.cancel() },
                 "compositor" to { compositor.release() },
             ),
@@ -730,6 +983,9 @@ internal class LiveSides(
         if (failed > 0) RideDiagnostics.warn("projection", "release: $failed step(s) failed, the others were carried out")
     }
 
+
+    // The thermal status the video loop's ceiling follows: Android's own (the battery's heat as a second source was tried behind a switch and never acted).
+    private val thermalStatus: () -> Int = { setup.thermalStatus() }
 
     /** The bike's speed (from the route) and Wi-Fi now, for the stream's 5 s line. */
     private val linkSample: () -> com.reau.app.stream.LinkSample = {
@@ -746,6 +1002,7 @@ internal class LiveSides(
             maneuverProfileEnabled = s?.maneuverFpsProfile == true,
             speedProfileEnabled = s?.speedFpsProfile == true,
             distanceToManeuverMeters = g.distanceToManeuverMeters.takeIf { g.active && it >= 0 },
+            // The route's own estimate (the GPS speed as a source was tried behind a switch and never ran with a route).
             speedKmh = navSpeed.kmhAt(android.os.SystemClock.elapsedRealtime()),
             mode = s?.navProfileMode ?: com.reau.app.dash.NavProfileMode.PESSIMISTA,
         )
@@ -773,11 +1030,11 @@ internal class LiveSides(
         @Suppress("CyclomaticComplexMethod") // one branch per field or case of the format it reads or writes
         fun retune(settings: REauSettings) {
             val before = tuned
-            if (setup.card != null || !started || before == null) return remap(settings.mappingFor(com.reau.app.aa.AaScreens.watch.screen.value))
+            if (setup.card != null || !started || before == null) return remap(fitOf(settings))
             tuned = settings
             val steps = LiveTuning.steps(before, settings)
             if (steps.isNotEmpty()) RideDiagnostics.log("projection", "settings changed while running: ${steps.joinToString()}")
-            if (LiveTuning.Step.REFIT in steps) remap(settings.mappingFor(com.reau.app.aa.AaScreens.watch.screen.value))
+            if (LiveTuning.Step.REFIT in steps) remap(fitOf(settings))
             // A burst of changes opens one session, [SessionSettle.IN_USE_MS] after the last, with its values.
             if (LiveTuning.Step.NEW_ANDROID_AUTO_SESSION in steps) {
                 sessionSettle.offer {
@@ -785,7 +1042,12 @@ internal class LiveSides(
                     newAndroidAutoSession(settings)
                 }
             }
-            if (LiveTuning.Step.NEW_STREAM in steps) newStream(settings)
+            if (LiveTuning.Step.NEW_STREAM in steps) {
+                if (before.videoPace != settings.videoPace) RideDiagnostics.log("stream", settings.videoPace.logLine())
+                newStream(settings)
+            }
+            // The side of the road is read at each guidance update from `tuned`, so the next card has it; the choice is said in the log now.
+            if (before.drivingSideMode != settings.drivingSideMode) drivingSide.refresh()
             if (LiveTuning.Step.NIGHT_NOW in steps) receiver?.let { r -> scope.launch { runCatching { r.setNight(setup.night()) } } }
             if (LiveTuning.Step.JOYSTICK in steps) {
                 val page = JoystickBindings.decode(settings.joystick)
@@ -793,6 +1055,8 @@ internal class LiveSides(
                 session.zoomLabel = page.zoomControls
                 session.musicCardAllowed = page.mediaControls
                 session.infoRingPress = page.infoRingControl
+                session.actionEcho = settings.actionEcho
+                legend.enabled = settings.joystickLegend
             }
             if (LiveTuning.Step.STATS_OVERLAY in steps) compositor.setOverlay(settings.overlay)
             if (LiveTuning.Step.BUTTON_OVERLAY in steps) compositor.setButtonOverlay(settings.buttonLook)
@@ -801,6 +1065,7 @@ internal class LiveSides(
                 session.maneuverCircleEnabled = settings.maneuverRing
                 session.ringCycleOn = settings.infoRing
                 session.infoInPlace = settings.infoRingInPlace
+                session.infoTitle.enabled = settings.infoRing && settings.infoTitle
                 session.ringFollowsScreen(com.reau.app.aa.AaScreens.watch.screen.value)
             }
             if (LiveTuning.Step.DASH_EXTRAS in steps && settings.weatherWanted && !before.weatherWanted) {
@@ -818,7 +1083,7 @@ internal class LiveSides(
             val config = LiveTuning.sessionConfig(aaConfig, settings)
             soundHeard.clear()
             aaConfig = config
-            pendingMapping = settings.mappingFor(com.reau.app.aa.AaScreens.watch.screen.value)
+            pendingMapping = fitOf(settings)
             receiver?.reconfigure(config)
         }
 
@@ -832,14 +1097,25 @@ internal class LiveSides(
 
         /** The pace: the stream to the dash starts again with it (a keyframe first), the dash staying connected. */
         fun newStream(settings: REauSettings) {
-            videoSettings = videoSettings.copy(
-                ceilingFps = settings.fpsCeiling, clockSlowPercent = settings.clockSlowPercent,
-                bitrateBps = settings.streamBitrateBps, bitrateMode = settings.bitrateMode, keyframeSec = settings.keyframeSec,
-                lightScreenFps = REauSettings.lightScreenFps(),
-            )
-            val running = loop ?: return
-            running.stop()
-            loop = newLoop()
+            videoSettings = videoSettings.withRider(settings)
+            // Only while a loop runs (the panel is there and streaming): a panel that dropped just now is not given a loop again, and a loop built while it dropped is stopped.
+            loops.replace { newLoop() }
+        }
+
+        /**
+         * A stream started in [used], which is not the area of the settings when no encoder took it (the loop fell back to 526x300): the picture is fitted for the area it
+         * really runs in ([fitOf]), as a release build's is, and again for the settings' area when a later stream is back in it.
+         */
+        fun followFallback(used: com.reau.app.dash.DashConfig.FrameSize) {
+            val fallback = used.takeIf { it != videoSettings.frame }
+            if (fallback != fallbackArea) {
+                fallbackArea = fallback
+                val s = tuned
+                if (s != null && setup.card == null && started) {
+                    RideDiagnostics.log("projection", "the stream runs in ${used.id}: the picture is fitted for it")
+                    remap(fitOf(s))
+                }
+            }
         }
 
         /**
@@ -851,14 +1127,20 @@ internal class LiveSides(
         fun newLoop(): VideoLoop? {
             val dash = object : VideoLoop.Dash {
                 override fun sendRtp(packet: ByteArray) = session.sendRtp(packet)
+                override fun keyframeSent(bytes: Int, packets: Int) = session.keyframeSent(bytes, packets)
                 override val firstFrameConfirmed: Boolean get() = session.firstFrameConfirmed
                 override val decodedFrameCount: Long get() = session.decodedFrameCount
             }
-            val fresh = VideoLoop(compositor, dash, videoSettings, setup.thermalStatus, link = linkSample, navSample = navSample,
+            val fresh = VideoLoop(compositor, dash, videoSettings, thermalStatus, link = linkSample, navSample = navSample,
                 lightScreen = { com.reau.app.stream.LightScreen.wanted(com.reau.app.aa.AaScreens.watch.screen.value) },
                 stats = statsFeed,
+                // The debug build's FPS test card, read from the live settings at each poll of the loop: on, off or another pace takes effect at once, with no new stream.
+                fpsTest = { tuned?.fpsTestRate },
             )
-            if (fresh.start()) return fresh
+            if (fresh.start()) {
+                followFallback(fresh.frame)
+                return fresh
+            }
             RideDiagnostics.error("projection", "the video loop did not start; the dash session is closed to be tried again")
             session.disconnect()
             return null
@@ -872,14 +1154,21 @@ internal class LiveSides(
 
 /**
  * The quiet spell after the joystick is checked a few times per [idleMs] (at most every second); once it passed,
- * the touch ([com.reau.app.aa.FocusClearer.TAP]) goes to Android Auto through [send], one log line each time.
+ * and the screen shown is the navigation's ([onNavigation]: the one the picture's net and the other readings agree on), the touch
+ * ([com.reau.app.aa.FocusClearer.TAP]) goes to Android Auto through [send], one log line each time.
  */
-private fun clearFocusWhenIdle(scope: CoroutineScope, focus: com.reau.app.aa.FocusClearer, idleMs: Long, send: (AaCommand) -> Unit) {
+private fun clearFocusWhenIdle(
+    scope: CoroutineScope,
+    focus: com.reau.app.aa.FocusClearer,
+    idleMs: Long,
+    onNavigation: () -> Boolean,
+    send: (AaCommand) -> Unit,
+) {
     val tick = (idleMs / FOCUS_CHECKS).coerceIn(FOCUS_TICK_MIN_MS, FOCUS_TICK_MAX_MS)
     scope.launch {
         while (isActive) {
             delay(tick)
-            if (focus.tapDue(android.os.SystemClock.elapsedRealtime())) {
+            if (focus.tapDue(android.os.SystemClock.elapsedRealtime(), onNavigation())) {
                 com.reau.app.aa.FocusClearer.TAP.forEach(send)
                 RideDiagnostics.log("aa", "focus: a touch cancelled at once, ${idleMs / FOCUS_LOG_S} s after the joystick")
             }
@@ -889,6 +1178,9 @@ private fun clearFocusWhenIdle(scope: CoroutineScope, focus: com.reau.app.aa.Foc
 
 /** How often the weather is looked at (the fetch itself waits [com.reau.app.weather.WeatherKeeper.REFRESH_MS]). */
 private const val WEATHER_POLL_MS = 60_000L
+
+/** How often the "waiting for Android Auto" notice is looked at: the 5 s are counted to within this. */
+private const val WAITING_POLL_MS = 250L
 
 /** The ring's switch and the dash's ring are looked at every [InfoRingFeed.POLL_MS]; what it says every [RING_TICKS_PER_LOOK] looks (a second): pages turn every few seconds (seven by default, five to thirty). */
 private const val RING_TICKS_PER_LOOK = 20
@@ -919,8 +1211,14 @@ private fun phoneOnline(context: Context): Boolean = runCatching {
 }.getOrDefault(true)
 
 /** Android Auto's guidance on the dash's own nav bubble; none hides the bubble again. */
-private fun DashSession.showGuidance(guidance: NavGuidance, noNetwork: Boolean) {
-    val nav = AaManeuvers.toDash(guidance, noNetwork)
+private fun DashSession.showGuidance(guidance: NavGuidance, noNetwork: Boolean, imperial: Boolean, drivingSide: DrivingSide) {
+    val nav = AaManeuvers.toDash(guidance, noNetwork, imperial = imperial, drivingSide = drivingSide)
+    // For the projection's resumo: the numbers Android Auto sent that no glyph answers (a rerouting shows the compass whatever the number is).
+    if (guidance.active) {
+        val summary = com.reau.app.data.ProjectionSummary.current
+        summary.maneuver(0, guidance.maneuverType, guidance.rerouting || AaManeuvers.knowsType(guidance.maneuverType))
+        summary.maneuver(1, guidance.nextManeuverType, AaManeuvers.knowsType(guidance.nextManeuverType))
+    }
     if (nav == null) {
         clearNavInfo()
     } else {

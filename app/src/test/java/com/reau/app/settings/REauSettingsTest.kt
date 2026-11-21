@@ -1,6 +1,7 @@
 package com.reau.app.settings
 
 import com.reau.app.aa.Messages
+import com.reau.app.dash.DashConfig
 import com.reau.app.data.KeystoreBackedPrefsTest
 import com.reau.app.video.AaMargins
 import com.reau.app.video.DashGlass
@@ -21,9 +22,9 @@ class REauSettingsTest {
      * (AppDefaultsTest); what a test checks of the behaviour does not depend on them.
      */
     private val plan = REauSettings(
-        density = 160, fit = Fit.WHOLE_VISIBLE, cropPercent = 60, cropX = null, cropY = null, moveX = 0, fpsCeiling = 16, menuFit = null,
+        density = 200, fit = Fit.WHOLE_VISIBLE, cropPercent = 60, cropX = null, cropY = null, moveX = 0, fpsCeiling = 16, menuFit = null,
         maneuverData = false, autoJoinWifi = false, answerCalls = false, dashMusic = false, dashCaller = false,
-        gemini = false, joystick = "", aaServerAuto = false, dashMask = false,
+        gemini = false, joystick = "", dashMask = false,
     )
 
     @Test
@@ -33,16 +34,17 @@ class REauSettingsTest {
         assertEquals(180, s.density)
         assertEquals(0 to 0, s.marginW to s.marginH)
         assertEquals(Fit.WHOLE_VISIBLE, s.fit)
-        // The conservative envelope's 4 (profile 1, FixedProfilesTest).
-        assertEquals(4, s.fpsCeiling)
+        // The video is fixed at 6 fps in a debug and in a release build (profile A, FixedProfilesTest).
+        assertEquals(6, s.fpsCeiling)
+        assertEquals(6, s.sanitized(debugBuild = false).fpsCeiling)
         assertEquals(0, s.clockSlowPercent)
         assertEquals("on in the debug build the tests run, off in a release (FixedProfilesTest)", com.reau.app.BuildConfig.DEBUG to com.reau.app.BuildConfig.DEBUG, s.recordVideo to s.recordSessions)
     }
 
     @Test
     fun `the Android Auto configuration carries density and margins`() {
-        val s = REauSettings(density = 240, marginW = 100, marginH = 40)
-        assertEquals(240, s.aaConfig.density)
+        val s = REauSettings(density = 200, marginW = 100, marginH = 40)
+        assertEquals(200, s.aaConfig.density)
         assertEquals(AaMargins(100, 40), s.aaConfig.margins)
     }
 
@@ -50,17 +52,28 @@ class REauSettingsTest {
     fun `each fit gives the mapping of FrameFit for the content Android Auto draws`() {
         val content = RectPx(50, 0, 700, 480) // 800x480 with 100 px of width margin, centred
         val base = plan.copy(marginW = 100)
-        assertEquals(FrameFit.wholeVisible(content), base.copy(fit = Fit.WHOLE_VISIBLE).mapping)
-        assertEquals(FrameFit.centerCrop(content, 45), base.copy(fit = Fit.CROP, cropPercent = 45).mapping)
+        // made for the settings' own area: 528x304 in both builds, the dash's 526x300 after the fall back
+        assertEquals(FrameFit.wholeVisible(content, base.frameSize), base.copy(fit = Fit.WHOLE_VISIBLE).mapping)
+        assertEquals(FrameFit.centerCrop(content, 45, area = base.frameSize), base.copy(fit = Fit.CROP, cropPercent = 45).mapping)
+        assertEquals(base.copy(fit = Fit.WHOLE_VISIBLE).mapping, base.copy(fit = Fit.WHOLE_VISIBLE).sanitized(debugBuild = false).mapping)
+        val fallen = base.copy(videoFrame = DashConfig.FULL_FRAME.id)
+        assertEquals(FrameFit.wholeVisible(content), fallen.copy(fit = Fit.WHOLE_VISIBLE).mapping)
+        assertEquals(FrameFit.centerCrop(content, 45), fallen.copy(fit = Fit.CROP, cropPercent = 45).mapping)
     }
 
     @Test
     fun `the picture starts unmoved, and a move is applied after the fit`() {
         assertEquals(0 to 0, plan.moveX to plan.moveY)
         val s = plan.copy(moveX = -8, moveY = 24)
-        assertEquals(FrameFit.moved(plan.mapping, -8, 24), s.mapping)
-        assertEquals("resting on the frame's bottom: only the sideways move shows", RectPx(70, 78, 370, 222), s.mapping.dest)
-        assertEquals(RectPx(70, 54, 370, 222), plan.copy(fit = Fit.WHOLE_VISIBLE, moveX = -8, moveY = -24).mapping.dest)
+        assertEquals(FrameFit.moved(plan.mapping, -8, 24, plan.frameSize), s.mapping)
+        // in the dash's own 526x300 (after the fall back)
+        val fallen = s.copy(videoFrame = DashConfig.FULL_FRAME.id)
+        assertEquals("resting on the frame's bottom: only the sideways move shows", RectPx(70, 78, 370, 222), fallen.mapping.dest)
+        assertEquals(RectPx(70, 54, 370, 222), plan.copy(fit = Fit.WHOLE_VISIBLE, moveX = -8, moveY = -24, videoFrame = DashConfig.FULL_FRAME.id).mapping.dest)
+        // and in the 528x304 of both builds, resting on its bottom edge
+        assertEquals(s.mapping, s.sanitized(debugBuild = false).mapping)
+        assertEquals(RectPx(68, 80, 374, 224), s.mapping.dest)
+        assertEquals(RectPx(68, 56, 374, 224), plan.copy(fit = Fit.WHOLE_VISIBLE, moveX = -8, moveY = -24).mapping.dest)
     }
 
     @Test
@@ -84,11 +97,10 @@ class REauSettingsTest {
 
     @Test
     fun `the choices offered`() {
-        assertEquals(80..640, REauSettings.DENSITY)
+        assertEquals(listOf(180, 200, 220), REauSettings.DENSITIES)
         assertEquals(4..30, REauSettings.FPS)
         assertEquals(20..100, REauSettings.CROP)
         assertEquals(listOf(0, 3, 5, 8), REauSettings.CLOCK)
-        assertEquals(10, REauSettings.STEP_DENSITY)
         assertEquals(10, REauSettings.STEP_MARGIN)
         assertEquals("negative moves too: left and up", -150..150, REauSettings.MOVE)
         // The crop and the move go one by one, for the finest fit (were 10, 5 and 4).
@@ -105,16 +117,43 @@ class REauSettingsTest {
             density = 9_999, marginW = -5, marginH = 900,
             cropPercent = 3, fpsCeiling = 99, clockSlowPercent = 4, moveX = -999, moveY = 999,
         ).sanitized()
-        assertEquals(640, wild.density)
+        assertEquals("not one of the three offered: the default", 180, wild.density)
         assertEquals(0, wild.marginW)
         assertEquals("at least 16 px of picture left", 480 - 16, wild.marginH)
         assertEquals(20, wild.cropPercent)
-        assertEquals("fixed: profile 1 is 4 fps (FixedProfilesTest)", 4, wild.fpsCeiling)
+        assertEquals("the pace is fixed at 6 in both builds (FixedProfilesTest)", 6, wild.fpsCeiling)
+        assertEquals(6, REauSettings(fpsCeiling = 99).sanitized(debugBuild = false).fpsCeiling)
         assertEquals("not one of the clock options", 0, wild.clockSlowPercent)
         assertEquals(-150 to 150, wild.moveX to wild.moveY)
 
         val low = REauSettings(density = 1, fpsCeiling = 1).sanitized()
-        assertEquals(80 to 4, low.density to low.fpsCeiling)
+        assertEquals(180 to 6, low.density to low.fpsCeiling)
+    }
+
+    /** Plan 32 (20/11/2026): the DPI is one of 180, 200 and 220; whatever else was saved goes back to the default, 180, not to a neighbour. */
+    @Test
+    fun `the density is one of the three offered, any other goes back to 180`() {
+        val expected = mapOf(
+            160 to 180, 185 to 180, 195 to 180, 210 to 180, 240 to 180, 180 to 180, 190 to 180, 200 to 200, 220 to 220,
+            -5 to 180, 0 to 180, 170 to 180, 199 to 180, 201 to 180, 219 to 180, 221 to 180, 640 to 180, Int.MAX_VALUE to 180, Int.MIN_VALUE to 180,
+        )
+        for ((asked, kept) in expected) {
+            assertEquals("asked $asked", kept, REauSettings.allowedDensity(asked))
+            assertEquals("asked $asked, sanitized", kept, REauSettings(density = asked).sanitized().density)
+        }
+        assertEquals("a new install is on 180", 180, REauSettings().density)
+    }
+
+    @Test
+    fun `a density an older build saved out of the list is read as 180 and saved back so`() {
+        for ((stored, kept) in mapOf(160 to 180, 185 to 180, 190 to 180, 210 to 180, 240 to 180, 180 to 180, 200 to 200, 220 to 220)) {
+            val prefs = KeystoreBackedPrefsTest.FakePrefs()
+            prefs.edit().putInt("density", stored).apply()
+            val store = SettingsStore(prefs)
+            assertEquals("stored $stored", kept, store.load().density)
+            store.save(store.load())
+            assertEquals("stored $stored, saved back", kept, prefs.getInt("density", 0))
+        }
     }
 
     @Test
@@ -212,27 +251,27 @@ class REauSettingsTest {
         assertEquals(0b1010, loaded(0b1010))
         assertEquals(com.reau.app.weather.RingData.ALL, loaded(com.reau.app.weather.RingData.ALL))
         assertEquals("a choice of the old kinds, as the rider left it", 0b1111_1110, loaded(0b1111_1110))
-        assertEquals(com.reau.app.weather.RingData.ALL, REauSettings().infoRingData)
+        assertEquals("a new setting starts with the rain, the wind and the thunder only (12/11/2026)", com.reau.app.weather.RingData.DEFAULT, REauSettings().infoRingData)
     }
 
-    /** The info ring is on by default (28/10/2026, the owner's phone): it has nothing to show until the location is known; its choice is kept. */
+    /** The info ring is off by default (30/10/2026; on from 28/10/2026): on Waze it covers the speed limit; the rider switches it on, and the choice is kept. */
     @Test
-    fun `the info ring is on by default and its choice is saved`() {
-        assertEquals(true, REauSettings().infoRing)
+    fun `the info ring is off by default and its choice is saved`() {
+        assertEquals(false, REauSettings().infoRing)
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
-        SettingsStore(prefs).save(REauSettings(infoRing = false))
-        assertEquals(false, SettingsStore(prefs).load().infoRing)
-        assertEquals(true, SettingsStore(KeystoreBackedPrefsTest.FakePrefs()).load().infoRing)
+        SettingsStore(prefs).save(REauSettings(infoRing = true))
+        assertEquals(true, SettingsStore(prefs).load().infoRing)
+        assertEquals(false, SettingsStore(KeystoreBackedPrefsTest.FakePrefs()).load().infoRing)
     }
 
-    /** The info ring says every kind of data at first, as a carousel of 6 seconds; the rider's choices are kept and held in range. */
+    /** The info ring says the rain, the wind and the thunder at first (12/11/2026; every kind before), as a carousel of 7 seconds; the rider's choices are kept and held in range. */
     @Test
-    fun `the info ring's choices are all, a carousel of seven seconds, and are saved`() {
+    fun `the info ring's choices are rain, wind and thunder, a carousel of seven seconds, and are saved`() {
         val d = REauSettings()
-        assertEquals(com.reau.app.weather.RingData.ALL, d.infoRingData)
+        assertEquals(com.reau.app.weather.RingData.DEFAULT, d.infoRingData)
         assertEquals(true, d.infoRingCarousel)
         assertEquals(7, d.infoRingSeconds)
-        assertEquals(com.reau.app.weather.RingOptions(), d.infoRingOptions)
+        assertEquals(com.reau.app.weather.RingOptions(data = com.reau.app.weather.RingData.DEFAULT), d.infoRingOptions)
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
         SettingsStore(prefs).save(REauSettings(infoRingData = 0b1010, infoRingCarousel = false, infoRingSeconds = 12, infoRingInPlace = true))
         val back = SettingsStore(prefs).load()
@@ -480,7 +519,7 @@ class REauSettingsTest {
     fun `what is saved is what is loaded`() {
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
         val s = REauSettings(
-            density = 320, marginW = 200, marginH = 100, fit = Fit.WHOLE_VISIBLE,
+            density = 220, marginW = 200, marginH = 100, fit = Fit.WHOLE_VISIBLE,
             cropPercent = 80, recordVideo = true, recordSessions = true,
             moveX = -12, moveY = 40,
         )
@@ -496,9 +535,10 @@ class REauSettingsTest {
             .putInt("density", 5).putString("fit", "NOPE").putInt("fps_ceiling", 200)
             .putInt("stream_bitrate", 5_000_000).putInt("keyframe_sec", 9).apply()
         val s = SettingsStore(prefs).load()
-        assertEquals(80, s.density)
+        assertEquals(180, s.density)
         assertEquals("an unknown fit is read as the default", REauSettings().fit, s.fit)
-        assertEquals("the stream's four values are fixed (FixedProfilesTest)", listOf(4, 400_000, 1), listOf(s.fpsCeiling, s.streamBitrateBps, s.keyframeSec))
+        // The old keys of the pace and the bitrate are not read; a release build is fixed at 4 fps / 400 kbps, a debug build starts at its default (FixedProfilesTest).
+        assertEquals("the stream's values", listOf(if (com.reau.app.BuildConfig.DEBUG) 6 else 4, 400_000, 1), listOf(s.fpsCeiling, s.streamBitrateBps, s.keyframeSec))
     }
 
     @Test
@@ -520,6 +560,21 @@ class REauSettingsTest {
         assertEquals(MapTheme.NIGHT, SettingsStore(prefs).load().mapTheme)
         prefs.edit().putString("map_theme", "PURPLE").apply()
         assertEquals("an unknown theme is read as the default", MapTheme.AUTO, SettingsStore(prefs).load().mapTheme)
+    }
+
+    @Test
+    fun `the driving side is automatic until the rider picks one, and the pick is kept`() {
+        assertEquals(DrivingSideMode.AUTO, REauSettings().drivingSideMode)
+        assertEquals(listOf("AUTO", "RIGHT_HAND", "LEFT_HAND"), DrivingSideMode.entries.map { it.name })
+        val prefs = KeystoreBackedPrefsTest.FakePrefs()
+        for (mode in DrivingSideMode.entries) {
+            SettingsStore(prefs).save(REauSettings(drivingSideMode = mode))
+            assertEquals(mode, SettingsStore(prefs).load().drivingSideMode)
+            assertEquals("a release build keeps it too", mode, SettingsStore(prefs).load().sanitized(debugBuild = false).drivingSideMode)
+        }
+        assertEquals("a store from before has no pick: automatic", DrivingSideMode.AUTO, SettingsStore(KeystoreBackedPrefsTest.FakePrefs()).load().drivingSideMode)
+        prefs.edit().putString("driving_side_mode", "UPSIDE_DOWN").apply()
+        assertEquals("an unknown value is read as automatic", DrivingSideMode.AUTO, SettingsStore(prefs).load().drivingSideMode)
     }
 
     @Test
@@ -549,8 +604,8 @@ class REauSettingsTest {
         assertEquals(null, plan.cropY)
         val content = AaMargins(0, 0).contentRect(800, 480)
         val crop = plan.copy(fit = Fit.CROP, cropPercent = 80)
-        assertEquals(FrameFit.centerCrop(content, 80), crop.mapping)
-        assertEquals(FrameFit.cropAt(content, 80, 0, 105), crop.copy(cropX = 0, cropY = 105).mapping)
+        assertEquals(FrameFit.centerCrop(content, 80, area = crop.frameSize), crop.mapping)
+        assertEquals(FrameFit.cropAt(content, 80, 0, 105, crop.frameSize), crop.copy(cropX = 0, cropY = 105).mapping)
         assertTrue("left edge taken", crop.copy(cropX = 0).mapping.source.x < crop.mapping.source.x)
     }
 
@@ -562,12 +617,13 @@ class REauSettingsTest {
 
     @Test
     fun `the crop's place may leave the picture by all the window but a pixel, and is saved`() {
-        // (was half the window, and before that -100..200 % of the slack): at 74% the window is 711×405, so -710..799
-        // across and -404..479 down
+        // (was half the window, and before that -100..200 % of the slack): at 74% the window is 714×411 in the 528×304 area (711×405 in the
+        // dash's own 526×300 after the fall back), so -713..799 across and -410..479 down
         val beyond = plan.copy(fit = Fit.CROP, cropPercent = 74, cropX = -300, cropY = 270).sanitized()
         assertEquals(-300 to 270, beyond.cropX to beyond.cropY)
         val wild = plan.copy(fit = Fit.CROP, cropPercent = 74, cropX = -1_000, cropY = 1_000).sanitized()
-        assertEquals(-710 to 479, wild.cropX to wild.cropY)
+        assertEquals(-713 to 479, wild.cropX to wild.cropY)
+        assertEquals("a release build's window is the same 528x304 one", -713 to 479, plan.copy(fit = Fit.CROP, cropPercent = 74, cropX = -1_000, cropY = 1_000).sanitized(debugBuild = false).let { it.cropX to it.cropY })
         assertEquals("centred stays centred", null, plan.sanitized().cropX)
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
         SettingsStore(prefs).save(plan.copy(cropX = 30, cropY = 70))
@@ -579,7 +635,8 @@ class REauSettingsTest {
 
     @Test
     fun `a crop saved in percent comes back at the same place in pixels`() {
-        // 74% on 800×480: a 711×405 window, a slack of 89 × 75; 100% across is x 89, 20% down is y 15. The menu's too.
+        // 74% on 800×480: a 711×405 window, a slack of 89 × 75; 100% across is x 89, 20% down is y 15. The menu's too. (Read in the dash's 526×300; the 528×304 area
+        // then takes a 714×411 window from that place.)
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
         prefs.edit().putString("fit", "CROP").putInt("crop_percent", 74).putInt("crop_center_x", 100).putInt("crop_center_y", 20)
             .putBoolean("menu_fit_on", true).putString("menu_fit", "CROP").putInt("menu_crop_percent", 74)
@@ -587,7 +644,9 @@ class REauSettingsTest {
         val back = SettingsStore(prefs).load()
         assertEquals(89 to 15, back.cropX to back.cropY)
         assertEquals(0 to 45, back.menuFit?.cropX to back.menuFit?.cropY)
-        assertEquals(RectPx(89, 15, 711, 405), back.mapping.source)
+        assertEquals(RectPx(89, 15, 714, 411), back.mapping.source)
+        assertEquals("the same in a release build", back.mapping.source, back.sanitized(debugBuild = false).mapping.source)
+        assertEquals("and in the dash's own frame, after the fall back, the smaller window", RectPx(89, 15, 711, 405), back.copy(videoFrame = DashConfig.FULL_FRAME.id).mapping.source)
     }
 
     @Test
@@ -628,7 +687,7 @@ class REauSettingsTest {
     fun `what is saved is saved sane`() {
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
         SettingsStore(prefs).save(REauSettings(density = 5_000))
-        assertEquals(640, prefs.getInt("density", 0))
+        assertEquals(180, prefs.getInt("density", 0))
     }
 
     // The map-mode choices of the page saved before the one-tap joystick are forgotten on the first reading; the media
@@ -744,7 +803,10 @@ class REauSettingsTest {
         val s = REauSettings()
         assertEquals(REauSettings.DEFAULT_NAV_FIT, s.navFit)
         assertEquals(s.navMapping, s.mappingFor(com.reau.app.aa.AaScreen.NAV))
-        assertEquals("the owner's phone's crop", FrameFit.cropAt(s.content, 74, 0, 62), s.navMapping)
+        assertEquals("the owner's phone's crop", FrameFit.cropAt(s.content, 74, 90, 62, s.frameSize), s.navMapping)
+        assertEquals("the window the owner's phone logged on 30/10/2026 (in the dash's own 526x300)", RectPx(90, 62, 711, 405), s.copy(videoFrame = DashConfig.FULL_FRAME.id).navMapping.source)
+        assertEquals("and in the 528x304 of both builds", RectPx(90, 62, 714, 411), s.navMapping.source)
+        assertEquals(s.navMapping.source, s.sanitized(debugBuild = false).navMapping.source)
         assertTrue("not the apps' fit", s.mapping != s.navMapping)
     }
 
@@ -845,5 +907,16 @@ class REauSettingsTest {
         assertTrue(plan.refitNeeded(plan.copy(cover = covered)))
         assertEquals(listOf("zoom: 100 -> 120"), plan.changesTo(plan.copy(zoom = 120)))
         assertEquals(listOf("cover.top: 0 -> 10"), plan.changesTo(plan.copy(cover = FrameFit.Cover(top = 10))))
+    }
+
+    @Test
+    fun `a change of the picture is told as none, default or picked, never with the address of the rider's file`() {
+        val picked = "content://com.android.externalstorage.documents/document/primary%3ADCIM%2FFace.jpg"
+        val none = REauSettings(cardImage = null)
+        assertEquals(listOf("cardImage: none -> picked"), none.changesTo(none.copy(cardImage = picked)))
+        assertEquals(listOf("cardImage: picked -> default"), none.copy(cardImage = picked).changesTo(REauSettings()))
+        assertEquals("another picture is still a change", listOf("cardImage: picked -> picked"), none.copy(cardImage = picked).changesTo(none.copy(cardImage = "content://x/y")))
+        assertEquals(false, none.changesTo(none.copy(cardImage = picked)).any { "Face" in it || "DCIM" in it || "content:" in it })
+        assertEquals("the other settings are told as before", listOf("density: 180 -> 200"), REauSettings(density = 180).changesTo(REauSettings(density = 200)))
     }
 }

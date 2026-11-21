@@ -37,6 +37,14 @@ object DayNight {
     /** The place a time zone stands for when the phone's own is not known. */
     fun standIn(utcOffsetMs: Long): Place = Place(0.0, utcOffsetMs / MS_PER_HOUR * DEGREES_PER_HOUR)
 
+    /**
+     * [isNight] at this moment of the phone's clock, in the phone's time zone, with every look starting as day: the projection asks with no memory of its last
+     * answer, so the band between day and night is day (dusk comes out right, and dawn about half an hour early). A memory of the last answer was tried
+     * behind a switch until 20/11/2026 and left no trace in the logs.
+     */
+    fun isNightNow(theme: MapTheme, place: Place?, nowMs: Long = System.currentTimeMillis()): Boolean =
+        isNight(theme, nowMs, place, java.util.TimeZone.getDefault().getOffset(nowMs).toLong(), wasNight = false)
+
     /** Asks [isNight] again each time, remembering its last answer for the dusk rule. */
     class Clock(
         private val theme: MapTheme,

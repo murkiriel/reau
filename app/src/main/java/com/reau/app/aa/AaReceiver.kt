@@ -86,6 +86,8 @@ internal class AaReceiver(
         val dialTimeoutMs: Int = 800,
         /** How often a session writes its `aa-stats` line. */
         val statsEveryMs: Long = STATS_EVERY_MS,
+        /** How long a dial waits after Android Auto was woken ([AaWake]). */
+        val wakeWaitMs: Long = AaWake.WAIT_MS,
     )
 
     /**
@@ -124,6 +126,12 @@ internal class AaReceiver(
         val onVideoSilent: ((Boolean) -> Unit)? = null,
         /** Non-null: Android Auto 17.3 and older, where it dials in ([CallIn]); null: the receiver dials the head unit server. */
         val callIn: CallIn? = null,
+        /** How long the compositor that [videoSurface] belongs to has been stuck inside one frame, 0 when it is not: the decoder's stall watch asks. */
+        val downstreamBusyMs: () -> Long = { 0L },
+        /** The changes of the phone's USB, to tell a session that Android Auto closed because of one ([UsbSessionEnd]). */
+        val usb: UsbSessionEnd = UsbSessionEnd.shared,
+        /** What waking Android Auto does ([AaWake]); null: its settings are opened, as when the head unit server is off. */
+        val wake: (() -> Unit)? = null,
     )
 
     private val port = options.port
@@ -138,6 +146,9 @@ internal class AaReceiver(
     private val quickUnresponsive = options.quickUnresponsive
     private val onVideoSilent = options.onVideoSilent
     private val callIn = options.callIn
+    private val downstreamBusyMs = options.downstreamBusyMs
+    private val usb = options.usb
+    private val wake = options.wake ?: ::openAndroidAutoSettings
 
     @Volatile var state: AaLinkState = AaLinkState.IDLE
         private set
@@ -208,6 +219,31 @@ internal class AaReceiver(
         current.stop()
     }
 
+    // The rider's mark keeps a copy of the session recording (MarkFreezer); the copy runs on a thread of its own, never the read thread's.
+    private val freezer = recording?.let { option ->
+        MarkFreezer(option.dir, { com.reau.app.data.RideDiagnostics.log("mark", it) }, limits = MarkFreezer.Limits.forBuild())
+    }
+    private val freezeIo by lazy { Executors.newSingleThreadExecutor { Thread(it, "mark-freeze").apply { isDaemon = true } } }
+
+    /**
+     * The rider's mark number [mark]: the session recording as it is now is copied to a name the ring does not overwrite ([MarkFreezer]).
+     * It returns at once (the files are opened here, the bytes copied on another thread). False when there is nothing to keep: the option
+     * is off, or no session is open.
+     */
+    fun freezeRecording(mark: Int): Boolean {
+        val keeper = freezer ?: return false
+        val snapshot = sentRecorder?.snapshot()
+        if (snapshot == null) {
+            com.reau.app.data.RideDiagnostics.log("mark", "mark $mark: no session recording is open to keep a copy of")
+            return false
+        }
+        freezeIo.execute {
+            runCatching { keeper.freeze(snapshot, mark) }
+                .onFailure { com.reau.app.data.RideDiagnostics.warn("mark", "mark $mark: keeping the session recording failed: $it") }
+        }
+        return true
+    }
+
     /** A key or a wheel step for Android Auto (the dash's joystick); nothing without a session. */
     fun sendInput(command: AaCommand) {
         val transport = session ?: return AaLog.i("no Android Auto session: $command not sent")
@@ -218,13 +254,15 @@ internal class AaReceiver(
             is AaCommand.Steps -> command.commands.forEach(::sendInput)
             is AaCommand.Touch -> input.sendTouch(command.action, command.x, command.y)
             // The phone's own business (LiveSides hands them to PhoneCalls); nothing goes to Android Auto.
-            AaCommand.AnswerCall, AaCommand.EndCall, is AaCommand.CallVolume, is AaCommand.PanelZoom, AaCommand.PanelZoomUndo ->
+            AaCommand.AnswerCall, AaCommand.EndCall, is AaCommand.CallVolume, is AaCommand.Volume, is AaCommand.PanelZoom, AaCommand.PanelZoomUndo ->
                 return AaLog.i("$command is not an Android Auto input")
+            // Not one input yet: LiveSides turns it into the media key or the navigation key by the screen shown ([SwapMapMusic]).
+            AaCommand.SwapMapMusic -> return AaLog.i("$command is resolved by the screen before it is sent, not an input")
         }
         // An input may change Android Auto's screen with no window event after it: read the screen again.
-        if (command is AaCommand.Key && command.keycode == ServiceDiscoveryResponse.KEY_ENTER) AaScreens.selectSent()
-        // The Home key opens the app menu, which the displays do not always say ([AaScreenWatch.homeSent]).
-        if (command is AaCommand.Key && command.keycode == ServiceDiscoveryResponse.KEY_HOME) AaScreens.homeSent()
+        // The select leaves the menu; the Home key opens the app menu, which the displays do not always say ([AaScreenWatch.homeSent]); the
+        // Navigation key opens the map ([AaScreenWatch.navSent]).
+        if (command is AaCommand.Key) AaScreens.keySent(command.keycode)
         // A tap on the phone's screen picks something in the menu, as the select does: it leaves the menu ([TapWatch]).
         if (command is AaCommand.Touch && taps.feed(command.action, command.x, command.y, SystemClock.elapsedRealtime())) {
             AaScreens.tapSent(command.x, command.y)
@@ -327,17 +365,22 @@ internal class AaReceiver(
         // is counted from here. Not for a REau ended mid-session (quick: its server is known to hold the old session
         // and does not clear by itself) nor for the old Android Auto, which dials in and has no such server.
         if (callIn == null && !quickUnresponsive) AaRestartGap.dialBegun(android.os.SystemClock.elapsedRealtime())
+        // The wake of Android Auto before a dial that may find it frozen by Android; the Android Auto of 17.3 and older is not dialled.
+        val waking = AaWake(
+            enabled = { callIn == null }, wake = wake, pause = { Thread.sleep(it) }, say = ::logReceiver,
+            waitMs = timing.wakeWaitMs,
+        )
         try {
             waitAfterTheLastStop()
             while (isCurrent(mine)) {
-                val socket = nextSocket(mine, tries = refused.count)
+                val socket = waking.dialing({ SystemClock.elapsedRealtime() }, { AaRestartGap.lastEndedAtMs }) { nextSocket(mine, tries = refused.count) }
                 if (socket == null) {
                     refused.refused(android.os.SystemClock.elapsedRealtime())
                     refused.progress(android.os.SystemClock.elapsedRealtime())?.let(::logReceiver)
                     continue
                 }
                 // Switched off while the dial was being answered: the socket is nobody's, and the loop ends with the next check.
-                if (hold(mine, socket)) serve(mine, socket, refused, unanswered) else runCatching { socket.close() }
+                if (hold(mine, socket)) serve(mine, socket, refused, unanswered, waking) else runCatching { socket.close() }
             }
         } catch (_: InterruptedException) {
             // stop() woke the loop
@@ -347,7 +390,7 @@ internal class AaReceiver(
     }
 
     /** One dialled connection: its state report, and the session on it. */
-    private fun serve(mine: Int, socket: Socket, refused: RefusedDials, unanswered: HandshakeStreak) {
+    private fun serve(mine: Int, socket: Socket, refused: RefusedDials, unanswered: HandshakeStreak, waking: AaWake) {
         refused.connected(android.os.SystemClock.elapsedRealtime())?.let(::logReceiver)
         // A "still closing the previous session" or a "not responding" already said is not taken back by the next
         // dial being accepted: only an answer (or the port refusing) takes it back.
@@ -359,7 +402,39 @@ internal class AaReceiver(
                 AaRestartGap.maybeClosingSinceMs,
             ),
         )
-        afterSession(mine, unanswered, handshook = runSession(mine, socket))
+        val acceptedAt = SystemClock.elapsedRealtime()
+        val result = runSession(mine, socket)
+        // A negotiation Android Auto never answered: the next dial is preceded by one wake, once in a projection (it may be frozen by Android).
+        if (result == Handshake.MUTE) waking.muteNegotiation()
+        // And what REau can read of Android Auto at that moment goes to the log, one line for each (not for a stop that cut the handshake short).
+        if (result == Handshake.MUTE && isCurrent(mine)) reportMute(unanswered.inARow + 1, acceptedAt)
+        afterSession(mine, unanswered, handshook = result == Handshake.DONE)
+    }
+
+    /** The [AaProcessState] line for the [inARow]-th handshake in a row that Android Auto left unanswered; its connection was accepted at [acceptedAt]. */
+    private fun reportMute(inARow: Int, acceptedAt: Long) {
+        val now = SystemClock.elapsedRealtime()
+        val sinceGoodEnd = AaRestartGap.lastEndedAtMs?.let { now - it }?.takeIf { it >= 0 }
+        AaProcessState.report(
+            AaProcessState.Mute(inARow, now - acceptedAt, sinceGoodEnd, port, context.packageName),
+            read = { AaProcessState.read(context) }, say = ::logReceiver,
+        )
+    }
+
+    /** How a session's handshake went: done, failed after Android Auto answered the version request, or never answered at all. */
+    private enum class Handshake {
+        DONE, FAILED, MUTE;
+
+        companion object {
+            /** A handshake that did not complete: mute when Android Auto never answered the version request. */
+            fun failed(androidAutoAnswered: Boolean) = if (androidAutoAnswered) FAILED else MUTE
+        }
+    }
+
+    /** The default wake: what the app does when the head unit server is off, Android Auto's settings screen. */
+    private fun openAndroidAutoSettings() {
+        if (AndroidAuto.installedVersion(context) == null) return logReceiver("Android Auto is not installed: nothing to wake")
+        logReceiver("Android Auto's settings: ${AndroidAuto.openSettings(context, say = ::logReceiver)}")
     }
 
     /**
@@ -424,9 +499,11 @@ internal class AaReceiver(
         // Stopped: no dial again, so no wait for it (the second before dialling again used to hold the Desligar,
         // the stop's interrupt swallowed by the video decoder waiting on its own thread).
         if (!isCurrent(mine)) return
+        // Android Auto closes its sessions at every change of the USB: said, and (when the handshake had been answered) dialled again at once.
+        val ending = usb.noteEnd { AaLog.i(it) }
         if (!unanswered.after(handshook)) {
             report(mine, AaLinkState.DROPPED)
-            Thread.sleep(timing.afterDropMs)
+            ending.pauseAfterDrop(timing.afterDropMs) { Thread.sleep(it) }
             return
         }
         // Right after REau's own stop, or from where this process began to dial when a session it did not see may have just
@@ -440,7 +517,7 @@ internal class AaReceiver(
         if (PreviousSessionClosing.windowEnded(lastUnansweredState, kind)) {
             AaLog.w(
                 "AaReceiver: the wait for the previous session to close ran out (${PreviousSessionClosing.WINDOW_MS / 1_000} s) and " +
-                    "Android Auto is still mute: it is stuck, not closing",
+                    "Android Auto is still mute: it is stuck or frozen by Android (restricted battery), not closing",
             )
         }
         lastUnansweredState = kind
@@ -451,8 +528,8 @@ internal class AaReceiver(
                     when {
                         kind != AaLinkState.CLOSING_PREVIOUS -> " force-stopping Android Auto clears it"
                         PreviousSessionClosing.within(now, AaRestartGap.lastStoppedAtMs) ->
-                            " it is still closing the previous session, which clears by itself"
-                        else -> " it may be closing a session this REau did not see end (another app on its server), which clears by itself"
+                            CLOSING_NOTE
+                        else -> FROZEN_NOTE
                     } + OtherEdition.logNote(context),
             )
         }
@@ -482,9 +559,9 @@ internal class AaReceiver(
         }
     }
 
-    /** Runs one session on [socket] and returns when it has ended: whether its handshake was answered. */
+    /** Runs one session on [socket] and returns when it has ended: how its handshake went. */
     @Suppress("LongMethod") // one straight run of setup/serialization; cutting it adds indirection and no clarity
-    private fun runSession(mine: Int, socket: Socket): Boolean {
+    private fun runSession(mine: Int, socket: Socket): Handshake {
         val config = this.config
         val link = SocketAccessoryConnection(socket)
         val transport = AapTransport(context, protocolMinor = config.protocolMinor, versionRequests = config.versionRequests)
@@ -497,7 +574,10 @@ internal class AaReceiver(
         // The session counted before the decoder, one aa-stats line every statsEveryMs.
         val stats = AaStats()
         transport.stats = stats
-        val sink = AaVideoSink(stats) { transport.triggerFocusCycleRecovery() }
+        stats.onKeyframe = transport::keyframeArrived
+        // No keyframe cycle while the compositor is stuck inside a frame (the cycle waits and goes out when it is free).
+        transport.keyframeBlocked = { downstreamBusyMs() >= DecoderStallWatch.DOWNSTREAM_BUSY_MS }
+        val sink = AaVideoSink(stats, compositorBusyMs = downstreamBusyMs) { transport.triggerFocusCycleRecovery() }
         val statsLine = Executors.newSingleThreadScheduledExecutor { Thread(it, "aa-stats").apply { isDaemon = true } }
         val recorder = recording?.let { option ->
             SessionRecorder(option.dir, SessionRecorder.nameFor(System.currentTimeMillis()), option.maxBytes, { AaLog.i(it) }, ring = true)
@@ -509,22 +589,26 @@ internal class AaReceiver(
         val microphone = voice?.let { AaMicrophone(it(), transport::send, log = { line -> AaLog.i(line) }) }
         var handler: AapMessageHandlerType? = null
         val silence = VideoSilence()
+        var answered = false
         try {
             AaLog.i("AaReceiver: connected to the head unit server on :$port, starting the handshake")
             if (!transport.startHandshake(link)) {
                 AaLog.w("AaReceiver: the handshake failed")
-                return false
+                return Handshake.failed(transport.versionAnswered)
             }
             // Answered: a later process (this one killed mid-session) has no old stop to count a window from.
             AaRestartGap.answered(context)
+            answered = true
             sink.setSurface(videoSurface)
             // The music and phone status channels, read when announced and asked for.
-            val cards = if (onNowPlaying != null || onCaller != null) AapCards(onNowPlaying, onCaller, onMediaApp) else null
+            val cards = if (onNowPlaying != null || onCaller != null) AapCards(onNowPlaying, onCaller, onMediaApp, AaMedia.watch::playback) else null
             val reading = AapMessageHandlerType(transport, config, sink::process, onNavigation, microphone, cards, onAudio)
             handler = reading
             val counted = AaStatsHandler(stats, reading)
             transport.startReading(if (recorder == null) counted else RecordingHandler(recorder, counted))
             statsLine.scheduleWithFixedDelay({ AaLog.i(stats.windowLine()) }, timing.statsEveryMs, timing.statsEveryMs, TimeUnit.MILLISECONDS)
+            // A keyframe request that had to wait (the storm guard, the compositor) goes out from here.
+            statsLine.scheduleWithFixedDelay(transport::keyframeTick, KEYFRAME_TICK_MS, KEYFRAME_TICK_MS, TimeUnit.MILLISECONDS)
             session = transport
             sentRecorder = recorder
             // The session's day/night: if Android Auto has already started the night sensor (with the transport's
@@ -559,13 +643,24 @@ internal class AaReceiver(
             // Nor a song or a call card.
             onNowPlaying?.invoke(null)
             onCaller?.invoke(null)
+            AaMedia.watch.reset()
             recorder?.close()
-            sink.release()
+            // The socket first: a decoder that hangs in its release (the codec's driver, not REau) must not leave it open, with Android Auto
+            // serving a session nobody reads and answering the next dial into silence.
             link.disconnect()
+            AaLog.i("AaReceiver: the link is closed, the video path is released")
+            sink.release()
             connection = null
             forgetDialled(socket)
+            // The end of a session that was answered, with REau's stop or without it (Android Auto leaving): where the wake of AaWake counts from.
+            keepEnd(answered)
         }
-        return true
+        return Handshake.DONE
+    }
+
+    /** The end of a session that was answered is kept ([AaRestartGap.sessionEnded]); a session that was never answered ended nothing Android Auto had to close. */
+    private fun keepEnd(answered: Boolean) {
+        if (answered) AaRestartGap.sessionEnded(context, SystemClock.elapsedRealtime(), System.currentTimeMillis())
     }
 
     /** The video sink must not be released under a read loop that may still hand it a message. */
@@ -595,6 +690,13 @@ internal class AaReceiver(
         /** Only the first try of a round of refused dials is written to the log in full (the others would repeat it every 2 s). */
         internal fun firstTry(refusedBefore: Int): Boolean = refusedBefore == 0
 
+        /** What the log says of an Android Auto that accepts the connection and answers nothing, right after REau's own stop. */
+        private const val CLOSING_NOTE =
+            " it is still closing the previous session, or Android froze it (restricted battery); it clears by itself or when Android Auto is opened"
+
+        /** What the log says of an Android Auto that accepts the connection and answers nothing, outside the window of REau's own stop. */
+        private const val FROZEN_NOTE = " Android Auto may be frozen by Android (restricted battery), which usually clears when it is opened"
+
         /** The port of Android Auto's head unit server: the one Google's Desktop Head Unit talks to. */
         const val HEAD_UNIT_SERVER_PORT = 5277
 
@@ -604,10 +706,13 @@ internal class AaReceiver(
         /** Failed tries in a row after which the rider is told Android Auto is not calling. */
         const val CALL_IN_TRIES_BEFORE_SAYING = 5
 
-        /** A few minutes of an 800×480 session. */
-        const val DEFAULT_RECORDING_BYTES = 100L * 1024 * 1024
+        /** A few minutes of an 800×480 session (the ring of a release; a debug build's is [com.reau.app.data.RecordingsSpace.ringBytes]). */
+        const val DEFAULT_RECORDING_BYTES = com.reau.app.data.RecordingsSpace.RING_BYTES
         private val IPV4_LOOPBACK = byteArrayOf(127, 0, 0, 1)
         private const val SILENCE_CHECK_MS = 1_000L
+
+        /** How often a keyframe request that had to wait is looked at. */
+        private const val KEYFRAME_TICK_MS = 1_000L
         private const val THREAD_NAME = "aa-link"
         private const val STOP_JOIN_MS = 3_000L
         private const val READ_LOOP_EXIT_MS = 1_500L

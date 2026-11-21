@@ -20,19 +20,21 @@ class AppDefaultsTest {
         // The fits of the owner's phone, taken as the defaults on 25/10/2026 and again on 28/10/2026 (the apps' crop 64% at -34, 54) (no zoom, no black bands)
         assertEquals(FitParams(Fit.WHOLE_VISIBLE, 64, -34, 54, 20, 0), s.appsFit)
         assertEquals(FitParams(Fit.WHOLE_VISIBLE, 90, 32, 20, 20, 0), s.menuFit)
-        assertEquals(FitParams(Fit.CROP, 74, 0, 62, 0, 0), s.navFit)
-        // The conservative envelope for the video (profile 1, FixedProfilesTest).
-        assertEquals(4, s.fpsCeiling)
+        assertEquals(FitParams(Fit.CROP, 74, 90, 62, 0, 0), s.navFit)
+        // The video is fixed at 6 fps in a debug and in a release build (profile A, FixedProfilesTest).
+        assertEquals(6, s.fpsCeiling)
+        assertEquals(6, s.sanitized(debugBuild = false).fpsCeiling)
         assertEquals(MapTheme.AUTO, s.mapTheme)
+        assertEquals(DrivingSideMode.AUTO, s.drivingSideMode)
         assertEquals(com.reau.app.dash.NavProfileMode.PESSIMISTA, s.navProfileMode)
         assertEquals(joystick, s.joystick)
-        val on = listOf(s.maneuverData, s.autoJoinWifi, s.dashMusic, s.dashCaller, s.aaServerAuto,
+        val on = listOf(s.maneuverData, s.autoJoinWifi, s.dashMusic, s.dashCaller,
             s.dashMask, s.phoneTouch, s.rideLog, s.maneuverFpsProfile, s.speedFpsProfile, s.aaNewProtocol,
             s.useLocation, s.dashPhoneStatus, s.dashAlbumArt, s.answerCalls, s.gemini)
         assertEquals(
-            "manobra, Wi-Fi, música, quem liga, servidor, máscara, toque, registro, perfil por manobra, perfil por velocidade, protocolo 1.7, " +
+            "manobra, Wi-Fi, música, quem liga, máscara, toque, registro, perfil por manobra, perfil por velocidade, protocolo 1.7, " +
                 "localização, estado do celular, capa do álbum, atender ligação, Gemini (as quatro últimas só funcionam com a permissão liberada)",
-            List(16) { true },
+            List(15) { true },
             on,
         )
         val off = listOf(s.maneuverRing)
@@ -74,13 +76,13 @@ class AppDefaultsTest {
     @Test
     fun `what a phone stored is kept`() {
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
-        prefs.edit().putInt("density", 160).putString("fit", "FILL_DOME").putInt("fps_ceiling", 16)
+        prefs.edit().putInt("density", 220).putString("fit", "FILL_DOME").putInt("fps_ceiling", 16)
             .putBoolean("menu_fit_on", false).putBoolean("gemini", false).putString("joystick", "media.up.once=HOME").apply()
         val s = SettingsStore(prefs).load()
-        assertEquals(160, s.density)
+        assertEquals(220, s.density)
         assertEquals("the fill-the-dome of before reads as the whole picture", Fit.WHOLE_VISIBLE, s.fit)
-        // But for the video, which an older store gets conservative once.
-        assertEquals(4, s.fpsCeiling)
+        // But for the video, which an older store gets conservative once (the old pace key is not read: the video is fixed at 6 fps).
+        assertEquals(6, s.fpsCeiling)
         assertEquals("the menu's own fit switched off stays off", null, s.menuFit)
         assertEquals(false, s.gemini)
         assertEquals("media.up.once=HOME", s.joystick)

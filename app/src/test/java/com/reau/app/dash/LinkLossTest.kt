@@ -15,8 +15,16 @@ class LinkLossTest {
         for ((before, now) in listOf(2467 to 2462, 2462 to 2457, 2457 to 2447, 2447 to 2427)) {
             assertEquals(LinkLoss.Channel.OTHER, LinkLoss.channel(before, now))
             assertEquals(
-                "the dash's Wi-Fi is back on another channel ($before → $now MHz): its access point restarted",
+                "the dash's Wi-Fi is back on another channel ($before → $now MHz): its access point restarted, or the phone joined another one with the same name",
                 LinkLoss.backLine(before, now),
+            )
+            assertEquals(
+                "the dash's Wi-Fi is back on another channel ($before → $now MHz): its access point restarted",
+                LinkLoss.backLine(before, now, sameAp = true),
+            )
+            assertEquals(
+                "the dash's Wi-Fi is back on another channel ($before → $now MHz): another access point with the same name, not a restart",
+                LinkLoss.backLine(before, now, sameAp = false),
             )
         }
     }
@@ -27,6 +35,11 @@ class LinkLossTest {
         assertEquals("the dash's Wi-Fi is back on the same channel (2427 MHz)", LinkLoss.backLine(2427, 2427))
         assertEquals(LinkLoss.Channel.FIRST, LinkLoss.channel(null, 2427))
         assertNull(LinkLoss.backLine(null, 2427))
+        assertEquals(
+            "the dash's Wi-Fi is back on the same channel (2427 MHz): but another access point with the same name, not the one that was lost",
+            LinkLoss.backLine(2427, 2427, sameAp = false),
+        )
+        assertEquals("the dash's Wi-Fi is back on the same channel (2427 MHz)", LinkLoss.backLine(2427, 2427, sameAp = true))
     }
 
     @Test
@@ -71,5 +84,37 @@ class LinkLossTest {
     @Test
     fun `the warning that a network is going names the time left`() {
         assertEquals("link losing: Android will drop the dash's Wi-Fi within 3000 ms", LinkLoss.losingLine(3_000))
+    }
+
+    @Test
+    fun `the phone's own side of a loss is one line with the radio, the main Wi-Fi and the networks up, and no name`() {
+        val line = LinkLoss.phoneSideLine(
+            "enabled", "DISCONNECTED",
+            listOf(LinkLoss.PhoneNet("cell", validated = true), LinkLoss.PhoneNet("wifi", validated = false)),
+            LinkLoss.PhoneNet("cell", validated = true),
+        )
+        assertEquals(
+            "phone side of the loss: Wi-Fi radio enabled, main Wi-Fi DISCONNECTED, networks up: cell(validated) + wifi, default cell(validated)",
+            line,
+        )
+        assertFalse(line.contains("RE_"))
+        assertFalse("not the beginning the log reader takes for a drop of the Wi-Fi", line.startsWith("link lost"))
+    }
+
+    @Test
+    fun `the phone's side says unknown for what Android would not say, and none for no network`() {
+        assertEquals(
+            "phone side of the loss: Wi-Fi radio unknown, main Wi-Fi unknown, networks up: none, default none",
+            LinkLoss.phoneSideLine(null, null, emptyList(), null),
+        )
+    }
+
+    @Test
+    fun `the Wi-Fi radio's state has a word for each state`() {
+        assertEquals("enabled", PhoneSide.radioName(android.net.wifi.WifiManager.WIFI_STATE_ENABLED))
+        assertEquals("disabled", PhoneSide.radioName(android.net.wifi.WifiManager.WIFI_STATE_DISABLED))
+        assertEquals("enabling", PhoneSide.radioName(android.net.wifi.WifiManager.WIFI_STATE_ENABLING))
+        assertEquals("disabling", PhoneSide.radioName(android.net.wifi.WifiManager.WIFI_STATE_DISABLING))
+        assertEquals("unknown", PhoneSide.radioName(android.net.wifi.WifiManager.WIFI_STATE_UNKNOWN))
     }
 }

@@ -35,9 +35,25 @@ data class JoystickBindings(private val chosen: Map<Slot, Action> = emptyMap()) 
         PLAY_PAUSE({ AaCommand.Key(ServiceDiscoveryResponse.KEY_MEDIA_PLAY_PAUSE) }),
         NEXT_SONG({ AaCommand.Key(ServiceDiscoveryResponse.KEY_MEDIA_NEXT) }),
         PREVIOUS_SONG({ AaCommand.Key(ServiceDiscoveryResponse.KEY_MEDIA_PREVIOUS) }),
+
+        /**
+         * The phone's volume one step up or down, with no panel on the screen: the music's, or the call's during a call ([com.reau.app.phone.PhoneVolume]).
+         * The dash calls the media mode's up and down "volume" (0x06, 0x07), but no default page uses them so; these are choices
+         * on the page, on no control by default. Not a "music control" for the card ([mediaControls]): the card is about the song.
+         */
+        VOLUME_UP({ AaCommand.Volume(1) }),
+        VOLUME_DOWN({ AaCommand.Volume(-1) }),
         ASSISTANT({ assistant -> if (assistant) AaCommand.Key(ServiceDiscoveryResponse.KEY_ASSISTANT) else null }),
         ZOOM_IN({ AaCommand.PanelZoom(1) }),
         ZOOM_OUT({ AaCommand.PanelZoom(-1) }),
+
+        /**
+         * One action for the map and the music: it asks what Android Auto shows ([SwapMapMusic]) and, on the map, opens the last music app
+         * (Android Auto's own media button); on anything else (Spotify, the app menu, another app, a screen not known), the last navigation app
+         * (its navigation button). On no control by default. Pages saved with the two old actions that opened them one by one read as this one
+         * ([decode]).
+         */
+        SWAP_MAP_MUSIC({ AaCommand.SwapMapMusic }),
 
         /**
          * The info ring's own switch: it sends Android Auto nothing, the dash's down button in its map mode (0x15) shows and hides REau's
@@ -104,6 +120,7 @@ data class JoystickBindings(private val chosen: Map<Slot, Action> = emptyMap()) 
 
         private val ZOOM_ACTIONS = listOf(Action.ZOOM_IN, Action.ZOOM_OUT)
 
+        // The song's own controls; the volume is not one: the card shows the song, and a volume knob does not need it.
         private val MEDIA_ACTIONS = setOf(Action.PREVIOUS_SONG, Action.PLAY_PAUSE, Action.NEXT_SONG)
 
 
@@ -133,6 +150,13 @@ data class JoystickBindings(private val chosen: Map<Slot, Action> = emptyMap()) 
         private val BY_KEY = SLOTS.associateBy { it.key }
 
         /**
+         * The names of actions that no longer exist, and what a page saved with them reads as: the two that opened the music app and the navigation
+         * became one ([Action.SWAP_MAP_MUSIC]); the ones that opened the phone and switched among the first three apps are gone, and so are the four focus
+         * arrows ("Focus up", "Focus down", "Focus left", "Focus right"; a name left out here is left out when read, and its slot goes back to its default).
+         */
+        private val RENAMED = mapOf("OPEN_MUSIC" to Action.SWAP_MAP_MUSIC, "OPEN_NAVIGATION" to Action.SWAP_MAP_MUSIC)
+
+        /**
          * [text] without its map-mode choices: those saved
          * before the one-tap joystick put Gemini on every map line, and the map mode's sides move the focus now.
          */
@@ -143,7 +167,7 @@ data class JoystickBindings(private val chosen: Map<Slot, Action> = emptyMap()) 
             val chosen = text.split(';').mapNotNull { entry ->
                 val (key, name) = entry.split('=', limit = 2).takeIf { it.size == 2 } ?: return@mapNotNull null
                 val slot = BY_KEY[key] ?: return@mapNotNull null
-                val action = Action.entries.firstOrNull { it.name == name } ?: return@mapNotNull null
+                val action = RENAMED[name] ?: Action.entries.firstOrNull { it.name == name } ?: return@mapNotNull null
                 slot to action
             }
             return chosen.fold(DEFAULT) { page, (slot, action) -> page.with(slot, action) }

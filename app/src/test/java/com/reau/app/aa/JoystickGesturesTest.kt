@@ -145,7 +145,7 @@ class JoystickGesturesTest {
     fun `the log says what each tap became`() {
         val m = JoystickMap()
         assertEquals(listOf("media right once -> Scroll(delta=1)"), m.press(right, 0).lines)
-        assertEquals(listOf("map center once -> nothing"), m.press(joystickIn, 100).lines)
+        assertEquals(listOf("map center once -> nothing"), m.press(joystickIn, 400).lines)
     }
 
     @Test
@@ -389,11 +389,11 @@ class JoystickGesturesTest {
     }
 
     @Test
-    fun `a centre 100 ms after a side, and a side right after a centre, count`() {
+    fun `a centre 400 ms after a side, and a side right after a centre, count`() {
         val m = JoystickMap()
         m.press(right, 0)
-        assertEquals(listOf(AaCommand.Key(23)), m.press(center, 100).sent)
-        assertEquals(listOf(AaCommand.Scroll(1)), m.press(right, 110).sent)
+        assertEquals(listOf(AaCommand.Key(23)), m.press(center, 400).sent)
+        assertEquals(listOf(AaCommand.Scroll(1)), m.press(right, 410).sent)
     }
 
     /** The log line of each button says the call state at that moment, to read a press made in a call. */
@@ -405,5 +405,11 @@ class JoystickGesturesTest {
         )
         assertEquals("button Back 0x12 -> a; b [call=IDLE]", JoystickMap.logLine("Back", 0x12, listOf("a", "b"), "IDLE"))
         assertEquals("button Unknown 0x0B -> nothing [call=RINGING]", JoystickMap.logLine("Unknown", 0x0B, emptyList(), "RINGING"))
+        // 0x20: no use for it, but a report of what it is; the line says so the first time it ever comes.
+        assertEquals(
+            "button Unknown 0x20 -> not mapped -> nothing [call=IDLE] (0x20: reported as the dash's own menu removing a stop; never seen here until now)",
+            JoystickMap.logLine("Unknown", 0x20, listOf("not mapped -> nothing"), "IDLE"),
+        )
+        for (code in listOf(0x00, 0x12, 0x1F, 0x21, 0x7F)) assertEquals("0x%02X".format(code), "", JoystickMap.codeNote(code))
     }
 }

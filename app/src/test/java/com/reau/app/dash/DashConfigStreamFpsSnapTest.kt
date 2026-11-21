@@ -38,7 +38,6 @@ class DashConfigStreamFpsSnapTest {
     @Test
     fun `defaults are valid even values`() {
         assertEquals(DashConfig.DEFAULT_STREAM_FPS, DashConfig.snapStreamFps(DashConfig.DEFAULT_STREAM_FPS))
-        assertEquals(DashConfig.AUTO_FPS_START, DashConfig.snapStreamFps(DashConfig.AUTO_FPS_START))
     }
 
     @Test

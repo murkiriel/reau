@@ -56,6 +56,12 @@ interface ProjectionSides {
      */
     fun retune(settings: REauSettings) = remap(settings.mapping)
 
+    /**
+     * The rider's mark [mark]: the session recording of Android Auto, if one is being made, is copied to a name its ring does not
+     * overwrite (`MarkFreezer`). Returns at once. False: nothing to keep.
+     */
+    fun freezeRecording(mark: Int): Boolean = false
+
     /** The bike's Wi-Fi while the sides hold it, for the `device` line; null when none. */
     val bikeNetwork: Network? get() = null
 
@@ -105,13 +111,6 @@ class ProjectionService : Service() {
         /** The tag of both locks, as `dumpsys power` and `dumpsys wifi` show it. */
         const val LOCK_TAG = "reau:projection"
 
-        /** What the rider's Ligar (true) or Desligar (false) tells the head unit server's starter at once; null for any other command. */
-        internal fun riderSwitch(action: String?): Boolean? = when (action) {
-            ACTION_START -> true
-            ACTION_STOP -> false
-            else -> null
-        }
-
         /** What a command found, for the log: a Desligar that begins, or a Ligar that comes while that stop is still carried out. */
         internal enum class TapNote { NONE, STOP_TAPPED, LIGAR_DURING_STOP }
 
@@ -121,15 +120,42 @@ class ProjectionService : Service() {
             else -> TapNote.NONE
         }
 
-        /** The foreground types the projection asks for beyond the connected device: [microphone] for Gemini, [location] for the info ring's GPS card. */
-        internal class ForegroundNeeds(val microphone: Boolean, val location: Boolean)
+        /**
+         * The foreground types the projection asks for beyond the connected device: [microphone] for Gemini, [location] for the dash's Wi-Fi
+         * list (Android gives an app no list while it is behind another one, unless its foreground service carries the location type).
+         * [gps]: the info ring's GPS card would use that type too (only for the log's reason).
+         */
+        internal class ForegroundNeeds(val microphone: Boolean, val location: Boolean, val gps: Boolean = false)
 
-        /** Gemini on and the permission to record; the ring's GPS card on, with the rider's "Usar a localização" and the precise location permission. */
+        /**
+         * Gemini on and the permission to record. The location type is asked for whenever the precise location permission is given, whatever the
+         * ring, its GPS card or the rider's "Usar a localização": it is what lets REau read the dash's network in the Wi-Fi list with the app
+         * behind another one, and it makes REau read no position (the GPS and the weather have their own switches).
+         */
         internal fun foregroundNeeds(settings: REauSettings, recordAudioGranted: Boolean, fineLocationGranted: Boolean) = ForegroundNeeds(
             microphone = settings.gemini && recordAudioGranted,
-            location = settings.infoRing && settings.useLocation &&
-                com.reau.app.weather.RingData.shown(settings.infoRingData, com.reau.app.weather.RingData.GPS) && fineLocationGranted,
+            location = fineLocationGranted,
+            // The title says no GPS card (the dash shows its own), so the ring in words listens to no GPS.
+            gps = settings.infoRing && settings.useLocation &&
+                com.reau.app.weather.RingData.shown(settings.infoRingData, com.reau.app.weather.RingData.GPS) && fineLocationGranted && !settings.infoTitle,
         )
+
+        /**
+         * The log lines of a foreground start that Android accepted, once per start: the types it accepted, why each extra was asked for, and the
+         * warning when the location type was wanted and is not there (the Wi-Fi list will be empty behind another app). No network names.
+         */
+        internal fun foregroundNotes(accepted: Int, needs: ForegroundNeeds, fineLocationGranted: Boolean): List<String> = buildList {
+            add("projection: foreground types accepted: ${ForegroundTypes.names(accepted)} (0x${Integer.toHexString(accepted)})")
+            if (accepted and ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE != 0) add("projection: foreground with the microphone, for Gemini")
+            val location = accepted and ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION != 0
+            if (location) {
+                add("projection: foreground with the location, for the dash's Wi-Fi list" + if (needs.gps) " and the info ring's GPS" else "")
+            } else if (!fineLocationGranted) {
+                add("${RideDiagnostics.WARN}projection: no precise location permission: the Wi-Fi list will be empty while REau is behind another app")
+            } else {
+                add("${RideDiagnostics.WARN}projection: the location type was not accepted: the Wi-Fi list will be empty while REau is behind another app")
+            }
+        }
 
         /** A start builds its sides when the projection is stopped (a start on a running one keeps what it has). */
         internal fun buildsSides(sidesFor: Boolean?, phase: Phase): Boolean = sidesFor != null && phase == Phase.STOPPED
@@ -155,6 +181,9 @@ class ProjectionService : Service() {
 
         private val current = MutableStateFlow(Projection())
 
+        /** Which service instance may write [current] and [started]: an old one still releasing does not overwrite the new one's (A-20, [StateOwner]). */
+        private val owner = StateOwner()
+
         /** Where the projection stands. */
         val projection: StateFlow<Projection> = current.asStateFlow()
 
@@ -168,6 +197,10 @@ class ProjectionService : Service() {
 
         /** Whether the service holds the foreground now (the `app background` line says it). */
         @Volatile var inForeground = false
+            private set
+
+        /** The foreground types Android accepted for the service now in the foreground (`Service.foregroundServiceType`); 0 when it is not. */
+        @Volatile var acceptedTypes = 0
             private set
 
         /** Builds the sides for a service; it gets the channel back to the machine. Tests replace it. */
@@ -214,8 +247,18 @@ class ProjectionService : Service() {
         }
     }
 
+    // This instance's number for [owner]; the writes of the process-wide state go through it.
+    private val instance = owner.newInstance()
+    private fun publish(write: () -> Unit) = owner.publish(instance, write)
+
     private lateinit var worker: ScheduledExecutorService
     private lateinit var controller: ProjectionController
+
+    // The voice in the rider's headset (RiderVoice: off unless the rider asked for it); made with the service, its engine only at the first phrase.
+    private lateinit var voice: RiderVoice
+
+    // The state the machine was in before the one it reports now, to tell what changed (StateAlerts); only the thread that reports reads and writes it.
+    private var lastReported = Projection()
 
     // The sides of the kind last switched on, built at that start; only the worker reads and writes these three.
     private var sides: ProjectionSides? = null
@@ -268,6 +311,16 @@ class ProjectionService : Service() {
             },
             { headline -> ProjectionNotification.show(this, headline, markNote(), started.value, card = controller.state.card) },
         )
+        voice = RiderVoice(
+            enabled = { SettingsStore.open(this).load().spokenAlerts },
+            words = { cue -> getString(VoiceWords.of(cue)) },
+            // The language of the app: the service's resources follow the rider's choice (attachBaseContext, and the system itself from Android 13).
+            locale = { resources.configuration.locales[0] },
+            engineFactory = { AndroidSpeech(this) },
+            focus = AndroidFocus(this),
+            log = { RideDiagnostics.log("audio", it) },
+        )
+        RiderVoice.install(voice)
         // The settings are decoded once (the Keystore, the file) and kept; read here, on the worker, the tap on Ligar finds
         // them warm when goForeground() reads them on the main thread.
         worker.execute { runCatching { SettingsStore.open(this).load() } }
@@ -276,8 +329,12 @@ class ProjectionService : Service() {
             onNoDashStop = { minutes -> ProjectionNotification.showStoppedNoDash(this, minutes) },
             noDashStopMs = { SettingsStore.open(this).load().noDashStopMinutes * MS_PER_MINUTE },
             onChange = { state ->
-                countDash(current.value.dash, state.dash)
-                current.value = state
+                publish {
+                    countDash(current.value.dash, state.dash)
+                    current.value = state
+                }
+                tellTheRider(lastReported, state)
+                lastReported = state
                 // "Desligando" goes up at once: the stop blocks this worker, which the pacer's wait runs on. Not when a newer start
                 // already holds the foreground (its notification is the one to keep).
                 if (state.headline == Headline.STOPPING && ForegroundHandover.dropsForeground(command, lastStart)) {
@@ -289,10 +346,11 @@ class ProjectionService : Service() {
         )
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // The server's cover goes up at the tap, not after the first dial or the session's end.
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int =
+        com.reau.app.util.StartupTiming.timed("ProjectionService.onStartCommand") { startCommand(intent, startId) }
+
+    private fun startCommand(intent: Intent?, startId: Int): Int {
         val action = intent?.action
-        riderSwitch(action)?.let { AaServerStarter.riderSwitched(this, on = it) }
         noteTapDuringStop(action)
         when (action) {
             ACTION_START, ACTION_START_CARD -> if (goForeground()) {
@@ -308,6 +366,9 @@ class ProjectionService : Service() {
                     stopSelf(startId)
                 } else {
                     RideDiagnostics.log("mark", marks.mark(System.currentTimeMillis()))
+                    // The ring of the session recording overwrites itself (about 11 min of a long ride): the mark keeps a copy.
+                    runCatching { sides?.freezeRecording(marks.count) }
+                        .onFailure { log("${RideDiagnostics.WARN}mark ${marks.count}: keeping the session recording failed: $it") }
                     ProjectionNotification.show(this, controller.state.headline, markNote(), started.value, card = controller.state.card)
                 }
             }
@@ -337,6 +398,10 @@ class ProjectionService : Service() {
                     "stop" to { stopping.getOrThrow().get(STOP_WAIT_MS, TimeUnit.MILLISECONDS) },
                     // The sides (compositor, codecs, Wi-Fi) are let go here too, off the main thread (BackgroundRelease): once the worker is
                     // gone nothing else touches them; a next start builds its own.
+                    "voice" to {
+                        RiderVoice.uninstall(voice)
+                        voice.release()
+                    },
                     "worker" to { worker.shutdownNow() },
                     "sides" to {
                         val leaving = sides
@@ -349,13 +414,14 @@ class ProjectionService : Service() {
                     // start that was refused (no compositor, no sides) stays to be read: the service leaves at once, and the reason would go with it.
                     "state" to {
                         val reason = current.value.problem
-                        if (current.value != Projection(problem = reason)) current.value = Projection(problem = reason)
+                        publish { if (current.value != Projection(problem = reason)) current.value = Projection(problem = reason) }
                     },
                 ),
             ) { name, e -> log("${RideDiagnostics.WARN}projection: in onDestroy, $name failed: ${e.javaClass.simpleName}") }
             log("projection: service gone, locks released")
         }
         inForeground = false
+        acceptedTypes = 0
         super.onDestroy()
     }
 
@@ -428,21 +494,24 @@ class ProjectionService : Service() {
      */
     private fun goForeground(): Boolean {
         var why = ""
-        // Gemini switched on and the permission to record given; the info ring's GPS card on, with the precise location permission and the
-        // rider's "Usar a localização": the location type too.
+        // Gemini switched on and the permission to record given: the microphone type. The precise location permission given: the location type,
+        // for the dash's Wi-Fi list with the app behind another one (and the info ring's GPS), whatever the ring or "Usar a localização".
+        val fineLocationGranted = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val needs = foregroundNeeds(
             SettingsStore.open(this).load(),
             recordAudioGranted = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED,
-            fineLocationGranted = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED,
+            fineLocationGranted = fineLocationGranted,
         )
         for (types in ForegroundTypes.ladder(microphone = needs.microphone, location = needs.location)) {
             val refusal = try {
                 ProjectionNotification.createChannel(this)
+                ProjectionNotification.refreshAlertChannel(this)
                 startForeground(ProjectionNotification.ID, ProjectionNotification.build(this, Headline.PREPARING), types)
                 inForeground = true
                 worker.execute { pacer.alreadyShown(Headline.PREPARING) }
-                if (types and ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE != 0) log("projection: foreground with the microphone, for Gemini")
-                if (types and ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION != 0) log("projection: foreground with the location, for the info ring's GPS")
+                // What Android really accepted, not what was asked for (minSdk 29 has foregroundServiceType).
+                acceptedTypes = foregroundServiceType
+                foregroundNotes(acceptedTypes, needs, fineLocationGranted).forEach(::log)
                 return true
             } catch (e: IllegalStateException) {
                 e
@@ -452,7 +521,7 @@ class ProjectionService : Service() {
             why = "${refusal.javaClass.simpleName}: ${refusal.message}"
             log("${RideDiagnostics.ERROR}projection: foreground start refused for types $types — $why")
         }
-        current.value = Projection(problem = why)
+        publish { current.value = Projection(problem = why) }
         return false
     }
 
@@ -461,17 +530,17 @@ class ProjectionService : Service() {
         override fun prepare(): String? {
             // One ride log per projection, in <external files>/diag, where `adb pull` reaches it.
             RideDiagnostics.start("projection")
-            RideDiagnostics.log("settings", SettingsInUse.line(SettingsStore.open(this@ProjectionService).load().sanitized()))
+            val inUse = SettingsStore.open(this@ProjectionService).load().sanitized()
+            RideDiagnostics.log("settings", SettingsInUse.line(inUse))
             marks.reset()
             // A new summary for this projection, written when it is switched off.
             ProjectionSummary.current = RideSummary().apply { start(SystemClock.elapsedRealtime(), batteryPct = null) }
-            started.value = SystemClock.elapsedRealtime()
+            publish { started.value = SystemClock.elapsedRealtime() }
             // Sides that could not be built, or with no compositor, cannot project; the start fails here, with the reason, and the
             // machine gives the service back (Release) instead of connecting a dash that would never get video.
             refusal()?.let { return it }
-            // So the server's cover is not slow to appear, the earlier runs' reports and the locks
-            // (together once 0.4 to 0.8 s on a phone) follow Android Auto's side, whose first dial starts the walk
-            // behind that cover. On this same worker, so they come before any stop asked for after this start.
+            // The earlier runs' reports and the locks (together once 0.4 to 0.8 s on a phone) follow Android Auto's side, so
+            // the start is not slow. On this same worker, so they come before any stop asked for after this start.
             worker.execute { housekeeping() }
             return null
         }
@@ -507,7 +576,7 @@ class ProjectionService : Service() {
         }
 
         override fun release() {
-            started.value = null
+            publish { started.value = null }
             // The browser switch goes off with the projection and stays off until the rider turns it on again.
             // Not when a start came after this stop: that run is the rider's now (it turned the switch off itself when it began).
             runCatching {
@@ -518,13 +587,23 @@ class ProjectionService : Service() {
                 }
             }
             deviceLook?.cancel(false)
-            RideDiagnostics.log("projection", ProjectionSummary.current.line(SystemClock.elapsedRealtime(), marks.count))
+            ProjectionNotification.clearPhoneHot(this@ProjectionService)
+            // The Wi-Fi notice goes with the projection, and the voice lets its engine and the audio focus go (a next projection starts clean).
+            ProjectionNotification.clearWifiOff(this@ProjectionService)
+            voice.release()
+            RideDiagnostics.log(
+                "projection",
+                ProjectionSummary.current.line(
+                    SystemClock.elapsedRealtime(), marks.count, noImageMs = com.reau.app.dash.ImageGap.clock.totalMs(com.reau.app.util.MonotonicClock.nowMs()),
+                ),
+            )
             deviceLook = null
             locks.release()
             // A start that came while this stop was carried out has taken the foreground; it stays.
             if (ForegroundHandover.dropsForeground(command, lastStart)) {
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 inForeground = false
+                acceptedTypes = 0
             } else {
                 log("projection: a start came after this stop: the foreground stays")
             }
@@ -555,15 +634,62 @@ class ProjectionService : Service() {
     private fun lookAtTheDevice() {
         val reader = DeviceStateReader(this) { sides?.bikeNetwork }
         val device = DeviceStateLog(DEVICE_PERIOD_MS) { RideDiagnostics.log("device", it) }
+        // Armed for this projection: one warning when the battery passes 44 C, another only after it fell under 41 C (BatteryHeatWatch).
+        val heat = BatteryHeatWatch()
+        // Said once for this projection: the reader does not ask for the thermal headroom in this build (the lines have no headroom=).
+        RideDiagnostics.log("device", com.reau.app.data.ThermalHeadroomNote.LINE)
+        // Said once for this projection: the alert channel muted or blocked in Android (the main screen says it too).
+        AlertChannelState.line(AlertChannelState.read(this))?.let { RideDiagnostics.warn("projection", it) }
         deviceLook?.cancel(false)
         deviceLook = worker.scheduleWithFixedDelay({
             runCatching {
                 val state = reader.read()
                 device.offer(SystemClock.elapsedRealtime(), state)
                 ProjectionSummary.current.device(state.thermal, state.batteryPct)
+                warnIfHot(heat, state)
             }
                 .onFailure { log("${RideDiagnostics.WARN}projection: reading the device state failed: $it") }
         }, 0, DEVICE_LOOK_MS, TimeUnit.MILLISECONDS)
+    }
+
+    /** The rider's notice that the phone is hot ([BatteryHeatWatch]), and its line in the ride log; the notice goes when the phone has cooled. */
+    private fun warnIfHot(heat: BatteryHeatWatch, state: com.reau.app.data.DeviceState) {
+        val temp = state.batteryTempC
+        val text = temp?.let { String.format(java.util.Locale.US, "%.1f", it) }
+        when (heat.offer(temp)) {
+            BatteryHeatWatch.Verdict.WARN -> {
+                RideDiagnostics.warn(
+                    "heat",
+                    "battery at $text C (charging=${state.charging}, thermal=${state.thermal}): " +
+                        "at or over ${BatteryHeatWatch.HOT_C} C, rider told the phone is hot",
+                )
+                ProjectionNotification.showPhoneHot(this, Math.round(temp ?: BatteryHeatWatch.HOT_C))
+                RiderVoice.speak(VoiceCue.PHONE_HOT)
+            }
+            BatteryHeatWatch.Verdict.COOLED -> {
+                RideDiagnostics.log("heat", "battery back under ${BatteryHeatWatch.COOL_C} C ($text C): a new warning is possible")
+                ProjectionNotification.clearPhoneHot(this)
+            }
+            BatteryHeatWatch.Verdict.NONE -> Unit
+        }
+    }
+
+    /**
+     * The notices a change of state asks for ([StateAlerts]): the phone's Wi-Fi being off is shown in the alert channel with a button to Android's Wi-Fi
+     * panel, and said by the voice when the rider asked for it; the dash being back is said too (only after its going was, [VoiceRules]).
+     */
+    private fun tellTheRider(before: Projection, after: Projection) {
+        for (alert in StateAlerts.between(before, after)) {
+            when (alert) {
+                StateAlerts.Alert.WIFI_OFF_SHOW -> {
+                    log("projection: the phone's Wi-Fi is off: the rider is told, with the way to Android's Wi-Fi panel")
+                    ProjectionNotification.showWifiOff(this)
+                    RiderVoice.speak(VoiceCue.WIFI_OFF)
+                }
+                StateAlerts.Alert.WIFI_OFF_CLEAR -> ProjectionNotification.clearWifiOff(this)
+                StateAlerts.Alert.DASH_BACK -> RiderVoice.speak(VoiceCue.DASH_BACK)
+            }
+        }
     }
 
     /** A drop of Android Auto's side, for the summary. */

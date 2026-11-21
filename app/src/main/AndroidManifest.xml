@@ -57,6 +57,12 @@
         <intent>
             <action android:name="androidx.car.app.CarAppService" />
         </intent>
+        <!-- The phone's text-to-speech engine, for the spoken alerts in the headset (RiderVoice): Android 11+ lets an app bind to it only if it can see it. -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+        <!-- The old "lite" app (its id ends in .lite), to tell the rider it can be uninstalled now (see OtherEdition). -->
+        <package android:name="com.reau.app.lite" />
     </queries>
 
     <!-- Backups disabled: the app will hold the dash Wi-Fi name and password, which identify one bike. -->
@@ -104,6 +110,12 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
+
+        <!-- The daily check for a newer version (UpdateNotice): Android's JobScheduler binds it, so only the system may (BIND_JOB_SERVICE). -->
+        <service
+            android:name=".update.UpdateCheckJob"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
 
         <service
             android:name=".service.ProjectionService"

@@ -25,13 +25,14 @@ class SettingsInUseTest {
     fun `the line of the default settings says the ones that change a ride, in the order of the settings`() {
         assertEquals(
             "settings in use: density=${fields.getValue("density")} marginW=0 marginH=0 fit=WHOLE_VISIBLE cropPercent=${fields.getValue("cropPercent")} " +
-                "fpsCeiling=${fields.getValue("fpsCeiling")} streamBitrateBps=${fields.getValue("streamBitrateBps")} bitrateMode=CBR " +
+                "videoPace=REAU fpsCeiling=${fields.getValue("fpsCeiling")} streamBitrateBps=${fields.getValue("streamBitrateBps")} bitrateMode=CBR " +
                 "keyframeSec=${fields.getValue("keyframeSec")} clockSlowPercent=0 " +
-                "recordVideo=${com.reau.app.BuildConfig.DEBUG} recordSessions=${com.reau.app.BuildConfig.DEBUG} cardImage=default mapTheme=AUTO maneuverData=true maneuverFpsProfile=true " +
+                "recordVideo=${com.reau.app.BuildConfig.DEBUG} recordSessions=${com.reau.app.BuildConfig.DEBUG} cardImage=default mapTheme=AUTO drivingSideMode=AUTO maneuverData=true maneuverFpsProfile=true " +
                 "speedFpsProfile=true navProfileMode=PESSIMISTA autoJoinWifi=true detailedLog=${com.reau.app.BuildConfig.DEBUG} rideLog=true useLocation=true " +
                 "logKeepDays=${if (com.reau.app.BuildConfig.DEBUG) 0 else 30} noDashStopMinutes=20 answerCalls=true phoneTouch=true dashMusic=true dashCaller=true aaNewProtocol=true " +
-                "gemini=true aaServerAuto=true clearAaFocus=true dashMask=true " +
-                "statsOverlay=false buttonOverlay=false dashPhoneStatus=true dashAlbumArt=true maneuverRing=false dashWeather=true infoRing=true infoRingData=2047 infoRingCarousel=true infoRingSeconds=7 infoRingInPlace=false webView=false webTouch=false webAudio=PHONE",
+                "gemini=true actionEcho=true joystickLegend=true clearAaFocus=true dashMask=true spokenAlerts=false " +
+                "statsOverlay=false buttonOverlay=false fpsTestCard=false fpsTestCardFps=6 dashPhoneStatus=true dashAlbumArt=true maneuverRing=false dashWeather=true infoRing=false infoRingData=7 infoRingCarousel=true infoRingSeconds=7 infoRingInPlace=false infoTitle=false webView=false webTouch=false webAudio=PHONE " +
+                "videoFrame=528x304 announceMotorcycle=true",
             SettingsInUse.line(REauSettings()),
         )
     }
@@ -61,7 +62,7 @@ class SettingsInUseTest {
     fun `nothing but names, numbers and truths goes to the line, and what is left out stays out`() {
         val odd = REauSettings(joystick = "free text, with a path /storage/emulated/0/x and a name Fulano")
         val line = SettingsInUse.line(odd)
-        assertFalse(line, "Fulano" in line || "/storage" in line || "joystick" in line || "free text" in line)
+        assertFalse(line, "Fulano" in line || "/storage" in line || " joystick=" in line || "free text" in line)
         val words = line.removePrefix("settings in use: ").split(" ")
         for (word in words) {
             assertTrue("a pair of plain words: '$word'", word.matches(Regex("""[A-Za-z]+=[A-Za-z0-9_.-]+""")))

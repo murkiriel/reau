@@ -27,12 +27,18 @@ object LiveTuning {
         /** The map theme and "Usar a localização" (the place for the sun): day or night asked again now instead of at the next minute. */
         NIGHT_NOW,
 
-        /** The joystick page, taken at the next tap. */
+        /** The joystick page and the switches of the action echo and the legend, taken at the next tap. */
         JOYSTICK,
 
         /** The stats text on the dash's video: on or off, its place and size, taken at the next frame. */
         STATS_OVERLAY,
         BUTTON_OVERLAY,
+
+        /**
+         * The debug build's FPS test card, on or off or at another pace: nothing to apply here, the video loop reads [REauSettings.fpsTestRate] from the live settings at each poll
+         * (a quarter of a second), so the card and the pace change with the projection running and no new stream. The step only puts the change in the ride log.
+         */
+        FPS_TEST,
 
         /** The web server's two switches: the server up or down and the touch allowed or not, at once. */
         WEB,
@@ -56,6 +62,7 @@ object LiveTuning {
         audio = settings.audioSinks,
     )
 
+    @Suppress("CyclomaticComplexMethod") // one line per step, each a plain comparison
     fun steps(before: REauSettings, after: REauSettings): Set<Step> = buildSet {
         // What Android Auto was told when its session began: the density, the margins and whether REau takes its sound.
         val session = before.density != after.density ||
@@ -64,9 +71,10 @@ object LiveTuning {
         if (session) add(Step.NEW_ANDROID_AUTO_SESSION) else if (before.refitNeeded(after)) add(Step.REFIT)
         if (before.stream != after.stream) add(Step.NEW_STREAM)
         if (before.mapTheme != after.mapTheme || before.useLocation != after.useLocation) add(Step.NIGHT_NOW)
-        if (before.joystick != after.joystick) add(Step.JOYSTICK)
+        if (before.joystick != after.joystick || before.actionEcho != after.actionEcho || before.joystickLegend != after.joystickLegend) add(Step.JOYSTICK)
         if (before.overlay != after.overlay) add(Step.STATS_OVERLAY)
         if (before.buttonLook != after.buttonLook) add(Step.BUTTON_OVERLAY)
+        if (before.fpsTestRate != after.fpsTestRate) add(Step.FPS_TEST)
         if (webChanged(before, after)) add(Step.WEB)
         if (dashExtrasChanged(before, after)) add(Step.DASH_EXTRAS)
     }
@@ -79,8 +87,14 @@ object LiveTuning {
             before.dashWeather != after.dashWeather || before.infoRing != after.infoRing ||
             before.infoRingData != after.infoRingData || before.infoRingCarousel != after.infoRingCarousel ||
             before.infoRingSeconds != after.infoRingSeconds || before.infoRingInPlace != after.infoRingInPlace ||
+            before.infoTitle != after.infoTitle ||
             before.maneuverRing != after.maneuverRing
 
-    /** What a stream to the dash is made with. */
-    private val REauSettings.stream get() = listOf(fpsCeiling, clockSlowPercent, streamBitrateBps, bitrateMode, keyframeSec)
+    /**
+     * What a stream to the dash is made with. [frameSize] is the encoder's picture: it is fixed for the whole stream (a change of size needs a
+     * new encoder, SPS and PPS and a clean keyframe, never in the middle of one), so a pace with another picture is a new stream like any other.
+     */
+    private val REauSettings.stream get() = listOf(
+        videoPace, fpsCeiling, frameSize, clockSlowPercent, streamBitrateBps, bitrateMode, keyframeSec,
+    )
 }

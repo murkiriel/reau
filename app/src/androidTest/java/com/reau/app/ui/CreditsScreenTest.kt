@@ -58,8 +58,8 @@ class CreditsScreenTest {
     @Test
     fun aTapShowsTheAddressAndCopiesIt() {
         line("recon-dash").performClick()
-        line("recon-dash").assertTextContains("https://github.com/MinotaurG/recon-dash", substring = true)
-        assertEquals(listOf("https://github.com/MinotaurG/recon-dash"), copied)
+        line("recon-dash").assertTextContains("https://github.com/dubey44/recon-dash", substring = true)
+        assertEquals(listOf("https://github.com/dubey44/recon-dash"), copied)
         // The redesign: a Snackbar says so.
         compose.onNodeWithText("Endereço copiado").assertIsDisplayed()
         compose.onNodeWithTag("back").performClick()

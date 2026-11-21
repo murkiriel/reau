@@ -2,14 +2,59 @@
 
 Todos los cambios importantes de REau se listan aquí, de lo más nuevo a lo más antiguo, en el formato
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). La app sigue el versionado semántico en su forma `0.y.z`
-(todavía sin 1.0, así que cualquier cosa puede cambiar entre versiones menores): las compilaciones de release se llaman `0.2.0`, y las de debug
-agregan la fecha y la hora de la compilación después de `-dev+` (`0.2.0-dev+AA.MM.DD-HH.MM`, por ejemplo `0.2.0-dev+26.10.28-09.37`). Las versiones se listan
+(todavía sin 1.0, así que cualquier cosa puede cambiar entre versiones menores): las compilaciones de release se llaman `0.3.0`, y las de debug
+agregan la fecha y la hora de la compilación después de `-dev+` (`0.3.0-dev+AA.MM.DD-HH.MM`, por ejemplo `0.3.0-dev+26.11.03-09.37`). Las versiones se listan
 de la más nueva a la más antigua; los días anteriores a la 0.1.0 se conservan debajo de ella como historia del proyecto, cada uno reuniendo lo que cambió ese día (los días
 sin cambios visibles para quien usa la app no se listan).
 
 English: [CHANGELOG.md](CHANGELOG.md) · Português (pt-BR): [CHANGELOG.pt-br.md](CHANGELOG.pt-br.md)
 
-## [Sin publicar]
+## [0.3.0]
+
+> **Si usabas la edición Lite**, lee la primera entrada de "Cambiado": esta versión es una app nueva para ti.
+
+### Añadido
+- **Una opción de ritmo del video: REau u Original** (Ajustes > Perfiles de video > "Ritmo del video"; se aplica de inmediato). REau, el predeterminado, corre el perfil A a 6 fps y el perfil B a 3 fps; Original los corre a 4 y a 2 fps, más liviano para el tablero y para el Wi-Fi. Una página nueva de **Consejos** (la bombilla de la pantalla principal) explica por qué el video no pasa de 6 fps, recomienda apagar el zoom automático de Waze y dice que, sin intercomunicador en el casco, se puede cambiar la acción de Gemini por "Alternar mapa y música".
+- **Una opción de "Lado de circulación", para la circulación por la izquierda** (Ajustes > En el tablero; Automático, Derecha o Izquierda; **aún sin probar en la moto**). Donde Android Auto no dice hacia dónde ir (una rotonda sin dirección, un retorno), el tablero pasa a seguir el lado de la vía. Automático toma el país de la red móvil, o el de la SIM, sin permiso; no se envía a ningún lado ni se escribe en el registro.
+- **"Anunciar como moto"** (Ajustes > Android Auto; **viene activado**): REau le dice a Android Auto que es la central de una moto y no de un carro. La primera vez, Android Auto ve un vehículo nuevo y puede pedir de nuevo los permisos en el teléfono. Lo que cambia en la pantalla de Android Auto aún no se ha evaluado.
+- **Un aviso cuando hay una versión nueva** (Ajustes > Actualizaciones > "Avisar cuando haya una actualización"; **viene activado**; **aún sin probar en la moto**): una vez al día, con internet, REau le pregunta a GitHub cuál es la última versión (sin cuenta y sin nada sobre ti) y muestra una notificación silenciosa por versión. No se descarga ni se instala nada.
+- **Acciones nuevas del joystick** (**aún sin probar en la moto**): "Subir volumen" y "Bajar volumen" (el volumen del teléfono, o el de la llamada) y "Alternar mapa y música". Ningún botón las trae de fábrica: nada cambia hasta que elijas una.
+- **El joystick dice lo que hizo** (**aún sin probar en la moto**): el título del tablero muestra el nombre de cada acción durante 1,5 s ("Nombre de la acción en el tablero") y, después de "Canción siguiente" o "Canción anterior", el nombre de la canción nueva; una leyenda pequeña de lo que hace cada dirección aparece cuando el tablero cambia entre mapa y multimedia ("Leyenda del joystick en el tablero"). Las dos vienen activadas.
+- **Un modo de música con Spotify** (**aún sin probar en la moto**): en el control multimedia, con Spotify sonando, izquierda, derecha y centro son anterior, siguiente y reproducir/pausar, diga lo que diga la página del Joystick. Un toque fantasma después de un toque lateral se ignora.
+- **Información en el título** (Anillo de información > "Información en el título (en lugar del anillo)"; viene apagado; **aún sin probar en la moto**): la información del anillo va en el título de la franja dorada del tablero, en lugar del anillo. El anillo de información ahora empieza solo con lluvia, viento y tormenta.
+- **Un asistente de ajuste** que ayuda a un teléfono nuevo a comprobar que la flecha de la maniobra y la velocidad se ven enteras en el tablero (aún sin probar en otro teléfono).
+- **Más avisos al piloto**: Wi-Fi del teléfono apagado (con un botón Encender el Wi-Fi), teléfono caliente (con sonido y vibración), Wi-Fi del tablero bloqueado, Android rechazando la red del tablero, canal "Avisos del tablero" en silencio o bloqueado y "Esperando Android Auto" en el tablero. Los **avisos hablados en el auricular** son opcionales (vienen apagados). El aviso de red rechazada, la tarjeta del canal en silencio, la franja "Esperando" y los avisos hablados aún no se han probado en la moto.
+- **Mejores flechas y unidades en el tablero**: el inicio de la ruta es un alfiler; las incorporaciones y las salidas tienen dibujo propio; distancias en millas y pies cuando el tablero está en millas; la hora de llegada en 12 horas llega al tablero; antes de que el tablero diga su unidad, millas o kilómetros siguen el país del teléfono. Los dibujos nuevos y las millas aún no se han visto en la moto.
+- **Pantallas más fáciles de leer** en teléfonos pequeños y con letra grande; el botón Encender/Apagar queda fijo al pie de la pantalla principal.
+- **Solo en las compilaciones de depuración** (la de lanzamiento nunca las tiene): un cuadro de prueba numerado para filmar el tablero y comprobar el ritmo del video (de 4 a 12 fps), texto rojo sobre el video con los fps y el bitrate, texto naranja con el código del último botón y herramientas de prueba de los avisos, los fallos y las flechas, ahora traducidas.
+
+### Cambiado
+- **"Información en el título" ahora muestra también la batería del teléfono** (cuando marcas Batería en los datos del anillo; también cargando). La señal y el GPS siguen fuera del título.
+- **Una sola app, `com.reau.app`, con el nombre "REau": las ediciones Lite y Completa se fusionaron** (`REau-0.3.0.apk`). De fábrica se comporta como la Lite: tú enciendes a mano el servidor de unidad principal de Android Auto (REau abre los ajustes de Android Auto por ti, una vez cada vez que enciendes la proyección con REau en pantalla) y una red neuronal pequeña en el teléfono reconoce qué pantalla de Android Auto se está mostrando. **Si usabas la edición Completa**: la actualización se instala encima y conserva los ajustes y el emparejamiento; el servidor ahora se enciende a mano. **Si usabas la edición Lite** (`com.reau.app.lite`): esta es una app nueva para Android, así que empieza vacía: acepta los términos, rehaz los ajustes y el emparejamiento con el tablero y luego desinstala la Lite (dos apps encendidas a la vez se disputan el único servidor de unidad principal de Android Auto; esta app avisa cuando la antigua sigue instalada). Los términos de uso son un solo texto.
+- **El video hacia el tablero es el mismo en todas las compilaciones**: 400 kbps constantes, una imagen de 528×304 (los 526×300 del tablero alineados a 16, que el tablero no estira) y un cuadro clave por segundo, al ritmo elegido arriba. La versión de lanzamiento, que era 4 fps y 526×300, pasa a seguir el ritmo REau. **El tamaño de la imagen aún no se vio en la moto.**
+- **El DPI de Android Auto es uno de 180, 200 y 220** (Ajustes > Pantalla de Android Auto; por defecto 180; cambiarlo reinicia la sesión). Un valor guardado por una versión antigua que no sea uno de los tres vuelve a 180.
+- **REau siempre despierta a Android Auto antes de marcarle** (abre los ajustes de Android Auto un instante antes de la primera marcación de una proyección), para sacar del congelamiento a un Android Auto restringido; no hay interruptor para eso.
+- **Ajustes > Actualizaciones quedó en lo básico**: la versión, el botón "Buscar ahora", el resultado y el interruptor del aviso.
+- **La red neuronal que distingue las pantallas se reentrenó** para Android Auto 18, Spotify y Organic Maps; lo que ve el piloto no cambia.
+- **El inicio rápido (el acceso del ícono y el bloque de Ajustes rápidos) solo enciende la proyección con el teléfono desbloqueado.**
+
+### Eliminado
+- **El servicio de accesibilidad de la edición Completa se fue para siempre**: no aparece en los ajustes de Accesibilidad de Android, y ninguna pantalla, permiso o texto habla de él.
+- **Los interruptores de prueba de las compilaciones de depuración** ("Conexión experimental", "Video experimental", "Tablero experimental") se fueron; REau hace lo que hacía con todos apagados.
+
+### Corregido
+- **Con Spotify al frente y sonando, la franja dorada del tablero muestra la canción y el botón de pausa** (el título, el artista y los tres botones, como en las otras pantallas), incluso cuando la página del Joystick no tiene control de música (aún no probado en la moto).
+- **La flecha de la rotonda en el tablero se dibujaba al revés** (el error se vio en la moto; la corrección aún no): en Brasil Android Auto dice antihorario y el tablero la dibujaba horaria.
+- **El Wi-Fi del tablero deja de llamarse "trabado" cuando el teléfono ya se unió a él**, y una solicitud de red antigua ya no tumba una más nueva (aún sin ver en la moto).
+- **El video ya no pasa del ritmo del perfil después de un toque del joystick.**
+- **Cambiar el ritmo del video justo cuando el tablero se caía podía dejar el video trabado hasta apagar la proyección.**
+- **Más territorios de circulación por la izquierda** en el lado de circulación automático.
+- **Cuando el Wi-Fi del tablero vuelve, la imagen vuelve**, y el tablero se intenta de nuevo en 2 s después de una conexión rechazada en una red a la que el teléfono se unió por su cuenta.
+- **La lista de Wi-Fi deja de venir vacía con REau detrás de otra app**, y un Wi-Fi débil deja de darse por nombre equivocado del tablero.
+- **Apagar la proyección deja de terminar en error.**
+- **Los toques dentro del mapa, en la Pantalla de Android Auto y en el navegador, se ignoraban** (aún sin comprobar en el teléfono); el joystick ignora el toque fantasma después de un toque lateral, también en el modo multimedia.
+- **Clima**: después de una solicitud que falla REau espera más cada vez, y una temperatura inválida del servicio se ignora.
+- **Privacidad**: el lugar redondeado deja de usarse cuando se retira el permiso de ubicación, y el registro deja de escribir la dirección de la imagen elegida para el fondo.
 
 ## [0.2.0] - 2026-10-29
 

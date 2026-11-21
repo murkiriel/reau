@@ -2,14 +2,59 @@
 
 All notable changes to REau are listed here, newest first, in the
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format. The app follows semantic versioning in its `0.y.z` form
-(no 1.0 yet, so anything may still change between minor versions): release builds are called `0.2.0`, and debug builds add
-the build date and time after `-dev+` (`0.2.0-dev+YY.MM.DD-HH.MM`, for example `0.2.0-dev+26.10.28-09.37`). Versions are listed
+(no 1.0 yet, so anything may still change between minor versions): release builds are called `0.3.0`, and debug builds add
+the build date and time after `-dev+` (`0.3.0-dev+YY.MM.DD-HH.MM`, for example `0.3.0-dev+26.11.03-09.37`). Versions are listed
 newest first; the days before 0.1.0 are kept below it as the project's history, each gathering what changed that day (days
 with no change visible to people who use the app are not listed).
 
 Português (pt-BR): [CHANGELOG.pt-br.md](CHANGELOG.pt-br.md) · Español: [CHANGELOG.es.md](CHANGELOG.es.md)
 
-## [Unreleased]
+## [0.3.0]
+
+> **If you used the Lite edition**, read the first entry of "Changed": this version is a new app for you.
+
+### Added
+- **A choice of video pace: REau or Original** (Settings > Video profiles > "Video pace"; applies right away). REau, the default, runs profile A at 6 fps and profile B at 3 fps; Original runs them at 4 and 2 fps, lighter on the dash and on the Wi-Fi. A new **Tips** page (the lightbulb on the main screen) explains why the video does not go above 6 fps, recommends turning off Waze's automatic zoom and says that, without an intercom in the helmet, you can swap the Gemini action for "Switch map and music".
+- **A "Driving side" choice, for left-hand traffic** (Settings > On the dash; Automatic, Right-hand or Left-hand; **not yet tried on the bike**). Where Android Auto does not say which way to go (a roundabout without a direction, a U-turn), the dash now follows the side of the road. Automatic takes it from the country of the mobile network, or of the SIM, with no permission; nothing is sent anywhere or written to the log.
+- **"Announce as a motorcycle"** (Settings > Android Auto; **on by default**): REau tells Android Auto it is a motorcycle head unit, not a car one. The first time, Android Auto sees a new vehicle and may ask for the phone's permissions again. What it changes on Android Auto's screen is not judged yet.
+- **A notice when a newer version is published** (Settings > Updates > "Notify when there is an update"; **on by default**; **not yet tried on the bike**): once a day, with the internet on, REau asks GitHub for the latest version number (no account, nothing about you) and shows one quiet notification per version. Nothing is downloaded or installed.
+- **New joystick actions** (**not yet tried on the bike**): "Volume up" and "Volume down" (the phone's volume, or the call's) and "Switch map and music". No control has them by default, so nothing changes until you pick one.
+- **The joystick tells you what it did** (**not yet tried on the bike**): the dash's title shows the name of each action for 1.5 s ("Action name on the dash") and, after "Next song" or "Previous song", the new song's name; a small legend of what each direction does appears when the dash changes between map and media ("Joystick legend on the dash"). Both are on by default.
+- **A music mode with Spotify** (**not yet tried on the bike**): in media control, while Spotify plays, left, right and center are previous, next and play/pause, whatever the Joystick page says. A ghost tap after a side tap is ignored.
+- **Info in the title** (Info ring > "Info in the title (instead of the ring)"; off by default; **not yet tried on the bike**): the ring's information goes into the title of the dash's gold band instead of the ring. The info ring now starts with rain, wind and thunder only.
+- **A fit assistant** that helps a new phone check that the maneuver arrow and the speed show whole on the dash (not yet tried on another phone).
+- **More notices for the rider**: phone Wi-Fi off (with a Turn on Wi-Fi button), phone hot (with sound and vibration), dash Wi-Fi hung, Android refusing the dash's network, "Dash alerts" muted or blocked, and "Waiting for Android Auto" on the dash. **Spoken alerts in the headset** are optional (off by default). The refused-network notice, the muted-channel card, the "Waiting" tag and the spoken alerts are not yet tried on the bike.
+- **Better arrows and units on the dash**: the route's start is a pin; on-ramps and exits have their own drawings; distances in miles and feet when the dash is set to miles; an arrival time in 12 hours reaches the dash; before the dash says its unit, miles or kilometers follow the phone's country. The new drawings and the miles are not yet seen on the bike.
+- **Screens easier to read** on small phones and with large fonts; the Turn on / Turn off button is pinned at the foot of the main screen.
+- **Debug builds only** (a release never has them): a numbered test frame to film the dash and check the video's pace (4 to 12 fps), red text over the video with the fps and the bitrate, orange text with the code of the last button, and test tools for the notices, failures and arrows, now translated.
+
+### Changed
+- **"Info in the title" now also shows the phone's battery** (when you tick Battery in the ring's data; charging too). Signal and GPS stay out of the title.
+- **One app, `com.reau.app`, named "REau": the Lite and the Complete editions are merged** (`REau-0.3.0.apk`). By default it behaves as the Lite did: you turn Android Auto's head unit server on by hand (REau opens Android Auto's settings for you, once each time you turn the projection on with REau on screen) and a small neural network on the phone tells which Android Auto screen is showing. **If you used the Complete edition**: the update installs over it and keeps your settings and the pairing; the server is now turned on by hand. **If you used the Lite edition** (`com.reau.app.lite`): this is a new app for Android, so it starts empty: accept the terms, set your settings and pair the dash again, and then uninstall the Lite (two apps turned on together fight for Android Auto's single head unit server; this app tells you when the old one is still installed). The terms of use are one text.
+- **The video to the dash is the same in every build**: constant 400 kbps, a 528×304 picture (the dash's 526×300 aligned to 16, which the dash does not stretch) and a keyframe every second, at the pace chosen above. The release, which was 4 fps and 526×300, now follows the REau pace. **The picture size was not yet seen on the bike.**
+- **The Android Auto DPI is one of 180, 200 and 220** (Settings > Android Auto screen; default 180; changing it restarts the session). A value stored by an older version that is none of the three goes back to 180.
+- **REau always wakes Android Auto before dialing it** (it opens Android Auto's settings for a moment before the first dial of a projection), to bring out of the freeze a restricted Android Auto may be in; there is no switch for it.
+- **Settings > Updates is down to the basics**: the version, the "Check now" button, its result and the switch for the notice.
+- **The neural network that tells the screens apart was retrained** for Android Auto 18, Spotify and Organic Maps; what the rider sees does not change.
+- **The quick start (the icon's shortcut and the Quick Settings tile) only turns the projection on with the phone unlocked.**
+
+### Removed
+- **The accessibility service of the Complete edition is gone for good**: it does not show in Android's Accessibility settings, and no screen, permission or text speaks of one.
+- **The test switches of debug builds** ("Experimental connection", "Experimental video", "Experimental dash") are gone; REau does what it did with all of them off.
+
+### Fixed
+- **With Spotify in front and playing, the dash's gold band shows the song and the pause button** (the song, the artist and the three buttons, as on the other screens), even when the Joystick page has no music control (not yet tried on the bike).
+- **The roundabout arrow on the dash was drawn the other way round** (the error was seen on the bike; the fix was not yet): in Brazil Android Auto says counter-clockwise and the dash drew it clockwise.
+- **The dash's Wi-Fi is no longer called "stuck" when the phone has already joined it**, and an old network request no longer drops a newer one (not yet seen on the bike).
+- **The video no longer goes above the profile's pace after a joystick tap.**
+- **Changing the video pace at the exact moment the dash dropped could leave the video stuck until the projection was turned off.**
+- **More left-hand traffic territories** in the Automatic driving side.
+- **After the dash's Wi-Fi comes back, the picture comes back**, and the dash is tried again in 2 s after a refused connection on a network the phone joined by itself.
+- **The Wi-Fi list is no longer empty while REau is behind another app**, and a weak Wi-Fi is no longer reported as a wrong dash name.
+- **Turning the projection off no longer ends in an error.**
+- **Taps inside the map on the Android Auto screen and in the browser were ignored** (not yet proven on the phone); the joystick ignores a ghost tap after a side tap, also in the media mode.
+- **Weather**: after a failed request REau waits longer each time, and an invalid temperature from the service is ignored.
+- **Privacy**: the rounded place is no longer used once the location permission is taken back, and the log no longer writes the address of the picture picked for the wallpaper.
 
 ## [0.2.0] - 2026-10-29
 

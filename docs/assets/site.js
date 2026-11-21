@@ -32,7 +32,7 @@ function head(d){r.setAttribute('lang',d.documentElement.getAttribute('lang'));d
 var xc=document.querySelector('link[rel=canonical]'),yc=d.querySelector('link[rel=canonical]');if(xc&&yc)xc.setAttribute('href',yc.getAttribute('href'));
 var xa=document.querySelectorAll('link[rel=alternate][hreflang]'),ya=d.querySelectorAll('link[rel=alternate][hreflang]');
 for(var i=0;i<xa.length&&i<ya.length;i++){xa[i].setAttribute('hreflang',ya[i].getAttribute('hreflang'));xa[i].setAttribute('href',ya[i].getAttribute('href'));}}
-function tracks(l){if(l==='es')l='en';[].forEach.call(document.querySelectorAll('video'),function(v){var on=[].some.call(v.textTracks,function(t){return t.mode==='showing';});
+function tracks(l){[].forEach.call(document.querySelectorAll('video'),function(v){var on=[].some.call(v.textTracks,function(t){return t.mode==='showing';});
 [].forEach.call(v.textTracks,function(t){var m=(t.language||'').slice(0,2)===l;if(on)t.mode=m?'showing':'disabled';});
 [].forEach.call(v.querySelectorAll('track'),function(t){if((t.getAttribute('srclang')||'')===l)t.setAttribute('default','');else t.removeAttribute('default');});});}
 function apply(d,l,push,url){

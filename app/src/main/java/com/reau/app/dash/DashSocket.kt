@@ -1,12 +1,13 @@
 // Every control packet in and out, and every failed or held-back send, is counted in [stats]; with the detailed log
 // on, each one goes to it ([DashDump], the route card's text and the key exchange left out). The control and video
-// sockets carry a DSCP mark ([TOS_CONTROL], [TOS_VIDEO]) in a release build; a debug build leaves them unmarked ([priorityMarks]).
+// sockets carry a DSCP mark ([TOS_CONTROL], [TOS_VIDEO]) in every build (a debug build left them unmarked until 20/11/2026).
 package com.reau.app.dash
 
 import android.util.Log
 import com.reau.app.dash.protocol.K1GPacket
 import com.reau.app.data.RideDiagnostics
 import com.reau.app.util.Dbg
+import com.reau.app.util.MonotonicClock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.DatagramPacket
@@ -48,11 +49,10 @@ class DashSocket(
         private const val BUF             = 65535
         private const val RECV_TIMEOUT_MS = 500
         private const val TAG             = "DashSocket"
-        // Another project's DashSocket logged "34k+ RTP + 5k+ TX 'ENETUNREACH'" in a
-        // single ride during a WiFi outage. Once a channel has failed this many sends in a row,
-        // stop actually hitting the socket (and stop hex-logging) for most calls — just probe
-        // once every [PROBE_EVERY] to detect recovery on its own, self-contained (no external
-        // wiring to DashWifiManager/DashSession needed).
+        // While the Wi-Fi is down every send fails (ENETUNREACH), and a ride's outage is tens of thousands
+        // of them. Once a channel has failed this many sends in a row, most calls no longer hit the socket
+        // (nor write the hex log): one in every [PROBE_EVERY] still does, and the first that succeeds ends
+        // the suppression. The socket does this on its own; DashWifiManager and DashSession are not told.
         private const val SUPPRESS_AFTER_STREAK = 5
         private const val PROBE_EVERY = 20
 
@@ -65,16 +65,18 @@ class DashSocket(
         internal const val TOS_CONTROL = 48 shl 2
         internal const val TOS_VIDEO = 34 shl 2
 
-        /**
-         * The marks of the control and video sockets, or null for none: a debug build sends the dash's sockets unmarked (the owner's phone,
-         * 28/10/2026, to tell whether the dash's Wi-Fi restarts with them) and a release always marks them.
-         */
-        internal fun priorityMarks(debugBuild: Boolean = com.reau.app.BuildConfig.DEBUG): Pair<Int, Int>? =
-            if (debugBuild) null else TOS_CONTROL to TOS_VIDEO
-
         /** Marks [socket] with [tos]; false (and the socket as it was) where the system refuses. */
         internal fun mark(socket: DatagramSocket, tos: Int): Boolean =
             runCatching { socket.trafficClass = tos }.isSuccess
+
+        /** Lines about a send made on the main thread, per socket: a caller's bug repeats at every send, and one warning says it. */
+        private const val MAIN_THREAD_WARNINGS = 3
+
+        /**
+         * True for the exception Android throws when a socket is used on the main thread. By class name, as the log writes it
+         * ([NetworkBlock.describe]); it says nothing about the link, so [sendFailed] keeps it out of the streak that suppresses sends.
+         */
+        internal fun isMainThreadViolation(e: Throwable): Boolean = e.javaClass.simpleName == "NetworkOnMainThreadException"
     }
 
     private val txSocket:  DatagramSocket
@@ -96,10 +98,14 @@ class DashSocket(
     private var rtpFailStreak = 0
     @Volatile private var txSuppressed = false
     private var txProbeCounter = 0
+    private val mainThreadWarnings = AtomicInteger()
     private var txSuppressedTotal = 0
     private var rtpSuppressed = false
     private var rtpProbeCounter = 0
     private var rtpSuppressedTotal = 0
+
+    /** How long the video has been failing at every send ([RtpStall]); the session's 1 Hz watch reads it. */
+    internal val rtpStall = RtpStall()
 
     init {
         var tx:  DatagramSocket? = null
@@ -120,9 +126,7 @@ class DashSocket(
                 network?.bindSocket(it)
             }
             rtp = DatagramSocket().also { network?.bindSocket(it) }
-            val marks = priorityMarks()
-            val marked = marks?.let { (control, video) -> "control CS6=${mark(tx, control)} video AF41=${mark(rtp, video)}" }
-                ?: "none (debug build: no priority marking)"
+            val marked = "control CS6=${mark(tx, TOS_CONTROL)} video AF41=${mark(rtp, TOS_VIDEO)}"
             Log.i(TAG, "Sockets open — TX :$CTRL_PORT→${ctrlDest.address.hostAddress}:${ctrlDest.port}, " +
                 "RX :$RX_PORT, RTP→${rtpDest.address.hostAddress}:${rtpDest.port}, DSCP $marked")
             com.reau.app.data.RideDiagnostics.log("dash", "sockets marked for Wi-Fi priority: $marked")
@@ -135,9 +139,11 @@ class DashSocket(
         }
     }
 
-    /** Send a K1G control packet (seq patched here, like K1GTx in the reference). */
-    fun send(data: ByteArray) {
-        wire(data)?.let(::afterWire)
+    /** Send a K1G control packet (seq patched here, like K1GTx in the reference); true when it reached the wire (false: suppressed, or the send failed and was counted and logged). */
+    fun send(data: ByteArray): Boolean {
+        val pkt = wire(data) ?: return false
+        afterWire(pkt)
+        return true
     }
 
     /**
@@ -180,6 +186,10 @@ class DashSocket(
     }
 
     private fun sendFailed(e: Exception) {
+        if (isMainThreadViolation(e)) {
+            mainThreadViolation(e)
+            return
+        }
         Log.w(TAG, "TX send failed (link down?): ${e.message}")
         stats?.sendFailed()
         val first: Boolean
@@ -196,6 +206,22 @@ class DashSocket(
         }
         if (crossed != null) {
             RideDiagnostics.warn("dash", "TX link appears down after $crossed failures — suppressing sends, probing every $PROBE_EVERY")
+        }
+    }
+
+    /**
+     * A send made on the main thread is the caller's bug, not a dead link: counted as a failed send, but left out of [txFailStreak] (five
+     * of them would silence the control channel with the Wi-Fi fine) and accused in the log, a few times only.
+     */
+    private fun mainThreadViolation(e: Exception) {
+        Log.e(TAG, "TX send on the main thread (programming bug, not the link): ${e.message}")
+        stats?.sendFailed()
+        if (mainThreadWarnings.incrementAndGet() <= MAIN_THREAD_WARNINGS) {
+            RideDiagnostics.warn(
+                "dash",
+                "TX send refused: ${NetworkBlock.describe(e)} (the caller was the main thread, a programming bug, not the link); " +
+                    "nothing was sent, not counted toward suppression",
+            )
         }
     }
 
@@ -233,6 +259,8 @@ class DashSocket(
         }
         try {
             rtpSocket.send(DatagramPacket(data, data.size, rtpDest.address, rtpDest.port))
+            stats?.sendTail?.rtp(data.size)
+            rtpStall.sent()
             if (rtpFailStreak > 0) {
                 com.reau.app.data.RideDiagnostics.log("dash", "RTP send recovered after $rtpFailStreak failures")
                 rtpFailStreak = 0
@@ -242,16 +270,22 @@ class DashSocket(
                 rtpSuppressed = false; rtpProbeCounter = 0; rtpSuppressedTotal = 0
             }
         } catch (e: Exception) {
-            Log.d(TAG, "RTP send failed (link down?): ${e.message}")
-            if (rtpFailStreak == 0) {
-                com.reau.app.data.RideDiagnostics.warn("dash", "RTP send failing (link down?): ${NetworkBlock.describe(e)}")
-            }
-            rtpFailStreak++
-            if (!rtpSuppressed && rtpFailStreak >= SUPPRESS_AFTER_STREAK) {
-                rtpSuppressed = true
-                RideDiagnostics.warn("dash", "RTP link appears down after $rtpFailStreak failures — suppressing sends, probing every $PROBE_EVERY")
-            }
+            rtpSendFailed(e, MonotonicClock.nowMs())
         }
+    }
+
+    /** A video send failed at [nowMs]: logged at the start of the run, suppressed after [SUPPRESS_AFTER_STREAK] in a row, and told to [rtpStall]. */
+    private fun rtpSendFailed(e: Exception, nowMs: Long) {
+        Log.d(TAG, "RTP send failed (link down?): ${e.message}")
+        if (rtpFailStreak == 0) {
+            com.reau.app.data.RideDiagnostics.warn("dash", "RTP send failing (link down?): ${NetworkBlock.describe(e)}")
+        }
+        rtpFailStreak++
+        if (!rtpSuppressed && rtpFailStreak >= SUPPRESS_AFTER_STREAK) {
+            rtpSuppressed = true
+            RideDiagnostics.warn("dash", "RTP link appears down after $rtpFailStreak failures — suppressing sends, probing every $PROBE_EVERY")
+        }
+        rtpStall.failed(nowMs, rtpSuppressed)
     }
 
     /** When the last packet came off the socket ([System.nanoTime]), before anything is logged: what the answer to a button is timed from. */
@@ -262,6 +296,10 @@ class DashSocket(
     // RECV_TIMEOUT_MS of silence: 130 to 400 KB/s of garbage). Only the receive loop may call [receiveBlocking].
     private val rxBuffer = ByteArray(BUF)
     private val rxPacket = DatagramPacket(rxBuffer, BUF)
+
+    // Packets from an address other than the dash's (where RTP goes): taken as ever, only noted in the ride log, once, and counted at the close.
+    private val dashAddress: InetAddress = rtpDest.address
+    private val strays = StraySources(dashAddress.hostAddress.orEmpty())
 
     /**
      * Blocks up to RECV_TIMEOUT_MS; returns null on timeout. Throws on a genuine socket
@@ -277,6 +315,10 @@ class DashSocket(
         return try {
             rxSocket.receive(rxPacket)
             arrivedNs = System.nanoTime()
+            val from = rxPacket.address
+            if (from != null && from != dashAddress) {
+                strays.heard(from.hostAddress.orEmpty())?.let { com.reau.app.data.RideDiagnostics.log("dash", it) }
+            }
             val bytes = rxBuffer.copyOf(rxPacket.length)
             com.reau.app.data.DetailedLog.offer("dash") { "rx " + DashDump.incoming(bytes) }
             bytes
@@ -294,6 +336,10 @@ class DashSocket(
     /** Test-only visibility into the link-suppression state — see [SUPPRESS_AFTER_STREAK]/[PROBE_EVERY]. */
     internal fun testOnlyTxSuppressed(): Boolean = txSuppressed
     internal fun testOnlyRtpSuppressed(): Boolean = rtpSuppressed
+    /** Test-only: a send that failed with [e], as the socket's own failure would be handled by [wire]. */
+    internal fun testOnlySendFailed(e: Exception) = sendFailed(e)
+    internal fun testOnlyMainThreadWarnings(): Int = mainThreadWarnings.get()
+    internal fun testOnlyTxFailStreak(): Int = synchronized(txLock) { txFailStreak }
     internal fun testOnlyTxSuppressedTotal(): Int = synchronized(txLock) { txSuppressedTotal }
     internal fun testOnlyTxProbeCounter(): Int = synchronized(txLock) { txProbeCounter }
     internal fun testOnlyRtpSuppressedTotal(): Int = rtpSuppressedTotal
@@ -303,11 +349,14 @@ class DashSocket(
         rtpFailStreak = SUPPRESS_AFTER_STREAK
         rtpSuppressed = true
     }
+    /** Test-only: a video send that failed with [e] at [nowMs], as the socket's own failure is handled by [sendRtp]. */
+    internal fun testOnlyRtpSendFailed(e: Exception, nowMs: Long = MonotonicClock.nowMs()) = rtpSendFailed(e, nowMs)
     internal fun testOnlyCtrlDest(): InetSocketAddress = ctrlDest
     internal fun testOnlyRtpDest(): InetSocketAddress = rtpDest
 
     override fun close() {
         Log.d(TAG, "Sockets closed")
+        strays.summary()?.let { com.reau.app.data.RideDiagnostics.log("dash", it) }
         runCatching { txSocket.close() }
         runCatching { rxSocket.close() }
         runCatching { rtpSocket.close() }

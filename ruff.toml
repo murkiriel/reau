@@ -1,0 +1,7 @@
+# ruff: só regras que pegam defeito (nome sem uso, erro de sintaxe, armadilhas comuns); estilo fica de fora.
+target-version = "py312"
+
+[lint]
+select = ["F", "E9", "B", "PLE"]
+# zip(..., strict=True) faria os scripts pararem onde hoje seguem: fica de fora.
+ignore = ["B905"]

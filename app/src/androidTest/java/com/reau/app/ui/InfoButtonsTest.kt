@@ -82,22 +82,24 @@ class InfoButtonsTest {
     // ── Ajustes ────────────────────────────────────────────────────────────────────────────────────────────
 
     private val settingsWith = listOf(
-        o("applies_next_time"), o("map_theme"), o("use_location"), o("dash_phone_status"), o("dash_music"), o("dash_album_art"), o("dash_maneuver_ring"),
-        o("answer_calls"), o("gemini"),
-        o("fps", "fps_locked"), o("maneuver_fps_profile", "maneuver_fps_profile_locked"), o("speed_fps_profile", "speed_fps_profile_locked"),
+        o("applies_next_time"), o("map_theme"), o("use_location"), o("dash_phone_status"), o("dash_music"), o("dash_album_art"), o("dash_maneuver_ring"), o("spoken_alerts"),
+        o("answer_calls"), o("gemini"), o("actionEcho"), o("joystickLegend"),
+        o("maneuver_fps_profile", "maneuver_fps_profile_locked"), o("speed_fps_profile", "speed_fps_profile_locked"),
         o("card_now"),
-        o("ride_log"), o("record_video"), o("record_sessions"), o("detailed_log"), o("log_keep"), o("no_dash_stop"),
-    ) + if (com.reau.app.Edition.hasAccessibility) listOf(o("aa_server_auto")) else emptyList() // the full edition's server switch
+        o("ride_log"), o("record_video"), o("record_sessions"), o("detailed_log"), o("log_keep"), o("no_dash_stop"), o("video_pace"), o("driving_side"),
+    )
 
     private val settingsWithout = listOf(
         o("language"), o("dash_caller"), o("open_joystick"),
-        o("bitrate", "bitrate_locked"), o("bitrate_mode", "bitrate_mode_locked"), o("keyframe", "keyframe_locked"),
+        o("bitrate_mode", "bitrate_mode_locked"), o("keyframe", "keyframe_locked"),
         o("card_pick"), o("view_logs"), o("share"), o("delete"),
     )
 
     private fun showSettings() {
         compose.setContent { SettingsScreen(REauSettings(), SettingsActions({}, {}, {}, {})) }
         compose.openDebug()
+        // The stream's numbers (and the (i) of the frame ceiling) are behind "Detalhes" (12/11/2026): opened here, as the rider opens it.
+        compose.onNodeWithTag("profile_details").performScrollTo().performClick()
     }
 
     @Test
@@ -132,10 +134,10 @@ class InfoButtonsTest {
         showAndroidAuto()
         // The apps' tab: the mode; the info ring; the stats text, its steps hidden until it is switched on.
         check(
-            listOf(o("fit_mode", "fit_WHOLE_VISIBLE"), o("info_ring"), o("stats_overlay"), o("button_overlay")),
-            listOf(o("density", "density_value"), o("move_x", "move_x_value"), o("fit_reset")),
+            listOf(o("fit_mode", "fit_WHOLE_VISIBLE"), o("info_ring"), o("stats_overlay"), o("button_overlay"), o("fps_test_card")),
+            listOf(o("density", "density_180"), o("move_x", "move_x_value"), o("fit_reset")),
         )
-        everyInfoOpens(listOf("fit_mode", "info_ring", "stats_overlay", "button_overlay"))
+        everyInfoOpens(listOf("fit_mode", "info_ring", "stats_overlay", "button_overlay", "fps_test_card"))
     }
 
     @Test
@@ -143,7 +145,7 @@ class InfoButtonsTest {
         settings = settings.copy(statsOverlay = true)
         showAndroidAuto()
         check(
-            listOf(o("fit_mode", "fit_WHOLE_VISIBLE"), o("info_ring"), o("stats_overlay"), o("button_overlay")),
+            listOf(o("fit_mode", "fit_WHOLE_VISIBLE"), o("info_ring"), o("stats_overlay"), o("button_overlay"), o("fps_test_card")),
             listOf(o("stats_x", "stats_x_value"), o("stats_y", "stats_y_value"), o("stats_size", "stats_size_value")),
         )
     }
@@ -243,7 +245,6 @@ class InfoButtonsTest {
         val rows = AppPermissions.rows(
             requested = listOf("android.permission.INTERNET", "android.permission.RECORD_AUDIO"),
             granted = { it == "android.permission.INTERNET" },
-            accessibilityOn = false,
             batteryExempt = true,
         )
         compose.setContent { PermissionsScreen(rows, PermissionsActions(), sdk = 34) }

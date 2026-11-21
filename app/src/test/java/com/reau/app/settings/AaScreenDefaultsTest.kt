@@ -29,23 +29,27 @@ class AaScreenDefaultsTest {
         "dashMask" to s.dashMask,
         "statsOverlay" to s.statsOverlay, "statsX" to s.statsX, "statsY" to s.statsY, "statsSize" to s.statsSize,
         "buttonOverlay" to s.buttonOverlay, "buttonX" to s.buttonX, "buttonY" to s.buttonY, "buttonSize" to s.buttonSize,
+        // New on 20/11/2026, off at 6 fps: the FPS test card.
+        "fpsTestCard" to s.fpsTestCard, "fpsTestCardFps" to s.fpsTestCardFps,
         "maneuverRing" to s.maneuverRing,
         "infoRing" to s.infoRing, "infoRingData" to s.infoRingData, "infoRingCarousel" to s.infoRingCarousel,
-        "infoRingSeconds" to s.infoRingSeconds, "infoRingInPlace" to s.infoRingInPlace,
+        "infoRingSeconds" to s.infoRingSeconds, "infoRingInPlace" to s.infoRingInPlace, "infoTitle" to s.infoTitle,
         "dashWeather" to s.dashWeather, "useLocation" to s.useLocation,
     )
 
     private val expected: Map<String, Any?> = mapOf(
         "density" to 180, "marginW" to 0, "marginH" to 0,
-        "navFit" to FitParams(Fit.CROP, 74, 0, 62, 0, 0, 100, none),
+        "navFit" to FitParams(Fit.CROP, 74, 90, 62, 0, 0, 100, none),
         "appsFit" to FitParams(Fit.WHOLE_VISIBLE, 64, -34, 54, 20, 0, 100, none),
         "menuFit" to FitParams(Fit.WHOLE_VISIBLE, 90, 32, 20, 20, 0, 100, none),
         "menuFitKept" to FitParams(Fit.WHOLE_VISIBLE, 90, 32, 20, 20, 0, 100, none),
         "dashMask" to true,
         "statsOverlay" to false, "statsX" to 160, "statsY" to 44, "statsSize" to 22,
         "buttonOverlay" to false, "buttonX" to 170, "buttonY" to 96, "buttonSize" to 32,
+        "fpsTestCard" to false, "fpsTestCardFps" to 6,
         "maneuverRing" to false,
-        "infoRing" to true, "infoRingData" to 2047, "infoRingCarousel" to true, "infoRingSeconds" to 7, "infoRingInPlace" to false,
+        // infoRingData 7: the rain, the wind and the thunder (12/11/2026; it was every card, 2047)
+        "infoRing" to false, "infoRingData" to 7, "infoRingCarousel" to true, "infoRingSeconds" to 7, "infoRingInPlace" to false, "infoTitle" to false,
         "dashWeather" to true, "useLocation" to true,
     )
 
@@ -75,10 +79,10 @@ class AaScreenDefaultsTest {
     }
 
     @Test
-    fun `the two texts over the video are a debug build's, a release forces them off and a debug build keeps them`() {
-        val on = REauSettings(statsOverlay = true, buttonOverlay = true)
-        assertEquals(true to true, on.sanitized(debugBuild = true).let { it.statsOverlay to it.buttonOverlay })
-        assertEquals(false to false, on.sanitized(debugBuild = false).let { it.statsOverlay to it.buttonOverlay })
+    fun `the two texts and the test card over the video are a debug build's, a release forces them off and a debug build keeps them`() {
+        val on = REauSettings(statsOverlay = true, buttonOverlay = true, fpsTestCard = true)
+        assertEquals(listOf(true, true, true), on.sanitized(debugBuild = true).let { listOf(it.statsOverlay, it.buttonOverlay, it.fpsTestCard) })
+        assertEquals(listOf(false, false, false), on.sanitized(debugBuild = false).let { listOf(it.statsOverlay, it.buttonOverlay, it.fpsTestCard) })
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
         SettingsStore(prefs).save(on)
         assertEquals("stored on by a debug build, still forced off by a release (sanitized)", false, on.sanitized(debugBuild = false).statsOverlay)
@@ -94,7 +98,7 @@ class AaScreenDefaultsTest {
             Regex("""\bcopy\(([a-zA-Z]+) =""").findAll(sources).map { it.groupValues[1] }).filter { it in members }.toSet()
         // Derived, not stored: the fits' rectangles and the helpers; the fits themselves are in the table.
         // The apps' fit is flattened in the settings (fit, crop, place, move): the table covers it whole as "appsFit".
-        val derived = setOf("mapping", "navMapping", "content", "withAppsFit", "copy", "fit", "cropPercent", "cropX", "cropY", "moveX", "moveY")
+        val derived = setOf("mapping", "navMapping", "content", "withAppsFit", "copy", "fit", "cropPercent", "cropX", "cropY", "moveX", "moveY", "frameSize")
         val missing = used - expected.keys - derived
         assertEquals("settings the screen uses and the table does not cover: $missing", emptySet<String>(), missing)
         assertTrue("the guard found only $used", used.size >= 10)

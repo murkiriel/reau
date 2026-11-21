@@ -13,21 +13,26 @@ object SettingsInUse {
     /** Written, by the field's name in [REauSettings]. */
     internal val LOGGED = setOf(
         "density", "marginW", "marginH", "fit", "cropPercent",
-        "fpsCeiling", "streamBitrateBps", "bitrateMode", "keyframeSec", "clockSlowPercent",
-        "recordVideo", "recordSessions", "cardImage", "mapTheme",
+        "videoPace", "fpsCeiling", "streamBitrateBps", "bitrateMode", "keyframeSec", "clockSlowPercent",
+        "recordVideo", "recordSessions", "cardImage", "mapTheme", "drivingSideMode",
         "maneuverData", "maneuverFpsProfile", "speedFpsProfile", "navProfileMode",
         "autoJoinWifi", "detailedLog", "rideLog", "useLocation", "logKeepDays", "noDashStopMinutes",
         "answerCalls", "phoneTouch", "dashMusic", "dashCaller", "gemini",
-        "aaNewProtocol", "aaServerAuto", "clearAaFocus", "dashMask",
-        "statsOverlay", "buttonOverlay", "dashPhoneStatus", "dashAlbumArt", "dashWeather", "infoRing", "infoRingData", "infoRingCarousel", "infoRingSeconds",
-        "infoRingInPlace",
+        "actionEcho", "joystickLegend", "aaNewProtocol", "clearAaFocus", "dashMask", "spokenAlerts",
+        "statsOverlay", "buttonOverlay", "fpsTestCard", "fpsTestCardFps",
+        "dashPhoneStatus", "dashAlbumArt", "dashWeather", "infoRing", "infoRingData", "infoRingCarousel", "infoRingSeconds",
+        "infoRingInPlace", "infoTitle",
         "maneuverRing", "webView", "webTouch", "webAudio",
+        "videoFrame",
+        "announceMotorcycle",
     )
 
     /** Left out on purpose: the fine placement of the picture and the numbers on it (said when they change), and the joystick's text. */
     internal val NOT_LOGGED = setOf(
         "cropX", "cropY", "moveX", "moveY", "menuFit", "menuFitKept", "navFit", "zoom", "cover", "statsX", "statsY", "statsSize",
         "buttonX", "buttonY", "buttonSize", "joystick",
+        // The daily update check says itself in the log each time it runs ([com.reau.app.update.UpdateNotice.logLine]).
+        "updateNotice",
     )
 
     fun line(settings: REauSettings): String {
@@ -39,7 +44,7 @@ object SettingsInUse {
     }
 
     /** The picture sent while no map is there: which one is not said (it is a file of the rider's), only whether it is the built-in one. */
-    private fun card(value: String) = when (value) {
+    internal fun card(value: String) = when (value) {
         "null" -> "none"
         REauSettings.DEFAULT_CARD -> "default"
         else -> "picked"

@@ -28,7 +28,7 @@ class AaReceiverNightTest {
     private val peers = mutableListOf<FakeAndroidAutoPeer>()
     private val receiver = AaReceiver(
         context, AaConfig(), reader.surface, { states += it },
-        AaReceiver.Options(port, AaReceiver.Timing(redialMs = 200, afterDropMs = 100)),
+        AaReceiver.Options(port, AaReceiver.Timing(redialMs = 200, afterDropMs = 100), wake = {}),
     )
 
     @After

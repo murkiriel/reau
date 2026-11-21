@@ -1,7 +1,7 @@
 package com.reau.app.dash.video
 
 /**
- * Which AVC encoders to try for the dash's 526×300 Baseline stream, and in what order. Before, the first hardware
+ * Which AVC encoders to try for the dash's Baseline stream (526×300, or the picture a debug build chose), and in what order. Before, the first hardware
  * encoder in the list was the only one ever tried (three times, with fewer options each): one that does not take
  * 526×300, or not Baseline, left the dash with no picture and no other encoder was asked (audit of 20/10/2026). Pure, so
  * the JVM tests cover it; [DashEncoder] reads the phone's list and gives it the facts.

@@ -27,8 +27,8 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -132,10 +132,8 @@ fun SegmentedRow(
     tag: String = "",
 ) {
     SettingRow(title, sub, now, info, null, tag, Modifier, tag, below = {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            options.forEachIndexed { i, (label, optionTag) ->
-                Segment(label, i == selected, optionTag, Modifier.weight(1f)) { onSelect(i) }
-            }
+        SegmentRow {
+            options.forEachIndexed { i, (label, optionTag) -> Segment(label, i == selected, optionTag, Modifier) { onSelect(i) } }
         }
     })
 }
