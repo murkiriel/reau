@@ -80,7 +80,7 @@ class ActionEchoSettingsTest {
         assertTrue("and in Spanish", "Activado por defecto" in string("values-es", "action_echo"))
         assertTrue("joystick_legend: says off by default (21/11/2026) in English", "Off by default" in string("values", "joystick_legend"))
         assertTrue("and in Portuguese", "Desligada por padrão" in string("values-pt", "joystick_legend"))
-        assertTrue("and in Spanish", "Desactivado por defecto" in string("values-es", "joystick_legend"))
+        assertTrue("and in Spanish", "Desactivada por defecto" in string("values-es", "joystick_legend"))
     }
 
     @Test

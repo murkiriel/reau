@@ -939,7 +939,7 @@
     <string name="action_echo">Each joystick tap that does something shows the action’s short name (Next song, Back, Answer) for 1.5 seconds in the title of the dash’s gold band, where the street name goes, and then the title comes back. With a handlebar joystick that is not precise, you see on the dash what the tap really did; a tap that does nothing shows nothing. On by default; a change applies at once.</string>
     <string name="joystick_legend_title">Joystick legend on the dash</string>
     <string name="joystick_legend_sub">Shows what each direction does</string>
-    <string name="joystick_legend">When the dash changes between its map and media modes, and at the first tap of the projection, a small card shows for 3 seconds in the middle of the picture what each direction of the joystick does in that mode, as set on the joystick page. The dash does not say its mode, so REau learns it from the tap and the card comes with the first tap of the new mode; it does not appear during a call. Off by default (since 21/11/2026); a change applies at once.</string>
+    <string name="joystick_legend">When the dash changes between its map and media modes, and at the first tap of the projection, a small card shows for 3 seconds in the middle of the picture what each direction of the joystick does in that mode, as set on the joystick page. The dash does not say its mode, so REau learns it from the tap and the card comes with the first tap of the new mode; it does not appear during a call. Off by default; a change applies at once.</string>
 
     <!-- The tips page ("Dicas"), opened by the lightbulb of the main screen's bar; one title and one text for each tip of Tips.ALL. -->
     <string name="tips_title">Tips</string>
