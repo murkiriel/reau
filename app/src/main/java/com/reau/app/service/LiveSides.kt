@@ -1128,6 +1128,7 @@ internal class LiveSides(
             val dash = object : VideoLoop.Dash {
                 override fun sendRtp(packet: ByteArray) = session.sendRtp(packet)
                 override fun keyframeSent(bytes: Int, packets: Int) = session.keyframeSent(bytes, packets)
+                override fun keyframeStarting() = session.keyframeStarting()
                 override val firstFrameConfirmed: Boolean get() = session.firstFrameConfirmed
                 override val decodedFrameCount: Long get() = session.decodedFrameCount
             }

@@ -193,6 +193,7 @@ class DashSession(
     @Volatile private var routeCardJob: Job? = null
     @Volatile private var heartbeatJob: Job? = null
     @Volatile private var navInfoJob: Job? = null
+    private val keyframeQuiet = KeyframeQuiet()
     @Volatile private var cardsJob: Job? = null
 
     /**
@@ -826,7 +827,19 @@ class DashSession(
     }
 
     /** A keyframe went out in [packets] RTP packets: kept for the line written when the dash goes quiet ([SendTail]). */
-    fun keyframeSent(bytes: Int, packets: Int) = stats.sendTail.keyframe(bytes, packets)
+    fun keyframeSent(bytes: Int, packets: Int) {
+        keyframeQuiet.keyframeEnded(MonotonicClock.nowMs())
+        stats.sendTail.keyframe(bytes, packets)
+    }
+
+    /** A keyframe starts to go out: the routine sends keep away from it ([KeyframeQuiet]). */
+    fun keyframeStarting() = keyframeQuiet.keyframeStarted(MonotonicClock.nowMs())
+
+    /**
+     * Before a routine send: waits until it is [KeyframeQuiet.QUIET_MS] from the last keyframe (the dash's link is busiest right after the burst).
+     * Returns how long it waited, for the caller to take from its next delay (the pace stays); counts the send as slid in the dash-stats line.
+     */
+    private suspend fun quietBeforeRoutine(): Long = keyframeQuiet.await().also { if (it > 0L) stats.slid() }
 
     fun disconnect() {
         // Set FIRST, before anything else — see this flag's own kdoc: closing the socket below
@@ -1317,6 +1330,7 @@ class DashSession(
             var n = 0
             val sentSinceRx = HeartbeatsSinceRx()
             while (isActive) {
+                val slid = quietBeforeRoutine()
                 val status = phoneStatusProvider()
                 runCatching { sock.send(DashCommands.heartbeat(weather = weatherProvider(), status = status, call = callNow())) }
                 stats.heartbeat() // the 1 Hz status heartbeat
@@ -1376,7 +1390,7 @@ class DashSession(
                     fail("Dash never showed the video — check the WiFi link", mine)
                     break
                 }
-                delay(timing.watchdogTickMs)
+                delay((timing.watchdogTickMs - slid).coerceAtLeast(1L))
             }
         }
     }
@@ -1452,9 +1466,10 @@ class DashSession(
         projHbJob?.cancel()
         projHbJob = scope.launch(Dispatchers.IO) {
             while (isActive && _state.value == DashState.STREAMING) {
+                val slid = quietBeforeRoutine()
                 socket?.send(DashCommands.projectionFrame())
                 stats.heartbeat()
-                delay(PROJ_HB_MS)
+                delay((PROJ_HB_MS - slid).coerceAtLeast(1L))
             }
         }
     }
@@ -1463,8 +1478,9 @@ class DashSession(
         routeCardJob?.cancel()
         routeCardJob = scope.launch(Dispatchers.IO) {
             while (isActive && _state.value == DashState.STREAMING) {
+                val slid = quietBeforeRoutine()
                 socket?.send(liveRouteCard(projectionOn = true))
-                delay(ROUTE_CARD_MS)
+                delay((ROUTE_CARD_MS - slid).coerceAtLeast(1L))
             }
         }
     }
@@ -1473,8 +1489,9 @@ class DashSession(
         navInfoJob?.cancel()
         navInfoJob = scope.launch(Dispatchers.IO) {
             while (isActive && _state.value == DashState.STREAMING) {
+                val slid = quietBeforeRoutine()
                 navPacketNow()?.let { socket?.send(it) }
-                delay(ROUTE_CARD_MS)
+                delay((ROUTE_CARD_MS - slid).coerceAtLeast(1L))
             }
         }
     }

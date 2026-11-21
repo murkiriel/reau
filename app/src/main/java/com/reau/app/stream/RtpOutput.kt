@@ -21,6 +21,8 @@ internal class RtpOutput(
     private val tap: ((ByteArray, Boolean, Long) -> Unit)? = null,
     /** Told after each keyframe went out: its bytes and how many RTP packets it took (for the line written when the dash goes quiet). */
     private val onKeyframe: ((bytes: Int, packets: Int) -> Unit)? = null,
+    /** Told just before a keyframe's packets go out (the dash session keeps its routine sends away from the burst). */
+    private val onKeyframeStart: (() -> Unit)? = null,
     private val sendRtp: (ByteArray) -> Unit,
 ) {
 
@@ -91,6 +93,7 @@ internal class RtpOutput(
         framePtsMs = ptsMs
         val withheldBefore = nalProcessor.withheldIdr
         val packetsBefore = packetsMade
+        if (isKey && !KeyframeGate.isParameterSetsOnly(annexB, isKey)) onKeyframeStart?.invoke()
         nalProcessor.process(annexB)
         if (nalProcessor.withheldIdr != withheldBefore) {
             // The keyframe stayed back, so what follows it has nothing to refer to: wait for the next one.

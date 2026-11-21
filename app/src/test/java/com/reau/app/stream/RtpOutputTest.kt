@@ -132,6 +132,20 @@ class RtpOutputTest {
         assertTrue("a keyframe too large for one packet is told with its packets: ${told[1]}", told[1].second >= 3)
     }
 
+    @Test
+    fun `a keyframe is announced before its packets go out and its end after, the other frames and the parameter sets are not`() {
+        val events = mutableListOf<String>()
+        val announcing = RtpOutput(
+            onKeyframe = { _, _ -> events += "end" },
+            onKeyframeStart = { events += "start" },
+        ) { events += "rtp" }.also { it.switchTo(encoder) }
+        announcing.onEncoded(encoder, config, isKey = false, ptsMs = 0)
+        announcing.onEncoded(encoder, idr, isKey = true, ptsMs = 62)
+        announcing.onEncoded(encoder, pFrame(2), isKey = false, ptsMs = 124)
+
+        assertEquals(listOf("start", "rtp", "end", "rtp"), events)
+    }
+
     // ── the tap (the recording of what is sent) ────────────────────────────────────────────────────────────
 
     @Test

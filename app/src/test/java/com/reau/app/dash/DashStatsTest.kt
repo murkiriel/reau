@@ -97,4 +97,14 @@ class DashStatsTest {
         assertEquals(1, stats.totals().acks)
         assertEquals("the header segment (02 01 \"K1G \") is not counted", 2, stats.totals().rx)
     }
+
+    @Test
+    fun `sends that slid for a keyframe are counted in the window line only when there were some`() {
+        assertFalse(stats.windowLine(windowMs = 5_000, nowMs = 2_000).contains("quiet="))
+        stats.slid()
+        stats.slid()
+        val line = stats.windowLine(windowMs = 5_000, nowMs = 7_000)
+        assertTrue(line, line.contains("tx-fail=0 quiet=2 last-rx=never"))
+        assertFalse("the window starts again", stats.windowLine(windowMs = 5_000, nowMs = 12_000).contains("quiet="))
+    }
 }

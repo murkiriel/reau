@@ -67,6 +67,9 @@ internal class VideoLoop(
         /** A keyframe of [bytes] bytes went out in [packets] RTP packets (only for the dash session's record of what it sent last). */
         fun keyframeSent(bytes: Int, packets: Int) = Unit
 
+        /** A keyframe starts to go out (the dash session keeps its routine sends away from the burst). */
+        fun keyframeStarting() = Unit
+
         /** Whether the dash has confirmed decoding a frame of the current stream. */
         val firstFrameConfirmed: Boolean
 
@@ -161,6 +164,7 @@ internal class VideoLoop(
         val out = RtpOutput(
             tap = rec?.let { it::write },
             onKeyframe = dash::keyframeSent,
+            onKeyframeStart = dash::keyframeStarting,
             sendRtp = { packet ->
                 dash.sendRtp(packet)
                 // Cheap when no touch is being followed (a flag): the line of a touch is written when its first packet goes out.

@@ -27,6 +27,7 @@ class DashStats(private val onFirst: (String) -> Unit = {}) {
         var heartbeats = 0L
         var txFailed = 0L
         var malformed = 0L
+        var slid = 0L
     }
 
     /** The last 30 s of packets, for the black-box lines (never a payload). */
@@ -59,6 +60,9 @@ class DashStats(private val onFirst: (String) -> Unit = {}) {
 
     /** A control packet could not go out (a socket error, or held back while the link is down). */
     fun sendFailed() = both { txFailed++ }
+
+    /** A routine send waited for a keyframe's burst to pass ([KeyframeQuiet]). */
+    fun slid() = both { slid++ }
 
     /** One heartbeat sent (status or projection). */
     fun heartbeat() = both { heartbeats++ }
@@ -109,6 +113,7 @@ class DashStats(private val onFirst: (String) -> Unit = {}) {
             "buttons=${w.buttons} telemetry=${w.telemetry} heartbeats=${w.heartbeats} tx-fail=${w.txFailed} " +
             // Only when there were some, so the line of a healthy window is the one it always was.
             (if (w.malformed > 0) "cut-short=${w.malformed} " else "") +
+            (if (w.slid > 0) "quiet=${w.slid} " else "") +
             "last-rx=$lastRx | total tx=${total.tx.values.sum()} rx=${total.rx.values.sum()} acks=${total.acks} " +
             "buttons=${total.buttons} telemetry=${total.telemetry} tx-fail=${total.txFailed}"
     }
