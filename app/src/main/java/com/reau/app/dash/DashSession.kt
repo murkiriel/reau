@@ -1516,8 +1516,10 @@ class DashSession(
         cardsJob?.cancel()
         cardsJob = scope.launch(Dispatchers.IO) {
             while (isActive && _state.value == DashState.STREAMING) {
+                // The 1 Hz resend is routine and keeps away from the keyframe; a card sent for the rider's own action (sendCards) goes at once.
+                val slid = quietBeforeRoutine()
                 sendCards()
-                delay(ROUTE_CARD_MS)
+                delay((ROUTE_CARD_MS - slid).coerceAtLeast(1L))
             }
         }
     }

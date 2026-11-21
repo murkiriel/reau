@@ -22,12 +22,14 @@ class DashSessionKeyframeQuietIsWiredTest {
     }
 
     @Test
-    fun `the four routine loops wait for the keyframe before they build and send, and take the wait from their delay`() {
+    fun `the five routine loops wait for the keyframe before they build and send, and take the wait from their delay`() {
         val loops = listOf(
             session.between("private fun launchStatusHeartbeat(", "private fun rtpStallFails("),
             session.between("private fun launchProjectionHeartbeat()", "private fun launchRouteCardKeepAlive()"),
             session.between("private fun launchRouteCardKeepAlive()", "private fun launchNavInfo()"),
             session.between("private fun launchNavInfo()", "internal fun navPacketNow()"),
+            // The 1 Hz resend of the music and call cards (the 05 0D / 05 17 / 05 58 / 05 19 every second in the log of 21/11/2026).
+            session.between("private fun launchCards()", "Internal (not private)"),
         )
         loops.forEach { loop ->
             assertEquals(loop, 1, Regex("""quietBeforeRoutine\(\)""").findAll(loop).count())
@@ -42,9 +44,10 @@ class DashSessionKeyframeQuietIsWiredTest {
     @Test
     fun `what is not routine goes out at once`() {
         assertFalse(session.between("fun sendStatusNow()", "The route card sent now").contains("quietBeforeRoutine"))
-        assertFalse(session.between("private fun launchCards()", "Internal (not private)").contains("quietBeforeRoutine"))
-        // quietBeforeRoutine is called in exactly the four loops (and defined once).
-        assertEquals(5, Regex("""quietBeforeRoutine\(""").findAll(session).count())
+        // A card sent for the rider's own action goes at once: only the loop above waits, not sendCards itself.
+        assertFalse(session.between("private fun sendCardsNow()", "}").contains("quietBeforeRoutine"))
+        // quietBeforeRoutine is called in exactly the five loops (and defined once).
+        assertEquals(6, Regex("""quietBeforeRoutine\(""").findAll(session).count())
         assertFalse(session.contains("QuietBeforeRoutine"))
     }
 
