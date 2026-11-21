@@ -20,11 +20,11 @@ class FixedProfilesTest {
     fun `the defaults are profile A, in a debug and in a release build`() {
         for (debugBuild in listOf(true, false)) {
             val s = REauSettings().sanitized(debugBuild = debugBuild)
-            assertEquals("debugBuild=$debugBuild", listOf(6, 400_000, 1), listOf(s.fpsCeiling, s.streamBitrateBps, s.keyframeSec))
+            assertEquals("debugBuild=$debugBuild", listOf(4, 400_000, 1), listOf(s.fpsCeiling, s.streamBitrateBps, s.keyframeSec))
             assertEquals(DashConfig.VIDEO_FRAME.id, s.videoFrame)
         }
         val s = REauSettings()
-        assertEquals(listOf(6, 400_000), listOf(s.fpsCeiling, s.streamBitrateBps))
+        assertEquals(listOf(4, 400_000), listOf(s.fpsCeiling, s.streamBitrateBps))
         assertEquals(BitrateMode.CBR, s.bitrateMode)
         assertEquals(1, s.keyframeSec)
         assertEquals(true, s.aaNewProtocol)
@@ -43,7 +43,7 @@ class FixedProfilesTest {
         for (debugBuild in listOf(true, false)) {
             val s = REauSettings(fpsCeiling = 16, streamBitrateBps = 900_000, bitrateMode = BitrateMode.VBR, keyframeSec = 2, videoFrame = "448x256")
                 .sanitized(debugBuild = debugBuild)
-            assertEquals("debugBuild=$debugBuild", listOf(6, 400_000, 1), listOf(s.fpsCeiling, s.streamBitrateBps, s.keyframeSec))
+            assertEquals("debugBuild=$debugBuild", listOf(4, 400_000, 1), listOf(s.fpsCeiling, s.streamBitrateBps, s.keyframeSec))
             assertEquals(BitrateMode.CBR, s.bitrateMode)
             assertEquals(DashConfig.VIDEO_FRAME, s.frameSize)
         }
@@ -56,7 +56,7 @@ class FixedProfilesTest {
         prefs.edit().putBoolean("conservative_video_20261010", true).putInt("fps_ceiling", 12).putInt("stream_bitrate", 1_024_000)
             .putString("bitrate_mode", "VBR").putInt("keyframe_sec", 2).putInt("density", 200).apply()
         val s = SettingsStore(prefs).load()
-        assertEquals(listOf(6, 400_000, 1), listOf(s.fpsCeiling, s.streamBitrateBps, s.keyframeSec))
+        assertEquals(listOf(4, 400_000, 1), listOf(s.fpsCeiling, s.streamBitrateBps, s.keyframeSec))
         assertEquals(BitrateMode.CBR, s.bitrateMode)
         assertEquals("the rest stays", 200, s.density)
     }
@@ -67,7 +67,7 @@ class FixedProfilesTest {
         prefs.edit().putInt("fps_ceiling", 12).putBoolean("aa_slow_pace", true).putInt("aa_slow_pace_fps", 18)
             .putBoolean("aa_new_protocol", false).putInt("density", 200).putBoolean("gemini", false).apply()
         val s = SettingsStore(prefs).load()
-        assertEquals(6, s.fpsCeiling)
+        assertEquals(4, s.fpsCeiling)
         assertEquals("protocol 1.7, always", true, s.aaNewProtocol)
         assertEquals("the rest stays", 200 to false, s.density to s.gemini)
     }
@@ -77,7 +77,7 @@ class FixedProfilesTest {
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
         SettingsStore(prefs).save(REauSettings(fpsCeiling = 8, bitrateMode = BitrateMode.VBR))
         val back = SettingsStore(prefs).load()
-        assertEquals(listOf(6, 400_000, 1), listOf(back.fpsCeiling, back.streamBitrateBps, back.keyframeSec))
+        assertEquals(listOf(4, 400_000, 1), listOf(back.fpsCeiling, back.streamBitrateBps, back.keyframeSec))
         assertEquals("and again at the next start", back, SettingsStore(prefs).load())
     }
 
@@ -176,6 +176,7 @@ class FixedProfilesTest {
 
     @Test
     fun `the faster picture is always on, in a debug build and in a release, with no switch`() {
-        assertEquals(com.reau.app.dash.DashConfig.LIGHT_SCREEN_FPS, REauSettings.lightScreenFps())
+        assertEquals("the default pace is Original: its A pace", 4, REauSettings.lightScreenFps())
+        assertEquals(com.reau.app.dash.DashConfig.LIGHT_SCREEN_FPS, REauSettings.lightScreenFps(VideoPace.REAU))
     }
 }

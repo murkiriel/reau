@@ -433,10 +433,10 @@
     <string name="driving_side_left">Mão inglesa</string>
     <string name="driving_side_info">O Automático usa o país da rede de celular (ou, na falta dela, o do chip) e não lê nada quando você escolhe o lado. O lado só muda as setas que o Android Auto não define, como a rotatória sem saída ou o retorno. A escolha manual serve para experimentar ou para quando não há rede nem chip.</string>
     <string name="video_pace_title">Ritmo do vídeo</string>
-    <string name="video_pace_sub">REau: 6 fps no A e 3 no B. Original: 4 e 2, mais leve.</string>
+    <string name="video_pace_sub">Original (de fábrica): 4 fps no A e 2 no B, mais leve. REau: 6 e 3, mais fluido.</string>
     <string name="video_pace_reau">REau</string>
     <string name="video_pace_original">Original</string>
-    <string name="video_pace_info">O perfil A é a imagem mais fluida; o B tem metade do ritmo do A, é mais leve e entra longe da manobra ou em velocidade alta. O REau é o padrão (6 fps no A, 3 no B); o Original é mais leve para o painel e para o Wi-Fi (4 fps no A, 2 no B). A troca vale na hora, sem desligar a projeção.</string>
+    <string name="video_pace_info">O perfil A é a imagem mais fluida; o B tem metade do ritmo do A, é mais leve e entra longe da manobra ou em velocidade alta. O Original é o ritmo de fábrica (4 fps no A, 2 no B), mais leve para o painel e para o Wi-Fi; o REau é o mais fluido (6 fps no A, 3 no B). A troca vale na hora, sem desligar a projeção.</string>
     <string name="profile_fixed">Fixo</string>
     <string name="profile_details_title">Detalhes</string>
     <string name="profile_details_sub">Os números de cada perfil, que não se mudam</string>
@@ -939,5 +939,5 @@
     <string name="tip_gemini_swap_title">Sem intercomunicador? Troque o Gemini</string>
     <string name="tip_gemini_swap_text">O Gemini conversa por voz e precisa de um intercomunicador no capacete. Se você não tem um, troque na tela Joystick do painel (Controle de mídia, botão “Pra baixo”) a ação do Gemini por “Alternar mapa e música”: um toque leva do mapa para o app de música e de volta.</string>
     <string name="tip_video_fps_title">Por que o vídeo não passa de 6 fps</string>
-    <string name="tip_video_fps_text">O painel aceita mais quadros por segundo, mas o mesmo processador que mostra o vídeo também desenha a tela e atende os botões. Nos testes na moto, a 8 fps o ícone da reserva passou a piscar e a 12 fps o painel começou a ignorar os botões. A 6 fps tudo funciona sem falhas, por isso o REau não passa disso.</string>
+    <string name="tip_video_fps_text">O painel aceita mais quadros por segundo, mas o mesmo processador que mostra o vídeo também desenha a tela e atende os botões. Nos testes na moto, a 8 fps o ícone da reserva passou a piscar e a 12 fps o painel começou a ignorar os botões. A 6 fps tudo funcionou sem falhas, por isso o REau nunca passa disso. Mesmo assim, o app vem com o ritmo Original (4 fps no A, 2 no B), mais leve para o painel; para uma imagem mais fluida, escolha o REau (6 fps no A, 3 no B) no ajuste \"Ritmo do vídeo\".</string>
 </resources>

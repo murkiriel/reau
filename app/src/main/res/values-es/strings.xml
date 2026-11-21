@@ -434,10 +434,10 @@
     <string name="driving_side_left">Izquierda</string>
     <string name="driving_side_info">Automático usa el país de la red móvil (o, a falta de ella, el de la SIM) y no lee nada cuando eliges el lado tú mismo. El lado solo cambia las flechas que Android Auto no define, como la rotonda sin dirección o el retorno. Elegirlo a mano sirve para probar o para cuando no hay red ni SIM.</string>
     <string name="video_pace_title">Ritmo del video</string>
-    <string name="video_pace_sub">REau: 6 fps en el A y 3 en el B. Original: 4 y 2, más liviano.</string>
+    <string name="video_pace_sub">Original (de fábrica): 4 fps en el A y 2 en el B, más liviano. REau: 6 y 3, más fluido.</string>
     <string name="video_pace_reau">REau</string>
     <string name="video_pace_original">Original</string>
-    <string name="video_pace_info">El perfil A es la imagen más fluida; el B tiene la mitad del ritmo del A, es más liviano y entra lejos de la maniobra o a velocidad alta. REau es el predeterminado (A a 6 fps, B a 3 fps); Original es más liviano para el tablero y para el Wi-Fi (A a 4 fps, B a 2 fps). El cambio vale al instante, sin apagar la proyección.</string>
+    <string name="video_pace_info">El perfil A es la imagen más fluida; el B tiene la mitad del ritmo del A, es más liviano y entra lejos de la maniobra o a velocidad alta. Original es el ritmo de fábrica (A a 4 fps, B a 2 fps), más liviano para el tablero y para el Wi-Fi; REau es el más fluido (A a 6 fps, B a 3 fps). El cambio vale al instante, sin apagar la proyección.</string>
     <string name="profile_fixed">Fijo</string>
     <string name="profile_details_title">Detalles</string>
     <string name="profile_details_sub">Los números de cada perfil, que no se cambian</string>
@@ -940,5 +940,5 @@
     <string name="tip_gemini_swap_title">¿Sin intercomunicador? Cambia Gemini</string>
     <string name="tip_gemini_swap_text">Gemini conversa por voz y necesita un intercomunicador en el casco. Si no tienes uno, en la pantalla Joystick del tablero (Control multimedia, botón “Abajo”) puedes cambiar la acción de Gemini por “Alternar mapa y música”: un toque lleva del mapa a la app de música y de vuelta.</string>
     <string name="tip_video_fps_title">Por qué el video no pasa de 6 fps</string>
-    <string name="tip_video_fps_text">El tablero acepta más cuadros por segundo, pero el mismo procesador que muestra el video también dibuja la pantalla y atiende los botones. En las pruebas en la moto, a 8 fps el ícono de la reserva empezó a parpadear y a 12 fps el tablero empezó a ignorar los botones. A 6 fps todo funciona sin fallas, por eso REau no pasa de ahí.</string>
+    <string name="tip_video_fps_text">El tablero acepta más cuadros por segundo, pero el mismo procesador que muestra el video también dibuja la pantalla y atiende los botones. En las pruebas en la moto, a 8 fps el ícono de la reserva empezó a parpadear y a 12 fps el tablero empezó a ignorar los botones. A 6 fps todo funcionó sin fallas, por eso REau nunca pasa de ahí. Aun así, la app viene con el ritmo Original (4 fps en el A, 2 en el B), más liviano para el tablero; para una imagen más fluida, elige REau (6 fps en el A, 3 en el B) en el ajuste \"Ritmo del video\".</string>
 </resources>

@@ -12,13 +12,13 @@ import org.junit.Test
 import java.io.File
 
 /**
- * The video of the stream is fixed (plan 32, 20/11/2026) and the same in a debug and in a release build: 6 fps, a 400 kbps ceiling, the 528x304 picture
+ * The video of the stream is fixed (plan 32, 20/11/2026) and the same in a debug and in a release build: 4 fps by default (the Original pace; 6 in REau's), a 400 kbps ceiling, the 528x304 picture
  * ([REauSettings.fpsCeiling], [REauSettings.streamBitrateBps], [REauSettings.videoFrame]). What [REauSettings.sanitized] makes of any stored or set value, how the
  * store ignores (and does not write) the keys the choices used to live in, and how the fixed values reach the ride log, the live tuning and the video loop.
  * What the governor does with them is PaceGovernorTest's; the line that says them on the screen is ProfileDetailsTest's.
  */
 class FixedVideoStoreTest {
-    private val fixed = listOf(6, 400_000, "528x304")
+    private val fixed = listOf(4, 400_000, "528x304")
 
     private fun mixOf(s: REauSettings) = listOf(s.fpsCeiling, s.streamBitrateBps, s.videoFrame)
 
@@ -107,7 +107,7 @@ class FixedVideoStoreTest {
     @Test
     fun `the ride log says the fixed values in the settings line, and a change of the picture, as the fall back makes it, is told`() {
         val line = SettingsInUse.line(REauSettings().sanitized(true))
-        assertTrue(line, "fpsCeiling=6" in line && "streamBitrateBps=400000" in line && "videoFrame=528x304" in line)
+        assertTrue(line, "fpsCeiling=4" in line && "streamBitrateBps=400000" in line && "videoFrame=528x304" in line)
         assertFalse(line, "reserveCapOn" in line)
         assertEquals(listOf("videoFrame: 528x304 -> 526x300"), REauSettings().changesTo(REauSettings(videoFrame = "526x300")))
     }
@@ -119,11 +119,11 @@ class FixedVideoStoreTest {
     }
 
     @Test
-    fun `it reaches the video loop as 6 fps, 400 kbps and 528x304 in both builds`() {
+    fun `it reaches the video loop as 4 fps (the default pace), 400 kbps and 528x304 in both builds`() {
         val loop = VideoLoop.Settings()
         for (debugBuild in listOf(true, false)) {
             val s = loop.withRider(REauSettings(fpsCeiling = 8, streamBitrateBps = 900_000).sanitized(debugBuild))
-            assertEquals("debugBuild=$debugBuild", listOf(6, 400_000, DashConfig.VIDEO_FRAME, 6), listOf(s.ceilingFps, s.bitrateBps, s.frame, s.lightScreenFps))
+            assertEquals("debugBuild=$debugBuild", listOf(4, 400_000, DashConfig.VIDEO_FRAME, 4), listOf(s.ceilingFps, s.bitrateBps, s.frame, s.lightScreenFps))
         }
     }
 

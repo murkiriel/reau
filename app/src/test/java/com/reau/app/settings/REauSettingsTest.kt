@@ -34,9 +34,9 @@ class REauSettingsTest {
         assertEquals(180, s.density)
         assertEquals(0 to 0, s.marginW to s.marginH)
         assertEquals(Fit.WHOLE_VISIBLE, s.fit)
-        // The video is fixed at 6 fps in a debug and in a release build (profile A, FixedProfilesTest).
-        assertEquals(6, s.fpsCeiling)
-        assertEquals(6, s.sanitized(debugBuild = false).fpsCeiling)
+        // The video is fixed in a debug and in a release build, at the default Original pace (profile A at 4 fps; FixedProfilesTest, VideoPaceSettingsTest).
+        assertEquals(4, s.fpsCeiling)
+        assertEquals(4, s.sanitized(debugBuild = false).fpsCeiling)
         assertEquals(0, s.clockSlowPercent)
         assertEquals("on in the debug build the tests run, off in a release (FixedProfilesTest)", com.reau.app.BuildConfig.DEBUG to com.reau.app.BuildConfig.DEBUG, s.recordVideo to s.recordSessions)
     }
@@ -121,13 +121,13 @@ class REauSettingsTest {
         assertEquals(0, wild.marginW)
         assertEquals("at least 16 px of picture left", 480 - 16, wild.marginH)
         assertEquals(20, wild.cropPercent)
-        assertEquals("the pace is fixed at 6 in both builds (FixedProfilesTest)", 6, wild.fpsCeiling)
-        assertEquals(6, REauSettings(fpsCeiling = 99).sanitized(debugBuild = false).fpsCeiling)
+        assertEquals("the pace is the default pace (4) in both builds (FixedProfilesTest)", 4, wild.fpsCeiling)
+        assertEquals(4, REauSettings(fpsCeiling = 99).sanitized(debugBuild = false).fpsCeiling)
         assertEquals("not one of the clock options", 0, wild.clockSlowPercent)
         assertEquals(-150 to 150, wild.moveX to wild.moveY)
 
         val low = REauSettings(density = 1, fpsCeiling = 1).sanitized()
-        assertEquals(180 to 6, low.density to low.fpsCeiling)
+        assertEquals(180 to 4, low.density to low.fpsCeiling)
     }
 
     /** Plan 32 (20/11/2026): the DPI is one of 180, 200 and 220; whatever else was saved goes back to the default, 180, not to a neighbour. */
@@ -539,8 +539,8 @@ class REauSettingsTest {
         val s = SettingsStore(prefs).load()
         assertEquals(180, s.density)
         assertEquals("an unknown fit is read as the default", REauSettings().fit, s.fit)
-        // The old keys of the pace and the bitrate are not read; a release build is fixed at 4 fps / 400 kbps, a debug build starts at its default (FixedProfilesTest).
-        assertEquals("the stream's values", listOf(if (com.reau.app.BuildConfig.DEBUG) 6 else 4, 400_000, 1), listOf(s.fpsCeiling, s.streamBitrateBps, s.keyframeSec))
+        // The old keys of the pace and the bitrate are not read; both builds are fixed at the default pace, 4 fps / 400 kbps (FixedProfilesTest).
+        assertEquals("the stream's values", listOf(4, 400_000, 1), listOf(s.fpsCeiling, s.streamBitrateBps, s.keyframeSec))
     }
 
     @Test

@@ -21,9 +21,9 @@ class AppDefaultsTest {
         assertEquals(FitParams(Fit.WHOLE_VISIBLE, 64, -34, 54, 0, 0), s.appsFit) // the apps' move 0 since 21/11/2026 (it was 20)
         assertEquals(FitParams(Fit.WHOLE_VISIBLE, 90, 32, 20, 20, 0), s.menuFit)
         assertEquals(FitParams(Fit.CROP, 74, 90, 62, 0, 0), s.navFit)
-        // The video is fixed at 6 fps in a debug and in a release build (profile A, FixedProfilesTest).
-        assertEquals(6, s.fpsCeiling)
-        assertEquals(6, s.sanitized(debugBuild = false).fpsCeiling)
+        // The video is fixed in a debug and in a release build, at the Original pace by default (4 fps on profile A, since 21/11/2026; FixedProfilesTest, VideoPaceSettingsTest).
+        assertEquals(4, s.fpsCeiling)
+        assertEquals(4, s.sanitized(debugBuild = false).fpsCeiling)
         assertEquals(MapTheme.AUTO, s.mapTheme)
         assertEquals(DrivingSideMode.AUTO, s.drivingSideMode)
         assertEquals(com.reau.app.dash.NavProfileMode.PESSIMISTA, s.navProfileMode)
@@ -81,8 +81,8 @@ class AppDefaultsTest {
         val s = SettingsStore(prefs).load()
         assertEquals(220, s.density)
         assertEquals("the fill-the-dome of before reads as the whole picture", Fit.WHOLE_VISIBLE, s.fit)
-        // But for the video, which an older store gets conservative once (the old pace key is not read: the video is fixed at 6 fps).
-        assertEquals(6, s.fpsCeiling)
+        // But for the video, which an older store gets conservative once (the old pace key is not read: the video is fixed at the default pace, 4 fps).
+        assertEquals(4, s.fpsCeiling)
         assertEquals("the menu's own fit switched off stays off", null, s.menuFit)
         assertEquals(false, s.gemini)
         assertEquals("media.up.once=HOME", s.joystick)

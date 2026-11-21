@@ -445,10 +445,10 @@
     <string name="driving_side_left">Left-hand</string>
     <string name="driving_side_info">Automatic uses the country of the mobile network (or, failing that, of the SIM), and reads nothing when you pick a side yourself. The side only changes the arrows that Android Auto does not define, such as a roundabout without a direction or a U-turn. Picking it by hand is for testing or for when there is no network or SIM.</string>
     <string name="video_pace_title">Video pace</string>
-    <string name="video_pace_sub">REau: 6 fps on A and 3 on B. Original: 4 and 2, lighter.</string>
+    <string name="video_pace_sub">Original (factory): 4 fps on A and 2 on B, lighter. REau: 6 and 3, smoother.</string>
     <string name="video_pace_reau">REau</string>
     <string name="video_pace_original">Original</string>
-    <string name="video_pace_info">Profile A is the smoother picture; B runs at half of A\'s pace, is lighter, and takes over far from the maneuver or at high speed. REau is the default (A at 6 fps, B at 3 fps); Original is lighter on the dash and on the Wi-Fi (A at 4 fps, B at 2 fps). The change takes effect right away, without turning the projection off.</string>
+    <string name="video_pace_info">Profile A is the smoother picture; B runs at half of A\'s pace, is lighter, and takes over far from the maneuver or at high speed. Original is the factory pace (A at 4 fps, B at 2 fps), lighter on the dash and on the Wi-Fi; REau is the smoothest (A at 6 fps, B at 3 fps). The change takes effect right away, without turning the projection off.</string>
     <string name="profile_fixed">Fixed</string>
     <string name="profile_details_title">Details</string>
     <string name="profile_details_sub">The numbers of each profile, which cannot be changed</string>
@@ -949,6 +949,6 @@
     <string name="tip_waze_zoom_text">We recommend turning off automatic zoom in the Waze settings. It makes the video heavier for the dash, and the dash screen is too small for the amount of information that automatic zoom shows.</string>
     <string name="tip_gemini_swap_title">Not using an intercom? Swap Gemini</string>
     <string name="tip_gemini_swap_text">Gemini talks by voice and needs an intercom in the helmet. If you do not have one, on the Dash joystick screen (Media control, the Down button) you can swap the Gemini action for “Switch map and music”: one tap takes you from the map to the music app and back.</string>
-    <string name="tip_video_fps_title">Why the video stays at 6 fps</string>
-    <string name="tip_video_fps_text">The dash accepts more frames per second, but the same processor that shows the video also draws the screen and handles the buttons. In tests on the bike, at 8 fps the reserve icon started to flicker, and at 12 fps the dash began to ignore the buttons. At 6 fps everything works without glitches, so REau does not go above it.</string>
+    <string name="tip_video_fps_title">Why the video does not go above 6 fps</string>
+    <string name="tip_video_fps_text">The dash accepts more frames per second, but the same processor that shows the video also draws the screen and handles the buttons. In tests on the bike, at 8 fps the reserve icon started to flicker, and at 12 fps the dash began to ignore the buttons. At 6 fps everything worked without glitches, so REau never goes above it. Even so, the app comes with the Original pace (4 fps on A, 2 on B), which is lighter on the dash; for a smoother picture, pick REau (6 fps on A, 3 on B) in the \"Video pace\" setting.</string>
 </resources>

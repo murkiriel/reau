@@ -12,7 +12,7 @@ import org.junit.Test
 
 /**
  * The video pace (plan 32, 20/11/2026): REau (A 6 fps, B 3) or Original (A 4, B 2), the rider's only choice about the video, in a debug and in a release
- * build alike. The default, what [REauSettings.sanitized] makes of it, how the store keeps it (an unknown or missing name is REau), how it reaches the
+ * build alike. The default, what [REauSettings.sanitized] makes of it, how the store keeps it (an unknown or missing name is the default, Original), how it reaches the
  * video loop and the live tuning, and the ride log. What the governor does with each pace is VideoPaceGovernorTest's; the row is VideoPaceChoiceTest's.
  */
 class VideoPaceSettingsTest {
@@ -31,13 +31,21 @@ class VideoPaceSettingsTest {
     }
 
     @Test
-    fun `the default is REau, in the settings and after sanitizing in both builds`() {
-        assertEquals(VideoPace.REAU, REauSettings().videoPace)
+    fun `the default is Original (4 and 2), in the settings and after sanitizing in both builds, and a saved REau is kept`() {
+        assertEquals(VideoPace.ORIGINAL, REauSettings.DEFAULT_VIDEO_PACE)
+        assertEquals(VideoPace.ORIGINAL, REauSettings().videoPace)
+        assertEquals("the default's A pace is the default's own", VideoPace.ORIGINAL.fullFps, REauSettings().fpsCeiling)
         for (debugBuild in listOf(true, false)) {
             val s = REauSettings().sanitized(debugBuild)
-            assertEquals(VideoPace.REAU, s.videoPace)
-            assertEquals(6, s.fpsCeiling)
+            assertEquals(VideoPace.ORIGINAL, s.videoPace)
+            assertEquals(4, s.fpsCeiling)
         }
+        // only the default changed: who saved REau (A 6 / B 3) keeps it
+        val prefs = KeystoreBackedPrefsTest.FakePrefs()
+        SettingsStore(prefs).save(REauSettings(videoPace = VideoPace.REAU))
+        val kept = SettingsStore(prefs).load()
+        assertEquals(VideoPace.REAU, kept.videoPace)
+        assertEquals(6, kept.fpsCeiling)
     }
 
     @Test
@@ -65,15 +73,15 @@ class VideoPaceSettingsTest {
     }
 
     @Test
-    fun `an unknown, empty or missing pace is REau`() {
-        assertEquals(VideoPace.REAU, SettingsStore(KeystoreBackedPrefsTest.FakePrefs()).load().videoPace)
+    fun `an unknown, empty or missing pace is the default, Original`() {
+        assertEquals(VideoPace.ORIGINAL, SettingsStore(KeystoreBackedPrefsTest.FakePrefs()).load().videoPace)
         for (name in listOf("", "original", "FAST", "6", "REAU ", "null", "ORIGINAL2")) {
             val loaded = SettingsStore(stored { it.putString("video_pace_mode", name).apply() }).load()
-            assertEquals("'$name'", VideoPace.REAU, loaded.videoPace)
-            assertEquals(6, loaded.fpsCeiling)
+            assertEquals("'$name'", VideoPace.ORIGINAL, loaded.videoPace)
+            assertEquals(4, loaded.fpsCeiling)
         }
         // the key the old pace choice lived in is another one and is still ignored
-        assertEquals(VideoPace.REAU, SettingsStore(stored { it.putInt("video_pace_fps", 4).putString("video_pace", "ORIGINAL").apply() }).load().videoPace)
+        assertEquals(VideoPace.ORIGINAL, SettingsStore(stored { it.putInt("video_pace_fps", 6).putString("video_pace", "REAU").apply() }).load().videoPace)
     }
 
     @Test
@@ -94,7 +102,7 @@ class VideoPaceSettingsTest {
             val s = loop.withRider(REauSettings(videoPace = pace).sanitized(debugBuild))
             assertEquals("$pace debugBuild=$debugBuild", listOf(pace.fullFps, 400_000, DashConfig.VIDEO_FRAME, pace.fullFps), listOf(s.ceilingFps, s.bitrateBps, s.frame, s.lightScreenFps))
         }
-        assertEquals(6, REauSettings.lightScreenFps())
+        assertEquals("no pace given is the default's", 4, REauSettings.lightScreenFps())
         assertEquals(4, REauSettings.lightScreenFps(VideoPace.ORIGINAL))
         assertEquals(DashConfig.LIGHT_SCREEN_FPS, REauSettings.lightScreenFps(VideoPace.REAU))
     }
@@ -107,10 +115,10 @@ class VideoPaceSettingsTest {
     @Test
     fun `the live tuning takes a change of pace as a new stream and nothing else`() {
         val base = REauSettings().sanitized(true)
-        val original = base.copy(videoPace = VideoPace.ORIGINAL).sanitized(true)
-        assertEquals(setOf(LiveTuning.Step.NEW_STREAM), LiveTuning.steps(base, original))
-        assertEquals(setOf(LiveTuning.Step.NEW_STREAM), LiveTuning.steps(original, base))
-        assertEquals(emptySet<LiveTuning.Step>(), LiveTuning.steps(original, original.copy()))
+        val reau = base.copy(videoPace = VideoPace.REAU).sanitized(true)
+        assertEquals(setOf(LiveTuning.Step.NEW_STREAM), LiveTuning.steps(base, reau))
+        assertEquals(setOf(LiveTuning.Step.NEW_STREAM), LiveTuning.steps(reau, base))
+        assertEquals(emptySet<LiveTuning.Step>(), LiveTuning.steps(reau, reau.copy()))
     }
 
     @Test
@@ -130,8 +138,8 @@ class VideoPaceSettingsTest {
     fun `the ride log's line says the pace, and the settings line carries it`() {
         assertEquals("video pace: REAU (A 6 fps / B 3 fps)", VideoPace.REAU.logLine())
         assertEquals("video pace: ORIGINAL (A 4 fps / B 2 fps)", VideoPace.ORIGINAL.logLine())
-        assertTrue(SettingsInUse.line(REauSettings()).contains(" videoPace=REAU "))
-        assertTrue(SettingsInUse.line(REauSettings(videoPace = VideoPace.ORIGINAL)).contains(" videoPace=ORIGINAL "))
-        assertEquals(listOf("videoPace: REAU -> ORIGINAL"), REauSettings().changesTo(REauSettings(videoPace = VideoPace.ORIGINAL)))
+        assertTrue(SettingsInUse.line(REauSettings()).contains(" videoPace=ORIGINAL "))
+        assertTrue(SettingsInUse.line(REauSettings(videoPace = VideoPace.REAU)).contains(" videoPace=REAU "))
+        assertEquals(listOf("videoPace: ORIGINAL -> REAU"), REauSettings().changesTo(REauSettings(videoPace = VideoPace.REAU)))
     }
 }

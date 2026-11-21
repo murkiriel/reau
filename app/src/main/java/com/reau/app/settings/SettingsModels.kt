@@ -24,10 +24,10 @@ enum class WebAudioMode { PHONE, BROWSER, BOTH }
  * are the same in both. [lightScreenFps] is the pace on Android Auto's light screens, never above A's.
  */
 enum class VideoPace(val fullFps: Int, val reducedFps: Int) {
-    /** REau's own pace, the default: A at 6 fps and B at 3, the most the dash takes without its buttons or the reserve icon suffering. */
+    /** REau's own pace, the smoothest: A at 6 fps and B at 3, the most the dash takes without its buttons or the reserve icon suffering. Not the default ([REauSettings.DEFAULT_VIDEO_PACE]). */
     REAU(DashConfig.PROFILE_FULL_FPS, DashConfig.PROFILE_REDUCED_FPS),
 
-    /** The lighter pace: A at 4 fps and B at 2, easier on the dash and on the Wi-Fi. */
+    /** The lighter pace, the factory one ([REauSettings.DEFAULT_VIDEO_PACE]): A at 4 fps and B at 2, easier on the dash and on the Wi-Fi. */
     ORIGINAL(DashConfig.ORIGINAL_FULL_FPS, DashConfig.ORIGINAL_REDUCED_FPS);
 
     /** The pace on the light screens of Android Auto: A's, so they are never above it. */

@@ -4,6 +4,7 @@ import com.reau.app.dash.DashConfig
 import com.reau.app.dash.NavProfileMode
 import com.reau.app.fuzz.Seeded
 import com.reau.app.settings.REauSettings
+import com.reau.app.settings.VideoPace
 import com.reau.app.stream.StreamGovernor.Action
 import com.reau.app.video.DashCompositor
 import java.util.Locale
@@ -22,9 +23,12 @@ import java.util.Random
 /** One stream configuration. [REAL_400] is what `REauSettings.sanitized()` leaves; [REAL_200] is the same with a 200 kbps ceiling, which no setting gives any more (the adaptive bitrate experiment went on 20/11/2026) and the bench keeps as the governor's lower-ceiling case. */
 internal data class GovernorConfig(val name: String, val ceilingFps: Int, val bitrateBps: Int, val keyframeSec: Int, val lightScreenFps: Int) {
     companion object {
-        /** The stream as the app starts it, in a debug and in a release build alike (6 fps, 400 kbps; PaceGovernorTest has the rest): the rider's settings, sanitized, through `VideoLoop.Settings.withRider`. */
+        /**
+         * The stream at REau's own pace, the one the golden traces were made at (profile A 6 fps, B 3, 400 kbps; since 21/11/2026 a fresh install starts at Original, 4/2, which VideoPaceGovernorTest
+         * covers): the rider's settings, sanitized, through `VideoLoop.Settings.withRider`, in a debug and in a release build alike. PaceGovernorTest has the rest.
+         */
         fun real(): GovernorConfig {
-            val s = VideoLoop.Settings().withRider(REauSettings().sanitized(debugBuild = false))
+            val s = VideoLoop.Settings().withRider(REauSettings(videoPace = VideoPace.REAU).sanitized(debugBuild = false))
             return GovernorConfig("${s.bitrateBps / 1000} kbps", s.ceilingFps, s.bitrateBps, s.keyframeSec, s.lightScreenFps)
         }
 

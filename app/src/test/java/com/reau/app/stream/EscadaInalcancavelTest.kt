@@ -4,6 +4,7 @@ import com.reau.app.dash.BitrateMode
 import com.reau.app.dash.DashConfig
 import com.reau.app.dash.NavProfileMode
 import com.reau.app.settings.REauSettings
+import com.reau.app.settings.VideoPace
 import com.reau.app.stream.StreamGovernor.Action
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -25,10 +26,11 @@ class EscadaInalcancavelTest {
     private val extremes = listOf(0, 2, 6, 16, 30, 99)
 
     @Test
-    fun `whatever was stored, the settings in use ask for 6 fps, 400 kbps constant, a keyframe a second and both profiles, pessimistic`() {
-        val stored = listOf(REauSettings()) + extremes.flatMap { v ->
+    fun `whatever was stored, the settings in use ask for the pace picked, 400 kbps constant, a keyframe a second and both profiles, pessimistic`() {
+        val stored = VideoPace.entries.map { REauSettings(videoPace = it) } + listOf(REauSettings()) + extremes.flatMap { v ->
             listOf(
                 REauSettings(fpsCeiling = v),
+                REauSettings(fpsCeiling = v, videoPace = VideoPace.REAU),
                 REauSettings(keyframeSec = v),
                 REauSettings(streamBitrateBps = v * 1000),
                 REauSettings(clockSlowPercent = v),
@@ -42,8 +44,8 @@ class EscadaInalcancavelTest {
             for (debug in listOf(true, false)) {
                 val s = settings.sanitized(debugBuild = debug)
                 val said = "stored $settings"
-                // The video is fixed at 6 fps and 400 kbps in both builds (FixedVideoStoreTest).
-                assertEquals(said, 6, s.fpsCeiling)
+                // The video is fixed in both builds (FixedVideoStoreTest): A at the pace picked (4 fps by default, 6 in REau's), 400 kbps.
+                assertEquals(said, s.videoPace.fullFps, s.fpsCeiling)
                 assertEquals(said, 400_000, s.streamBitrateBps)
                 assertEquals(said, DashConfig.VIDEO_FRAME, s.frameSize)
                 assertEquals(said, 1, s.keyframeSec)
@@ -56,7 +58,7 @@ class EscadaInalcancavelTest {
                 assertEquals(said, s.fpsCeiling, stream.ceilingFps)
                 assertEquals(said, 1, stream.keyframeSec)
                 assertEquals(said, s.streamBitrateBps, stream.bitrateBps)
-                assertEquals(said, 6, stream.lightScreenFps)
+                assertEquals(said, s.videoPace.fullFps, stream.lightScreenFps)
             }
         }
     }

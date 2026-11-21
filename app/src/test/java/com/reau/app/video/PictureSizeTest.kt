@@ -55,7 +55,7 @@ class PictureSizeTest {
         val chosen = VideoLoop.Settings().withRider(REauSettings(fpsCeiling = 8, streamBitrateBps = 700_000).sanitized(true))
         assertEquals(fixed, chosen.frame)
         val back = chosen.atFullFrame()
-        assertEquals("the fixed 6 fps and 400 kbps", listOf(6, 400_000, DashConfig.FULL_FRAME), listOf(back.ceilingFps, back.bitrateBps, back.frame))
+        assertEquals("the pace of the default (Original, 4 fps) and 400 kbps", listOf(4, 400_000, DashConfig.FULL_FRAME), listOf(back.ceilingFps, back.bitrateBps, back.frame))
         assertEquals("only the picture moved", chosen.copy(frame = DashConfig.FULL_FRAME), back)
     }
 

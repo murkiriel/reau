@@ -111,7 +111,8 @@ class TipsTest {
         assertEquals(
             "O painel aceita mais quadros por segundo, mas o mesmo processador que mostra o vídeo também desenha a tela e atende os botões. " +
                 "Nos testes na moto, a 8 fps o ícone da reserva passou a piscar e a 12 fps o painel começou a ignorar os botões. " +
-                "A 6 fps tudo funciona sem falhas, por isso o REau não passa disso.",
+                "A 6 fps tudo funcionou sem falhas, por isso o REau nunca passa disso. " +
+                "Mesmo assim, o app vem com o ritmo Original (4 fps no A, 2 no B), mais leve para o painel; para uma imagem mais fluida, escolha o REau (6 fps no A, 3 no B) no ajuste \\\"Ritmo do vídeo\\\".",
             text("values-pt", "tip_video_fps_text"),
         )
         val en = text("values", "tip_video_fps_title")!! to text("values", "tip_video_fps_text")!!

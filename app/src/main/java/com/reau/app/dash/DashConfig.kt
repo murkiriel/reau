@@ -32,7 +32,7 @@ object DashConfig {
     /**
      * What every build runs, with nothing to choose (owner's decision of 20/11/2026, after the ride that showed the dash does not stretch a smaller picture,
      * freezes its decoder when the size changes with the video running, ignores the buttons at 12 fps and flickers the reserve icon at 8): profile A is
-     * 6 fps at a 400 kbps ceiling, constant, a keyframe every second, in the [VIDEO_FRAME] picture. Profile B (the navigation's reduced tier) is half of A's
+     * 6 fps in REau's pace (the default is the Original one, 4/2, since 21/11/2026: the dash froze on the bike and there is no definitive fix yet) at a 400 kbps ceiling, constant, a keyframe every second, in the [VIDEO_FRAME] picture. Profile B (the navigation's reduced tier) is half of A's
      * PACE, 3 fps, at the same ceiling: the bitrate is never halved by a tier, by a still picture or by the start ramp. The encoder is built once for A's
      * pace; B only feeds it fewer frames, so a change of tier never replaces the encoder. [PROFILE_FULL_FPS] is also the most any screen is paced at.
      */

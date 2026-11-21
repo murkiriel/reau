@@ -20,8 +20,8 @@ import com.reau.app.video.StatsOverlay
  * sends (a content URI the rider picked, or the measuring grid built in, [DEFAULT_CARD]); null sends the legibility
  * card.
  *
- * The video to the dash (it lagged at speed with more) is one fixed envelope, the same in a debug and in a release build, measured on this dash: 6 frames a second ([fpsCeiling]; the
- * reduced profile 3), [streamBitrateBps] 400 kbps at a constant [bitrateMode], a keyframe every [keyframeSec] second, in the 528x304 frame (the profiles are in [com.reau.app.dash.DashConfig]).
+ * The video to the dash (it lagged at speed with more) is one fixed envelope, the same in a debug and in a release build, measured on this dash: the pace of [videoPace] ([fpsCeiling]: 4 frames a second by default, 6 in
+ * REau's own pace; the reduced profile is half of it), [streamBitrateBps] 400 kbps at a constant [bitrateMode], a keyframe every [keyframeSec] second, in the 528x304 frame (the profiles are in [com.reau.app.dash.DashConfig]).
  * None of it is a choice: [sanitized] sets it whatever an older build stored.
  */
 data class REauSettings(
@@ -43,12 +43,13 @@ data class REauSettings(
     /** The apps' black bands over the dash's frame ([FrameFit.Cover]). */
     val cover: FrameFit.Cover = FrameFit.Cover.NONE,
     /**
-     * The video's pace, the rider's only choice about it ([VideoPace]): REau (A 6 fps / B 3, the default) or Original (A 4 / B 2). A normal setting in a debug and in a
-     * release build, taken at once with the projection on ([com.reau.app.service.LiveTuning.Step.NEW_STREAM]).
+     * The video's pace, the rider's only choice about it ([VideoPace]): Original (A 4 fps / B 2, the factory pace, [DEFAULT_VIDEO_PACE]) or REau (A 6 / B 3, the smoother one). A normal
+     * setting in a debug and in a release build, taken at once with the projection on ([com.reau.app.service.LiveTuning.Step.NEW_STREAM]). Only the default is Original
+     * (21/11/2026: the dash froze on the bike right after a burst of keyframes, probably from the load on it, and there is no definitive fix yet); whoever saved a pace keeps it.
      */
-    val videoPace: VideoPace = VideoPace.REAU,
+    val videoPace: VideoPace = DEFAULT_VIDEO_PACE,
     /** The pace of profile A, always [VideoPace.fullFps] of [videoPace] ([sanitized]); nothing else sets it, whatever an older build stored. */
-    val fpsCeiling: Int = DashConfig.PROFILE_FULL_FPS,
+    val fpsCeiling: Int = DEFAULT_VIDEO_PACE.fullFps,
     /** The bitrate ceiling: always [DashConfig.PROFILE_FULL_BPS] ([sanitized]); no choice, whatever an older build stored. */
     val streamBitrateBps: Int = DEFAULT_STREAM_BITRATE,
     val bitrateMode: BitrateMode = BitrateMode.CBR,
@@ -390,8 +391,8 @@ data class REauSettings(
      * video clock runs at 0% slower and touching Android Auto from the phone is native (the frame size and the
      * instrument cluster experiment went from the code itself); the newer protocol and the focus clearing are fixed on. The two texts over
      * the dash's video are kept only when [debugBuild] is true (the recordings are kept as stored in both builds). Five more are fixed, in a debug and in a release build alike, the stream's
-     * rate ceiling, bitrate, picture, bitrate mode and keyframe: profile A is 6 fps / 400 kbps / constant / 1 s in 528x304 and profile B,
-     * its half in pace, 3 fps (the navigation profiles choose between them, [DashConfig.PROFILE_FULL_FPS]); whatever an older build stored for the pace, the ceiling or the
+     * rate ceiling, bitrate, picture, bitrate mode and keyframe: profile A is 4 fps (6 in REau's pace) / 400 kbps / constant / 1 s in 528x304 and profile B,
+     * its half in pace, 2 fps (3 in REau's pace) (the navigation profiles choose between them, [DashConfig.PROFILE_FULL_FPS]); whatever an older build stored for the pace, the ceiling or the
      * picture (`video_fps`, `video_cap_bps`, `video_frame`, `video_profile`, `video_pace_fps`, `experiment_fps63`, `fps_ceiling`, `stream_bitrate`) is ignored. The
      * maneuver data and the two navigation profiles (by maneuver, by speed) are always on, the pessimistic one winning when they disagree
      * ([navProfileMode]).
@@ -458,11 +459,17 @@ data class REauSettings(
 
     companion object {
         /**
+         * The pace a fresh install starts with: Original (A 4 fps / B 2). On 21/11/2026 the dash froze on the bike right after a burst of keyframes; the cause is probably the load on the
+         * dash and there is no definitive fix yet, so the factory pace is the lighter one while REau's (6/3) stays one tap away. Only the default: a pace the rider saved is kept.
+         */
+        val DEFAULT_VIDEO_PACE: VideoPace = VideoPace.ORIGINAL
+
+        /**
          * While Android Auto's app menu or another app is in front, the pace to the dash goes up to [VideoPace.lightScreenFps], profile A's pace of [pace] (6 fps in
          * REau, 4 in Original; never above 6, and profile B's pace on the navigation, which alone follows the profiles), so a joystick touch shows sooner: always, in a debug build and in a
          * release (28/10/2026: it was a debug switch, now it has none). Tried on the bike in a debug build on 28/10/2026.
          */
-        fun lightScreenFps(pace: VideoPace = VideoPace.REAU): Int = pace.lightScreenFps
+        fun lightScreenFps(pace: VideoPace = DEFAULT_VIDEO_PACE): Int = pace.lightScreenFps
 
         /** Privacy: the days offered for the logs, and 0 (never). */
         val LOG_KEEP_DAYS = listOf(7, 14, 30, 0)

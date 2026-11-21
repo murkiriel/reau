@@ -64,9 +64,9 @@ class VideoPaceChoiceTest {
     @Test
     fun `the title, the subtitle, the options and the info are in the three languages, as asked`() {
         val expected = mapOf(
-            "values-pt" to listOf("Ritmo do vídeo", "REau: 6 fps no A e 3 no B. Original: 4 e 2, mais leve."),
-            "values" to listOf("Video pace", "REau: 6 fps on A and 3 on B. Original: 4 and 2, lighter."),
-            "values-es" to listOf("Ritmo del video", "REau: 6 fps en el A y 3 en el B. Original: 4 y 2, más liviano."),
+            "values-pt" to listOf("Ritmo do vídeo", "Original (de fábrica): 4 fps no A e 2 no B, mais leve. REau: 6 e 3, mais fluido."),
+            "values" to listOf("Video pace", "Original (factory): 4 fps on A and 2 on B, lighter. REau: 6 and 3, smoother."),
+            "values-es" to listOf("Ritmo del video", "Original (de fábrica): 4 fps en el A y 2 en el B, más liviano. REau: 6 y 3, más fluido."),
         )
         for ((folder, want) in expected) {
             assertEquals(folder, want, listOf(text(folder, "video_pace_title"), text(folder, "video_pace_sub")))
@@ -80,12 +80,12 @@ class VideoPaceChoiceTest {
     }
 
     @Test
-    fun `the info says what A and B are, that REau is the default, that Original is lighter and that the change is at once`() {
+    fun `the info says what A and B are, that Original is the factory pace and lighter, that REau is the smoothest and that the change is at once`() {
         val pt = text("values-pt", "video_pace_info")!!
-        for (part in listOf("perfil A", "o B", "O REau é o padrão", "Original é mais leve", "Wi-Fi", "A troca vale na hora")) assertTrue("$part in $pt", part in pt)
+        for (part in listOf("perfil A", "o B", "O Original é o ritmo de fábrica", "mais leve", "o REau é o mais fluido", "Wi-Fi", "A troca vale na hora")) assertTrue("$part in $pt", part in pt)
         val en = text("values", "video_pace_info")!!
-        for (part in listOf("Profile A", "REau is the default", "Original is lighter", "Wi-Fi", "takes effect right away")) assertTrue("$part in $en", part in en)
+        for (part in listOf("Profile A", "Original is the factory pace", "lighter", "REau is the smoothest", "Wi-Fi", "takes effect right away")) assertTrue("$part in $en", part in en)
         val es = text("values-es", "video_pace_info")!!
-        for (part in listOf("perfil A", "REau es el predeterminado", "Original es más liviano", "Wi-Fi", "El cambio vale al instante")) assertTrue("$part in $es", part in es)
+        for (part in listOf("perfil A", "Original es el ritmo de fábrica", "más liviano", "REau es el más fluido", "Wi-Fi", "El cambio vale al instante")) assertTrue("$part in $es", part in es)
     }
 }
