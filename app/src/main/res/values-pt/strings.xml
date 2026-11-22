@@ -479,7 +479,7 @@
     <string name="info_ring_data_gps">Sinal e direção do GPS</string>
     <string name="info_ring_data_temps">Temperaturas (máxima e mínima)</string>
     <string name="info_ring_data_none">Nada marcado: o anel fica fora do vídeo.</string>
-    <string name="info_ring_data_rain_info">A chuva que cai agora (com que intensidade, em mm/h, e até quando) ou que começa na próxima hora (em quantos minutos e com que intensidade); conta a partir de 0,1 mm por 15 min, acima de 7,6 mm/h o ícone é de chuva forte, e chuva em até 30 min passa na frente dos outros dados. Fora da América do Norte e da Europa Central a previsão é por hora, então os minutos vêm arredondados de 10 em 10 e marcados com ~. No título, sem espaço, os minutos cedem à intensidade.</string>
+    <string name="info_ring_data_rain_info">A chuva que cai agora (com que intensidade, em mm/h, e até quando) ou que começa na próxima hora (em quantos minutos e com que intensidade); conta a partir de 0,1 mm por 15 min, acima de 7,6 mm/h o ícone é de chuva forte, e chuva em até 30 min passa na frente dos outros dados. Fora da América do Norte e da Europa Central a previsão é por hora, então os minutos vêm arredondados de 10 em 10 e marcados com ~. No título: os minutos, quando se sabem, e a intensidade, quando não.</string>
     <string name="info_ring_data_wind_info">A maior rajada de agora até 1 hora à frente. Aparece a partir de 40 km/h (atenção, amarelo); 55 é alerta (laranja); 70 é perigo (vermelho) e passa na frente de tudo.</string>
     <string name="info_ring_data_storm_info">Trovoada agora ou na próxima hora, pelo código do tempo da previsão. É sempre perigo: o disco fica vermelho e passa na frente de tudo.</string>
     <string name="info_ring_data_uv_info">O índice UV da hora atual. Só aparece a partir de 6 (alto, laranja); 8 é muito alto (vermelho); 11 ou mais é extremo (violeta).</string>
@@ -516,8 +516,6 @@
     <string name="title_battery">Bateria %1$s%%</string>
     <string name="title_battery_charging">Carregando %1$s%%</string>
     <string name="title_rain_rate">Chuva %1$s mm/h</string>
-    <string name="title_rain_rate_until">%1$s mm/h até %2$s min</string>
-    <string name="title_rain_rate_soon">%1$s mm/h em %2$s min</string>
     <string name="ring_in">em</string>
     <string name="ring_minutes">min</string>
     <string name="ring_until">até</string>

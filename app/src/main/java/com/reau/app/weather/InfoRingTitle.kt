@@ -34,13 +34,8 @@ data class TitleWords(
     /** The phone's battery level `%1$s` (the `%%` is the percent sign); and the same while it charges. */
     val battery: String = "Battery %1\$s%%",
     val batteryCharging: String = "Charging %1\$s%%",
-    /**
-     * The rain's intensity `%1$s` in mm/h ("4,2"; the decimal sign is the language's), alone; and with the minutes `%2$s` the rain lasts or
-     * is away, which says no "rain" (the unit tells it) to leave room for the minutes. [InfoRingTitle] takes the long one only when it fits.
-     */
+    /** The rain's intensity `%1$s` in mm/h ("4,2"; the decimal sign is the language's), for the rain with no minutes to say. */
     val rainRate: String = "Rain %1\$s mm/h",
-    val rainRateUntil: String = "%1\$s mm/h for %2\$s min",
-    val rainRateSoon: String = "%1\$s mm/h in %2\$s min",
 )
 
 /**
@@ -75,21 +70,17 @@ object InfoRingTitle {
     }
 
     /**
-     * Rain falling now, in the order of what matters: how hard ("Chuva 4,2 mm/h"), and, when the end is known and the longer text fits the
-     * street field, until when too ("4,2 mm/h até 20 min"); with no intensity said, the words as before.
+     * Rain falling now: with the end known, until when ("Chuva até 20 min"), however hard it falls (the minutes first; the intensity is the
+     * info ring's); with no end in sight, how hard ("Chuva 4,2 mm/h"), and with no intensity either, the words as before ("Chovendo agora").
      */
     private fun rainNow(page: RingPage, words: TitleWords): String? {
-        val minutes = if (page.line.size > 1) minutesOf(page) else null
-        val rate = page.rate ?: return minutes?.let { fill(words.rainUntil, it) } ?: words.rainNow
-        return minutes?.let { fill(words.rainRateUntil, rate, it) }?.takeIf { it.length <= MAX_CHARS } ?: fill(words.rainRate, rate)
+        if (page.line.size > 1) return fill(words.rainUntil, minutesOf(page))
+        val rate = page.rate ?: return words.rainNow
+        return fill(words.rainRate, rate)
     }
 
-    /** Rain on the way: in how many minutes ("Chuva em 20 min"), or, when it fits, how hard and in how many ("4,2 mm/h em 20 min"). */
-    private fun rainSoon(page: RingPage, words: TitleWords): String? {
-        val minutes = minutesOf(page)
-        val withRate = page.rate?.let { rate -> minutes?.let { fill(words.rainRateSoon, rate, it) } }?.takeIf { it.length <= MAX_CHARS }
-        return withRate ?: fill(words.rainSoon, minutes)
-    }
+    /** Rain on the way: in how many minutes ("Chuva em 20 min"; "~20" where the forecast is only hourly), however hard it will fall. */
+    private fun rainSoon(page: RingPage, words: TitleWords): String? = fill(words.rainSoon, minutesOf(page))
 
     /** The minutes of a page that counts them: "23", or "~20" where the forecast is only hourly. */
     private fun minutesOf(page: RingPage): String? = page.line.getOrNull(1)?.text

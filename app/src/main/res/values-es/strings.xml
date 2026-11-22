@@ -480,7 +480,7 @@
     <string name="info_ring_data_gps">Señal y rumbo del GPS</string>
     <string name="info_ring_data_temps">Temperaturas (máxima y mínima)</string>
     <string name="info_ring_data_none">No hay nada marcado: el anillo no aparece en el video.</string>
-    <string name="info_ring_data_rain_info">La lluvia que cae ahora (con qué intensidad, en mm/h, y hasta cuándo) o que empieza en la próxima hora (en cuántos minutos y con qué intensidad); cuenta desde 0,1 mm por 15 min, por encima de 7,6 mm/h el ícono es de lluvia fuerte, y la lluvia dentro de 30 min pasa por delante de los demás datos. Fuera de Norteamérica y Europa central el pronóstico es por horas, así que los minutos se redondean a 10 y se marcan con ~. En el título, sin espacio, los minutos ceden ante la intensidad.</string>
+    <string name="info_ring_data_rain_info">La lluvia que cae ahora (con qué intensidad, en mm/h, y hasta cuándo) o que empieza en la próxima hora (en cuántos minutos y con qué intensidad); cuenta desde 0,1 mm por 15 min, por encima de 7,6 mm/h el ícono es de lluvia fuerte, y la lluvia dentro de 30 min pasa por delante de los demás datos. Fuera de Norteamérica y Europa central el pronóstico es por horas, así que los minutos se redondean a 10 y se marcan con ~. En el título: los minutos, cuando se conocen, y la intensidad, cuando no.</string>
     <string name="info_ring_data_wind_info">La ráfaga más fuerte desde ahora hasta 1 hora adelante. Se muestra desde 40 km/h (precaución, amarillo); 55 es alerta (naranja); 70 es peligro (rojo) y pasa por delante de todo.</string>
     <string name="info_ring_data_storm_info">Una tormenta eléctrica ahora o en la próxima hora, según el código de clima del pronóstico. Siempre peligro: el disco se pone rojo y pasa por delante de todo.</string>
     <string name="info_ring_data_uv_info">El índice UV de la hora actual. Se muestra solo desde 6 (alto, naranja); 8 es muy alto (rojo); 11 o más es extremo (violeta).</string>
@@ -517,8 +517,6 @@
     <string name="title_battery">Batería %1$s%%</string>
     <string name="title_battery_charging">Cargando %1$s%%</string>
     <string name="title_rain_rate">Lluvia %1$s mm/h</string>
-    <string name="title_rain_rate_until">%1$s mm/h por %2$s min</string>
-    <string name="title_rain_rate_soon">%1$s mm/h en %2$s min</string>
     <string name="ring_in">en</string>
     <string name="ring_minutes">min</string>
     <string name="ring_until">hasta</string>

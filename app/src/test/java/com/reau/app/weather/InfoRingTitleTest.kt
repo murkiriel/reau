@@ -39,7 +39,7 @@ class InfoRingTitleTest {
         return TitleWords(
             t("rain_now"), t("rain_until"), t("rain_soon"), t("thunder_now"), t("thunder_soon"), t("wind"), t("temps"), t("temps_now"),
             t("uv_high"), t("uv_very_high"), t("uv_extreme"), t("sunset"), t("sunrise"), t("air"), t("battery"), t("battery_charging"),
-            t("rain_rate"), t("rain_rate_until"), t("rain_rate_soon"),
+            t("rain_rate"),
         )
     }
 
@@ -92,19 +92,19 @@ class InfoRingTitleTest {
     // The words, page by page, in the three languages.
 
     @Test
-    fun `rain on the way says in how many minutes, in each language`() {
+    fun `rain on the way says in how many minutes, in each language, whatever its intensity`() {
         val soon = forecast(minutely = dry.map { if (it.timeIso.endsWith("12:45")) q("12:45", 0.4) else it })
-        assertEquals(listOf("1.6 mm/h em 23 min"), said(soon, "values-pt"))
-        assertEquals(listOf("1.6 mm/h in 23 min"), said(soon, "values"))
-        assertEquals(listOf("1.6 mm/h en 23 min"), said(soon, "values-es"))
+        assertEquals(listOf("Chuva em 23 min"), said(soon, "values-pt"))
+        assertEquals(listOf("Rain in 23 min"), said(soon, "values"))
+        assertEquals(listOf("Lluvia en 23 min"), said(soon, "values-es"))
     }
 
     @Test
     fun `rain where the forecast is only hourly says the minutes rounded, with the tilde`() {
         val soon = forecast(minutely = dry.map { if (it.timeIso.endsWith("12:45")) q("12:45", 0.4) else it })
         val hourly = soon.copy(hourly = listOf(HourlyWeather("2026-10-26T12:00", 25.0, 80, null, null)))
-        // With the intensity (0.4 mm in a quarter is 1.6 mm/h; this helper writes the decimal with a point) it is the number first.
-        assertEquals(listOf("1.6 mm/h em ~20 min"), said(hourly, place = roundedPlace))
+        // With the intensity known (0.4 mm in a quarter is 1.6 mm/h) the title still says the minutes, not the intensity.
+        assertEquals(listOf("Chuva em ~20 min"), said(hourly, place = roundedPlace))
     }
 
     @Test
@@ -114,9 +114,9 @@ class InfoRingTitleTest {
         assertEquals(listOf("Rain 1.6 mm/h"), said(endless, "values"))
         assertEquals(listOf("Lluvia 1.6 mm/h"), said(endless, "values-es"))
         val stops = forecast(minutely = dry.map { if (it.timeIso.endsWith("12:00")) q("12:00", 0.4) else it }, current = current(rainMm = 0.4))
-        assertEquals(listOf("1.6 mm/h até 4 min"), said(stops, "values-pt"))
-        assertEquals(listOf("1.6 mm/h for 4 min"), said(stops, "values"))
-        assertEquals(listOf("1.6 mm/h por 4 min"), said(stops, "values-es"))
+        assertEquals(listOf("Chuva até 4 min"), said(stops, "values-pt"))
+        assertEquals(listOf("Rain for 4 min"), said(stops, "values"))
+        assertEquals(listOf("Lluvia por 4 min"), said(stops, "values-es"))
     }
 
     /** The title's pages of [f] in the language of [folder], the intensity written with that language's decimal sign. */
@@ -133,39 +133,45 @@ class InfoRingTitleTest {
     )
 
     @Test
-    fun `rain falling now says how hard, in the three languages, and until when if that fits`() {
+    fun `rain falling now says how hard, in the three languages, and until when if it stops`() {
         val endless = raining(1.05, untilNext = false)
         assertEquals(listOf("Chuva 4,2 mm/h"), saidIn("values-pt", endless))
         assertEquals(listOf("Rain 4.2 mm/h"), saidIn("values", endless))
         assertEquals(listOf("Lluvia 4,2 mm/h"), saidIn("values-es", endless))
         val stops = raining(1.05, untilNext = true)
-        assertEquals(listOf("4,2 mm/h até 4 min"), saidIn("values-pt", stops))
-        assertEquals(listOf("4.2 mm/h for 4 min"), saidIn("values", stops))
-        assertEquals(listOf("4,2 mm/h por 4 min"), saidIn("values-es", stops))
-        // Two digits of mm/h lose the decimal and gain room.
+        assertEquals(listOf("Chuva até 4 min"), saidIn("values-pt", stops))
+        assertEquals(listOf("Rain for 4 min"), saidIn("values", stops))
+        assertEquals(listOf("Lluvia por 4 min"), saidIn("values-es", stops))
+        // Two digits of mm/h lose the decimal and gain room; the minutes never need the intensity's room.
         assertEquals(listOf("Chuva 14 mm/h"), saidIn("values-pt", raining(3.5, untilNext = false)))
-        assertEquals(listOf("14 mm/h até 4 min"), saidIn("values-pt", raining(3.5, untilNext = true)))
+        assertEquals(listOf("Chuva até 4 min"), saidIn("values-pt", raining(3.5, untilNext = true)))
     }
 
     @Test
-    fun `rain only hourly rounds the minutes, and when the long text does not fit the title keeps the intensity`() {
-        // Not real quarters: "até ~10 min" would make 20 characters, one over the street field: the title says how hard and no more.
+    fun `rain only hourly says the minutes rounded, with the tilde, whatever the intensity`() {
         val hourly = raining(1.05, untilNext = true).copy(hourly = listOf(HourlyWeather("2026-10-26T12:00", 25.0, 80, null, null, 4.2)))
-        assertEquals(listOf("Chuva 4,2 mm/h"), saidIn("values-pt", hourly, roundedPlace))
-        assertEquals(listOf("Rain 4.2 mm/h"), saidIn("values", hourly, roundedPlace))
-        assertEquals(listOf("Lluvia 4,2 mm/h"), saidIn("values-es", hourly, roundedPlace))
+        assertEquals(listOf("Chuva até ~10 min"), saidIn("values-pt", hourly, roundedPlace))
+        assertEquals(listOf("Rain for ~10 min"), saidIn("values", hourly, roundedPlace))
+        assertEquals(listOf("Lluvia por ~10 min"), saidIn("values-es", hourly, roundedPlace))
     }
 
     @Test
-    fun `rain on the way says how hard and in how many minutes, where that fits`() {
+    fun `rain on the way says in how many minutes, not how hard, even where the intensity is known`() {
         val soon = forecast(minutely = dry.map { if (it.timeIso.endsWith("12:45")) q("12:45", 1.05) else it })
-        assertEquals(listOf("4,2 mm/h em 23 min"), saidIn("values-pt", soon))
-        assertEquals(listOf("4.2 mm/h in 23 min"), saidIn("values", soon))
-        assertEquals(listOf("4,2 mm/h en 23 min"), saidIn("values-es", soon))
-        // With the minutes rounded ("~20") it is 19 characters: still in.
+        assertEquals(listOf("Chuva em 23 min"), saidIn("values-pt", soon))
+        assertEquals(listOf("Rain in 23 min"), saidIn("values", soon))
+        assertEquals(listOf("Lluvia en 23 min"), saidIn("values-es", soon))
         val hourly = soon.copy(hourly = listOf(HourlyWeather("2026-10-26T12:00", 25.0, 80, null, null, 4.2)))
-        assertEquals(listOf("4,2 mm/h em ~20 min"), saidIn("values-pt", hourly, roundedPlace))
-        assertEquals(listOf("14 mm/h em 23 min"), saidIn("values-pt", forecast(minutely = dry.map { if (it.timeIso.endsWith("12:45")) q("12:45", 3.5) else it })))
+        assertEquals(listOf("Chuva em ~20 min"), saidIn("values-pt", hourly, roundedPlace))
+        assertEquals(listOf("Chuva em 23 min"), saidIn("values-pt", forecast(minutely = dry.map { if (it.timeIso.endsWith("12:45")) q("12:45", 3.5) else it })))
+    }
+
+    @Test
+    fun `a rain page with a rate says the minutes when it has them and the intensity when it does not`() {
+        val w = words("values-pt")
+        assertEquals("Chuva em 23 min", InfoRingTitle.text(page(RingKind.RAIN_SOON, RingIcon.RAIN, RingTone.RAIN, listOf("em", "23", "min"), rate = "4,2"), w))
+        assertEquals("Chuva até 4 min", InfoRingTitle.text(page(RingKind.RAIN_NOW, RingIcon.RAIN, RingTone.RAIN, listOf("até", "4", "min"), rate = "4,2"), w))
+        assertEquals("Chuva 4,2 mm/h", InfoRingTitle.text(page(RingKind.RAIN_NOW, RingIcon.RAIN, RingTone.RAIN, listOf("chovendo"), rate = "4,2"), w))
     }
 
     @Test
@@ -424,7 +430,7 @@ class InfoRingTitleTest {
     @Test
     fun `the templates are all in the three languages and no two say the same in a language`() {
         val names = snake(TitleWords::class.java.declaredFields.filter { !it.isSynthetic && !java.lang.reflect.Modifier.isStatic(it.modifiers) }.map { it.name })
-        assertEquals(19, names.size)
+        assertEquals(17, names.size)
         for ((language, folder) in languages) {
             val s = strings(folder)
             val values = names.map { name -> s["title_$name"] ?: error("$language: no title_$name") }

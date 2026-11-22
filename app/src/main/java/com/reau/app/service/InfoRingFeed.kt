@@ -136,8 +136,6 @@ object InfoRingFeed {
         battery = context.getString(R.string.title_battery),
         batteryCharging = context.getString(R.string.title_battery_charging),
         rainRate = context.getString(R.string.title_rain_rate),
-        rainRateUntil = context.getString(R.string.title_rain_rate_until),
-        rainRateSoon = context.getString(R.string.title_rain_rate_soon),
     )
 
     /**
