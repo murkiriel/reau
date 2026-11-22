@@ -930,6 +930,8 @@
     <string name="action_echo">Cada toque do joystick que faz alguma coisa mostra o nome curto da ação (Próxima música, Voltar, Atender) por 1,5 segundo no título da faixa dourada do painel, onde fica o nome da rua, e depois o título volta. Com um joystick de guidão que não é preciso, você vê no painel o que o toque realmente fez; um toque que não faz nada não mostra nada. Ligada por padrão; a mudança vale na hora.</string>
     <string name="joystick_legend_title">Legenda do joystick no painel</string>
     <string name="joystick_legend_sub">Mostra o que cada direção faz</string>
+    <string name="map_center_opens_music_title">Botão central abre a música</string>
+    <string name="map_center_opens_music_sub">Ao pôr o painel no modo mídia, abre também o app de música no Android Auto.</string>
     <string name="joystick_legend">Quando o painel muda entre o modo mapa e o modo mídia, e no primeiro toque da projeção, um cartão pequeno mostra por 3 segundos, no meio da imagem, o que cada direção do joystick faz naquele modo, conforme a página do joystick. O painel não diz em que modo está, então o REau descobre pelo toque e o cartão vem no primeiro toque do modo novo; ele não aparece durante uma ligação. Desligada por padrão; a mudança vale na hora.</string>
 
     <!-- The tips page ("Dicas"), opened by the lightbulb of the main screen's bar; one title and one text for each tip of Tips.ALL. -->
