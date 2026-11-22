@@ -714,7 +714,11 @@ internal class LiveSides(
         val send: (List<AaCommand>) -> Unit = { commands ->
             commands.forEach { command ->
                 when (command) {
-                    AaCommand.AnswerCall, AaCommand.EndCall -> callByKeys(command, receiver, setup.calls)
+                    AaCommand.AnswerCall, AaCommand.EndCall -> {
+                        // The tap that ends a ringing call declines it: that is no missed call for the card.
+                        if (command == AaCommand.EndCall) callCard.declinedByRider()
+                        callByKeys(command, receiver, setup.calls)
+                    }
                     is AaCommand.CallVolume -> setup.calls.volume(command.step)
                     is AaCommand.PanelZoom -> panelZoom(command.step)
                     AaCommand.PanelZoomUndo -> panelZoomUndo()

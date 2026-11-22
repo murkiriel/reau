@@ -17,7 +17,7 @@ import com.reau.app.dash.CallSpan
 
 /**
  * The call card drawn as a picture for the compositor to lay at the top of the dash's video ([CallCardLayout] has the numbers): a dark pill at 92% with a 2 px
- * border, a handset, a small line of hints in the joystick's colours and the name in bold white below it, all green (grey when the call is over). The arrows and the dot
+ * border, a handset, a small line of hints in the joystick's colours and the name in bold white below it, all green (grey when the call is over, and "Missed call" in red for a call that went unanswered). The arrows and the dot
  * of the hints are shapes, not characters, so no font has to have them. Plain colours and big shapes, as the dash gets the video as H.264 at a few frames a second.
  * Drawn when the call changes and once a second on a call, not at each frame.
  */
@@ -36,7 +36,7 @@ object CallCardInk {
     private fun colorOf(role: CallRole): Int = when (role) {
         CallRole.HINT -> HINT
         CallRole.ANSWER -> GREEN
-        CallRole.DECLINE, CallRole.END -> RED
+        CallRole.DECLINE, CallRole.END, CallRole.MISSED -> RED
     }
 
     fun render(notice: CallNotice): Bitmap {
@@ -105,7 +105,7 @@ object CallCardInk {
             CallRole.ANSWER -> canvas.drawPath(triangle(PointF(x + size, middle - half), PointF(x, middle), PointF(x + size, middle + half)), paint)
             CallRole.DECLINE -> canvas.drawPath(triangle(PointF(x, middle - half), PointF(x + size, middle), PointF(x, middle + half)), paint)
             CallRole.END -> canvas.drawCircle(x + size / 2f, middle, size / 2f, paint)
-            CallRole.HINT -> Unit
+            CallRole.HINT, CallRole.MISSED -> Unit
         }
     }
 

@@ -92,9 +92,18 @@ class CallCardIsWiredTest {
     }
 
     @Test
+    fun `the joystick's end of a ringing call tells the card the rider declined it, so it is no missed call`() {
+        val send = live.between("AaCommand.AnswerCall, AaCommand.EndCall -> {", "is AaCommand.CallVolume")
+        assertTrue(send, "if (command == AaCommand.EndCall) callCard.declinedByRider()" in send)
+        assertTrue("told before the keys go", send.indexOf("callCard.declinedByRider()") < send.indexOf("callByKeys(command, receiver, setup.calls)"))
+        assertTrue(feed, "fun declinedByRider() = tracker.onDeclined()" in feed)
+    }
+
+    @Test
     fun `the log never says a name or a number of a call`() {
         assertFalse("the feed's log calls say only the phase", feed.contains("log(\"") || feed.contains("caller.name}"))
         assertTrue(feed.contains("log(CallCards.logLine(it))"))
         assertTrue(File(main, "dash/CallCards.kt").readText().contains("\"call card: ended after \${clock(card.seconds)}\""))
+        assertTrue(File(main, "dash/CallCards.kt").readText().contains("\"call card: missed\""))
     }
 }

@@ -945,6 +945,7 @@
     <string name="call_card_end">Encerrar</string>
     <string name="call_card_calling">Chamando…</string>
     <string name="call_card_ended">Encerrada · %1$s</string>
+    <string name="call_card_missed">Chamada perdida</string>
     <string name="echo_media_mode">Modo mídia</string>
     <string name="action_echo_title">Nome da ação no painel</string>
     <string name="action_echo_sub">Mostra o que cada toque do joystick fez</string>

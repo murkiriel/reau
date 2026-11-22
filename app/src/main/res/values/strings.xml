@@ -956,6 +956,7 @@
     <string name="call_card_end">End</string>
     <string name="call_card_calling">Calling…</string>
     <string name="call_card_ended">Ended · %1$s</string>
+    <string name="call_card_missed">Missed call</string>
     <string name="echo_media_mode">Media mode</string>
     <string name="action_echo_title">Action name on the dash</string>
     <string name="action_echo_sub">Shows what each joystick tap did</string>

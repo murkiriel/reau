@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
  * REau's own call card ([CallCards]) between Android Auto's word of the calls and the compositor. The [tracker] follows the call whatever the switch says, so a switch
  * turned on in the middle of a call shows the card with the time already run; [on] only decides whether the card is given to [show] (the compositor draws it) and whether
  * the phase goes to the log. The card is given again at each change of the call and, while a call goes on or has just ended, at each next change by itself
- * ([CallCards.Tracker.nextTickMs]: each whole second, the end of the grey card). [words] is asked at each drawing, so the language is the one of the moment; [log]
+ * ([CallCards.Tracker.nextTickMs]: each whole second, the end of the grey card, 2 s after a call or 5 s after a missed one). [words] is asked at each drawing, so the language is the one of the moment; [log]
  * gets the ride log's lines (no name, no number).
  */
 internal class CallCardFeed(
@@ -33,6 +33,12 @@ internal class CallCardFeed(
         if (changed && on) tracker.current()?.let { log(CallCards.logLine(it)) }
         refresh()
     }
+
+    /**
+     * The rider declined the ringing call with the joystick: its end is no missed call ([CallCards.Tracker.onDeclined]). Told before the call ends, so it is not
+     * given to [show] or the log.
+     */
+    fun declinedByRider() = tracker.onDeclined()
 
     /** The switch: false when it was already so; turned on in the middle of a call the card shows at once and says its phase, turned off it is taken away. */
     fun switch(wanted: Boolean): Boolean {

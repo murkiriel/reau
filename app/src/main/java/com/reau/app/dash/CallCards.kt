@@ -2,8 +2,11 @@ package com.reau.app.dash
 
 import com.reau.app.util.MonotonicClock
 
-/** Where the call is, for the call card: ringing, being dialled by the rider, going on, or over a moment ago (the card stays 2 s, grey). */
-enum class CallPhase { RINGING, DIALING, IN_CALL, ENDED }
+/**
+ * Where the call is, for the call card: ringing, being dialled by the rider, going on, over a moment ago after it was answered (the card stays 2 s, grey), or missed
+ * (it rang and ended unanswered: the card stays 5 s, grey, with "Missed call" in red).
+ */
+enum class CallPhase { RINGING, DIALING, IN_CALL, ENDED, MISSED }
 
 /**
  * What the call card is about now: the [phase], the [name] (the contact's, or the number, or the word for a private number: the text the dash's own call card used to say)
@@ -11,16 +14,17 @@ enum class CallPhase { RINGING, DIALING, IN_CALL, ENDED }
  */
 data class CallCard(val phase: CallPhase, val name: String, val seconds: Long = 0)
 
-/** What a piece of the card's small line is: a plain hint, the answer's (green), the decline's (red) or the end's (red). */
-enum class CallRole { HINT, ANSWER, DECLINE, END }
+/** What a piece of the card's small line is: a plain hint, the answer's (green), the decline's (red), the end's (red) or the missed call's (red, with no shape). */
+enum class CallRole { HINT, ANSWER, DECLINE, END, MISSED }
 
-/** A piece of the small line, in one colour. An [CallRole.ANSWER] is drawn with a left triangle before it, a [CallRole.DECLINE] with a right one after it, an [CallRole.END] with a dot before it. */
+/** A piece of the small line, in one colour. An [CallRole.ANSWER] is drawn with a left triangle before it, a [CallRole.DECLINE] with a right one after it, an [CallRole.END] with a dot before it; a [CallRole.MISSED] has no shape. */
 data class CallSpan(val text: String, val role: CallRole)
 
 /**
- * The words of the small line, in the rider's language: [answer] and [decline] are one word each, [onCall] and [ended] take the time ("01:42"), [end] and [calling] stand alone.
+ * The words of the small line, in the rider's language: [answer] and [decline] are one word each, [onCall] and [ended] take the time ("01:42"), [end], [calling] and [missed] stand alone.
  * The Android side builds it from the resources ([ActionEchoText.callWords]); a test builds it by hand.
  */
+@Suppress("LongParameterList") // one word of the small line each, as the resources give them
 class CallWords(
     val answer: String,
     val decline: String,
@@ -28,6 +32,7 @@ class CallWords(
     val end: String,
     val calling: String,
     val ended: (String) -> String,
+    val missed: String,
 )
 
 /** What the compositor draws: the [card] (with the name) and the pieces of its small line. The same notice again is not drawn again. */
@@ -38,8 +43,11 @@ data class CallNotice(val card: CallCard, val spans: List<CallSpan>)
  * ([com.reau.app.video.CallCardInk]) for the whole call, in the place of the dash's own call screen: who calls (or the one called), the joystick's hints, the time of the call.
  */
 object CallCards {
-    /** How long the card stays, grey, after the call ends. */
+    /** How long the card stays, grey, after a call that was answered ends. */
     const val END_SHOW_MS = 2_000L
+
+    /** How long the card stays, grey, with "Missed call", after a call that rang and ended unanswered. */
+    const val MISSED_SHOW_MS = 5_000L
 
     private const val SECOND_MS = 1_000L
     private const val SECONDS_IN_HOUR = 3_600L
@@ -63,22 +71,23 @@ object CallCards {
         CallPhase.IN_CALL -> listOf(CallSpan(words.onCall(clock(card.seconds)) + SEPARATOR, CallRole.HINT), CallSpan(words.end, CallRole.END))
         CallPhase.DIALING -> listOf(CallSpan(words.calling, CallRole.HINT))
         CallPhase.ENDED -> listOf(CallSpan(words.ended(clock(card.seconds)), CallRole.HINT))
+        CallPhase.MISSED -> listOf(CallSpan(words.missed, CallRole.MISSED))
     }
 
     fun notice(card: CallCard, words: CallWords): CallNotice = CallNotice(card, spans(card, words))
 
-    /** The small line as plain text, with the marks the card draws as shapes: "◀ Answer · Decline ▶", "On call 01:42 · ● End". */
+    /** The small line as plain text, with the marks the card draws as shapes: "◀ Answer · Decline ▶", "On call 01:42 · ● End", "Missed call". */
     fun plain(spans: List<CallSpan>): String = spans.joinToString("") {
         when (it.role) {
             CallRole.ANSWER -> "◀ ${it.text}"
             CallRole.DECLINE -> "${it.text} ▶"
             CallRole.END -> "● ${it.text}"
-            CallRole.HINT -> it.text
+            CallRole.HINT, CallRole.MISSED -> it.text
         }
     }
 
-    /** Whether the card is the grey one of a call that is over. */
-    fun isOver(card: CallCard): Boolean = card.phase == CallPhase.ENDED
+    /** Whether the card is the grey one of a call that is over (ended after it was answered, or missed). */
+    fun isOver(card: CallCard): Boolean = card.phase == CallPhase.ENDED || card.phase == CallPhase.MISSED
 
     /** The ride log's line when the card takes this phase: no name, no number. */
     fun logLine(card: CallCard): String = when (card.phase) {
@@ -86,12 +95,15 @@ object CallCards {
         CallPhase.DIALING -> "call card: calling"
         CallPhase.IN_CALL -> "call card: in call"
         CallPhase.ENDED -> "call card: ended after ${clock(card.seconds)}"
+        CallPhase.MISSED -> "call card: missed"
     }
 
     /**
      * The call as the card follows it, from what Android Auto says of the calls ([onCall]: one rings, is dialled or goes on; [onNoCall]: none). What shows now is [current]
-     * (a call over stays [END_SHOW_MS]); [nextTickMs] says when it changes by itself (each second of a call on, the end of the grey card). A call that rang and was not
-     * answered, or was declined, leaves no card at all. The clock is a parameter, so a test moves it by hand.
+     * (a call over stays [END_SHOW_MS]); [nextTickMs] says when it changes by itself (each second of a call on, the end of the grey card). A call that rang and ended
+     * unanswered stays [MISSED_SHOW_MS] as a "Missed call" card (a new call ringing in the meantime takes its place at once); a call the rider dialled that was not answered, and one
+     * the rider declined with the joystick ([onDeclined]), leave no card at all. A decline made on the phone itself looks like any call that ended unanswered, so it shows as missed.
+     * The clock is a parameter, so a test moves it by hand.
      */
     class Tracker(private val nowMs: () -> Long = MonotonicClock::nowMs) {
         private var phase: CallPhase? = null
@@ -99,6 +111,7 @@ object CallCards {
         private var answeredAtMs: Long? = null
         private var endedAtMs = 0L
         private var endedSeconds = 0L
+        private var declined = false
 
         /**
          * A call rings ([inCall] false), is dialled by the rider ([dialing]) or goes on ([inCall]), under [name]. True when the phase changed (for the log); the same again, or a
@@ -119,21 +132,36 @@ object CallCards {
             return changed
         }
 
-        /** No call any more: one that was answered stays as the grey card for [END_SHOW_MS]; one that never was leaves nothing. True when the card changed. */
+        /**
+         * The rider declined the ringing call with the joystick (REau sent the decline): when it ends, it leaves no card, as it is not a missed call. Nothing when no call rings.
+         * A decline on the phone itself cannot be told from a call that ended by itself.
+         */
+        @Synchronized
+        fun onDeclined() {
+            if (phase == CallPhase.RINGING) declined = true
+        }
+
+        /**
+         * No call any more: one that was answered stays as the grey card for [END_SHOW_MS]; one that rang and was not answered stays for [MISSED_SHOW_MS] as a missed call,
+         * unless the rider declined it ([onDeclined]); a call the rider dialled that was not answered leaves nothing. True when the card changed.
+         */
         @Synchronized
         fun onNoCall(): Boolean {
             val now = nowMs()
-            val changed = phase != null && phase != CallPhase.ENDED
+            val changed = phase != null && phase != CallPhase.ENDED && phase != CallPhase.MISSED
             if (changed) {
                 val answered = answeredAtMs
                 if (answered == null) {
-                    phase = null
+                    val missed = phase == CallPhase.RINGING && !declined
+                    endedAtMs = now
+                    phase = if (missed) CallPhase.MISSED else null
                 } else {
                     endedSeconds = (now - answered).coerceAtLeast(0L) / SECOND_MS
                     endedAtMs = now
                     answeredAtMs = null
                     phase = CallPhase.ENDED
                 }
+                declined = false
             }
             return changed
         }
@@ -143,6 +171,7 @@ object CallCards {
         fun reset() {
             phase = null
             answeredAtMs = null
+            declined = false
         }
 
         /** What the card shows now, or null for none. */
@@ -152,18 +181,20 @@ object CallCards {
             return when (val p = phase) {
                 null -> null
                 CallPhase.ENDED -> if (now - endedAtMs < END_SHOW_MS) CallCard(CallPhase.ENDED, name, endedSeconds) else null
+                CallPhase.MISSED -> if (now - endedAtMs < MISSED_SHOW_MS) CallCard(CallPhase.MISSED, name) else null
                 CallPhase.IN_CALL -> CallCard(CallPhase.IN_CALL, name, (now - (answeredAtMs ?: now)).coerceAtLeast(0L) / SECOND_MS)
                 CallPhase.RINGING, CallPhase.DIALING -> CallCard(p, name)
             }
         }
 
-        /** In how long [current] changes by itself, or null when it does not (ringing, dialling, no card): the next whole second of a call on, the end of the grey card. */
+        /** In how long [current] changes by itself, or null when it does not (ringing, dialling, no card): the next whole second of a call on, the end of the grey card (2 s, or 5 s for a missed call). */
         @Synchronized
         fun nextTickMs(): Long? {
             val now = nowMs()
             return when (phase) {
                 CallPhase.IN_CALL -> SECOND_MS - (now - (answeredAtMs ?: now)).coerceAtLeast(0L) % SECOND_MS
                 CallPhase.ENDED -> (endedAtMs + END_SHOW_MS - now).takeIf { it > 0L }
+                CallPhase.MISSED -> (endedAtMs + MISSED_SHOW_MS - now).takeIf { it > 0L }
                 else -> null
             }
         }

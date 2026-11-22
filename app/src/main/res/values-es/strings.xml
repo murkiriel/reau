@@ -946,6 +946,7 @@
     <string name="call_card_end">Colgar</string>
     <string name="call_card_calling">Llamando…</string>
     <string name="call_card_ended">Finalizada · %1$s</string>
+    <string name="call_card_missed">Llamada perdida</string>
     <string name="echo_media_mode">Modo multimedia</string>
     <string name="action_echo_title">Nombre de la acción en el tablero</string>
     <string name="action_echo_sub">Muestra qué hizo cada toque del joystick</string>

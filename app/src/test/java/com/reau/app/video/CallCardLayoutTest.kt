@@ -147,5 +147,7 @@ class CallCardLayoutTest {
         assertEquals(12f, shape, 0f)
         assertTrue(CallCardLayout.hasMark(CallRole.ANSWER) && CallCardLayout.hasMark(CallRole.DECLINE) && CallCardLayout.hasMark(CallRole.END))
         assertFalse(CallCardLayout.hasMark(CallRole.HINT))
+        assertFalse("the missed call's words have no shape", CallCardLayout.hasMark(CallRole.MISSED))
+        assertEquals(7f * 15, CallCardLayout.lineWidth(listOf(CallSpan("Chamada perdida", CallRole.MISSED)), each), 0f)
     }
 }

@@ -31,6 +31,7 @@ object ActionEchoText {
         end = context.getString(R.string.call_card_end),
         calling = context.getString(R.string.call_card_calling),
         ended = { time -> context.getString(R.string.call_card_ended, time) },
+        missed = context.getString(R.string.call_card_missed),
     )
 
     /** What the title says after a volume tap: the level now out of the stream's most ("Volume 12/30"; "Call 5/7" on a call's stream). Not an [EchoLabel]: it has numbers. */

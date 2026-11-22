@@ -48,8 +48,8 @@ object CallCardLayout {
     const val MARK_W = 8f
     const val MARK_GAP = 4f
 
-    /** Whether [role]'s piece carries a shape (a triangle before the answer, a triangle after the decline, a dot before the end). */
-    fun hasMark(role: CallRole): Boolean = role != CallRole.HINT
+    /** Whether [role]'s piece carries a shape (a triangle before the answer, a triangle after the decline, a dot before the end; the hint and the missed call's words have none). */
+    fun hasMark(role: CallRole): Boolean = role != CallRole.HINT && role != CallRole.MISSED
 
     /** The width of the small line made of [spans]: the words ([measure] gives a piece's width at the line's letters) and the shapes with their gaps. */
     fun lineWidth(spans: List<CallSpan>, measure: (String) -> Float): Float =
