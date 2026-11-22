@@ -62,6 +62,8 @@ class RainAmountTest {
             assertFalse("$folder: no rain rate title", text.contains("title_rain_rate"))
             val info = Regex("""<string name="info_ring_data_rain_info">(.*)</string>""").find(text)!!.groupValues[1]
             assertFalse("$folder: the help says no intensity", listOf("how hard", "intensid", "intensity").any { info.contains(it) })
+            // 22/11/2026: the help no longer quotes the 7.6 mm/h of the heavy-rain icon either; the dash never shows mm/h.
+            assertFalse("$folder: the help says no mm/h", info.contains("mm/h"))
         }
     }
 

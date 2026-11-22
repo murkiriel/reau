@@ -85,12 +85,21 @@ jobs:
           path: app/build/reports/jacoco/
           retention-days: 30
 
+      - name: Guardar o relatório da verificação de dependências se algo falhou
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: verificacao-dependencias-cobertura
+          path: build/reports/dependency-verification/
+          if-no-files-found: ignore
+          retention-days: 14
+
   mutacao:
     name: Teste de mutação (fatia ${{ matrix.fatia }} de 24)
     runs-on: ubuntu-24.04
-    # 2 328 mutações em 22/11/2026 (python3 scripts/dev/mutacoes.py --lista conta), cada uma um Gradle de testes. Com o daemon ligado e o código já compilado
-    # cada uma leva de 10 a 60 s; uma fatia de um vinte e quatro avos (97: 2 328 / 24 = 97) leva de 16 a 97 min no pior caso, dentro do limite de 120, com
-    # 23 min de folga para a partida (com vinte e duas fatias, de 101 ou 102, o pior caso seria de 102 min; com vinte e uma, de 106 ou 107, de 107 min; com dez, de 224,
+    # 2 329 mutações em 22/11/2026 (python3 scripts/dev/mutacoes.py --lista conta), cada uma um Gradle de testes. Com o daemon ligado e o código já compilado
+    # cada uma leva de 10 a 60 s; uma fatia de um vinte e quatro avos (97 ou 98: 2 329 / 24 = 97,0) leva de 16 a 98 min no pior caso, dentro do limite de 120, com
+    # 22 min de folga para a partida (com vinte e duas fatias, de 101 ou 102, o pior caso seria de 102 min; com vinte e uma, de 106 ou 107, de 107 min; com dez, de 224,
     # passaria). A folga acaba perto de 2 880 mutações (24 fatias de 120).
     # Medir a cada execução e ajustar o número de fatias se a lista crescer (o script aceita qualquer N; mudar o 24 aqui, na matriz, na linha do script e no resumo).
     # (mutacao-mensal.yml roda uma fatia de doze por mês, como rede mais leve.)
@@ -137,5 +146,10 @@ jobs:
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: mutacoes-${{ matrix.fatia }}
-          path: mutacoes.log
+          # Com o log, o relatório da verificação de dependências do Gradle, quando ela recusa um arquivo baixado (o .pom do
+          # plugin kover, quatro vezes em 22/11/2026): diz qual arquivo chegou e de onde.
+          path: |
+            mutacoes.log
+            build/reports/dependency-verification/
+          if-no-files-found: ignore
           retention-days: 30

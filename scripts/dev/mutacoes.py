@@ -351,6 +351,8 @@ MUTATIONS = [
      "The rain falling now (and until when) or", "The rain falling now (how hard, and until when) or", ["RainAmountTest"]),
     ("Chuva sem mm/h: a ajuda do anel volta a falar da intensidade da chuva em espanhol", "app/src/main/res/values-es/strings.xml",
      "La lluvia que cae ahora (y hasta cuándo) o", "La lluvia que cae ahora (con qué intensidad y hasta cuándo) o", ["RainAmountTest"]),
+    ("Chuva sem mm/h: a ajuda do anel volta a citar os 7,6 mm/h do ícone de chuva forte", "app/src/main/res/values-pt/strings.xml",
+     "conta a partir de 0,1 mm por 15 min. Chuva", "conta a partir de 0,1 mm por 15 min, e acima de 7,6 mm/h o ícone é de chuva forte. Chuva", ["RainAmountTest"]),
     ("SettingsInUse: o anel de informações some do registro", MAIN + "settings/SettingsInUse.kt",
      '"dashWeather", "infoRing", "infoRingData"', '"dashWeather", "infoRingData"', ["SettingsInUseTest"]),
 
