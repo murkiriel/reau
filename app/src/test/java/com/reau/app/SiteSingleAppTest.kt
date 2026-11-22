@@ -10,7 +10,7 @@ import org.junit.Test
  * The site describes the app of today, which is one app (`com.reau.app`): no Lite or Full edition to choose, no step that turns on an
  * Accessibility service, no "Try again" button (the owner's decision of 15/11/2026, in the three languages). What may still be said is
  * history that is true and useful, and each such phrase is in [allowed]: the migration note for whoever has the old Lite installed, and the
- * note that the videos were recorded with the old Full edition. A page that says anything else about them fails here.
+ * statements that the Accessibility service is gone (and that the last two videos still show its step). A page that says anything else about them fails here.
  *
  * The videos and the screenshots are from before the single app (the owner chose to change only the text), so each old picture says so, and
  * each video has its subtitles in Portuguese, English and Spanish, with the same warning in the first 3 seconds. Read from the files, as
@@ -38,9 +38,9 @@ class SiteSingleAppTest {
 
     /** The only phrases that may carry one of the forbidden words: history, never a step of today. */
     private val allowed: Map<String, List<String>> = mapOf(
-        "pt" to listOf("antiga REau Lite", "Lite antiga", "a Lite tinha o pacote", "antiga edição Completa"),
-        "en" to listOf("old REau Lite", "old Lite", "the Lite had the package", "old Full edition"),
-        "es" to listOf("antigua REau Lite", "Lite antigua", "la Lite tenía el paquete", "antigua edición Completa"),
+        "pt" to listOf("antiga REau Lite", "Lite antiga", "a Lite tinha o pacote", "serviço de acessibilidade que as versões anteriores usavam", "configurações de Acessibilidade do Android", "o passo da Acessibilidade"),
+        "en" to listOf("old REau Lite", "old Lite", "the Lite had the package", "accessibility service that earlier versions used", "Android’s Accessibility settings", "the Accessibility step"),
+        "es" to listOf("antigua REau Lite", "Lite antigua", "la Lite tenía el paquete", "servicio de accesibilidad que usaban las versiones anteriores", "ajustes de Accesibilidad de Android", "el paso de Accesibilidad"),
     )
 
     /** What the pages say next to a picture or a video of an earlier version of the app. */
@@ -144,15 +144,15 @@ class SiteSingleAppTest {
     fun `the old pictures and the videos say they are from an earlier version, in the page's own language`() {
         for (language in languages) {
             val notice = pictureNotice.getValue(language)
-            for ((page, count) in listOf("faq.html" to 9, "install.html" to 4)) {
+            for ((page, count) in listOf("faq.html" to 3, "install.html" to 4)) {
                 val html = File(docs, "$language/$page").readText()
                 val said = Regex("""class="old">\s*([^<]*)<""").findAll(html).map { it.groupValues[1].trim() }.toList()
                 assertEquals("$language/$page: how many notices", count, said.size)
                 assertEquals("$language/$page: the words", List(count) { notice }, said)
             }
             val faq = File(docs, "$language/faq.html").readText()
-            val figure = Regex("""lite_warn\.jpg.*?</figure>""", RegexOption.DOT_MATCHES_ALL).find(faq)?.value ?: error("$language: no lite_warn figure")
-            assertTrue("$language: the picture of the old warning carries the notice", notice in figure)
+            val figure = Regex("""streaming\.jpg.*?</figure>""", RegexOption.DOT_MATCHES_ALL).find(faq)?.value ?: error("$language: no streaming figure")
+            assertTrue("$language: the picture of the old main screen carries the notice", notice in figure)
         }
     }
 }
