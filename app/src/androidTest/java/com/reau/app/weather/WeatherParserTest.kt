@@ -14,9 +14,9 @@ class WeatherParserTest {
           "precipitation":0.2,"weather_code":61,"wind_speed_10m":12.4,"wind_direction_10m":200,"wind_gusts_10m":30.2,
           "surface_pressure":1009.5,"cloud_cover":80,"is_day":1},
          "hourly":{"time":["2030-01-15T15:00","2030-01-15T16:00","2030-01-15T17:00"],
-          "temperature_2m":[23.6,22.9,null],"precipitation_probability":[40,60,70],"weather_code":[61,63,63],"uv_index":[5.1,3.2,1.0]},
+          "temperature_2m":[23.6,22.9,null],"precipitation_probability":[40,60,70],"precipitation":[0.4,12.5,3.0],"weather_code":[61,63,63],"uv_index":[5.1,3.2,1.0]},
          "daily":{"time":["2030-01-15","2030-01-16"],"temperature_2m_max":[27.0,29.5],"temperature_2m_min":[18.0,null],
-          "precipitation_probability_max":[70,10],"uv_index_max":[8.0,9.0],"sunrise":["2030-01-15T06:12","2030-01-16T06:13"],
+          "precipitation_probability_max":[70,10],"precipitation_sum":[18.6,null],"uv_index_max":[8.0,9.0],"sunrise":["2030-01-15T06:12","2030-01-16T06:13"],
           "sunset":["2030-01-15T18:47","2030-01-16T18:48"],"daylight_duration":[44400.0,44460.0],
           "wind_speed_10m_max":[20.0,15.0],"wind_gusts_10m_max":[40.0,30.0],"weather_code":[63,1]}}
     """.trimIndent()
@@ -39,6 +39,32 @@ class WeatherParserTest {
         assertEquals(listOf("2030-01-15"), forecast.daily.map { it.dateIso })
         assertEquals(70, forecast.daily.single().precipitationProbabilityMaxPercent)
         assertEquals("2030-01-15T06:12", forecast.daily.single().sunriseIso)
+    }
+
+    @Test
+    fun theRainOfEachHourAndOfEachDayIsRead() {
+        val forecast = WeatherParser.parse(answer)
+        assertEquals(0.4, forecast.hourly[0].precipitationMm!!, 0.001)
+        assertEquals(12.5, forecast.hourly[1].precipitationMm!!, 0.001)
+        assertEquals(18.6, forecast.daily.single().precipitationSumMm!!, 0.001)
+    }
+
+    @Test
+    fun aKeptAnswerWithNoRainFieldsReadsAsNullAndNothingBreaks() {
+        val old = answer.replace("\"precipitation\":[0.4,12.5,3.0],", "").replace("\"precipitation_sum\":[18.6,null],", "")
+        val forecast = WeatherParser.parse(old)
+        assertEquals(2, forecast.hourly.size)
+        assertNull(forecast.hourly[0].precipitationMm)
+        assertNull(forecast.daily.single().precipitationSumMm)
+    }
+
+    @Test
+    fun aRainValueThatIsNullOrNotANumberIsNull() {
+        val broken = answer.replace("\"precipitation\":[0.4,12.5,3.0],", "\"precipitation\":[null,\"x\",3.0],").replace("\"precipitation_sum\":[18.6,null],", "\"precipitation_sum\":[\"NaN\",null],")
+        val forecast = WeatherParser.parse(broken)
+        assertNull(forecast.hourly[0].precipitationMm)
+        assertNull(forecast.hourly[1].precipitationMm)
+        assertNull(forecast.daily.single().precipitationSumMm)
     }
 
     @Test

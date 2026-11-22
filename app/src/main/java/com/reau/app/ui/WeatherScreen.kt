@@ -2,7 +2,19 @@
 package com.reau.app.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import com.reau.app.ui.components.WeatherGlyphLayer
+import com.reau.app.ui.components.weatherGlyphColor
+import com.reau.app.ui.theme.LocalREauStatus
+import com.reau.app.weather.RainAmount
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -233,13 +245,27 @@ private fun NowGroup(now: CurrentWeather, u: WeatherUnits) {
     ), tag = "group_weather_now")
 }
 
-/** One line of the hours and of the days: [label] at the left, the icon, the chance of rain, the temperature(s). */
+/**
+ * One line of the hours and of the days: [label] at the left, the icon, the chance of rain, the temperature(s). With rain in the forecast
+ * ([rainMm] at least [RainAmount.MIN_MM]) a thin ruler runs under it, full at [rainFullMm]; a line with no rain is just the row.
+ */
 @Composable
-private fun ForecastLine(label: String, code: Int?, rain: Int?, first: String, second: String?, tag: String) {
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).semantics(mergeDescendants = true) {}.testTag(tag),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+private fun ForecastLine(
+    label: String, code: Int?, rain: Int?, first: String, second: String?, tag: String,
+    rainMm: Double? = null, rainFullMm: Double = RainAmount.HOUR_FULL_MM,
+) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).semantics(mergeDescendants = true) {}.testTag(tag)) {
+        ForecastRow(label, code, rain, first, second)
+        if (RainAmount.isRain(rainMm)) {
+            Spacer(Modifier.height(RAIN_BAR_GAP))
+            RainRuler(checkNotNull(rainMm), rainFullMm, "${tag}_rain")
+        }
+    }
+}
+
+@Composable
+private fun ForecastRow(label: String, code: Int?, rain: Int?, first: String, second: String?) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(
             label,
             style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface,
@@ -267,6 +293,36 @@ private fun ForecastLine(label: String, code: Int?, rain: Int?, first: String, s
     }
 }
 
+private val RAIN_BAR_HEIGHT = 6.dp
+private val RAIN_BAR_GAP = 8.dp
+
+/**
+ * The rain of a line as a ruler: a rounded track with the fill in the rain blue of the icons, [RainAmount.fill] of the way, and the amount ("2,4 mm") in small light-blue text at its end.
+ * A screen reader says the amount in words ("2,4 milímetros de chuva") instead of the written one, as part of the line it belongs to.
+ */
+@Composable
+private fun RainRuler(mm: Double, fullMm: Double, tag: String) {
+    val amount = RainAmount.number(mm, displayLocale()) ?: return
+    val described = stringResource(R.string.weather_rain_amount_cd, amount)
+    Row(
+        Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = described }.testTag(tag),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val shape = RoundedCornerShape(RAIN_BAR_HEIGHT / 2)
+        Box(Modifier.weight(1f).height(RAIN_BAR_HEIGHT).clip(shape).background(MaterialTheme.colorScheme.outlineVariant)) {
+            Box(
+                Modifier.fillMaxWidth(RainAmount.fill(mm, fullMm).coerceAtLeast(MIN_RAIN_FILL)).fillMaxHeight().clip(shape)
+                    .background(Color(weatherGlyphColor(WeatherGlyphLayer.RAIN))),
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        Text("$amount mm", style = MaterialTheme.typography.labelSmall, color = LocalREauStatus.current.infoText, maxLines = 1, softWrap = false)
+    }
+}
+
+/** The fill of a ruler is never thinner than this part of it, so the least rain is still seen as a dot of blue. */
+private const val MIN_RAIN_FILL = 0.03f
+
 /** The next [HOURS_SHOWN] hours from this one on, one under another (the times are the place's own). */
 @Composable
 private fun HoursGroup(hourly: List<HourlyWeather>, u: WeatherUnits) {
@@ -277,7 +333,7 @@ private fun HoursGroup(hourly: List<HourlyWeather>, u: WeatherUnits) {
         val row: @Composable () -> Unit = {
             ForecastLine(
                 h.timeIso.substringAfter('T').take(5), h.weatherCode, h.precipitationProbabilityPercent, u.temp(h.temperatureC), null,
-                "weather_hour_$i",
+                "weather_hour_$i", h.precipitationMm, RainAmount.HOUR_FULL_MM,
             )
         }
         row
@@ -297,7 +353,10 @@ private fun DaysGroup(daily: List<DailyWeather>, u: WeatherUnits) {
                 val weekday = it.dayOfWeek.getDisplayName(TextStyle.SHORT, locale).replaceFirstChar { c -> c.uppercase(locale) }
                 "%s %02d/%02d".format(weekday, it.dayOfMonth, it.monthValue)
             } ?: d.dateIso
-            ForecastLine(head, d.weatherCode, d.precipitationProbabilityMaxPercent, u.temp(d.tempMaxC), u.temp(d.tempMinC), "weather_day_$i")
+            ForecastLine(
+                head, d.weatherCode, d.precipitationProbabilityMaxPercent, u.temp(d.tempMaxC), u.temp(d.tempMinC), "weather_day_$i",
+                d.precipitationSumMm, RainAmount.DAY_FULL_MM,
+            )
         }
         row
     }, tag = "group_weather_days")

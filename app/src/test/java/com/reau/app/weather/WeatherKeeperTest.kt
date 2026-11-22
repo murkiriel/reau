@@ -83,6 +83,9 @@ class WeatherKeeperTest {
         for (field in listOf("temperature_2m", "wind_gusts_10m", "surface_pressure", "uv_index", "sunrise", "forecast_days=14", "timezone=auto")) {
             assertTrue("$field in $url", url.contains(field))
         }
+        // The rain of each hour (mm) and of each day (mm).
+        assertTrue(url, url.contains("hourly=temperature_2m,precipitation_probability,precipitation,weather_code,uv_index&"))
+        assertTrue(url, url.contains("precipitation_probability_max,precipitation_sum,uv_index_max"))
         // The next two hours in quarters (the one now and seven more), for the dash's info ring.
         assertTrue(url, url.contains("minutely_15=precipitation,weather_code,wind_gusts_10m&forecast_minutely_15=8"))
         // A finer place is cut to a tenth in the request itself, whatever the caller kept.

@@ -7,6 +7,7 @@ import java.time.Duration
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
+import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -99,6 +100,11 @@ data class RingPage(
      * low. Empty for the other pages, which the title says from their line.
      */
     val extra: List<String> = emptyList(),
+    /**
+     * The rain's intensity in mm/h as the number only ("4,2", "14", the decimal sign of [RingWords.locale]; the unit is [RainAmount.PER_HOUR_UNIT]):
+     * the ring writes it under the line and the title in its words. Null for a page that is not rain, and for rain with no intensity said.
+     */
+    val rate: String? = null,
 )
 
 /** The numbers a card of the phone says, besides its words. */
@@ -146,6 +152,8 @@ data class RingWords(
     val uv: String,
     val aqi: String,
     val approx: String = "~",
+    /** The language the app shows: its decimal sign is the one the rain's mm/h is written with. */
+    val locale: Locale = Locale.ROOT,
     val charging: String = "charging",
     val onBattery: String = "battery",
     val saver: String = "saver",
@@ -271,7 +279,7 @@ object InfoRing {
     /** What the rain does in the next hour. */
     private sealed interface Rain {
         object None : Rain
-        class Falling(val untilMin: Int?, val quarter: Quarter?) : Rain
+        class Falling(val untilMin: Int?, val quarter: Quarter?, val perHour: Double?) : Rain
         class Starts(val inMin: Int, val quarter: Quarter) : Rain
     }
 
@@ -295,11 +303,23 @@ object InfoRing {
         }
         if (raining) {
             val stop = future.firstOrNull { !wet(it.mm) || !likely(it) }
-            return Rain.Falling(stop?.let(::change), past ?: future.firstOrNull())
+            return Rain.Falling(stop?.let(::change), past ?: future.firstOrNull(), fallingPerHour(forecast, now, past))
         }
         val start = future.firstOrNull { wet(it.mm) && likely(it) } ?: return Rain.None
         val inMin = change(start)
         return if (inMin <= LOOK_AHEAD_MIN) Rain.Starts(inMin, start) else Rain.None
+    }
+
+    /**
+     * How hard it rains now, mm/h: the quarter of an hour just gone times four; with no quarters, the hour's own forecast; with none, the
+     * reading's (Open-Meteo's `precipitation` of the current block is the sum of the preceding hour, taken as mm/h).
+     */
+    private fun fallingPerHour(forecast: PointForecast, now: LocalDateTime, past: Quarter?): Double? =
+        past?.mm?.let { it * QUARTERS_PER_HOUR } ?: hourlyRain(forecast, now) ?: forecast.current?.precipitationMm
+
+    private fun hourlyRain(forecast: PointForecast, now: LocalDateTime): Double? {
+        val hour = now.truncatedTo(ChronoUnit.HOURS).toString()
+        return forecast.hourly.firstOrNull { it.timeIso == hour }?.precipitationMm
     }
 
     private fun rainIcon(q: Quarter?, current: CurrentWeather?, raining: Boolean): RingIcon {
@@ -514,11 +534,15 @@ object InfoRing {
             pages += RingPage(
                 RingKind.RAIN_SOON, level, rainIcon(rain.quarter, current, raining = false), RingTone.RAIN,
                 minutesText(rain.inMin, real, words, words.inWord),
+                rate = RainAmount.number(rain.quarter.mm?.times(QUARTERS_PER_HOUR), words.locale),
             )
         }
         if (rain is Rain.Falling) {
             val line = rain.untilMin?.let { minutesText(it, real, words, words.until) } ?: listOf(RingText(words.raining, false))
-            pages += RingPage(RingKind.RAIN_NOW, 2, rainIcon(rain.quarter, current, raining = true), RingTone.RAIN, line)
+            pages += RingPage(
+                RingKind.RAIN_NOW, 2, rainIcon(rain.quarter, current, raining = true), RingTone.RAIN, line,
+                rate = RainAmount.number(rain.perHour, words.locale),
+            )
         }
         if (windLevel == RingTone.ATTENTION) pages += windPage(RingKind.WIND_ATTENTION, 2)
         sun(forecast, now)?.let { (icon, minutes, clock) ->
