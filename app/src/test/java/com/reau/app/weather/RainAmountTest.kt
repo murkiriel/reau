@@ -8,7 +8,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** How much rain is written and how long its bar is: the one rule of the Clima screen, the ring and the title. */
+/** How much rain is written and when a line has a pill: the one rule of the Clima screen, the ring and the title. */
 class RainAmountTest {
     private val pt = Locale.forLanguageTag("pt-BR")
     private val en = Locale.US
@@ -57,18 +57,17 @@ class RainAmountTest {
     }
 
     @Test
-    fun `the ruler is empty with no rain, proportional, and full from its scale on`() {
-        assertEquals(0f, RainAmount.fill(0.0, RainAmount.HOUR_FULL_MM), 0f)
-        assertEquals(0f, RainAmount.fill(null, RainAmount.HOUR_FULL_MM), 0f)
-        assertEquals(0f, RainAmount.fill(0.05, RainAmount.HOUR_FULL_MM), 0f)
-        assertEquals(0.5f, RainAmount.fill(5.0, RainAmount.HOUR_FULL_MM), 1e-6f)
-        assertEquals(1f, RainAmount.fill(10.0, RainAmount.HOUR_FULL_MM), 0f)
-        assertEquals(1f, RainAmount.fill(55.0, RainAmount.HOUR_FULL_MM), 0f)
-        assertEquals(0.5f, RainAmount.fill(20.0, RainAmount.DAY_FULL_MM), 1e-6f)
-        assertEquals(1f, RainAmount.fill(40.0, RainAmount.DAY_FULL_MM), 0f)
-        assertEquals(1f, RainAmount.fill(120.0, RainAmount.DAY_FULL_MM), 0f)
-        assertEquals(10.0, RainAmount.HOUR_FULL_MM, 0.0)
-        assertEquals(40.0, RainAmount.DAY_FULL_MM, 0.0)
+    fun `a line with rain has a pill with the amount and a dry line has none`() {
+        val rain = checkNotNull(RainAmount.pill(2.4, pt))
+        assertEquals("2,4", rain.number)
+        assertEquals("2,4 mm", rain.written)
+        assertEquals("0,1 mm", RainAmount.pill(0.1, pt)?.written)
+        assertEquals("12 mm", RainAmount.pill(12.0, pt)?.written)
+        assertEquals("2.4 mm", RainAmount.pill(2.4, en)?.written)
+        assertNull(RainAmount.pill(0.0, pt))
+        assertNull(RainAmount.pill(0.09, pt))
+        assertNull(RainAmount.pill(null, pt))
+        assertNull(RainAmount.pill(Double.NaN, pt))
     }
 
     @Test
@@ -85,8 +84,7 @@ class RainAmountTest {
         assertTrue(models.contains("val precipitationMm: Double? = null"))
         assertTrue(models.contains("val precipitationSumMm: Double? = null"))
         val screen = File("src/main/java/com/reau/app/ui/WeatherScreen.kt").readText()
-        assertTrue(screen.contains("RainAmount.HOUR_FULL_MM"))
-        assertTrue(screen.contains("RainAmount.DAY_FULL_MM"))
+        assertTrue(screen.contains("RainAmount.pill(rainMm"))
         assertTrue(screen.contains("weather_rain_amount_cd"))
     }
 

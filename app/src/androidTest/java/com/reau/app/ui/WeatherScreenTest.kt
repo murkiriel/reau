@@ -99,7 +99,7 @@ class WeatherScreenTest {
     }
 
     @Test
-    fun onlyTheLinesWithRainHaveTheRuler() {
+    fun onlyTheLinesWithRainHaveThePill() {
         on = true
         seedWeather()
         compose.onNodeWithTag("weather_hour_0_rain", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
