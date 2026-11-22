@@ -628,6 +628,12 @@ internal class LiveSides(
         // stopped is exact; the joystick asks it at each press. Its switching on and off go to the ride log, with the reason.
         val music = com.reau.app.aa.MusicMode { RideDiagnostics.log("dash", it) }
         joystick.musicActive = music::active
+        joystick.mapCenterOpensMusic = setup.settings?.mapCenterOpensMusic == true
+        joystick.musicInFront = {
+            com.reau.app.aa.SwapMapMusic.musicInFront(
+                com.reau.app.aa.SwapMapMusic.seen(com.reau.app.aa.AaScreens.watch.screen.value, com.reau.app.aa.AaScreens.watch.app.value),
+            )
+        }
         var musicExpiry: Job? = null
         scope.launch {
             combine(com.reau.app.aa.AaScreens.watch.screen, com.reau.app.aa.AaScreens.watch.app, com.reau.app.aa.AaMedia.watch.now) { screen, app, media ->
@@ -1052,6 +1058,7 @@ internal class LiveSides(
             if (LiveTuning.Step.JOYSTICK in steps) {
                 val page = JoystickBindings.decode(settings.joystick)
                 joystick?.bindings = page
+                joystick?.mapCenterOpensMusic = settings.mapCenterOpensMusic
                 session.zoomLabel = page.zoomControls
                 session.musicCardAllowed = page.mediaControls
                 session.infoRingPress = page.infoRingControl

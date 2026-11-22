@@ -68,6 +68,9 @@ sealed class AaCommand {
  * The music mode ([MusicMode], [musicActive]): with Spotify on the screen and playing, the media mode's left, right and centre are previous song,
  * next song and play/pause (a call, as always, comes first). A side goes [HELD_SIDE_MS] after the tap, through [release], and is dropped if the
  * media centre comes meanwhile (the dash's ghost: a side just before the centre); the centre goes at once. The map mode and up and down never change.
+ *
+ * The map mode's centre can open the music app too ([mapCenterOpensMusic], the rider's own switch, off by default): the tap that puts the dash in its media
+ * mode then also sends [Action.OPEN_MUSIC]'s key, unless the music is already in front ([musicInFront]; a second media key would change app or open the picker).
  */
 @Suppress("TooManyFunctions") // one small function per rule of the page; the call state read per tap is two more
 class JoystickMap(
@@ -100,6 +103,15 @@ class JoystickMap(
      * the media mode's sides and centre are the song's keys ([musicPress]).
      */
     @Volatile var musicActive: (nowMs: Long) -> Boolean = { false }
+
+    /**
+     * Whether the map mode's centre also opens the music app ([com.reau.app.settings.REauSettings.mapCenterOpensMusic]); read at each tap, so a change counts at once.
+     * Off, the tap does what it always did. The page's "reset to default" does not touch it.
+     */
+    @Volatile var mapCenterOpensMusic: Boolean = false
+
+    /** Whether the music is already in front of Android Auto, read at the tap ([SwapMapMusic.musicInFront]); then the map centre sends no key of its own. */
+    @Volatile var musicInFront: () -> Boolean = { false }
 
     // The music mode's side, held for HELD_SIDE_MS before it goes: a centre that comes meanwhile says it was the dash's ghost.
     private class HeldSide(val control: Control, val command: AaCommand, val pressedMs: Long)
@@ -141,7 +153,7 @@ class JoystickMap(
         lastCode = event.code
         lastCodeMs = nowMs
         val callScreen = callScreenSide(event)
-        val press = byCode(event, bounce) ?: centerUndo.pressFor(place, nowMs) ?: when {
+        val press = byCode(event, bounce) ?: centerUndo.pressFor(place, nowMs)?.let(::withOpenMusic) ?: when {
             event is DashButtonEvent.JoystickBack -> backPress(nowMs)
             callScreen != null -> {
                 if (callScreen != Control.CENTER) lastSideMs = nowMs
@@ -287,7 +299,20 @@ class JoystickMap(
         val command = action.command(assistant)
         // The info ring's switch sends nothing to Android Auto: the session shows or hides the ring by the code (DashSession.ringAfterPress).
         val line = "${name(mode, control)} once -> ${command ?: if (action == Action.INFO_RING) "info ring" else Action.NOTHING.name.lowercase()}"
-        return Press(listOfNotNull(command), listOf(line), spoken(action))
+        val press = Press(listOfNotNull(command), listOf(line), spoken(action))
+        return if (mode == Mode.MAP && control == Control.CENTER) withOpenMusic(press) else press
+    }
+
+    /**
+     * The map mode's centre [press] with the music opened too, when the rider switched it on ([mapCenterOpensMusic]) and the phone is quiet: [Action.OPEN_MUSIC]'s key
+     * goes after what the press already sends, and the title says it (the dash's own media mode is not echoed). With the music already in front
+     * ([musicInFront]) nothing is added: the press stays as it was and the log says why.
+     */
+    private fun withOpenMusic(press: Press): Press {
+        if (!mapCenterOpensMusic || callNow() != CallState.IDLE) return press
+        if (musicInFront()) return press.copy(lines = press.lines + "map center -> media mode, music already in front, nothing")
+        val open = Action.OPEN_MUSIC.command(assistant) ?: return press
+        return Press(press.sent + open, press.lines + "map center -> media mode + open music", spoken(Action.OPEN_MUSIC), press.legend)
     }
 
     /** What the code alone settles: the dash's notice, a bounce, and the call's volume (before any side or page). */

@@ -137,6 +137,14 @@ data class REauSettings(
      */
     val joystickLegend: Boolean = false,
     /**
+     * In the dash's map mode the centre puts the dash in its media mode ([com.reau.app.aa.JoystickBindings.LOCKED]); with this on, the same tap
+     * also opens the music app in Android Auto ([com.reau.app.aa.JoystickBindings.Action.OPEN_MUSIC]'s key), unless the music is already in front
+     * ([com.reau.app.aa.JoystickMap.musicInFront]). Off by default: the tap does only what it always did until the rider switches it on. Read at
+     * each tap ([com.reau.app.service.LiveTuning.Step.JOYSTICK]). It is a setting of its own, on the joystick page's map tab: the page's
+     * "Voltar ao padrão" ([DEFAULT_JOYSTICK]) does not touch it.
+     */
+    val mapCenterOpensMusic: Boolean = false,
+    /**
      * A minute after the joystick, one touch takes Android Auto's blue focus
      * away ([com.reau.app.aa.FocusClearer]); on by default. Taken at the next start.
      */
