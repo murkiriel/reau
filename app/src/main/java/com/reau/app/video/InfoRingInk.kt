@@ -10,7 +10,6 @@ import android.graphics.Typeface
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.withScale
 import androidx.core.graphics.withTranslation
-import com.reau.app.weather.RainAmount
 import com.reau.app.weather.RingFrame
 import com.reau.app.weather.RingPage
 import com.reau.app.weather.RingTone
@@ -49,7 +48,6 @@ object InfoRingInk {
         val detail = page.detail
         if (detail != null) InfoRingDetailInk.draw(canvas, detail, frame.night, page.tone) else drawIcon(canvas, page, edges = !frame.night)
         drawLine(canvas, page, look.inkFor(page.tone))
-        drawRate(canvas, page, look.inkFor(page.tone))
         return bitmap
     }
 
@@ -85,26 +83,11 @@ object InfoRingInk {
         val scale = InfoRingSpot.lineScale(widths)
         val gap = InfoRingSpot.LINE_GAP * scale
         var x = (InfoRingSpot.SIZE - (widths.sum() * scale + gap * (widths.size - 1))) / 2f
-        val baseline = if (page.rate != null) InfoRingSpot.LINE_BASELINE_WITH_RATE else InfoRingSpot.LINE_BASELINE
         page.line.forEachIndexed { i, piece ->
             paints[i].textSize *= scale
-            canvas.drawText(piece.text, x, baseline, paints[i])
+            canvas.drawText(piece.text, x, InfoRingSpot.LINE_BASELINE, paints[i])
             x += widths[i] * scale + gap
         }
-    }
-
-    /** The rain's intensity ("4,2 mm/h"), small and centred under the line; nothing for a page with none. */
-    private fun drawRate(canvas: Canvas, page: RingPage, ink: Int) {
-        val rate = page.rate ?: return
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = ink
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            textAlign = Paint.Align.CENTER
-            textSize = InfoRingSpot.RATE_SIZE
-        }
-        val text = "$rate ${RainAmount.PER_HOUR_UNIT}"
-        paint.textSize *= InfoRingSpot.rateScale(paint.measureText(text))
-        canvas.drawText(text, InfoRingSpot.SIZE / 2f, InfoRingSpot.RATE_BASELINE, paint)
     }
 
     private fun drawIcon(canvas: Canvas, page: RingPage, edges: Boolean) {

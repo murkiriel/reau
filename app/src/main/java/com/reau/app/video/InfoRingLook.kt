@@ -44,25 +44,12 @@ object InfoRingSpot {
     const val WORD_SIZE = 16f
     const val LINE_GAP = 4f
 
-    /**
-     * The rain's intensity ("4,2 mm/h") when a page has one: a second, smaller row under the line, and the line itself a little higher
-     * ([LINE_BASELINE_WITH_RATE]) to leave it room. The row is at most [RATE_MAX_WIDTH] wide (shrunk to it by [rateScale]): at its baseline the
-     * content circle is 53 px across, so its bottom corners stay inside [CONTENT_RADIUS].
-     */
-    const val RATE_BASELINE = 99f
-    const val RATE_SIZE = 11f
-    const val RATE_MAX_WIDTH = 50f
-    const val LINE_BASELINE_WITH_RATE = 85f
-
     /** The percentage of the battery card, the biggest text of the ring. */
     const val HUGE_SIZE = 32f
 
     /** A stale ring's contour and band are dashed: 16 dashes, 65% dash and 35% gap, round the circle. */
     val OUTLINE_DASH = floatArrayOf(14.93f, 8.04f)
     val BAND_DASH = floatArrayOf(13.79f, 7.42f)
-
-    /** The rate row's text size, shrunk to [RATE_MAX_WIDTH] when its [width] is more. */
-    fun rateScale(width: Float): Float = if (width <= RATE_MAX_WIDTH || width <= 0f) 1f else RATE_MAX_WIDTH / width
 
     /** The line's text size, shrunk the same for all its pieces when they are wider than [LINE_MAX_WIDTH] together. */
     fun lineScale(widths: List<Float>): Float {

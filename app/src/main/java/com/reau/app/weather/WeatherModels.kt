@@ -30,7 +30,7 @@ data class HourlyWeather(
     val precipitationProbabilityPercent: Int?,
     val weatherCode: Int?,
     val uvIndex: Double?,
-    /** The rain of this hour in mm (`precipitation`, the sum of the hour, so also mm/h); null where the answer (or an older kept one) did not say. */
+    /** The rain of this hour in mm (`precipitation`, the sum of the hour); null where the answer (or an older kept one) did not say. */
     val precipitationMm: Double? = null,
 )
 

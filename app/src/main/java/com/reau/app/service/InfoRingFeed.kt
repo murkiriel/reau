@@ -114,7 +114,6 @@ object InfoRingFeed {
         skyRain = context.getString(R.string.ring_sky_rain),
         skySnow = context.getString(R.string.ring_sky_snow),
         compass = context.resources.getStringArray(R.array.wind_points).toList(),
-        locale = context.resources.configuration.locales[0],
     )
 
     /** The words of the title in the language the app shows, from its resources. */
@@ -135,7 +134,6 @@ object InfoRingFeed {
         air = context.getString(R.string.title_air),
         battery = context.getString(R.string.title_battery),
         batteryCharging = context.getString(R.string.title_battery_charging),
-        rainRate = context.getString(R.string.title_rain_rate),
     )
 
     /**

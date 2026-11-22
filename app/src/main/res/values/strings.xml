@@ -491,7 +491,7 @@
     <string name="info_ring_data_gps">GPS signal and heading</string>
     <string name="info_ring_data_temps">Temperatures (high and low)</string>
     <string name="info_ring_data_none">Nothing is ticked: the ring stays off the video.</string>
-    <string name="info_ring_data_rain_info">The rain falling now (how hard, in mm/h, and until when) or starting in the next hour (in how many minutes, and how hard); it counts from 0.1 mm per 15 min, above 7.6 mm/h the icon is heavy rain, and rain within 30 min goes ahead of the other data. Outside North America and Central Europe the forecast is hourly, so the minutes are rounded to 10 and marked with ~. In the title: the minutes when they are known, the intensity otherwise.</string>
+    <string name="info_ring_data_rain_info">The rain falling now (and until when) or starting in the next hour (in how many minutes); it counts from 0.1 mm per 15 min, and above 7.6 mm/h the icon is heavy rain. Rain within 30 min goes ahead of the other data. Outside North America and Central Europe the forecast is hourly, so the minutes are rounded to 10 and marked with ~.</string>
     <string name="info_ring_data_wind_info">The strongest gust from now to 1 hour ahead. Shows from 40 km/h (caution, yellow); 55 is alert (orange); 70 is danger (red) and goes ahead of everything.</string>
     <string name="info_ring_data_storm_info">A thunderstorm now or in the next hour, from the forecast’s weather code. Always danger: the disk turns red and goes ahead of everything.</string>
     <string name="info_ring_data_uv_info">The UV index of the current hour. Shows only from 6 (high, orange); 8 is very high (red); 11 or more is extreme (violet).</string>
@@ -527,7 +527,6 @@
     <string name="title_air">Air AQI %1$s</string>
     <string name="title_battery">Battery %1$s%%</string>
     <string name="title_battery_charging">Charging %1$s%%</string>
-    <string name="title_rain_rate">Rain %1$s mm/h</string>
     <string name="ring_in">in</string>
     <string name="ring_minutes">min</string>
     <string name="ring_until">until</string>

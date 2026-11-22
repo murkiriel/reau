@@ -34,8 +34,6 @@ data class TitleWords(
     /** The phone's battery level `%1$s` (the `%%` is the percent sign); and the same while it charges. */
     val battery: String = "Battery %1\$s%%",
     val batteryCharging: String = "Charging %1\$s%%",
-    /** The rain's intensity `%1$s` in mm/h ("4,2"; the decimal sign is the language's), for the rain with no minutes to say. */
-    val rainRate: String = "Rain %1\$s mm/h",
 )
 
 /**
@@ -44,9 +42,6 @@ data class TitleWords(
  * signal and GPS and the sky now, which the dash already shows. The phone's battery is in (the dash does not show the phone's).
  */
 object InfoRingTitle {
-    /** What the dash's street field holds ([com.reau.app.dash.protocol.DashCommands.ROAD_MAX], which a test holds this equal to). */
-    const val MAX_CHARS = 19
-
     /** The pages the title says: every page of the weather but the sky now, and the phone's battery (its signal and GPS never come here). */
     val KINDS: Set<RingKind> = setOf(
         RingKind.WIND_DANGER, RingKind.THUNDER, RingKind.WIND_ALERT, RingKind.RAIN_SOON, RingKind.RAIN_NOW, RingKind.WIND_ATTENTION,
@@ -57,8 +52,8 @@ object InfoRingTitle {
     fun text(page: RingPage, words: TitleWords): String? {
         if (page.kind !in KINDS) return null
         return when (page.kind) {
-            RingKind.RAIN_SOON -> rainSoon(page, words)
-            RingKind.RAIN_NOW -> rainNow(page, words)
+            RingKind.RAIN_SOON -> fill(words.rainSoon, minutesOf(page))
+            RingKind.RAIN_NOW -> if (page.line.size > 1) fill(words.rainUntil, minutesOf(page)) else words.rainNow
             RingKind.THUNDER -> if (page.line.size > 1) fill(words.thunderSoon, minutesOf(page)) else words.thunderNow
             RingKind.WIND_DANGER, RingKind.WIND_ALERT, RingKind.WIND_ATTENTION -> fill(words.wind, page.line.getOrNull(0)?.text, page.line.getOrNull(1)?.text)
             RingKind.UV -> fill(uvTemplate(page.tone, words), page.line.getOrNull(1)?.text)
@@ -68,19 +63,6 @@ object InfoRingTitle {
             else -> temps(page, words)
         }
     }
-
-    /**
-     * Rain falling now: with the end known, until when ("Chuva até 20 min"), however hard it falls (the minutes first; the intensity is the
-     * info ring's); with no end in sight, how hard ("Chuva 4,2 mm/h"), and with no intensity either, the words as before ("Chovendo agora").
-     */
-    private fun rainNow(page: RingPage, words: TitleWords): String? {
-        if (page.line.size > 1) return fill(words.rainUntil, minutesOf(page))
-        val rate = page.rate ?: return words.rainNow
-        return fill(words.rainRate, rate)
-    }
-
-    /** Rain on the way: in how many minutes ("Chuva em 20 min"; "~20" where the forecast is only hourly), however hard it will fall. */
-    private fun rainSoon(page: RingPage, words: TitleWords): String? = fill(words.rainSoon, minutesOf(page))
 
     /** The minutes of a page that counts them: "23", or "~20" where the forecast is only hourly. */
     private fun minutesOf(page: RingPage): String? = page.line.getOrNull(1)?.text

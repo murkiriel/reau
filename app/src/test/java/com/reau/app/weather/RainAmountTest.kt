@@ -8,7 +8,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** How much rain is written and when a line has a pill: the one rule of the Clima screen, the ring and the title. */
+/** How much rain is written and when a line has a pill: the one rule of the Clima screen's pills. */
 class RainAmountTest {
     private val pt = Locale.forLanguageTag("pt-BR")
     private val en = Locale.US
@@ -16,11 +16,11 @@ class RainAmountTest {
 
     @Test
     fun `less than a tenth of a millimetre is no rain and nothing is written`() {
-        assertNull(RainAmount.format(0.05, pt))
-        assertNull(RainAmount.format(0.0, pt))
-        assertNull(RainAmount.format(0.0999, pt))
-        assertNull(RainAmount.format(null, pt))
-        assertNull(RainAmount.format(Double.NaN, pt))
+        assertNull(RainAmount.pill(0.05, pt)?.written)
+        assertNull(RainAmount.pill(0.0, pt)?.written)
+        assertNull(RainAmount.pill(0.0999, pt)?.written)
+        assertNull(RainAmount.pill(null, pt)?.written)
+        assertNull(RainAmount.pill(Double.NaN, pt)?.written)
         assertNull(RainAmount.number(Double.POSITIVE_INFINITY, pt))
         assertFalse(RainAmount.isRain(0.09))
         assertTrue(RainAmount.isRain(0.1))
@@ -28,16 +28,16 @@ class RainAmountTest {
 
     @Test
     fun `below ten it has one decimal, from ten none`() {
-        assertEquals("0,1 mm", RainAmount.format(0.1, pt))
-        assertEquals("0,4 mm", RainAmount.format(0.4, pt))
-        assertEquals("8,2 mm", RainAmount.format(8.2, pt))
-        assertEquals("8,3 mm", RainAmount.format(8.25, pt))
-        assertEquals("9,9 mm", RainAmount.format(9.94, pt))
-        assertEquals("10 mm", RainAmount.format(10.0, pt))
-        assertEquals("10 mm", RainAmount.format(9.96, pt))
-        assertEquals("14 mm", RainAmount.format(14.2, pt))
-        assertEquals("31 mm", RainAmount.format(31.0, pt))
-        assertEquals("120 mm", RainAmount.format(120.0, pt))
+        assertEquals("0,1 mm", RainAmount.pill(0.1, pt)?.written)
+        assertEquals("0,4 mm", RainAmount.pill(0.4, pt)?.written)
+        assertEquals("8,2 mm", RainAmount.pill(8.2, pt)?.written)
+        assertEquals("8,3 mm", RainAmount.pill(8.25, pt)?.written)
+        assertEquals("9,9 mm", RainAmount.pill(9.94, pt)?.written)
+        assertEquals("10 mm", RainAmount.pill(10.0, pt)?.written)
+        assertEquals("10 mm", RainAmount.pill(9.96, pt)?.written)
+        assertEquals("14 mm", RainAmount.pill(14.2, pt)?.written)
+        assertEquals("31 mm", RainAmount.pill(31.0, pt)?.written)
+        assertEquals("120 mm", RainAmount.pill(120.0, pt)?.written)
     }
 
     @Test
@@ -50,10 +50,19 @@ class RainAmountTest {
     }
 
     @Test
-    fun `the same rule gives mm per hour`() {
-        assertEquals("4,2 mm/h", RainAmount.formatPerHour(4.2, pt))
-        assertEquals("14 mm/h", RainAmount.formatPerHour(14.0, pt))
-        assertNull(RainAmount.formatPerHour(0.05, pt))
+    fun `the ring and the title never say the intensity in mm per hour`() {
+        for (file in listOf("weather/InfoRing.kt", "weather/InfoRingTitle.kt", "service/InfoRingFeed.kt", "video/InfoRingInk.kt", "video/InfoRingLook.kt")) {
+            val source = File("src/main/java/com/reau/app/$file").readText()
+            // InfoRing.kt keeps 7.6 mm/h in a comment: the line that makes the icon heavy rain, which is no text on the ring.
+            if (file != "weather/InfoRing.kt") assertFalse("$file: no mm/h", source.contains("mm/h"))
+            assertFalse("$file: no rate", Regex("""\brate\b|rainRate|RATE_""").containsMatchIn(source))
+        }
+        for (folder in listOf("values", "values-pt", "values-es")) {
+            val text = File("src/main/res/$folder/strings.xml").readText()
+            assertFalse("$folder: no rain rate title", text.contains("title_rain_rate"))
+            val info = Regex("""<string name="info_ring_data_rain_info">(.*)</string>""").find(text)!!.groupValues[1]
+            assertFalse("$folder: the help says no intensity", listOf("how hard", "intensid", "intensity").any { info.contains(it) })
+        }
     }
 
     @Test

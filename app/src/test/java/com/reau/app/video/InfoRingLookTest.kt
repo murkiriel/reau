@@ -41,28 +41,6 @@ class InfoRingLookTest {
     }
 
     @Test
-    fun `the rain's intensity row is inside the content circle, under the line and above the ring's edge`() {
-        val half = InfoRingSpot.RATE_MAX_WIDTH / 2
-        // The bottom corners of the row (its baseline plus a comma's tail) and the top ones (its capital height) are inside the content circle.
-        for ((dx, y) in listOf(half to InfoRingSpot.RATE_BASELINE + 2f, -half to InfoRingSpot.RATE_BASELINE + 2f, half to InfoRingSpot.RATE_BASELINE - InfoRingSpot.RATE_SIZE)) {
-            val dy = y - InfoRingSpot.SIZE / 2f
-            assertTrue("($dx, $dy) is ${Math.hypot(dx.toDouble(), dy.toDouble())} from the centre", Math.hypot(dx.toDouble(), dy.toDouble()) <= InfoRingSpot.CONTENT_RADIUS)
-        }
-        // The raised line (its descent) does not touch the row's capitals, and its numbers stay clear of the icon.
-        assertTrue(InfoRingSpot.LINE_BASELINE_WITH_RATE + 4f < InfoRingSpot.RATE_BASELINE - InfoRingSpot.RATE_SIZE * 0.7f)
-        assertTrue(InfoRingSpot.LINE_BASELINE_WITH_RATE - InfoRingSpot.NUMBER_SIZE * 0.75f > InfoRingSpot.ICON_CENTER_Y + InfoRingSpot.ICON_SIZE / 2f)
-        assertTrue(InfoRingSpot.LINE_BASELINE_WITH_RATE < InfoRingSpot.LINE_BASELINE)
-    }
-
-    @Test
-    fun `the intensity row is shrunk only when wider than its room`() {
-        assertEquals(1f, InfoRingSpot.rateScale(48f), 0f)
-        assertEquals(1f, InfoRingSpot.rateScale(InfoRingSpot.RATE_MAX_WIDTH), 0f)
-        assertEquals(0.5f, InfoRingSpot.rateScale(100f), 1e-6f)
-        assertEquals(1f, InfoRingSpot.rateScale(0f), 0f)
-    }
-
-    @Test
     fun `the outline and the band sit inside the disk, the band inside the outline`() {
         assertEquals(60f, InfoRingSpot.OUTLINE_RADIUS + InfoRingSpot.OUTLINE_WIDTH / 2, 0f)
         assertEquals(57f, InfoRingSpot.BAND_RADIUS + InfoRingSpot.BAND_WIDTH / 2, 0f)
