@@ -19,6 +19,7 @@ import com.reau.app.aa.JoystickBindings.Slot
 class MusicMode(private val say: (String) -> Unit = {}) {
     private var on = false
     private var pausedAtMs = NEVER
+    private var waitingForPicture = false
 
     /** What is known now: Spotify in front ([front]) and the music playing ([playing]), as of [nowMs]. */
     @Synchronized
@@ -38,8 +39,18 @@ class MusicMode(private val say: (String) -> Unit = {}) {
         }
     }
 
-    /** [update] with what the watches say: the screen, the app in front and the media status. */
-    fun update(screen: AaScreen, app: AaApp, media: MediaNow, nowMs: Long) = update(spotifyInFront(screen, app, media), media.playing, nowMs)
+    /**
+     * [update] with what the watches say: the screen, the app in front and the media status. [appsPending]: the apps' screen has not been confirmed by the
+     * picture since a select ([AaScreenWatch.appsPending]); Spotify is then in front only when the picture says so ([spotifyInFront]), and the wait is said once to the log.
+     */
+    @Synchronized
+    fun update(screen: AaScreen, app: AaApp, media: MediaNow, nowMs: Long, appsPending: Boolean = false) {
+        val front = spotifyInFront(screen, app, media, appsPending)
+        update(front, media.playing, nowMs)
+        val waiting = appsPending && !front && spotifyInFront(screen, app, media, appsPending = false)
+        if (waiting && !waitingForPicture) say("music mode waits for the picture: Spotify plays, the app that opened is not known yet")
+        waitingForPicture = waiting
+    }
 
     /** Whether the music mode is on at [nowMs]; a pause older than [PAUSED_MS] has ended it. */
     @Synchronized
