@@ -142,4 +142,16 @@ class VolumeCardsTest {
         assertNull(show.current())
         assertEquals(2, told)
     }
+
+    @Test
+    fun `the joystick's own step shows the level after it, music or call, held at the most`() {
+        assertEquals(
+            VolumeCards.Step(VolumeCard(VolumeKind.MUSIC, 7, 15), from = 6, headset = false),
+            VolumeCards.stepOf(com.reau.app.phone.VolumeChange(com.reau.app.phone.VolumeStream.MUSIC, 6, 7, 15)),
+        )
+        val call = VolumeCards.stepOf(com.reau.app.phone.VolumeChange(com.reau.app.phone.VolumeStream.CALL, 5, 4, 7))
+        assertEquals(VolumeCard(VolumeKind.CALL, 4, 7), call.card)
+        assertEquals("at the end of the range nothing moved and the card still says the level", "volume card: music 15/15 (was 15)",
+            VolumeCards.stepOf(com.reau.app.phone.VolumeChange(com.reau.app.phone.VolumeStream.MUSIC, 15, 15, 15)).logLine())
+    }
 }

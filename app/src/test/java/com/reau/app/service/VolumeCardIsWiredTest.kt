@@ -46,8 +46,10 @@ class VolumeCardIsWiredTest {
         assertTrue(declaration, "changed = ::volumeCardChanged" in declaration)
         assertTrue("before the init block", live.indexOf("private val volumeCard: ") < live.indexOf("\n    init {"))
         assertTrue(live, "compositor.setVolumeCard(volumeCard.current())" in live)
-        val heard = live.between("private fun volumeStepHeard(", "// The map's zoom from the joystick")
-        assertTrue(heard, "volumeCard.show(com.reau.app.dash.VolumeNotice(step.card, text))" in heard && "RideDiagnostics.log(\"dash\", step.logLine())" in heard)
+        assertTrue(live, "private fun volumeStepHeard(step: com.reau.app.dash.VolumeCards.Step) = showVolumeCard(step, log = true)" in live)
+        val shown = live.between("private fun showVolumeCard(", "// The map's zoom from the joystick")
+        assertTrue(shown, "volumeCard.show(com.reau.app.dash.VolumeNotice(step.card, text), com.reau.app.dash.VolumeCards.showMs(left))" in shown)
+        assertTrue(shown, "RideDiagnostics.log(\"dash\", step.logLine())" in shown)
     }
 
     @Test

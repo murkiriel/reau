@@ -9,6 +9,7 @@ import com.reau.app.dash.ActionLegend
 import com.reau.app.dash.EchoLabel
 import com.reau.app.dash.protocol.DashButtonEvent
 import com.reau.app.phone.CallState
+import java.util.Locale
 
 /** What a dash button becomes: keys and wheel steps for Android Auto, or a call answered or ended on the phone. */
 sealed class AaCommand {
@@ -131,8 +132,30 @@ class JoystickMap(
     @Synchronized
     fun release(nowMs: Long): Press? = releaseHeld(nowMs, force = false)
 
+    /**
+     * The volume lock ([VolumeLock]): after a tap of a volume action, for [VolumeLock.VOLUME_LOCK_MS] only the volume actions are taken. Off ([VolumeLock.enabled]) until
+     * the projection turns it on with the volume notice.
+     */
+    val volumeLock = VolumeLock()
+
+    /**
+     * The press that drops [event] under the volume lock, or null when the tap goes on: no lock, a call ringing or going on (which ends the lock, so the call's keys
+     * always work), or a tap that is one of the page's volume actions. A dropped tap changes nothing in the map (no bounce, no mode, no held side) and does not renew the lock.
+     */
+    private fun droppedByLock(event: DashButtonEvent, nowMs: Long): Press? {
+        val left = volumeLock.leftMs(nowMs)
+        val place = whereOf(event)
+        if (left > 0L && callNow() != CallState.IDLE) volumeLock.clear()
+        val locked = left > 0L && callNow() == CallState.IDLE
+        val volumeTap = place != null && bindings[Slot(place.first, place.second, Gesture.ONCE)] in VOLUME_ACTIONS
+        if (!locked || volumeTap) return null
+        val what = place?.let { name(it.first, it.second) } ?: if (event is DashButtonEvent.JoystickBack) "map up" else "code 0x${"%02X".format(event.code)}"
+        return Press(emptyList(), listOf("volume lock: $what ignored (${"%.1f".format(Locale.ROOT, left / 1000.0)} s left)"))
+    }
+
     private fun handle(event: DashButtonEvent, nowMs: Long): Press {
         pressCall = null
+        droppedByLock(event, nowMs)?.let { return it }
         val place = whereOf(event)
         // The dash's bounce (the same code again within BOUNCE_MS; a 0x05 has come
         // twice about 20 ms apart) and two codes in one gesture (a centre or up within
@@ -155,6 +178,8 @@ class JoystickMap(
                 ?: Press(emptyList(), listOf("not mapped -> nothing"))
             else -> pressOfPage(place, nowMs)
         }
+        // A tap of a volume action (not the call's volume, which the phone keeps) locks the joystick for a while, unless the phone is in a call.
+        if (press.sent.any { it is AaCommand.Volume } && callNow() == CallState.IDLE) volumeLock.renew(nowMs)
         return press.copy(legend = legendDue(modeOf(event, place)))
     }
 
@@ -346,6 +371,8 @@ class JoystickMap(
     }
 
     companion object {
+        private val VOLUME_ACTIONS = setOf(Action.VOLUME_UP, Action.VOLUME_DOWN)
+
         /**
          * Whether [keycode] is Android Auto's next or previous song: the moment the song is about to change, so the dash can show the new name
          * when the metadata comes ([com.reau.app.dash.SongEcho]). Seen at the sending, so the music mode's held side counts when it goes, not when it is tapped.

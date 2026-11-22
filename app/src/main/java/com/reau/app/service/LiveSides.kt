@@ -480,10 +480,18 @@ internal class LiveSides(
     /** The system's volume broadcast, listened to while this projection runs (started in the init block, given back in [release]). */
     private val volumeWatch = VolumeWatch(context, ::volumeStepHeard)
 
-    /** The phone's volume moved ([step]): the card says it, and the log says the level (no song, no name). Nothing when the card is off. */
-    private fun volumeStepHeard(step: com.reau.app.dash.VolumeCards.Step) {
+    /** The phone's volume moved ([step]), from wherever: the card says it, and the log says the level (no song, no name). Nothing when the card is off. */
+    private fun volumeStepHeard(step: com.reau.app.dash.VolumeCards.Step) = showVolumeCard(step, log = true)
+
+    /**
+     * Shows the card of [step] for as long as [com.reau.app.dash.VolumeCards.showMs] says with the joystick's lock as it is now: 2 s, or until the lock's end when the
+     * joystick holds it (the lock's clock is the card's, so they end together). The same card again changes nothing on the video, only the time.
+     */
+    private fun showVolumeCard(step: com.reau.app.dash.VolumeCards.Step, log: Boolean) {
+        val left = joystick?.volumeLock?.leftMs(com.reau.app.util.MonotonicClock.nowMs()) ?: 0L
         val text = com.reau.app.dash.ActionEchoText.volumeCard(appContext, step.card)
-        if (volumeCard.show(com.reau.app.dash.VolumeNotice(step.card, text))) RideDiagnostics.log("dash", step.logLine())
+        val shown = volumeCard.show(com.reau.app.dash.VolumeNotice(step.card, text), com.reau.app.dash.VolumeCards.showMs(left))
+        if (shown && log) RideDiagnostics.log("dash", step.logLine())
     }
 
     // The map's zoom from the joystick, over the fit last asked for (every remap goes through it); each change is kept and the next
@@ -642,6 +650,7 @@ internal class LiveSides(
             session.actionEcho = setup.settings.actionEcho
             legend.enabled = setup.settings.joystickLegend
             volumeCard.enabled = setup.settings.volumeCard
+            joystick.volumeLock.enabled = setup.settings.volumeCard
             session.maneuverCircleEnabled = setup.settings.maneuverRing
             session.ringCycleOn = setup.settings.infoRing
             session.infoInPlace = setup.settings.infoRingInPlace
@@ -782,6 +791,11 @@ internal class LiveSides(
             return
         }
         RideDiagnostics.log("projection", change.logLine(step))
+        // A step on the call's stream means a call is on (a voice app's call, which the joystick's call state does not see, too): no lock then, the call's keys must work.
+        if (change.stream == com.reau.app.phone.VolumeStream.CALL) joystick?.volumeLock?.clear()
+        // The card shows at once, from the step itself: the system's broadcast (heard by [volumeWatch]) says the same a moment later, and a step at the end of the
+        // range moves nothing and sends none, yet the lock was renewed and the card must last as long as it. The broadcast logs the step; this one only when it moved nothing.
+        showVolumeCard(com.reau.app.dash.VolumeCards.stepOf(change), log = change.before == change.after)
         // With the volume card on, the card says the level and the title does not.
         volumeEcho = com.reau.app.dash.VolumeCards.titleEcho(volumeCard.enabled) { com.reau.app.dash.ActionEchoText.volume(words, change) }
         session.sendStatusNow()
@@ -1097,6 +1111,7 @@ internal class LiveSides(
             if (LiveTuning.Step.DASH_EXTRAS in steps) {
                 session.maneuverCircleEnabled = settings.maneuverRing
                 volumeCard.enabled = settings.volumeCard
+                joystick?.volumeLock?.enabled = settings.volumeCard
                 session.ringCycleOn = settings.infoRing
                 session.infoInPlace = settings.infoRingInPlace
                 session.infoTitle.enabled = settings.infoRing && settings.infoTitle

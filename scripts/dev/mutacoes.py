@@ -4707,6 +4707,17 @@ MUTATIONS += [
      "BAR_W.toLong() * level.coerceIn(0, max) / max", "BAR_W.toLong() * level / max", ["VolumeCardLayoutTest"]),
     ("P32 Aviso de volume: o serviço não devolve o receptor do volume ao parar", MAIN + "service/LiveSides.kt",
      '                "volume watch" to { volumeWatch.stop() },\n', "", ["VolumeCardIsWiredTest"]),
+    # Leva 32 (22/11/2026), adendo: a trava de volume do joystick (VolumeLock, JoystickMap) e o cartão que acaba junto com ela.
+    ("P32 Trava de volume: a trava dura três segundos e não cinco", MAIN + "aa/VolumeLock.kt",
+     "const val VOLUME_LOCK_MS = 5_000L", "const val VOLUME_LOCK_MS = 3_000L", ["VolumeLockTest"]),
+    ("P32 Trava de volume: o toque de volume não renova a trava", MAIN + "aa/JoystickMap.kt",
+     "if (press.sent.any { it is AaCommand.Volume } && callNow() == CallState.IDLE) volumeLock.renew(nowMs)", "if (press.sent.any { it is AaCommand.Volume } && callNow() == CallState.IDLE) Unit", ["VolumeLockTest"]),
+    ("P32 Trava de volume: a chamada tocando não desfaz a trava", MAIN + "aa/JoystickMap.kt",
+     "        if (left > 0L && callNow() != CallState.IDLE) volumeLock.clear()\n", "", ["VolumeLockTest"]),
+    ("P32 Trava de volume: só o aumentar volume passa pela trava", MAIN + "aa/JoystickMap.kt",
+     "bindings[Slot(place.first, place.second, Gesture.ONCE)] in VOLUME_ACTIONS", "bindings[Slot(place.first, place.second, Gesture.ONCE)] == Action.VOLUME_UP", ["VolumeLockTest"]),
+    ("P32 Trava de volume: o cartão acaba antes da trava", MAIN + "dash/VolumeCards.kt",
+     "fun showMs(lockLeftMs: Long): Long = maxOf(SHOW_MS, lockLeftMs)", "fun showMs(lockLeftMs: Long): Long = SHOW_MS", ["VolumeLockTest"]),
 ]
 
 

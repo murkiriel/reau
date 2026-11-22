@@ -1,5 +1,8 @@
 package com.reau.app.dash
 
+import com.reau.app.phone.VolumeChange
+import com.reau.app.phone.VolumeStream
+
 /** What the volume card is about: the phone's music, or its call (a headset's call included). */
 enum class VolumeKind { MUSIC, CALL }
 
@@ -23,6 +26,13 @@ data class VolumeNotice(val card: VolumeCard, val text: String)
 object VolumeCards {
     /** How long the card stays after the last step. */
     const val SHOW_MS = 2_000L
+
+    /**
+     * How long a card stays when a step comes with [lockLeftMs] still to go of the joystick's volume lock ([com.reau.app.aa.VolumeLock]): until the lock's end (the card
+     * and the lock end together, the joystick's step having just renewed it), and never less than [SHOW_MS] (a step from outside, late in the lock, still has its 2 s,
+     * and never shortens a card that the lock holds). 2 s with no lock.
+     */
+    fun showMs(lockLeftMs: Long): Long = maxOf(SHOW_MS, lockLeftMs)
 
     /**
      * The system's broadcast of a volume change and its extras. The constants are hidden from the SDK (AudioManager.VOLUME_CHANGED_ACTION and the
@@ -61,6 +71,15 @@ object VolumeCards {
         if (kind == null || !moved || max <= 0) return null
         return Step(VolumeCard(kind, value.coerceAtMost(max), max), previous, headset = stream == STREAM_BLUETOOTH_SCO)
     }
+
+    /** The step of the joystick's own volume action ([change]: the stream's level before and after it, and its most), for the card to show at once. */
+    fun stepOf(change: VolumeChange): Step = Step(
+        VolumeCard(
+            if (change.stream == VolumeStream.CALL) VolumeKind.CALL else VolumeKind.MUSIC,
+            change.after.coerceIn(0, change.max.coerceAtLeast(0)), change.max,
+        ),
+        change.before, headset = false,
+    )
 
     /**
      * What the title of the dash's gold band says after a volume step of the joystick: [echo] (the level, "Volume 12/30") with the card off, nothing with
