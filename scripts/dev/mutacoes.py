@@ -1537,7 +1537,7 @@ MUTATIONS = [
     ("Site: a página de privacidade em espanhol some do sitemap", "docs/sitemap.xml",
      "<url><loc>https://murkiriel.github.io/reau/es/privacy.html</loc><lastmod>2026-11-20</lastmod></url>", "", ["SiteIntegrityTest"]),
     ("Site: a data da FAQ em inglês fica para trás", "docs/en/faq.html",
-     "Guide of 28 Oct 2026, updated on 20 Nov 2026 for REau 0.3.0.</p>", "Guide of 28 Oct 2026, updated on 3 Nov 2026 for REau 0.3.0.</p>", ["SiteIntegrityTest"]),
+     "Guide of 28 Oct 2026, updated on 22 Nov 2026 for REau 0.3.0.</p>", "Guide of 28 Oct 2026, updated on 3 Nov 2026 for REau 0.3.0.</p>", ["SiteIntegrityTest"]),
     # O site descreve o app único, com aviso nas imagens e nos vídeos antigos e legendas em três línguas (SiteSingleAppTest, 15/11/2026).
     ("Site: o teste do app único aceita a Lite fora da lista", "app/src/test/java/com/reau/app/SiteSingleAppTest.kt",
      '"pt" to listOf("antiga REau Lite",', '"pt" to listOf("Lite", "antiga REau Lite",', ["SiteSingleAppTest"]),
@@ -1556,8 +1556,8 @@ MUTATIONS = [
     ("Site: a legenda em espanhol de uso tem outro tempo que a em português", "docs/videos/uso.es.vtt",
      "00:00:03.467 --> 00:00:10.133\n1. Enciende", "00:00:03.467 --> 00:00:10.233\n1. Enciende", ["SiteSingleAppTest"]),
     ("Site: a captura do aviso antigo fica sem o aviso de versão anterior (inglês)", "docs/en/faq.html",
-     "with the button that opens Android Auto’s settings.<span class=\"old\"> Picture from an earlier version of the app.</span></figcaption>",
-     "with the button that opens Android Auto’s settings.</figcaption>", ["SiteSingleAppTest"]),
+     "Android Auto “Active” and dash “Ready”: streaming.<span class=\"old\"> Picture from an earlier version of the app.</span></figcaption>",
+     "Android Auto “Active” and dash “Ready”: streaming.</figcaption>", ["SiteSingleAppTest"]),
     # A vigia do codificador mudo (chave experimental, desligada por padrão).
         # A resposta de versão do Android Auto recusada: só registro.
     ("Versão do Android Auto: o status 0 também é dito como recusa", MAIN + "aa/Messages.kt",
