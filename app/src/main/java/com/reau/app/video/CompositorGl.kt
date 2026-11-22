@@ -80,6 +80,11 @@ internal class CompositorGl {
     private var legendW = 0
     private var legendH = 0
 
+    // The volume card (VolumeCardInk): the same program, a texture of its own.
+    private var volumeTexture = 0
+    private var volumeW = 0
+    private var volumeH = 0
+
     // The info ring (InfoRingInk): the same program, a texture of its own.
     private var ringTexture = 0
     private var ringW = 0
@@ -277,6 +282,20 @@ internal class CompositorGl {
         legendH = bitmap.height
     }
 
+    /** The picture of the volume card ([VolumeCardInk.render]), or null for none; copied at once, as [setOverlay] does. Drawn by [drawVolumeCard]. */
+    fun setVolumeCard(bitmap: Bitmap?) {
+        if (bitmap == null) {
+            volumeW = 0
+            volumeH = 0
+            return
+        }
+        if (overlayProgram == 0) initOverlay()
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, volumeTexture)
+        GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0)
+        volumeW = bitmap.width
+        volumeH = bitmap.height
+    }
+
     /** The picture of the info ring ([InfoRingInk.render]), or null for none; copied at once, as [setOverlay] does. */
     fun setRing(bitmap: Bitmap?) {
         if (bitmap == null) {
@@ -333,14 +352,15 @@ internal class CompositorGl {
         overlayProgram = buildProgram(vs, fs)
         overlayPosition = GLES20.glGetAttribLocation(overlayProgram, "aPosition")
         overlayTexCoord = GLES20.glGetAttribLocation(overlayProgram, "aTexCoord")
-        val ids = IntArray(6)
-        GLES20.glGenTextures(6, ids, 0)
+        val ids = IntArray(7)
+        GLES20.glGenTextures(7, ids, 0)
         overlayTexture = ids[0]
         badgeTexture = ids[1]
         ringTexture = ids[2]
         buttonTexture = ids[3]
         legendTexture = ids[4]
         testTexture = ids[5]
+        volumeTexture = ids[6]
         for (texture in ids) {
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texture)
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
@@ -374,6 +394,9 @@ internal class CompositorGl {
         val (x, y) = LegendLayout.corner(legendW, legendH)
         drawQuad(legendTexture, legendW, legendH, x, y)
     }
+
+    /** Lays the volume card at the top of the frame, over what [draw] drew. Nothing without a picture from [setVolumeCard]. */
+    fun drawVolumeCard() = drawQuad(volumeTexture, volumeW, volumeH, VolumeCardLayout.X, VolumeCardLayout.Y)
 
     /** Lays the info ring on the right of the frame, over what [draw] drew. Nothing without a picture from [setRing]. */
     fun drawRing() = drawQuad(ringTexture, ringW, ringH, if (ringInPlace) InfoRingSpot.PLACE_X else InfoRingSpot.X, InfoRingSpot.Y)

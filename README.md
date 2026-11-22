@@ -30,6 +30,7 @@ in developer mode. It receives the video, fits the picture to the dash's screen 
 - Uses the handlebar joystick to control Android Auto (map, menu, music, calls and Gemini, which comes on and works once you allow the microphone): while ringing, left answers and right or
   center decline; during a call, center hangs up and up and down change the volume.
 - An info ring over the picture, on the right of the dash (on by default, with a switch; its pages are written in the title of the dash's gold band): rain, wind, storms, UV, air quality, the sun, the day's temperatures and the phone's battery, signal and GPS, one at a time (every card at first; you switch off the ones you don't want). It needs the location and the internet for the weather.
+- A volume notice at the top of the dash's video (on by default, with a switch): a small card with the music or call volume whenever it changes, from the phone, a Bluetooth intercom or the joystick, in place of the volume in the title.
 - Speaks Portuguese, English and Spanish: it follows the phone's language, and the settings have a switch.
 - Adjusts the video quality by the distance to the next maneuver and by speed.
 - Starts from a long press on REau's icon ("Turn on") or from a Quick Settings tile, so it can be switched on at home before the helmet.

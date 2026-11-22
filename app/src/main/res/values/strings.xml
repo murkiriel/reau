@@ -935,6 +935,13 @@
     <!-- What the dash's title says after a volume tap: the level now out of the most the phone has, the call's while a call goes on (at most 19 characters with 3-digit numbers) -->
     <string name="volume_echo_level">Volume %1$d/%2$d</string>
     <string name="volume_echo_call">Call %1$d/%2$d</string>
+    <!-- The volume card on the dash's video (REau's own, at the top): the level now out of the most the stream has; at level 0 it says "Muted" -->
+    <string name="volume_card_music">Music %1$d/%2$d</string>
+    <string name="volume_card_call">Call %1$d/%2$d</string>
+    <string name="volume_card_muted">Muted %1$d/%2$d</string>
+    <string name="volume_card_title">Volume notice on the dash</string>
+    <string name="volume_card_sub">The music or call volume, at the top of the picture</string>
+    <string name="volume_card">Shows at the top of the dash’s video the music or call volume whenever it changes, in place of the notice in the title.</string>
     <string name="echo_media_mode">Media mode</string>
     <string name="action_echo_title">Action name on the dash</string>
     <string name="action_echo_sub">Shows what each joystick tap did</string>

@@ -13,6 +13,16 @@ import com.reau.app.phone.VolumeStream
 object ActionEchoText {
     fun text(context: Context, label: EchoLabel): String = context.getString(label.res)
 
+    /** What the volume card on the video says: "Music 7/15", "Call 4/7", "Muted 0/15" (the level out of the stream's most; level 0 is muted whichever the stream). */
+    fun volumeCard(context: Context, card: VolumeCard): String = context.getString(
+        when {
+            card.muted -> R.string.volume_card_muted
+            card.kind == VolumeKind.CALL -> R.string.volume_card_call
+            else -> R.string.volume_card_music
+        },
+        card.level, card.max,
+    )
+
     /** What the title says after a volume tap: the level now out of the stream's most ("Volume 12/30"; "Call 5/7" on a call's stream). Not an [EchoLabel]: it has numbers. */
     fun volume(context: Context, change: VolumeChange): String =
         context.getString(if (change.stream == VolumeStream.CALL) R.string.volume_echo_call else R.string.volume_echo_level, change.after, change.max)

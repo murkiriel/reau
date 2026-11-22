@@ -458,6 +458,34 @@ internal class LiveSides(
         compositor.setLegend(legend.current())
     }
 
+    // The volume card on the dash's video ([com.reau.app.dash.VolumeCards]): 2 s after the last step, then the compositor takes it off. Declared before the
+    // init block too, which sets the switch and starts the watch.
+    private val volumeCard: com.reau.app.dash.TimedShow<com.reau.app.dash.VolumeNotice> = com.reau.app.dash.TimedShow<com.reau.app.dash.VolumeNotice>(
+        com.reau.app.dash.VolumeCards.SHOW_MS,
+        schedule = { delayMs, action ->
+            val job = scope.launch {
+                delay(delayMs)
+                action()
+            }
+            ({ job.cancel() })
+        },
+        changed = ::volumeCardChanged,
+    ).also { it.enabled = false } // off until the settings say so: with none (a test) there is no card and the title keeps its echo
+
+    /** What the volume card shows changed (a step came, or its time ran out): the compositor draws it or takes it off, at once even with the map still. */
+    private fun volumeCardChanged() {
+        compositor.setVolumeCard(volumeCard.current())
+    }
+
+    /** The system's volume broadcast, listened to while this projection runs (started in the init block, given back in [release]). */
+    private val volumeWatch = VolumeWatch(context, ::volumeStepHeard)
+
+    /** The phone's volume moved ([step]): the card says it, and the log says the level (no song, no name). Nothing when the card is off. */
+    private fun volumeStepHeard(step: com.reau.app.dash.VolumeCards.Step) {
+        val text = com.reau.app.dash.ActionEchoText.volumeCard(appContext, step.card)
+        if (volumeCard.show(com.reau.app.dash.VolumeNotice(step.card, text))) RideDiagnostics.log("dash", step.logLine())
+    }
+
     // The map's zoom from the joystick, over the fit last asked for (every remap goes through it); each change is kept and the next
     // projection starts from it.
     private val liveZoom = com.reau.app.video.LiveZoom(setup.zoomMemory)
@@ -564,6 +592,8 @@ internal class LiveSides(
         if (started && receiver != null) {
             scope.launch { watchAppVideo() }
             scope.launch { watchWaiting() }
+            // The volume card listens only while this projection runs, and only in the real app (a test has no settings).
+            if (setup.settings != null && !volumeWatch.start()) RideDiagnostics.warn("projection", "the volume card cannot listen to the phone's volume")
         }
         scope.launch { ProjectionMachine.dashLinks(session.state).collect { report(ProjectionEvent.DashChanged(it)) } }
         // The weather for the dash: looked at every minute, fetched at most every quarter of an hour, and after a failure with a growing wait (WeatherBackoff).
@@ -611,6 +641,7 @@ internal class LiveSides(
             session.infoRingPress = joystick.bindings.infoRingControl
             session.actionEcho = setup.settings.actionEcho
             legend.enabled = setup.settings.joystickLegend
+            volumeCard.enabled = setup.settings.volumeCard
             session.maneuverCircleEnabled = setup.settings.maneuverRing
             session.ringCycleOn = setup.settings.infoRing
             session.infoInPlace = setup.settings.infoRingInPlace
@@ -751,7 +782,8 @@ internal class LiveSides(
             return
         }
         RideDiagnostics.log("projection", change.logLine(step))
-        volumeEcho = com.reau.app.dash.ActionEchoText.volume(words, change)
+        // With the volume card on, the card says the level and the title does not.
+        volumeEcho = com.reau.app.dash.VolumeCards.titleEcho(volumeCard.enabled) { com.reau.app.dash.ActionEchoText.volume(words, change) }
         session.sendStatusNow()
     }
 
@@ -973,6 +1005,7 @@ internal class LiveSides(
                 "receiver" to { receiver?.stop() },
                 "dash session" to { session.disconnect() },
                 "link up" to { linkUp.stop() },
+                "volume watch" to { volumeWatch.stop() },
                 "sighting" to { com.reau.app.dash.DashSighting.release(sightingListener) },
                 "wifi radio" to { WifiRadio.release(radioListener) },
                 "image gap" to { com.reau.app.dash.ImageGap.clock.forget() },
@@ -1063,6 +1096,7 @@ internal class LiveSides(
             // `tuned` (set above) is what the beat, the music card and the route read; the weather, just switched on, is fetched now.
             if (LiveTuning.Step.DASH_EXTRAS in steps) {
                 session.maneuverCircleEnabled = settings.maneuverRing
+                volumeCard.enabled = settings.volumeCard
                 session.ringCycleOn = settings.infoRing
                 session.infoInPlace = settings.infoRingInPlace
                 session.infoTitle.enabled = settings.infoRing && settings.infoTitle

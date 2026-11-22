@@ -210,6 +210,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             },
             actionEcho = prefs.getBoolean(KEY_ACTION_ECHO, defaults.actionEcho),
             joystickLegend = prefs.getBoolean(KEY_JOYSTICK_LEGEND, defaults.joystickLegend),
+            volumeCard = prefs.getBoolean(KEY_VOLUME_CARD, defaults.volumeCard),
             clearAaFocus = prefs.getBoolean(KEY_CLEAR_AA_FOCUS, defaults.clearAaFocus),
             dashMask = prefs.getBoolean(KEY_DASH_MASK, defaults.dashMask),
             spokenAlerts = prefs.getBoolean(KEY_SPOKEN_ALERTS, defaults.spokenAlerts),
@@ -317,6 +318,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             remove(KEY_RING_ALWAYS_OFF)
             putBoolean(KEY_ACTION_ECHO, s.actionEcho)
             putBoolean(KEY_JOYSTICK_LEGEND, s.joystickLegend)
+            putBoolean(KEY_VOLUME_CARD, s.volumeCard)
             putBoolean(KEY_CLEAR_AA_FOCUS, s.clearAaFocus)
             putBoolean(KEY_DASH_MASK, s.dashMask)
             putBoolean(KEY_SPOKEN_ALERTS, s.spokenAlerts)
@@ -470,6 +472,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val KEY_RING_ALWAYS_OFF = "ring_always_off"
         private const val KEY_ACTION_ECHO = "actionEcho"
         private const val KEY_JOYSTICK_LEGEND = "joystickLegend"
+        private const val KEY_VOLUME_CARD = "volumeCard"
         private const val KEY_CLEAR_AA_FOCUS = "clear_aa_focus"
 
         fun open(context: Context): SettingsStore = SettingsStore(context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE))

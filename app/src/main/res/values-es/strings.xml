@@ -925,6 +925,13 @@
     <!-- What the dash's title says after a volume tap: the level now out of the most the phone has, the call's while a call goes on (at most 19 characters with 3-digit numbers) -->
     <string name="volume_echo_level">Volumen %1$d/%2$d</string>
     <string name="volume_echo_call">Llamada %1$d/%2$d</string>
+    <!-- La tarjeta de volumen en el video del tablero (propia de REau, arriba): el nivel ahora sobre el máximo del canal; en el nivel 0 dice "Silencio" -->
+    <string name="volume_card_music">Música %1$d/%2$d</string>
+    <string name="volume_card_call">Llamada %1$d/%2$d</string>
+    <string name="volume_card_muted">Silencio %1$d/%2$d</string>
+    <string name="volume_card_title">Aviso de volumen en el tablero</string>
+    <string name="volume_card_sub">El volumen de la música o de la llamada, arriba de la imagen</string>
+    <string name="volume_card">Muestra arriba del video del tablero el volumen de la música o de la llamada cada vez que cambia, en lugar del aviso en el título.</string>
     <string name="echo_media_mode">Modo multimedia</string>
     <string name="action_echo_title">Nombre de la acción en el tablero</string>
     <string name="action_echo_sub">Muestra qué hizo cada toque del joystick</string>

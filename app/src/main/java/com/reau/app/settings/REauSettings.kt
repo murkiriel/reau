@@ -137,6 +137,12 @@ data class REauSettings(
      */
     val joystickLegend: Boolean = false,
     /**
+     * A card of REau's own at the top of the dash's video says the phone's music or call volume ("Música 7/15", "Chamada 4/7", "Mudo") for 2 s whenever
+     * it changes, from whichever side ([com.reau.app.dash.VolumeCards]); with it on, the volume echo in the title of the gold band is not said any more.
+     * On by default; read at each change of the volume.
+     */
+    val volumeCard: Boolean = true,
+    /**
      * A minute after the joystick, one touch takes Android Auto's blue focus
      * away ([com.reau.app.aa.FocusClearer]); on by default. Taken at the next start.
      */

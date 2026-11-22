@@ -161,6 +161,9 @@ class DashCompositor(private val log: (String) -> Unit) {
     /** What the joystick's legend says on the dash's video now, or null for none. */
     private var legend: com.reau.app.dash.LegendCard? = null
 
+    /** What the volume card says on the dash's video now, or null for none. */
+    private var volumeCard: com.reau.app.dash.VolumeNotice? = null
+
     /** What the info ring draws on the dash's video now, or null for no ring. */
     private var infoRing: com.reau.app.weather.RingFrame? = null
 
@@ -447,6 +450,30 @@ class DashCompositor(private val log: (String) -> Unit) {
             legend = null
             gl.setLegend(null)
             log("compositor: the joystick legend failed and is off: $it")
+        }
+        redrawSoon()
+    }
+
+    /**
+     * Shows the volume card ([notice]) at the top of the dash's video from the next frame; null takes it off. Drawn once into a texture (here, on the GL
+     * thread) when the volume changes, so a frame costs one more quad; the same notice again does nothing, and a change is drawn at once ([redrawSoon]),
+     * as a volume step is rare and the video may be at the idle pace, or the map still: a card must come and go with no new picture from Android Auto.
+     */
+    fun setVolumeCard(notice: com.reau.app.dash.VolumeNotice?) = onGlThread(wait = false) {
+        if (notice == volumeCard) return@onGlThread
+        volumeCard = notice
+        runCatching {
+            if (notice == null) {
+                gl.setVolumeCard(null)
+            } else {
+                val picture = VolumeCardInk.render(notice)
+                gl.setVolumeCard(picture)
+                picture.recycle()
+            }
+        }.onFailure {
+            volumeCard = null
+            gl.setVolumeCard(null)
+            log("compositor: the volume card failed and is off: $it")
         }
         redrawSoon()
     }
@@ -749,6 +776,7 @@ class DashCompositor(private val log: (String) -> Unit) {
             if (buttonOverlay.on) gl.drawButton(buttonOverlay.x, buttonOverlay.y)
             if (infoRing != null) gl.drawRing()
             if (legend != null) gl.drawLegend()
+            if (volumeCard != null) gl.drawVolumeCard()
             if (staleBadge != null) gl.drawBadge()
         }
 
