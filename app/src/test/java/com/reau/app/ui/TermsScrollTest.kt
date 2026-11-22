@@ -8,9 +8,9 @@ class TermsScrollTest {
     private val density = 2.75f
 
     @Test
-    fun theRollTakesBetweenOneAndTenSeconds() {
+    fun theRollTakesBetweenOneAndTwoSeconds() {
         assertEquals(1_000, TermsScroll.MIN_MS)
-        assertEquals(10_000, TermsScroll.MAX_MS)
+        assertEquals(2_000, TermsScroll.MAX_MS)
     }
 
     @Test
@@ -39,15 +39,17 @@ class TermsScrollTest {
     @Test
     fun aLongerTextTakesLongerUpToTheMaximum() {
         // 600 dp a second at density 2.75 is 1,650 px a second.
-        assertEquals(2_000, TermsScroll.durationMs(3_300, density))
-        assertEquals(5_000, TermsScroll.durationMs(8_250, density))
-        assertTrue(TermsScroll.durationMs(8_250, density) > TermsScroll.durationMs(3_300, density))
+        assertEquals(1_200, TermsScroll.durationMs(1_980, density))
+        assertEquals(1_800, TermsScroll.durationMs(2_970, density))
+        assertTrue(TermsScroll.durationMs(2_970, density) > TermsScroll.durationMs(1_980, density))
+        // The whole terms on a phone (about 4,200 dp) would take 7 s at this pace: it is cut to the 2 s ceiling.
+        assertEquals(TermsScroll.MAX_MS, TermsScroll.durationMs(11_550, density))
     }
 
     @Test
     fun theSameTimeOnAnyDensity() {
-        assertEquals(TermsScroll.durationMs(8_000, 2f), TermsScroll.durationMs(12_000, 3f))
-        assertEquals(6_667, TermsScroll.durationMs(8_000, 2f))
+        assertEquals(TermsScroll.durationMs(1_800, 2f), TermsScroll.durationMs(2_700, 3f))
+        assertEquals(1_500, TermsScroll.durationMs(1_800, 2f))
     }
 
     @Test
