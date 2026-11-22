@@ -297,7 +297,7 @@ private val RAIN_BAR_HEIGHT = 6.dp
 private val RAIN_BAR_GAP = 8.dp
 
 /**
- * The rain of a line as a ruler: a rounded track with the fill in the rain blue of the icons, [RainAmount.fill] of the way, and the amount ("2,4 mm") in small light-blue text at its end.
+ * The rain of a line as a ruler: a rounded track with the fill in the rain blue of the icons, [RainAmount.fill] of the way, and the amount ("2,4 mm") in small blue text at its end (both from the theme: a faint track and a readable blue in the dark and the light one).
  * A screen reader says the amount in words ("2,4 milímetros de chuva") instead of the written one, as part of the line it belongs to.
  */
 @Composable
@@ -309,14 +309,14 @@ private fun RainRuler(mm: Double, fullMm: Double, tag: String) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val shape = RoundedCornerShape(RAIN_BAR_HEIGHT / 2)
-        Box(Modifier.weight(1f).height(RAIN_BAR_HEIGHT).clip(shape).background(MaterialTheme.colorScheme.outlineVariant)) {
+        Box(Modifier.weight(1f).height(RAIN_BAR_HEIGHT).clip(shape).background(LocalREauStatus.current.rainTrack)) {
             Box(
                 Modifier.fillMaxWidth(RainAmount.fill(mm, fullMm).coerceAtLeast(MIN_RAIN_FILL)).fillMaxHeight().clip(shape)
                     .background(Color(weatherGlyphColor(WeatherGlyphLayer.RAIN))),
             )
         }
         Spacer(Modifier.width(8.dp))
-        Text("$amount mm", style = MaterialTheme.typography.labelSmall, color = LocalREauStatus.current.infoText, maxLines = 1, softWrap = false)
+        Text("$amount mm", style = MaterialTheme.typography.labelSmall, color = LocalREauStatus.current.rainText, maxLines = 1, softWrap = false)
     }
 }
 

@@ -29,6 +29,10 @@ val ErroTextoNoClaro = Color(0xFFB3261E)
 val SucessoTextoNoEscuro = Color(0xFF52A25A)
 val AtencaoTextoNoEscuro = Color(0xFFD2802F)
 val InfoTextoNoEscuro = Color(0xFF6296D0)
+// The rain ruler of the Clima screen in the light theme: the amount in a deep blue (5.2:1 on Marfim; the dark theme writes it in
+// InfoTextoNoEscuro) and the empty track in OuroSuave at 35% over Marfim, as faint on the ivory card as the dark track is on Carvão.
+val ChuvaTextoNoClaro = Color(0xFF1A5FA8)
+val TrilhoChuvaNoClaro = Color(0xFFDECEAF)
 
 // Blends worked out beforehand (Material 3 wants solid colours)
 private val OuroSobreGrafite12 = Color(0xFF2B2510)  // Ouro 12% over Grafite
@@ -81,11 +85,16 @@ data class REauStatusColors(
     val warningText: Color = AtencaoTextoNoEscuro,
     val infoText: Color = InfoTextoNoEscuro,
     val errorText: Color = ErroTextoNoEscuro,
+    /** The rain ruler's amount ("4,2 mm"): blue in both themes, 4.5:1 on the card. */
+    val rainText: Color = InfoTextoNoEscuro,
+    /** The rain ruler's empty track: a faint step from the card, so only the blue fill reads as rain. */
+    val rainTrack: Color = OuroSuaveSobreGrafite22,
 )
 
 val REauStatusDark = REauStatusColors(idle = OuroSuave)
 val REauStatusLight = REauStatusColors(
     idle = Grafite62SobreMarfim, successText = Grafite, warningText = Grafite, infoText = Grafite, errorText = Grafite,
+    rainText = ChuvaTextoNoClaro, rainTrack = TrilhoChuvaNoClaro,
 )
 
 val LocalREauStatus = staticCompositionLocalOf { REauStatusDark }

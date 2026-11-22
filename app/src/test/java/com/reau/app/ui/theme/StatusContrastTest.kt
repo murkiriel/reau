@@ -53,6 +53,17 @@ class StatusContrastTest {
     }
 
     @Test
+    fun `the rain ruler's amount is blue and readable and its track is faint, in both themes`() {
+        // 22/11/2026: in the light theme the track was OuroSuave (a full gold bar behind 0,1 mm) and the amount was Grafite.
+        for ((status, grounds) in listOf(REauStatusDark to darkGrounds.take(2), REauStatusLight to lightGrounds)) for (ground in grounds) {
+            assertTrue("rain amount on $ground: ${contrast(status.rainText, ground)}", contrast(status.rainText, ground) >= 4.5)
+            assertTrue("rain track on $ground: ${contrast(status.rainTrack, ground)}", contrast(status.rainTrack, ground) in 1.1..1.5)
+            assertTrue("the amount is blue: ${status.rainText}", status.rainText.blue > status.rainText.red && status.rainText.blue > status.rainText.green)
+        }
+        assertTrue("the light track is no longer the gold outline", REauStatusLight.rainTrack != REauLight.outlineVariant)
+    }
+
+    @Test
     fun `the brand's states were under the text floor in the dark theme, which is why the letters have their own tones`() {
         // 4.0:1 green and 3.9:1 red on the Carvão card, as measured: the icons keep them, the letters do not use them.
         assertTrue(contrast(StatusSucesso, Carvao) < 4.5)
