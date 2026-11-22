@@ -44,8 +44,6 @@ import com.reau.app.ui.components.GhostButton
 import com.reau.app.ui.components.MsIcon
 import com.reau.app.ui.components.PickSheet
 import com.reau.app.ui.components.REauTopBar
-import com.reau.app.ui.components.SettingsGroup
-import com.reau.app.ui.components.SwitchRow
 import com.reau.app.ui.components.TabOption
 import com.reau.app.ui.components.TabRail
 import com.reau.app.ui.components.hairline
@@ -102,20 +100,6 @@ fun JoystickScreen(settings: REauSettings, onSettings: (REauSettings) -> Unit, o
                     }
                     SelectedCard(slot, page[slot], locked) { if (!locked) picking = true }
                     if (mode == Mode.MEDIA) MusicCardNotice(settings.dashMusic, page.mediaControls)
-                    // A setting of its own (not part of the page): "reset to default" below leaves it as it is. Read at each tap of the joystick.
-                    if (mode == Mode.MAP) {
-                        SettingsGroup(
-                            null, null,
-                            listOf {
-                                SwitchRow(
-                                    stringResource(R.string.map_center_opens_music_title), settings.mapCenterOpensMusic,
-                                    { onSettings(settings.copy(mapCenterOpensMusic = it)) }, "map_center_opens_music",
-                                    sub = stringResource(R.string.map_center_opens_music_sub), now = true,
-                                )
-                            },
-                            tag = "group_map_center_music",
-                        )
-                    }
                     GhostButton(R.drawable.ic_ms_restart_alt, stringResource(R.string.joystick_reset), "reset_joystick", {
                         onSettings(settings.copy(joystick = REauSettings.DEFAULT_JOYSTICK))
                     })

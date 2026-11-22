@@ -210,7 +210,6 @@ class SettingsStore(private val prefs: SharedPreferences) {
             },
             actionEcho = prefs.getBoolean(KEY_ACTION_ECHO, defaults.actionEcho),
             joystickLegend = prefs.getBoolean(KEY_JOYSTICK_LEGEND, defaults.joystickLegend),
-            mapCenterOpensMusic = prefs.getBoolean(KEY_MAP_CENTER_OPENS_MUSIC, defaults.mapCenterOpensMusic),
             volumeCard = prefs.getBoolean(KEY_VOLUME_CARD, defaults.volumeCard),
             callCard = prefs.getBoolean(KEY_CALL_CARD, defaults.callCard),
             clearAaFocus = prefs.getBoolean(KEY_CLEAR_AA_FOCUS, defaults.clearAaFocus),
@@ -320,7 +319,6 @@ class SettingsStore(private val prefs: SharedPreferences) {
             remove(KEY_RING_ALWAYS_OFF)
             putBoolean(KEY_ACTION_ECHO, s.actionEcho)
             putBoolean(KEY_JOYSTICK_LEGEND, s.joystickLegend)
-            putBoolean(KEY_MAP_CENTER_OPENS_MUSIC, s.mapCenterOpensMusic)
             putBoolean(KEY_VOLUME_CARD, s.volumeCard)
             putBoolean(KEY_CALL_CARD, s.callCard)
             putBoolean(KEY_CLEAR_AA_FOCUS, s.clearAaFocus)
@@ -476,7 +474,6 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val KEY_RING_ALWAYS_OFF = "ring_always_off"
         private const val KEY_ACTION_ECHO = "actionEcho"
         private const val KEY_JOYSTICK_LEGEND = "joystickLegend"
-        private const val KEY_MAP_CENTER_OPENS_MUSIC = "mapCenterOpensMusic"
         private const val KEY_VOLUME_CARD = "volumeCard"
         private const val KEY_CALL_CARD = "callCard"
         private const val KEY_CLEAR_AA_FOCUS = "clear_aa_focus"

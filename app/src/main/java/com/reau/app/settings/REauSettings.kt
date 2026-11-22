@@ -137,14 +137,6 @@ data class REauSettings(
      */
     val joystickLegend: Boolean = false,
     /**
-     * In the dash's map mode the centre puts the dash in its media mode ([com.reau.app.aa.JoystickBindings.LOCKED]); with this on, the same tap
-     * also opens the music app in Android Auto ([com.reau.app.aa.JoystickBindings.Action.OPEN_MUSIC]'s key), unless the music is already in front
-     * ([com.reau.app.aa.JoystickMap.musicInFront]). Off by default: the tap does only what it always did until the rider switches it on. Read at
-     * each tap ([com.reau.app.service.LiveTuning.Step.JOYSTICK]). It is a setting of its own, on the joystick page's map tab: the page's
-     * "Voltar ao padrão" ([DEFAULT_JOYSTICK]) does not touch it.
-     */
-    val mapCenterOpensMusic: Boolean = false,
-    /**
      * A card of REau's own at the top of the dash's video says the phone's music or call volume ("Música 7/15", "Chamada 4/7", "Mudo") for 2 s whenever
      * it changes, from whichever side ([com.reau.app.dash.VolumeCards]); with it on, the volume echo in the title of the gold band is not said any more.
      * On by default; read at each change of the volume.

@@ -4769,17 +4769,6 @@ MUTATIONS += [
      "            remove(OLD_KEY_BLURRED_FILL)\n", "            putBoolean(OLD_KEY_BLURRED_FILL, true)\n", ["BlurredFillGoneTest"]),
     ("P32S Sem desfoque: o valor antigo ligado é lido de novo na carga", MAIN + "settings/SettingsStore.kt",
      "            dashMask = prefs.getBoolean(KEY_DASH_MASK, defaults.dashMask),\n", "            dashMask = prefs.getBoolean(KEY_DASH_MASK, defaults.dashMask) && !prefs.getBoolean(OLD_KEY_BLURRED_FILL, false),\n", ["BlurredFillGoneTest"]),
-    # Leva 32 (22/11/2026): o botão central do modo mapa abre também a música, por uma chave da página do joystick, desligada de fábrica.
-    ("P32M Centro abre música: com a chave desligada o centro abre a música mesmo assim", MAIN + "aa/JoystickMap.kt",
-     "if (!mapCenterOpensMusic || callNow() != CallState.IDLE) return press", "if (callNow() != CallState.IDLE) return press", ["JoystickMapCenterOpensMusicTest"]),
-    ("P32M Centro abre música: com a música já na frente o centro manda a tecla de novo", MAIN + "aa/JoystickMap.kt",
-     "if (musicInFront()) return press.copy(", "if (!musicInFront()) return press.copy(", ["JoystickMapCenterOpensMusicTest"]),
-    ("P32M Centro abre música: com o telefone tocando ou numa chamada o centro abre a música", MAIN + "aa/JoystickMap.kt",
-     "if (!mapCenterOpensMusic || callNow() != CallState.IDLE) return press", "if (!mapCenterOpensMusic) return press", ["JoystickMapCenterOpensMusicTest"]),
-    ("P32M Centro abre música: o centro logo depois de um lado do mapa não abre a música", MAIN + "aa/JoystickMap.kt",
-     "centerUndo.pressFor(place, nowMs)?.let(::withOpenMusic)", "centerUndo.pressFor(place, nowMs)", ["JoystickMapCenterOpensMusicTest"]),
-    ("P32M Centro abre música: a chave nasce ligada", MAIN + "settings/REauSettings.kt",
-     "    val mapCenterOpensMusic: Boolean = false,", "    val mapCenterOpensMusic: Boolean = true,", ["MapCenterOpensMusicSettingsTest"]),
     # Leva 32 (22/11/2026): o aviso de volume no alto do vídeo do painel (VolumeCards, VolumeCardLayout, VolumeWatch).
     ("P32 Aviso de volume: o fone Bluetooth (SCO) não vale como chamada", MAIN + "dash/VolumeCards.kt",
      "            STREAM_VOICE_CALL, STREAM_BLUETOOTH_SCO -> VolumeKind.CALL\n", "            STREAM_VOICE_CALL -> VolumeKind.CALL\n", ["VolumeCardsTest"]),

@@ -50,12 +50,6 @@ class SwapMapMusic(
             AaScreen.UNKNOWN -> ScreenNet.Screen.UNSURE
         }
 
-        /**
-         * Whether the music is already in front: only Spotify is known as music by the net ([ScreenNet.Screen.SPOTIFY]). The map centre that opens the music
-         * ([JoystickMap.mapCenterOpensMusic]) sends nothing then, as another media key would change app or open the picker.
-         */
-        fun musicInFront(seen: ScreenNet.Screen): Boolean = seen == ScreenNet.Screen.SPOTIFY
-
         /** The decision: the map goes to the music, and everything else (Spotify, the menu, another app, not sure) goes to the map. */
         fun targetFor(seen: ScreenNet.Screen): Target = if (seen == ScreenNet.Screen.NAV) Target.MUSIC else Target.MAP
 

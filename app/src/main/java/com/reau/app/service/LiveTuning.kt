@@ -71,17 +71,13 @@ object LiveTuning {
         if (session) add(Step.NEW_ANDROID_AUTO_SESSION) else if (before.refitNeeded(after)) add(Step.REFIT)
         if (before.stream != after.stream) add(Step.NEW_STREAM)
         if (before.mapTheme != after.mapTheme || before.useLocation != after.useLocation) add(Step.NIGHT_NOW)
-        if (joystickChanged(before, after)) add(Step.JOYSTICK)
+        if (before.joystick != after.joystick || before.actionEcho != after.actionEcho || before.joystickLegend != after.joystickLegend) add(Step.JOYSTICK)
         if (before.overlay != after.overlay) add(Step.STATS_OVERLAY)
         if (before.buttonLook != after.buttonLook) add(Step.BUTTON_OVERLAY)
         if (before.fpsTestRate != after.fpsTestRate) add(Step.FPS_TEST)
         if (webChanged(before, after)) add(Step.WEB)
         if (dashExtrasChanged(before, after)) add(Step.DASH_EXTRAS)
     }
-
-    private fun joystickChanged(before: REauSettings, after: REauSettings) =
-        before.joystick != after.joystick || before.actionEcho != after.actionEcho || before.joystickLegend != after.joystickLegend ||
-            before.mapCenterOpensMusic != after.mapCenterOpensMusic
 
     private fun webChanged(before: REauSettings, after: REauSettings) =
         before.webView != after.webView || before.webTouch != after.webTouch || before.webAudio != after.webAudio
