@@ -678,11 +678,12 @@
     <string name="call_what_nothing">No hace nada</string>
     <string name="call_note_answer">Vale para llamadas del operador y para WhatsApp y otras apps de voz.</string>
     <string name="call_note_reject">Si el intercomunicador del casco contesta primero (tras unos 7,5 s sonando), este toque cuelga la llamada que ya estaba contestada. Mientras suena, el centro no reproduce ni pausa la música.</string>
-    <string name="call_note_end">Vale para llamadas del operador y para WhatsApp. Después de actuar, el mismo botón se ignora durante 3 s, así un toque repetido por accidente no hace nada.</string>
+    <string name="call_note_end">Vale para llamadas del operador y para WhatsApp. Después de actuar, el mismo botón se ignora durante 3 s, así un toque repetido por accidente no hace nada. Siempre funciona, incluso justo después de un toque de volumen (bloqueo de volumen).</string>
     <string name="call_note_volume">Un paso por toque; el casco lo sigue.</string>
     <string name="call_note_mode">Mientras suena, arriba y abajo se quedan como están en el modo en que está el tablero (Modo mapa o Control multimedia).</string>
     <string name="call_note_not_sent">Durante una llamada el tablero se queda con la izquierda y la derecha: REau no recibe esos toques.</string>
     <string name="call_note_nothing">Durante una llamada la izquierda y la derecha no hacen nada, para que un toque sin querer no conteste ni cuelgue.</string>
+    <string name="call_note_nothing_ringing">Mientras suena, arriba y abajo no hacen nada, para que un toque sin querer no cambie el volumen ni la página.</string>
 
     <!-- The redesign's permissions page. -->
     <string name="permissions_ask_all_n">Pedir los que faltan (%1$d)</string>

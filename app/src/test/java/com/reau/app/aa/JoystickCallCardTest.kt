@@ -10,14 +10,16 @@ import com.reau.app.dash.protocol.DashButtonEvent
 import com.reau.app.phone.CallState
 import java.io.File
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
  * The joystick on a call with REau's own call card on ([JoystickMap.callCard]): the dash is not told of the call, so it shows no call screen and sends the plain codes of its
- * map and media modes. Ringing: the left answers, the right and the middle decline, up and down are the page's; on a call: the left and the right do nothing, the middle
- * ends it, up and down are the call's volume; the map mode's up (the dash's back) sends nothing to Android Auto on either. With the switch off the joystick is what it was.
+ * map and media modes. The same table in both modes (P32, ride of 22/11): ringing, the left answers, the right and the middle decline, up and down do nothing; on a
+ * call, the left and the right do nothing, the middle ends it (even under the volume lock), up and down are the call's volume (the map mode's up is the dash's back and
+ * its down the code 0x15, which neither does the page's action nor switches the info ring); the lock lasts through a call. With the switch off the joystick is what it was.
  */
 class JoystickCallCardTest {
     private val mediaLeft = DashButtonEvent.PrevTrack(0x0A)
@@ -50,13 +52,18 @@ class JoystickCallCardTest {
     }
 
     @Test
-    fun `ringing, up and down are the page's as they are with the card off, and the map's up sends nothing`() {
-        for (event in listOf(mediaUp, mediaDown, mapDown)) {
-            assertEquals("$event", sent(false, CallState.RINGING, event), sent(true, CallState.RINGING, event))
+    fun `ringing, up and down do nothing in both modes, whatever the page says, and the map's up sends nothing to Android Auto`() {
+        val zoom = JoystickBindings.DEFAULT.with(Slot(Mode.MEDIA, Control.UP, Gesture.ONCE), Action.ZOOM_IN)
+        for (page in listOf(JoystickBindings.DEFAULT, zoom)) {
+            for (event in listOf(mediaUp, mediaDown, mapBack, mapDown)) {
+                val press = map(true, page).also { call = CallState.RINGING }.press(event, 10_000)
+                assertEquals("$event", emptyList<AaCommand>(), press.sent)
+                assertNull("$event", press.echo)
+                assertTrue(press.lines.toString(), press.lines.single().endsWith(": while it rings, nothing"))
+            }
         }
-        assertEquals("media down is the page's home", listOf<AaCommand>(AaCommand.Key(ServiceDiscoveryResponse.KEY_HOME)), sent(true, CallState.RINGING, mediaDown))
-        assertTrue("the dash's back is the one that goes to Android Auto with the card off", sent(false, CallState.RINGING, mapBack).isNotEmpty())
-        assertEquals(emptyList<AaCommand>(), sent(true, CallState.RINGING, mapBack))
+        assertEquals("media down is the page's home with the card off", listOf<AaCommand>(AaCommand.Key(ServiceDiscoveryResponse.KEY_HOME)), sent(false, CallState.RINGING, mediaDown))
+        assertTrue("the dash's back goes to Android Auto with the card off", sent(false, CallState.RINGING, mapBack).isNotEmpty())
     }
 
     @Test
@@ -81,21 +88,92 @@ class JoystickCallCardTest {
     }
 
     @Test
-    fun `on a call the media mode's up and down are the call's volume, whatever the page says`() {
+    fun `on a call up and down are the call's volume in both modes, whatever the page says, with no echo`() {
         val zoom = JoystickBindings.DEFAULT.with(Slot(Mode.MEDIA, Control.UP, Gesture.ONCE), Action.ZOOM_IN)
+            .with(JoystickBindings.INFO_RING_SLOT, Action.HOME)
         for (page in listOf(JoystickBindings.DEFAULT, zoom)) {
-            assertEquals(listOf<AaCommand>(AaCommand.CallVolume(1)), sent(true, CallState.IN_CALL, mediaUp, page))
-            assertEquals(listOf<AaCommand>(AaCommand.CallVolume(-1)), sent(true, CallState.IN_CALL, mediaDown, page))
+            for (up in listOf(mediaUp, mapBack)) assertEquals("$up", listOf<AaCommand>(AaCommand.CallVolume(1)), sent(true, CallState.IN_CALL, up, page))
+            for (down in listOf(mediaDown, mapDown)) assertEquals("$down", listOf<AaCommand>(AaCommand.CallVolume(-1)), sent(true, CallState.IN_CALL, down, page))
+        }
+        call = CallState.IN_CALL
+        assertNull(map(true).press(mapDown, 10_000).echo)
+    }
+
+    @Test
+    fun `the ride of 22-11, a call in the map mode and the down twice, is the call's volume down twice, with no home and no ring`() {
+        call = CallState.IN_CALL
+        val joystick = map(true)
+        for (at in listOf(10_000L, 11_500L)) {
+            val press = joystick.press(mapDown, at)
+            assertEquals(listOf<AaCommand>(AaCommand.CallVolume(-1)), press.sent)
+            assertTrue(press.lines.toString(), press.lines.single() == "call volume -1")
+            assertTrue("the session is told to leave the info ring alone", joystick.wouldDrop(mapDown, at + 1))
         }
     }
 
     @Test
-    fun `on a call the map mode's up sends nothing to Android Auto and its down is the page's`() {
-        assertEquals(emptyList<AaCommand>(), sent(true, CallState.IN_CALL, mapBack))
-        assertEquals("the info ring's switch sends nothing", emptyList<AaCommand>(), sent(true, CallState.IN_CALL, mapDown))
-        val volume = JoystickBindings.DEFAULT.with(JoystickBindings.INFO_RING_SLOT, Action.HOME)
-        assertEquals(sent(false, CallState.IN_CALL, mapDown, volume), sent(true, CallState.IN_CALL, mapDown, volume))
-        assertEquals(listOf<AaCommand>(AaCommand.Key(ServiceDiscoveryResponse.KEY_HOME)), sent(true, CallState.IN_CALL, mapDown, volume))
+    fun `the info ring's switch is left alone while the phone rings or a call goes on, only with the card on`() {
+        for (state in listOf(CallState.RINGING, CallState.IN_CALL)) {
+            call = state
+            assertTrue("$state", map(true).wouldDrop(mapDown, 10_000))
+            assertTrue("$state: with the lock on too", map(true).also { it.volumeLock.enabled = true }.wouldDrop(mapDown, 10_000))
+            assertFalse("$state: the card off changes nothing", map(false).wouldDrop(mapDown, 10_000))
+        }
+        call = CallState.IDLE
+        assertFalse(map(true).wouldDrop(mapDown, 10_000))
+    }
+
+    @Test
+    fun `under the lock a call keeps it, the volume goes on and renews it, the middle ends the call and the sides are dropped`() {
+        call = CallState.IN_CALL
+        for (up in listOf(mediaUp, mapBack)) for (down in listOf(mediaDown, mapDown)) {
+            val joystick = map(true).also { it.volumeLock.enabled = true }
+            assertEquals(listOf<AaCommand>(AaCommand.CallVolume(1)), joystick.press(up, 0).sent)
+            assertEquals("a call volume tap locks", 5_000L, joystick.volumeLock.leftMs(0))
+            for (side in listOf(mediaLeft, mediaRight, mapLeft, mapRight)) {
+                val dropped = joystick.press(side, 1_000)
+                assertEquals("$side", emptyList<AaCommand>(), dropped.sent)
+                assertTrue(dropped.lines.toString(), dropped.lines.single().startsWith("volume lock: "))
+            }
+            assertEquals("a dropped side renews nothing", 4_000L, joystick.volumeLock.leftMs(1_000))
+            assertEquals(listOf<AaCommand>(AaCommand.CallVolume(-1)), joystick.press(down, 2_000).sent)
+            assertEquals("the volume tap renewed it", 5_000L, joystick.volumeLock.leftMs(2_000))
+            assertEquals("both ways of up and down are taken under the lock", listOf<AaCommand>(AaCommand.CallVolume(1)), joystick.press(up, 3_000).sent)
+            assertTrue("the lock is not lifted by the call", joystick.wouldDrop(mediaLeft, 2_100))
+            if (down != mapDown) assertFalse("the call's volume is not dropped", joystick.wouldDrop(down, 2_100))
+        }
+    }
+
+    @Test
+    fun `the middle always ends the call, even under the lock, in both modes and by the dash's own code`() {
+        call = CallState.IN_CALL
+        for (center in listOf(mediaCenter, mapCenter, DashButtonEvent.Unknown(0x16))) {
+            val joystick = map(true).also { it.volumeLock.enabled = true }
+            joystick.press(mediaUp, 0)
+            assertTrue("$center is not dropped", !joystick.wouldDrop(center, 100))
+            val press = joystick.press(center, 100)
+            assertEquals("$center", listOf<AaCommand>(AaCommand.EndCall), press.sent)
+            assertEquals(EchoLabel.END_CALL, press.echo)
+        }
+    }
+
+    @Test
+    fun `with the card off a call that comes lifts the lock, and the right still ends it`() {
+        val volumePage = JoystickBindings.DEFAULT.with(Slot(Mode.MEDIA, Control.UP, Gesture.ONCE), Action.VOLUME_UP)
+        val joystick = map(false, volumePage).also { it.volumeLock.enabled = true }
+        assertEquals(listOf<AaCommand>(AaCommand.Volume(1)), joystick.press(mediaUp, 0).sent)
+        call = CallState.IN_CALL
+        assertEquals(listOf<AaCommand>(AaCommand.EndCall), joystick.press(mediaRight, 1_000).sent)
+        assertEquals(0L, joystick.volumeLock.leftMs(1_001))
+    }
+
+    @Test
+    fun `with the card off the lock is lifted by a call and the call's volume locks nothing`() {
+        val volumePage = JoystickBindings.DEFAULT.with(Slot(Mode.MEDIA, Control.UP, Gesture.ONCE), Action.VOLUME_UP)
+        call = CallState.IN_CALL
+        val joystick = map(false, volumePage).also { it.volumeLock.enabled = true }
+        assertEquals(listOf<AaCommand>(AaCommand.CallVolume(1)), joystick.press(DashButtonEvent.Unknown(0x03), 0).sent)
+        assertEquals(0L, joystick.volumeLock.leftMs(0))
     }
 
     @Test

@@ -57,7 +57,7 @@ sealed class AaCommand {
  *
  * The calls use the same sides, above the page, one tap: while [callState] says
  * the phone rings, left answers and right rejects; on a call, right ends it and left does nothing (the
- * sides of Android Auto's call card); while it rings the middle rejects too; up and down go through the page. While the phone rings the dash
+ * sides of Android Auto's call card); while it rings the middle rejects too; up and down go through the page (with REau's own call card on they are the call's: [callCardPress]). While the phone rings the dash
  * shows its own call screen, and the first tap on a side comes as 0x02 (left) or 0x01 (right), as seen on a real dash;
  * the dash then goes back to its map, so a tap after it comes as the map's side. On a call the dash keeps the sides
  * to itself and sends its middle as 0x16, which ends the call as the right does. For
@@ -145,30 +145,42 @@ class JoystickMap(
     val volumeLock = VolumeLock()
 
     /**
-     * The press that drops [event] under the volume lock, or null when the tap goes on: no lock, a call ringing or going on (which ends the lock, so the call's keys
-     * always work), or a tap that is one of the page's volume actions. A dropped tap changes nothing in the map (no bounce, no mode, no held side) and does not renew the lock.
+     * The press that drops [event] under the volume lock, or null when the tap goes on: no lock, a call ringing (which ends the lock, so the call's keys always work), or a
+     * tap that is one of the page's volume actions. With REau's own call card on ([callCard]) the lock lasts through a call that goes on: then the taps that go on are the
+     * call's volume (up and down) and the middle, which ends the call even under the lock ([callKey]); the sides, which do nothing there, are dropped like any other tap.
+     * A dropped tap changes nothing in the map (no bounce, no mode, no held side) and does not renew the lock.
      */
     private fun droppedByLock(event: DashButtonEvent, nowMs: Long): Press? {
         val left = volumeLock.leftMs(nowMs)
         val place = whereOf(event)
-        if (left > 0L && callNow() != CallState.IDLE) volumeLock.clear()
-        val locked = left > 0L && callNow() == CallState.IDLE
-        if (!locked || isVolumeTap(place)) return null
+        val cardCall = callCard && callNow() == CallState.IN_CALL
+        if (left > 0L && callNow() != CallState.IDLE && !cardCall) volumeLock.clear()
+        val locked = left > 0L && (callNow() == CallState.IDLE || cardCall)
+        if (!locked || (if (cardCall) callKey(event) != null else isVolumeTap(place))) return null
         val what = place?.let { name(it.first, it.second) } ?: if (event is DashButtonEvent.JoystickBack) "map up" else "code 0x${"%02X".format(event.code)}"
         return Press(emptyList(), listOf("volume lock: $what ignored (${"%.1f".format(Locale.ROOT, left / 1000.0)} s left)"))
     }
+
+    /** Whether [press] is a volume tap that renews the lock: the page's volume with the phone quiet, the call's volume with the call card on and a call going on. */
+    private fun locksVolume(press: Press): Boolean =
+        if (callNow() == CallState.IN_CALL && callCard) press.sent.any { it is AaCommand.CallVolume }
+        else callNow() == CallState.IDLE && press.sent.any { it is AaCommand.Volume }
 
     /** Whether [place] is one of the page's volume actions (one tap): the only taps the volume lock takes. */
     private fun isVolumeTap(place: Pair<Mode, Control>?): Boolean = place != null && bindings[Slot(place.first, place.second, Gesture.ONCE)] in VOLUME_ACTIONS
 
     /**
-     * Whether the volume lock would drop [event] now, as [press] does, with nothing changed (the lock is not cleared, nothing is kept). For what the dash session does
-     * with a code before the press reaches the map: the info ring's switch on the down button is no volume tap, so under the lock it does not act either.
+     * Whether the joystick would drop [event] now, as [press] does, with nothing changed (the lock is not cleared, nothing is kept). For what the dash session does
+     * with a code before the press reaches the map: the info ring's switch on the down button is no volume tap, so under the volume lock it does not act either; and with
+     * REau's own call card on, while the phone rings or a call goes on, that same button is the call's (nothing, or the volume), so it does not switch the ring.
      */
     @Synchronized
     fun wouldDrop(event: DashButtonEvent, nowMs: Long): Boolean {
-        if (volumeLock.leftMs(nowMs) <= 0L || callState() != CallState.IDLE) return false
-        return !isVolumeTap(whereOf(event))
+        val state = callState()
+        val ring = callCard && state != CallState.IDLE && event.code == MAP_DOWN
+        val locked = volumeLock.leftMs(nowMs) > 0L
+        val dropped = if (state == CallState.IN_CALL && callCard) callKey(event) == null else state == CallState.IDLE && !isVolumeTap(whereOf(event))
+        return ring || (locked && dropped)
     }
 
     private fun handle(event: DashButtonEvent, nowMs: Long): Press {
@@ -196,33 +208,44 @@ class JoystickMap(
                 ?: Press(emptyList(), listOf("not mapped -> nothing"))
             else -> pressOfPage(place, nowMs)
         }
-        // A tap of a volume action (not the call's volume, which the phone keeps) locks the joystick for a while, unless the phone is in a call.
-        if (press.sent.any { it is AaCommand.Volume } && callNow() == CallState.IDLE) volumeLock.renew(nowMs)
+        // A tap of a volume action locks the joystick for a while, unless the phone is in a call (where only the call card's volume locks).
+        if (locksVolume(press)) volumeLock.renew(nowMs)
         return press.copy(legend = legendDue(modeOf(event, place)))
     }
 
     /**
-     * With REau's own call card on ([callCard]) the dash is not told of the call, so it shows no call screen of its own and its joystick sends the plain codes of the map and
-     * media modes. This is what they do while the phone rings or a call goes on, null for a tap that goes the usual way (the page, or the call's sides while it rings):
-     * the map mode's up (the dash's back) sends nothing to Android Auto in either; on a call the sides do nothing, the middle ends the call (the usual rules against a
-     * stray tap: [comesWithSide], [CALL_QUIET_MS]) and the media mode's up and down are the call's volume, whatever the page says. The map mode's down stays the page's.
+     * With REau's own call card on ([callCard]) the dash is not told of the call, so it shows no call screen and its joystick sends the plain codes of the map and
+     * media modes. This is what they do while the phone rings or a call goes on, the same in both modes, null for a tap that goes the usual way (the sides while it rings):
+     * ringing, up and down do nothing (the map mode's up is the dash's back, its down the code 0x15, which does not switch the info ring either: [wouldDrop]); on a call
+     * the sides do nothing, the middle ends it (the usual rules against a stray tap: [comesWithSide], [CALL_QUIET_MS]) and up and down are the call's volume, whatever the
+     * page says. The middle ends the call even under the volume lock ([droppedByLock]).
      */
     private fun callCardPress(event: DashButtonEvent, place: Pair<Mode, Control>?, nowMs: Long): Press? {
         if (!callCard || callNow() == CallState.IDLE) return null
-        if (event is DashButtonEvent.JoystickBack) return Press(emptyList(), listOf("map up: on a call, nothing"))
-        if (place == null || callNow() != CallState.IN_CALL) return null
-        val control = place.second
+        val (mode, control) = place ?: (Mode.MAP to Control.UP).takeIf { event is DashButtonEvent.JoystickBack } ?: return null
+        val up = control == Control.UP
         return when {
+            callNow() == CallState.RINGING ->
+                if (up || control == Control.DOWN) Press(emptyList(), listOf("${name(mode, control)}: while it rings, nothing")) else null
             control == Control.LEFT || control == Control.RIGHT -> {
                 lastSideMs = nowMs
-                Press(emptyList(), listOf("${name(place.first, control)}: on a call, nothing"))
+                Press(emptyList(), listOf("${name(mode, control)}: on a call, nothing"))
             }
-            comesWithSide(place, nowMs - lastSideMs) -> Press(emptyList(), listOf("right after a side, ignored"))
+            comesWithSide(mode to control, nowMs - lastSideMs) -> Press(emptyList(), listOf("right after a side, ignored"))
             control == Control.CENTER -> callScreenPress(Control.CENTER, nowMs)
-            place.first == Mode.MEDIA && control == Control.UP -> callVolume(CALL_VOLUME_UP)
-            place.first == Mode.MEDIA && control == Control.DOWN -> callVolume(CALL_VOLUME_DOWN)
-            else -> null
+            else -> callVolume(if (up) CALL_VOLUME_UP else CALL_VOLUME_DOWN)
         }
+    }
+
+    /**
+     * Which of the call's keys [event] is with REau's own call card on, whatever the mode the dash is in: up and down (the media mode's volume codes, the map mode's back and
+     * 0x15, the call's own 0x03 and 0x04) or the middle (the two modes' middles and the call's own 0x16); null for the sides and any other code.
+     */
+    private fun callKey(event: DashButtonEvent): Control? = when {
+        event is DashButtonEvent.JoystickBack || event is DashButtonEvent.VolumeUp || event.code == CALL_VOLUME_UP -> Control.UP
+        event is DashButtonEvent.VolumeDown || event.code == MAP_DOWN || event.code == CALL_VOLUME_DOWN -> Control.DOWN
+        event.code == CALL_SCREEN_MIDDLE || event is DashButtonEvent.JoystickIn || event is DashButtonEvent.PlayPause -> Control.CENTER
+        else -> null
     }
 
     /** The dash mode a tap's code tells; null for the codes that are no mode's (the dash's notice, the calls' own). The map mode's up is the dash's own back. */

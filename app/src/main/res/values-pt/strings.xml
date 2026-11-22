@@ -677,11 +677,12 @@
     <string name="call_what_nothing">Não faz nada</string>
     <string name="call_note_answer">Vale para a ligação de operadora e para a do WhatsApp e outros apps de voz.</string>
     <string name="call_note_reject">Se o intercomunicador do capacete atender antes (com uns 7,5 s de toque), este toque desliga a ligação já atendida. Tocando, o centro não toca nem pausa a música.</string>
-    <string name="call_note_end">Vale para operadora e WhatsApp. Depois de agir, o mesmo botão fica mudo por 3 s, para um toque repetido sem querer não fazer nada.</string>
+    <string name="call_note_end">Vale para operadora e WhatsApp. Depois de agir, o mesmo botão fica mudo por 3 s, para um toque repetido sem querer não fazer nada. Sempre funciona, mesmo logo depois de um toque de volume (trava de volume).</string>
     <string name="call_note_volume">Um passo por toque; o capacete acompanha.</string>
     <string name="call_note_mode">Tocando, cima e baixo continuam sendo os do modo em que o painel está (Modo mapa ou Controle de mídia).</string>
     <string name="call_note_not_sent">Em ligação o painel guarda a esquerda e a direita para ele: o REau não recebe esses toques.</string>
     <string name="call_note_nothing">Em ligação a esquerda e a direita não fazem nada, para um toque sem querer não atender nem desligar.</string>
+    <string name="call_note_nothing_ringing">Tocando, cima e baixo não fazem nada, para um toque sem querer não mexer no volume nem na página.</string>
 
     <!-- The redesign's permissions page. -->
     <string name="permissions_ask_all_n">Pedir as que faltam (%1$d)</string>

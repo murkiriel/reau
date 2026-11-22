@@ -73,6 +73,25 @@ class DashSessionRingLockTest {
     }
 
     @Test
+    fun `with the call card on a call, ringing or going on, the down button leaves the info ring alone, and with it off the ring is as it was`() {
+        joystick.callCard = true
+        for (state in listOf(CallState.RINGING, CallState.IN_CALL)) {
+            call = state
+            session.ringAfterPress(0x15)
+            session.ringAfterPress(0x15)
+            assertTrue("$state: the ring did not move", session.infoVisible)
+            assertEquals(0, session.ringStep)
+        }
+        call = CallState.IDLE
+        session.ringAfterPress(0x15)
+        assertFalse("with no call the down button switches the ring again", session.infoVisible)
+        joystick.callCard = false
+        call = CallState.IN_CALL
+        session.ringAfterPress(0x15)
+        assertTrue("the card off: nothing changed from before (the dash is told of the call)", session.infoVisible)
+    }
+
+    @Test
     fun `the maneuver ring still follows the dash's mode under the lock, as it is no command`() {
         session.maneuverCircleEnabled = false
         joystick.press(DashButtonEvent.VolumeUp(0x06), now)

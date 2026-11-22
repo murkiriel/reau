@@ -16,11 +16,12 @@ enum class CallEffect(val short: Int, val what: Int, val note: Int) {
     MODE_PAGE(R.string.call_short_mode, R.string.call_what_mode, R.string.call_note_mode),
     NOT_SENT(R.string.call_short_not_sent, R.string.call_what_not_sent, R.string.call_note_not_sent),
     NOTHING(R.string.call_short_nothing, R.string.call_what_nothing, R.string.call_note_nothing),
+    NOTHING_RINGING(R.string.call_short_nothing, R.string.call_what_nothing, R.string.call_note_nothing_ringing),
 }
 
 /**
  * The calls' controls, with nothing to pick: the same in the dash's two modes. Ringing, the left answers and the
- * right and the middle reject; up and down stay the page's. On a call the middle ends it and up and down are the call's volume; the left and the right are
+ * right and the middle reject; up and down stay the page's, or do nothing with REau's own call card on ([callCard], [CallEffect.NOTHING_RINGING]). On a call the middle ends it and up and down are the call's volume; the left and the right are
  * the dash's own (it sends no such tap, [CallEffect.NOT_SENT]) while REau tells it the call, and with REau's own call card on ([callCard], which stops that, the dash then
  * sending the plain codes of its two modes) they do nothing ([CallEffect.NOTHING]). JoystickMap does it; CallPageTest holds the two together.
  */
@@ -29,7 +30,7 @@ object CallPage {
         CallMoment.RINGING -> when (control) {
             Control.LEFT -> CallEffect.ANSWER
             Control.RIGHT, Control.CENTER -> CallEffect.REJECT
-            Control.UP, Control.DOWN -> CallEffect.MODE_PAGE
+            Control.UP, Control.DOWN -> if (callCard) CallEffect.NOTHING_RINGING else CallEffect.MODE_PAGE
         }
         CallMoment.IN_CALL -> when (control) {
             Control.LEFT, Control.RIGHT -> if (callCard) CallEffect.NOTHING else CallEffect.NOT_SENT

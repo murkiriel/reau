@@ -689,11 +689,12 @@
     <string name="call_what_nothing">Does nothing</string>
     <string name="call_note_answer">Applies to carrier calls and to WhatsApp and other voice apps.</string>
     <string name="call_note_reject">If the helmet intercom answers first (after about 7.5 s of ringing), this tap hangs up the call that was already answered. While ringing, center doesn’t play or pause the music.</string>
-    <string name="call_note_end">Applies to carrier calls and WhatsApp. After it acts, the same button is ignored for 3 s, so an accidental repeat tap does nothing.</string>
+    <string name="call_note_end">Applies to carrier calls and WhatsApp. After it acts, the same button is ignored for 3 s, so an accidental repeat tap does nothing. It always works, even right after a volume tap (volume lock).</string>
     <string name="call_note_volume">One step per tap; the helmet follows.</string>
     <string name="call_note_mode">While ringing, up and down stay as they are in the mode the dash is in (Map mode or Media control).</string>
     <string name="call_note_not_sent">During a call the dash keeps left and right for itself: REau doesn’t receive those taps.</string>
     <string name="call_note_nothing">On a call, left and right do nothing, so a stray tap neither answers nor hangs up.</string>
+    <string name="call_note_nothing_ringing">While ringing, up and down do nothing, so a stray tap neither changes the volume nor moves the page.</string>
 
     <!-- The redesign's permissions page. -->
     <string name="permissions_ask_all_n">Ask for the missing ones (%1$d)</string>
