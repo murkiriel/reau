@@ -145,6 +145,18 @@ data class REauSettings(
      */
     val mapCenterOpensMusic: Boolean = false,
     /**
+     * A card of REau's own at the top of the dash's video says the phone's music or call volume ("Música 7/15", "Chamada 4/7", "Mudo") for 2 s whenever
+     * it changes, from whichever side ([com.reau.app.dash.VolumeCards]); with it on, the volume echo in the title of the gold band is not said any more.
+     * On by default; read at each change of the volume.
+     */
+    val volumeCard: Boolean = true,
+    /**
+     * A pill of REau's own at the top of the dash's video says who is calling, and the call's hints, for the whole call and 2 s after it
+     * ([com.reau.app.dash.CallCards]); with it on, REau no longer sends the dash the state of the call and the caller's name, so the dash does not open its own call
+     * screen (which covers almost all of the video), and the joystick's sides do nothing on a call. On by default; read at each change of the call and of the settings.
+     */
+    val callCard: Boolean = true,
+    /**
      * A minute after the joystick, one touch takes Android Auto's blue focus
      * away ([com.reau.app.aa.FocusClearer]); on by default. Taken at the next start.
      */

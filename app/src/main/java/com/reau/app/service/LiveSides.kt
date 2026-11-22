@@ -458,6 +458,55 @@ internal class LiveSides(
         compositor.setLegend(legend.current())
     }
 
+    // The volume card on the dash's video ([com.reau.app.dash.VolumeCards]): 2 s after the last step, then the compositor takes it off. Declared before the
+    // init block too, which sets the switch and starts the watch.
+    private val volumeCard: com.reau.app.dash.TimedShow<com.reau.app.dash.VolumeNotice> = com.reau.app.dash.TimedShow<com.reau.app.dash.VolumeNotice>(
+        com.reau.app.dash.VolumeCards.SHOW_MS,
+        schedule = { delayMs, action ->
+            val job = scope.launch {
+                delay(delayMs)
+                action()
+            }
+            ({ job.cancel() })
+        },
+        changed = ::volumeCardChanged,
+    ).also { it.enabled = false } // off until the settings say so: with none (a test) there is no card and the title keeps its echo
+
+    /** What the volume card shows changed (a step came, or its time ran out): the compositor draws it or takes it off, at once even with the map still. */
+    private fun volumeCardChanged() {
+        compositor.setVolumeCard(volumeCard.current())
+    }
+
+    /** The system's volume broadcast, listened to while this projection runs (started in the init block, given back in [release]). */
+    private val volumeWatch = VolumeWatch(context, ::volumeStepHeard)
+
+    /** The phone's volume moved ([step]), from wherever: the card says it, and the log says the level (no song, no name). Nothing when the card is off. */
+    private fun volumeStepHeard(step: com.reau.app.dash.VolumeCards.Step) = showVolumeCard(step, log = true)
+
+    /**
+     * Shows the card of [step] for as long as [com.reau.app.dash.VolumeCards.showMs] says with the joystick's lock as it is now: 2 s, or until the lock's end when the
+     * joystick holds it (the lock's clock is the card's, so they end together). The same card again changes nothing on the video, only the time.
+     */
+    private fun showVolumeCard(step: com.reau.app.dash.VolumeCards.Step, log: Boolean) {
+        val left = joystick?.volumeLock?.leftMs(com.reau.app.util.MonotonicClock.nowMs()) ?: 0L
+        val text = com.reau.app.dash.ActionEchoText.volumeCard(appContext, step.card)
+        val shown = volumeCard.show(com.reau.app.dash.VolumeNotice(step.card, text), com.reau.app.dash.VolumeCards.showMs(left))
+        if (shown && log) RideDiagnostics.log("dash", step.logLine())
+    }
+
+    // The call card on the dash's video ([com.reau.app.dash.CallCards], [CallCardFeed]): follows Android Auto's word of the calls whatever the switch says; the switch only
+    // decides whether it is drawn and whether the dash is still sent the call.
+    private val callCard = CallCardFeed(
+        scope, compositor::setCallCard, { com.reau.app.dash.ActionEchoText.callWords(appContext) }, { RideDiagnostics.log("dash", it) },
+    )
+
+    /** The switch of the call card ([com.reau.app.settings.REauSettings.callCard]): the session stops sending the dash the call (and clears what it sent), the joystick has the call's keys for it. */
+    private fun callCardSwitch(on: Boolean) {
+        if (!callCard.switch(on)) return
+        session.callCardOn = on
+        joystick?.callCard = on
+    }
+
     // The map's zoom from the joystick, over the fit last asked for (every remap goes through it); each change is kept and the next
     // projection starts from it.
     private val liveZoom = com.reau.app.video.LiveZoom(setup.zoomMemory)
@@ -510,6 +559,7 @@ internal class LiveSides(
             if (setup.aaConfig.phone) {
                 options = options.copy(onCaller = { caller ->
                     session.showCallerCard(caller, context.getString(R.string.caller_private))
+                    callCard.heard(caller, context.getString(R.string.caller_private))
                     RideDiagnostics.log("call", com.reau.app.phone.CallAudioRoute.describe(context))
                 })
             }
@@ -564,6 +614,8 @@ internal class LiveSides(
         if (started && receiver != null) {
             scope.launch { watchAppVideo() }
             scope.launch { watchWaiting() }
+            // The volume card listens only while this projection runs, and only in the real app (a test has no settings).
+            if (setup.settings != null && !volumeWatch.start()) RideDiagnostics.warn("projection", "the volume card cannot listen to the phone's volume")
         }
         scope.launch { ProjectionMachine.dashLinks(session.state).collect { report(ProjectionEvent.DashChanged(it)) } }
         // The weather for the dash: looked at every minute, fetched at most every quarter of an hour, and after a failure with a growing wait (WeatherBackoff).
@@ -605,12 +657,19 @@ internal class LiveSides(
             assistant = setup.aaOptions.voice != null,
             callState = setup.calls.state,
         ).also { this.joystick = it }
+        // The info ring's switch on the dash's down button is the session's, and runs before the press reaches the map: under the volume lock it asks the map first.
+        session.pressDropped = { code ->
+            joystick.wouldDrop(com.reau.app.dash.protocol.DashButtonEvent.fromByte(code.toByte()), com.reau.app.util.MonotonicClock.nowMs())
+        }
         if (setup.settings != null) {
             session.zoomLabel = joystick.bindings.zoomControls
             session.musicCardAllowed = joystick.bindings.mediaControls
             session.infoRingPress = joystick.bindings.infoRingControl
             session.actionEcho = setup.settings.actionEcho
             legend.enabled = setup.settings.joystickLegend
+            volumeCard.enabled = setup.settings.volumeCard
+            joystick.volumeLock.enabled = setup.settings.volumeCard
+            callCardSwitch(setup.settings.callCard)
             session.maneuverCircleEnabled = setup.settings.maneuverRing
             session.ringCycleOn = setup.settings.infoRing
             session.infoInPlace = setup.settings.infoRingInPlace
@@ -757,7 +816,13 @@ internal class LiveSides(
             return
         }
         RideDiagnostics.log("projection", change.logLine(step))
-        volumeEcho = com.reau.app.dash.ActionEchoText.volume(words, change)
+        // A step on the call's stream means a call is on (a voice app's call, which the joystick's call state does not see, too): no lock then, the call's keys must work.
+        if (change.stream == com.reau.app.phone.VolumeStream.CALL) joystick?.volumeLock?.clear()
+        // The card shows at once, from the step itself: the system's broadcast (heard by [volumeWatch]) says the same a moment later, and a step at the end of the
+        // range moves nothing and sends none, yet the lock was renewed and the card must last as long as it. The broadcast logs the step; this one only when it moved nothing.
+        showVolumeCard(com.reau.app.dash.VolumeCards.stepOf(change), log = change.before == change.after)
+        // With the volume card on, the card says the level and the title does not.
+        volumeEcho = com.reau.app.dash.VolumeCards.titleEcho(volumeCard.enabled) { com.reau.app.dash.ActionEchoText.volume(words, change) }
         session.sendStatusNow()
     }
 
@@ -979,6 +1044,7 @@ internal class LiveSides(
                 "receiver" to { receiver?.stop() },
                 "dash session" to { session.disconnect() },
                 "link up" to { linkUp.stop() },
+                "volume watch" to { volumeWatch.stop() },
                 "sighting" to { com.reau.app.dash.DashSighting.release(sightingListener) },
                 "wifi radio" to { WifiRadio.release(radioListener) },
                 "image gap" to { com.reau.app.dash.ImageGap.clock.forget() },
@@ -1070,6 +1136,9 @@ internal class LiveSides(
             // `tuned` (set above) is what the beat, the music card and the route read; the weather, just switched on, is fetched now.
             if (LiveTuning.Step.DASH_EXTRAS in steps) {
                 session.maneuverCircleEnabled = settings.maneuverRing
+                volumeCard.enabled = settings.volumeCard
+                joystick?.volumeLock?.enabled = settings.volumeCard
+                callCardSwitch(settings.callCard)
                 session.ringCycleOn = settings.infoRing
                 session.infoInPlace = settings.infoRingInPlace
                 session.infoTitle.enabled = settings.infoRing && settings.infoTitle

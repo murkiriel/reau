@@ -52,6 +52,8 @@ class SettingsScreenNowTest {
         Row("answer_calls", "Atender ligação", "Answer calls"),
         Row("actionEcho", "Nome da ação no painel", "Action name on the dash"),
         Row("joystickLegend", "Legenda do joystick no painel", "Joystick legend on the dash"),
+        Row("dash_volume_card", "Aviso de volume no painel", "Volume notice on the dash"),
+        Row("dash_call_card", "Aviso de chamada no painel", "Call notice on the dash"),
         Row("dash_phone_status", "Estado do celular", "Phone status"),
         Row("dash_album_art", "Capa do álbum", "Album art"),
         Row("dash_maneuver_ring", "Anel de manobras", "Maneuver ring"),
