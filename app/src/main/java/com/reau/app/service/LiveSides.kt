@@ -657,6 +657,10 @@ internal class LiveSides(
             assistant = setup.aaOptions.voice != null,
             callState = setup.calls.state,
         ).also { this.joystick = it }
+        // The info ring's switch on the dash's down button is the session's, and runs before the press reaches the map: under the volume lock it asks the map first.
+        session.pressDropped = { code ->
+            joystick.wouldDrop(com.reau.app.dash.protocol.DashButtonEvent.fromByte(code.toByte()), com.reau.app.util.MonotonicClock.nowMs())
+        }
         if (setup.settings != null) {
             session.zoomLabel = joystick.bindings.zoomControls
             session.musicCardAllowed = joystick.bindings.mediaControls

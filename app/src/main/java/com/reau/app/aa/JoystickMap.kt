@@ -153,10 +153,22 @@ class JoystickMap(
         val place = whereOf(event)
         if (left > 0L && callNow() != CallState.IDLE) volumeLock.clear()
         val locked = left > 0L && callNow() == CallState.IDLE
-        val volumeTap = place != null && bindings[Slot(place.first, place.second, Gesture.ONCE)] in VOLUME_ACTIONS
-        if (!locked || volumeTap) return null
+        if (!locked || isVolumeTap(place)) return null
         val what = place?.let { name(it.first, it.second) } ?: if (event is DashButtonEvent.JoystickBack) "map up" else "code 0x${"%02X".format(event.code)}"
         return Press(emptyList(), listOf("volume lock: $what ignored (${"%.1f".format(Locale.ROOT, left / 1000.0)} s left)"))
+    }
+
+    /** Whether [place] is one of the page's volume actions (one tap): the only taps the volume lock takes. */
+    private fun isVolumeTap(place: Pair<Mode, Control>?): Boolean = place != null && bindings[Slot(place.first, place.second, Gesture.ONCE)] in VOLUME_ACTIONS
+
+    /**
+     * Whether the volume lock would drop [event] now, as [press] does, with nothing changed (the lock is not cleared, nothing is kept). For what the dash session does
+     * with a code before the press reaches the map: the info ring's switch on the down button is no volume tap, so under the lock it does not act either.
+     */
+    @Synchronized
+    fun wouldDrop(event: DashButtonEvent, nowMs: Long): Boolean {
+        if (volumeLock.leftMs(nowMs) <= 0L || callState() != CallState.IDLE) return false
+        return !isVolumeTap(whereOf(event))
     }
 
     private fun handle(event: DashButtonEvent, nowMs: Long): Press {

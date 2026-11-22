@@ -310,9 +310,16 @@ class DashSession(
      * the code says. True when the maneuver ring changed (the card goes at once); the info ring is on the video and needs no card.
      */
     internal fun ringAfterPress(code: Int): Boolean {
-        if (infoRingSwitchable && RingCycle.advancesOn(code)) switchInfoRing(code)
+        // Under the joystick's volume lock no other command is taken, the info ring's switch included: the joystick says whether the press would be dropped.
+        if (infoRingSwitchable && RingCycle.advancesOn(code) && !pressDropped(code)) switchInfoRing(code)
         return !maneuverCircleEnabled && ringByPress.press(code)
     }
+
+    /**
+     * Whether the joystick would drop the press of the button [code] (its volume lock, [com.reau.app.aa.JoystickMap.wouldDrop]); the projection sets it. The session's own
+     * answer to a press that the joystick drops: nothing, as far as it is its own (the info ring is not switched).
+     */
+    @Volatile var pressDropped: (code: Int) -> Boolean = { false }
 
     /** Whether a press of the down button may switch the info ring now: it is on, the button is its switch ([infoRingPress]) and the screen is a navigation one. */
     private val infoRingSwitchable: Boolean get() = ringCycleOn && infoRingPress && !ringsAwayForScreen

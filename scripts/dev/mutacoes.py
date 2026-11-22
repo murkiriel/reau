@@ -4715,7 +4715,7 @@ MUTATIONS += [
     ("P32 Trava de volume: a chamada tocando não desfaz a trava", MAIN + "aa/JoystickMap.kt",
      "        if (left > 0L && callNow() != CallState.IDLE) volumeLock.clear()\n", "", ["VolumeLockTest"]),
     ("P32 Trava de volume: só o aumentar volume passa pela trava", MAIN + "aa/JoystickMap.kt",
-     "bindings[Slot(place.first, place.second, Gesture.ONCE)] in VOLUME_ACTIONS", "bindings[Slot(place.first, place.second, Gesture.ONCE)] == Action.VOLUME_UP", ["VolumeLockTest"]),
+     "bindings[Slot(place.first, place.second, Gesture.ONCE)] in VOLUME_ACTIONS", "bindings[Slot(place.first, place.second, Gesture.ONCE)] == Action.VOLUME_UP", ["VolumeLockTest", "DashSessionRingLockTest"]),
     ("P32 Trava de volume: o cartão acaba antes da trava", MAIN + "dash/VolumeCards.kt",
      "fun showMs(lockLeftMs: Long): Long = maxOf(SHOW_MS, lockLeftMs)", "fun showMs(lockLeftMs: Long): Long = SHOW_MS", ["VolumeLockTest"]),
     # Leva 32 (22/11/2026), adendo: o aviso de chamada no alto do vídeo (CallCards, CallCardLayout, OverlayRules, JoystickMap.callCardPress, DashSession.callCardOn).
@@ -4735,6 +4735,9 @@ MUTATIONS += [
      "            control == Control.LEFT || control == Control.RIGHT -> {\n                lastSideMs = nowMs", "            control == Control.LEFT -> {\n                lastSideMs = nowMs", ["JoystickCallCardTest", "CallPageTest"]),
     ("P32 Aviso de chamada: em chamada o centro não encerra com a pílula ligada", MAIN + "aa/JoystickMap.kt",
      "            control == Control.CENTER -> callScreenPress(Control.CENTER, nowMs)\n", "            control == Control.CENTER -> null\n", ["JoystickCallCardTest", "CallPageTest"]),
+    # A trava cobre também o liga/desliga do anel de informações (o botão de baixo roda no DashSession antes do toque chegar ao JoystickMap).
+    ("P32 Trava de volume: o liga/desliga do anel de informações passa pela trava", MAIN + "dash/DashSession.kt",
+     "RingCycle.advancesOn(code) && !pressDropped(code)) switchInfoRing(code)", "RingCycle.advancesOn(code)) switchInfoRing(code)", ["DashSessionRingLockTest"]),
 ]
 
 
