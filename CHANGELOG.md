@@ -48,6 +48,7 @@ Português (pt-BR): [CHANGELOG.pt-br.md](CHANGELOG.pt-br.md) · Español: [CHANG
 - **The test switches of debug builds** ("Experimental connection", "Experimental video", "Experimental dash") are gone; REau does what it did with all of them off.
 
 ### Fixed
+- **Opening the music from the joystick no longer leaves the Android Auto screen stuck on the map's crop when the app's picture is not recognised**: after about 3 s without a sure look, REau takes the apps' screen (the Media and Phone keys only open an app); a sure look of a map or the menu in between still wins.
 - **A blank dash network name, or one Android refuses, no longer closes the app**: the request for the dash's network is built under a guard; a blank name is refused before Android is asked, and a name Android does not take becomes the error state on screen, as a refused password already did.
 - **The roundabout arrow on the dash was drawn the other way round** (the error was seen on the bike; the fix was not yet): in Brazil Android Auto says counter-clockwise and the dash drew it clockwise.
 - **The dash's Wi-Fi is no longer called "stuck" when the phone has already joined it**, and an old network request no longer drops a newer one (not yet seen on the bike).

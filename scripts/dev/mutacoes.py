@@ -4886,6 +4886,49 @@ MUTATIONS += [
 ]
 
 
+# Leva Tela 22/11/2026: depois da tecla de mídia ou de telefone, a imagem sem certeza por 3 s vira a tela de apps (o recorte do mapa ficava 42 s num app).
+MUTATIONS += [
+    ("Tela 22/11: a imagem sem certeza depois da tecla de app nunca vira apps", MAIN + "aa/AaScreen.kt",
+     "        val assumed = appKeyWait(to, kind, counted, nowMs)\n", "        val assumed: AaScreen? = null\n", ["AaScreenAppUnsureTest"]),
+    ("Tela 22/11: o tempo sem certeza cai para 1 s", MAIN + "aa/AaScreen.kt",
+     "const val UNSURE_APPS_MS = 3_000L", "const val UNSURE_APPS_MS = 1_000L", ["AaScreenAppUnsureTest"]),
+    ("Tela 22/11: o tempo sem certeza passa para 10 s", MAIN + "aa/AaScreen.kt",
+     "const val UNSURE_APPS_MS = 3_000L", "const val UNSURE_APPS_MS = 10_000L", ["AaScreenAppUnsureTest"]),
+    ("Tela 22/11: o tempo sem certeza conta com folga a menos (> em vez de >=)", MAIN + "aa/AaScreen.kt",
+     "nowMs - appKeyMs < PictureGate.UNSURE_APPS_MS) return null", "nowMs - appKeyMs <= PictureGate.UNSURE_APPS_MS) return null", ["AaScreenAppUnsureTest"]),
+    ("Tela 22/11: qualquer olhar vale para assumir apps, não só o sem certeza", MAIN + "aa/AaScreen.kt",
+     "|| kind != PictureLook.Kind.UNSURE || nowMs - appKeyMs", "|| nowMs - appKeyMs", ["AaScreenAppUnsureTest"]),
+    ("Tela 22/11: o olhar de mapa com certeza não cancela a espera", MAIN + "aa/AaScreen.kt",
+     "counted && (kind == PictureLook.Kind.MAP || kind == PictureLook.Kind.MENU)", "counted && kind == PictureLook.Kind.MENU", ["AaScreenAppUnsureTest"]),
+    ("Tela 22/11: o olhar de menu com certeza não cancela a espera", MAIN + "aa/AaScreen.kt",
+     "counted && (kind == PictureLook.Kind.MAP || kind == PictureLook.Kind.MENU)", "counted && kind == PictureLook.Kind.MAP", ["AaScreenAppUnsureTest"]),
+    ("Tela 22/11: o mapa velho que ainda sai depois da tecla cancela a espera", MAIN + "aa/AaScreen.kt",
+     "counted && (kind == PictureLook.Kind.MAP || kind == PictureLook.Kind.MENU)", "kind == PictureLook.Kind.MAP || kind == PictureLook.Kind.MENU", ["AaScreenAppUnsureTest"]),
+    ("Tela 22/11: a tela que a imagem mudou não cancela a espera", MAIN + "aa/AaScreen.kt",
+     "if (changed != null || sureNotApp)", "if (sureNotApp)", ["AaScreenAppUnsureTest"]),
+    ("Tela 22/11: a tecla de app com apps já na tela arma a suposição", MAIN + "aa/AaScreen.kt",
+     "appKeyMs = if (current.value == AaScreen.APPS) APP_KEY_NONE else nowMs", "appKeyMs = nowMs", ["AaScreenAppUnsureTest"]),
+    ("Tela 22/11: a tecla de app não guarda a hora", MAIN + "aa/AaScreen.kt",
+     "appKeyMs = if (current.value == AaScreen.APPS) APP_KEY_NONE else nowMs", "appKeyMs = APP_KEY_NONE", ["AaScreenAppUnsureTest"]),
+    ("Tela 22/11: a tecla de app não guarda qual foi", MAIN + "aa/AaScreen.kt",
+     "        appKeyWhat = what\n", "", ["AaScreenAppUnsureTest"]),
+    ("Tela 22/11: a suposição de apps se repete a cada olhar sem certeza", MAIN + "aa/AaScreen.kt",
+     "        appKeyMs = APP_KEY_NONE\n        picture.restart()\n        current.value", "        picture.restart()\n        current.value", ["AaScreenAppUnsureTest"]),
+    ("Tela 22/11: a suposição de apps não é dita no registro", MAIN + "aa/AaScreen.kt",
+     "        say(\"aa-screen: apps (the picture stayed unsure", "        if (false) say(\"aa-screen: apps (the picture stayed unsure", ["AaScreenAppUnsureTest"]),
+    ("Tela 22/11: o Home não cancela a espera da tecla de app", MAIN + "aa/AaScreen.kt",
+     "        appKeyMs = APP_KEY_NONE\n        if (current.value == AaScreen.MENU) return", "        if (current.value == AaScreen.MENU) return", ["AaScreenAppUnsureTest"]),
+    ("Tela 22/11: a tecla de navegação não cancela a espera da tecla de app", MAIN + "aa/AaScreen.kt",
+     "        appKeyMs = APP_KEY_NONE\n        if (current.value == AaScreen.NAV) return", "        if (current.value == AaScreen.NAV) return", ["AaScreenAppUnsureTest"]),
+    ("Tela 22/11: o select não cancela a espera da tecla de app", MAIN + "aa/AaScreen.kt",
+     "        appKeyMs = APP_KEY_NONE\n        picture.arm(nowMs + PictureGate.SETTLE_MS)\n        pendingApps.value = true", "        picture.arm(nowMs + PictureGate.SETTLE_MS)\n        pendingApps.value = true", ["AaScreenAppUnsureTest"]),
+    ("Tela 22/11: o fim da sessão não cancela a espera da tecla de app", MAIN + "aa/AaScreen.kt",
+     "        listening = false\n        appKeyMs = APP_KEY_NONE\n", "        listening = false\n", ["AaScreenAppUnsureTest"]),
+    ("Tela 22/11: assumir apps também liga a espera do select (appsPending)", MAIN + "aa/AaScreen.kt",
+     "        appKeyMs = APP_KEY_NONE\n        picture.restart()\n        current.value = AaScreen.APPS\n", "        appKeyMs = APP_KEY_NONE\n        picture.restart()\n        current.value = AaScreen.APPS\n        pendingApps.value = true\n", ["AaScreenAppUnsureTest"]),
+]
+
+
 def command_for(classes):
     """The command that runs a mutation's tests: Python test files (`test_*.py`) with unittest, JVM unit test classes with Gradle. A bare name (`test_apk_audit.py`) is found
     in scripts/; one with a folder (`registro/test_chaves.py`, `dev/test_teste_cego.py`) in that folder of scripts/ (the folders are not packages, so discover does not go

@@ -117,6 +117,10 @@ class AaScreenWatch(private val say: (String) -> Unit) {
     private var firstLookMs = 0L
     private var listening = false
 
+    // The MEDIA or PHONE key waiting for its app's picture: when it was sent and which key it was (APP_KEY_NONE: none waits). See [appKeyWait].
+    private var appKeyMs = APP_KEY_NONE
+    private var appKeyWhat = ""
+
     /** Forgets the screen shown and everything waiting: the projection ended, the next session knows nothing yet. */
     @Synchronized
     fun reset() {
@@ -124,6 +128,7 @@ class AaScreenWatch(private val say: (String) -> Unit) {
         lastKind = null
         firstLookMs = 0L
         listening = false
+        appKeyMs = APP_KEY_NONE
         current.value = AaScreen.UNKNOWN
         pendingApps.value = false
         appLooks.restart()
@@ -143,6 +148,7 @@ class AaScreenWatch(private val say: (String) -> Unit) {
     fun selectSent(nowMs: Long = 0L, rail: AaRail.Slot? = null) {
         if (current.value != if (rail != null) AaScreen.APPS else AaScreen.MENU) return
         if (rail == AaRail.Slot.MEDIA && lastKind != PictureLook.Kind.MAP) return
+        appKeyMs = APP_KEY_NONE
         picture.arm(nowMs + PictureGate.SETTLE_MS)
         pendingApps.value = true
         current.value = AaScreen.APPS
@@ -161,6 +167,7 @@ class AaScreenWatch(private val say: (String) -> Unit) {
         // The map stays on the screen for a moment after the key: looks of it are no news (25/10/2026: the crop went back to the
         // navigation's for 1.5 s after each Home key, from two looks of the map that was still leaving).
         picture.holdMaps(nowMs + PictureGate.SETTLE_MS)
+        appKeyMs = APP_KEY_NONE
         if (current.value == AaScreen.MENU) return
         current.value = AaScreen.MENU
         pendingApps.value = false
@@ -176,6 +183,7 @@ class AaScreenWatch(private val say: (String) -> Unit) {
      */
     @Synchronized
     fun navSent(nowMs: Long = 0L) {
+        appKeyMs = APP_KEY_NONE
         if (current.value == AaScreen.NAV) return
         picture.arm(nowMs + PictureGate.SETTLE_MS)
         say("aa-screen: waiting for a map (the Navigation key)")
@@ -186,12 +194,19 @@ class AaScreenWatch(private val say: (String) -> Unit) {
      * Like the NAVIGATION key it takes no screen at once (the key may open nothing): the picture says it. What is still leaving the screen is the old
      * picture, a map or the menu, as after a select or the Home key: no look counts until the settle ([PictureGate.arm], [PictureGate.holdMaps]). With an
      * app already in front, the app that opens may be another one: it is not known until the picture says it.
+     *
+     * A picture the net does not know (22/11/2026, the Media key: 42 s of looks at p=0.73 on a screen that stayed the map's) never makes the three looks
+     * of an app in a row, because an unsure look starts the count over. The key only opens an app, so when the looks stay unsure for
+     * [PictureGate.UNSURE_APPS_MS] after it the screen is taken as the apps' ([appKeyWait]); a sure look of a map or the menu ends that wait.
      */
     @Synchronized
     fun appSent(nowMs: Long = 0L, what: String = "Media") {
         val settled = nowMs + PictureGate.SETTLE_MS
         picture.holdMaps(settled)
         picture.arm(settled)
+        // With the apps' screen already shown there is nothing to assume.
+        appKeyMs = if (current.value == AaScreen.APPS) APP_KEY_NONE else nowMs
+        appKeyWhat = what
         if (current.value == AaScreen.APPS) {
             appLooks.restart()
             setApp(AaApp.UNKNOWN, "the $what key")
@@ -225,8 +240,25 @@ class AaScreenWatch(private val say: (String) -> Unit) {
         }
         // A look that confirmed the apps' screen, or any screen that is not the apps', ends the wait for the picture.
         if (verdict != null || current.value != AaScreen.APPS) pendingApps.value = false
+        val assumed = appKeyWait(to, kind, counted, nowMs)
         followApp(kind, seen, counted)
-        return to
+        return to ?: assumed
+    }
+
+    /**
+     * The wait that the MEDIA or PHONE key started, after a look ([changed]: the screen the picture changed to, if it did). A sure look of a map or the menu is the
+     * picture's word, and a screen the picture changed is no longer waiting for the key's app: both end the wait. Otherwise an unsure look
+     * [PictureGate.UNSURE_APPS_MS] or more after the key takes the apps' screen, said once with the time and the key; the screen it took, or null.
+     */
+    private fun appKeyWait(changed: AaScreen?, kind: PictureLook.Kind, counted: Boolean, nowMs: Long): AaScreen? {
+        val sureNotApp = counted && (kind == PictureLook.Kind.MAP || kind == PictureLook.Kind.MENU)
+        if (changed != null || sureNotApp) appKeyMs = APP_KEY_NONE
+        if (appKeyMs == APP_KEY_NONE || kind != PictureLook.Kind.UNSURE || nowMs - appKeyMs < PictureGate.UNSURE_APPS_MS) return null
+        appKeyMs = APP_KEY_NONE
+        picture.restart()
+        current.value = AaScreen.APPS
+        say("aa-screen: apps (the picture stayed unsure ${PictureGate.UNSURE_APPS_MS} ms after the $appKeyWhat key)")
+        return AaScreen.APPS
     }
 
     /**
@@ -259,6 +291,7 @@ class AaScreenWatch(private val say: (String) -> Unit) {
 
     private companion object {
         const val FIRST_LOOKS_MS = 3_000L
+        const val APP_KEY_NONE = -1L
     }
 }
 
@@ -356,6 +389,13 @@ internal class PictureGate {
 
     companion object {
         const val SETTLE_MS = 800L
+
+        /**
+         * How long the looks may stay unsure after the MEDIA or PHONE key before the screen is taken as the apps' ([AaScreenWatch.appSent]). With a picture the
+         * net knows, the key's app is read in about 1 s (the settle of 0.8 s and three looks); 3 s is three times that, so a slow app that is still drawing
+         * does not count, and it is short enough that the map's crop does not stay on an app screen (the 42 s of 22/11/2026).
+         */
+        const val UNSURE_APPS_MS = 3_000L
         const val MAP_LOOKS = 2
         const val OTHER_LOOKS = 3
     }

@@ -49,6 +49,7 @@ aparecem).
 - **As chaves de teste das builds de depuração** ("Conexão experimental", "Vídeo experimental", "Painel experimental") saíram; o REau faz o que fazia com todas desligadas.
 
 ### Corrigido
+- **Ao abrir a música pelo joystick, a Tela do Android Auto não fica mais presa no recorte do mapa quando a imagem do app não é reconhecida**: depois de cerca de 3 s sem certeza, o REau assume a tela de apps (as teclas Media e Telefone só abrem um app); uma imagem de mapa ou de menu com certeza no meio ainda vale.
 - **Um nome de rede do painel vazio ou recusado pelo Android não fecha mais o app**: o pedido da rede do painel é montado com proteção; um nome em branco é recusado antes de chegar ao Android, e um nome que o Android não aceita vira o estado de erro na tela, como uma senha recusada já fazia.
 - **A seta da rotatória no painel era desenhada ao contrário** (o erro foi visto na moto; a correção ainda não): no Brasil o Android Auto diz anti-horário e o painel desenhava horário.
 - **O Wi-Fi do painel deixa de ser chamado de "travado" quando o celular já entrou nele**, e um pedido de rede antigo não derruba mais um mais novo (ainda não visto na moto).
