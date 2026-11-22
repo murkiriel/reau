@@ -115,6 +115,41 @@ class InfoRingTest {
     }
 
     @Test
+    fun `rain says how hard in mm per hour, from the quarter, in the language's decimal sign`() {
+        val ptBr = words.copy(locale = java.util.Locale.forLanguageTag("pt-BR"))
+        fun rate(f: PointForecast, kind: RingKind, w: RingWords = words) = InfoRing.pages(f, null, now, true, WeatherUnits(), w).first { it.kind == kind }.rate
+        // The quarter just gone had 1.05 mm: 4.2 mm/h.
+        val falling = forecast(minutely = dry.map { if (it.timeIso.endsWith("12:00")) q("12:00", 1.05) else it })
+        assertEquals("4.2", rate(falling, RingKind.RAIN_NOW))
+        assertEquals("4,2", rate(falling, RingKind.RAIN_NOW, ptBr))
+        // The first wet quarter ahead is the one that says how hard it starts.
+        val soon = forecast(minutely = dry.map { if (it.timeIso.endsWith("12:45")) q("12:45", 0.4) else if (it.timeIso.endsWith("13:00")) q("13:00", 2.0) else it })
+        assertEquals("1.6", rate(soon, RingKind.RAIN_SOON))
+        assertEquals("1,6", rate(soon, RingKind.RAIN_SOON, ptBr))
+        // From ten mm/h on, whole.
+        assertEquals("14", rate(forecast(minutely = dry.map { if (it.timeIso.endsWith("12:00")) q("12:00", 3.5) else it }), RingKind.RAIN_NOW))
+    }
+
+    @Test
+    fun `without quarters rain now takes its intensity from the hour, then from the reading`() {
+        fun falling(hourly: List<HourlyWeather>, reading: Double?) =
+            InfoRing.pages(forecast(minutely = emptyList(), current = current(rainMm = reading), hourly = hourly), null, now, true, WeatherUnits(), words)
+                .first { it.kind == RingKind.RAIN_NOW }.rate
+        val hourOfNow = HourlyWeather("2026-10-26T12:00", 25.0, 80, null, null, 2.4)
+        val otherHour = HourlyWeather("2026-10-26T13:00", 25.0, 80, null, null, 9.0)
+        assertEquals("the hour of now", "2.4", falling(listOf(otherHour, hourOfNow), 0.8))
+        assertEquals("no hour said: the reading, as mm/h", "0.8", falling(listOf(otherHour), 0.8))
+        assertEquals("the hour's is below a tenth: no intensity written", null, falling(listOf(hourOfNow.copy(precipitationMm = 0.05)), 0.8))
+    }
+
+    @Test
+    fun `a page that is not rain has no intensity, and neither has dry weather`() {
+        val p = pages(forecast(current = current(gusts = 60.0)))
+        assertTrue(p.all { it.rate == null })
+        assertEquals("the page's line is as before", "até 4 min", line(page(RingKind.RAIN_NOW, pages(forecast(minutely = dry.map { if (it.timeIso.endsWith("12:00")) q("12:00", 0.5) else it })))))
+    }
+
+    @Test
     fun `a day with rain going on or coming has no sky page saying dry`() {
         val p = pages(forecast(minutely = dry.map { q(it.timeIso.substringAfter('T'), 0.5) }, current = current(code = 61)))
         assertEquals("rain on the sky card is said in a word, never a bare icon", "chuva", line(page(RingKind.SKY, p)))

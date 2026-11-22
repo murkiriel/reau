@@ -30,6 +30,8 @@ data class HourlyWeather(
     val precipitationProbabilityPercent: Int?,
     val weatherCode: Int?,
     val uvIndex: Double?,
+    /** The rain of this hour in mm (`precipitation`, the sum of the hour, so also mm/h); null where the answer (or an older kept one) did not say. */
+    val precipitationMm: Double? = null,
 )
 
 /** One day of the forecast; [dateIso] is `"2026-09-27"`, sunrise and sunset are local timestamps. */
@@ -45,6 +47,8 @@ data class DailyWeather(
     val windSpeedMaxKmh: Double?,
     val windGustsMaxKmh: Double?,
     val weatherCode: Int?,
+    /** The rain of the whole day in mm (`precipitation_sum`); null where the answer (or an older kept one) did not say. */
+    val precipitationSumMm: Double? = null,
 )
 
 /**
@@ -169,6 +173,7 @@ object WeatherParser {
         val precipProb = o.optJSONArray("precipitation_probability")
         val code = o.optJSONArray("weather_code")
         val uv = o.optJSONArray("uv_index")
+        val precip = o.optJSONArray("precipitation")
         val out = ArrayList<HourlyWeather>(time.length())
         for (i in 0 until time.length()) {
             val t = temp?.optDouble(i)?.takeUnless { it.isNaN() } ?: continue
@@ -178,6 +183,7 @@ object WeatherParser {
                 precipitationProbabilityPercent = precipProb?.optInt(i, -1)?.takeIf { it >= 0 },
                 weatherCode = code?.optInt(i, -1)?.takeIf { it >= 0 },
                 uvIndex = uv?.optDouble(i)?.takeUnless { it.isNaN() },
+                precipitationMm = precip?.optDouble(i)?.takeUnless { it.isNaN() },
             )
         }
         return out
@@ -195,6 +201,7 @@ object WeatherParser {
         val windMax = o.optJSONArray("wind_speed_10m_max")
         val gustsMax = o.optJSONArray("wind_gusts_10m_max")
         val code = o.optJSONArray("weather_code")
+        val precipSum = o.optJSONArray("precipitation_sum")
         val out = ArrayList<DailyWeather>(date.length())
         for (i in 0 until date.length()) {
             val max = tMax?.optDouble(i)?.takeUnless { it.isNaN() }
@@ -212,6 +219,7 @@ object WeatherParser {
                 windSpeedMaxKmh = windMax?.optDouble(i)?.takeUnless { it.isNaN() },
                 windGustsMaxKmh = gustsMax?.optDouble(i)?.takeUnless { it.isNaN() },
                 weatherCode = code?.optInt(i, -1)?.takeIf { it >= 0 },
+                precipitationSumMm = precipSum?.optDouble(i)?.takeUnless { it.isNaN() },
             )
         }
         return out

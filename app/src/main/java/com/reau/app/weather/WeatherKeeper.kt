@@ -75,11 +75,11 @@ object WeatherKeeper {
     private const val FORECAST_DAYS = 14
     private const val CURRENT_FIELDS = "temperature_2m,apparent_temperature,relative_humidity_2m,precipitation," +
         "weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,cloud_cover,is_day"
-    private const val HOURLY_FIELDS = "temperature_2m,precipitation_probability,weather_code,uv_index"
+    private const val HOURLY_FIELDS = "temperature_2m,precipitation_probability,precipitation,weather_code,uv_index"
     /** The next two hours in quarters (the one now and seven more): the rain and the gusts the dash's info ring says. */
     private const val MINUTELY_FIELDS = "precipitation,weather_code,wind_gusts_10m"
     private const val MINUTELY_STEPS = 8
-    private const val DAILY_FIELDS = "temperature_2m_max,temperature_2m_min,precipitation_probability_max," +
+    private const val DAILY_FIELDS = "temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum," +
         "uv_index_max,sunrise,sunset,daylight_duration,wind_speed_10m_max,wind_gusts_10m_max,weather_code"
 
     /** A fetch is repeated after this long (a quarter of an hour: the weather moves slowly, the service is shared). */
