@@ -16,8 +16,8 @@ object TermsScroll {
     /** Never quicker than this, however short the distance: the rider must see the text roll. */
     const val MIN_MS = 1_000
 
-    /** Never slower than this, however long the text: the rider is not kept waiting (a touch on the text stops the roll at any time). */
-    const val MAX_MS = 10_000
+    /** Never slower than this, however long the text: the rider is not kept waiting; the whole roll takes 1 to 2 s (a touch on the text stops it at any time). */
+    const val MAX_MS = 2_000
 
     private const val MS_PER_SECOND = 1_000L
 
