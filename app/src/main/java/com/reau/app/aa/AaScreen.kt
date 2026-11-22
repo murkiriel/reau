@@ -99,6 +99,16 @@ class AaScreenWatch(private val say: (String) -> Unit) {
     val app: StateFlow<AaApp> = currentApp.asStateFlow()
     private val appLooks = AppGate()
 
+    // The apps' screen taken from a select or a tap on the side bar's shortcuts, which no look of the picture has confirmed yet: what opened is a guess until then.
+    private val pendingApps = MutableStateFlow(false)
+
+    /**
+     * Whether the apps' screen is still waiting for the picture to confirm it after a select in the menu or a tap on the side bar's shortcuts ([selectSent]): the
+     * app that opened is not known yet, and what plays in the background says nothing of it ([spotifyInFront]). It ends when a look confirms the apps' screen
+     * ("apps confirmed by the picture"), or when the screen is no longer the apps' (the picture said a map, the Home key, a new session).
+     */
+    val appsPending: StateFlow<Boolean> = pendingApps.asStateFlow()
+
     // What the picture says ([look]) once its first moments have passed, and the settle waits that a select or the Home key start.
     private val picture = PictureGate()
 
@@ -115,6 +125,7 @@ class AaScreenWatch(private val say: (String) -> Unit) {
         firstLookMs = 0L
         listening = false
         current.value = AaScreen.UNKNOWN
+        pendingApps.value = false
         appLooks.restart()
         currentApp.value = AaApp.UNKNOWN
     }
@@ -133,6 +144,7 @@ class AaScreenWatch(private val say: (String) -> Unit) {
         if (current.value != if (rail != null) AaScreen.APPS else AaScreen.MENU) return
         if (rail == AaRail.Slot.MEDIA && lastKind != PictureLook.Kind.MAP) return
         picture.arm(nowMs + PictureGate.SETTLE_MS)
+        pendingApps.value = true
         current.value = AaScreen.APPS
         say(if (rail != null) "aa-screen: a tap on the side bar's shortcuts, the picture says what it picked" else "aa-screen: apps (a select in the menu)")
         // What opened is not known until the picture says it (the app that was in front is leaving).
@@ -151,6 +163,7 @@ class AaScreenWatch(private val say: (String) -> Unit) {
         picture.holdMaps(nowMs + PictureGate.SETTLE_MS)
         if (current.value == AaScreen.MENU) return
         current.value = AaScreen.MENU
+        pendingApps.value = false
         say("aa-screen: menu (the Home key)")
         setApp(AaApp.NONE, "the Home key")
     }
@@ -210,6 +223,8 @@ class AaScreenWatch(private val say: (String) -> Unit) {
             current.value = to
             say("aa-screen: ${to.name.lowercase()} (by the picture: ${verdict.saw}, from ${shown.name.lowercase()})")
         }
+        // A look that confirmed the apps' screen, or any screen that is not the apps', ends the wait for the picture.
+        if (verdict != null || current.value != AaScreen.APPS) pendingApps.value = false
         followApp(kind, seen, counted)
         return to
     }

@@ -3635,7 +3635,7 @@ MUTATIONS = [
     ("P30 Música: a música voltando a tocar não zera a pausa", MAIN + "aa/MusicMode.kt",
      "                pausedAtMs = NEVER\n                turn(true, \"Spotify playing\")", "                turn(true, \"Spotify playing\")", ["MusicModeTest"]),
     ("P30 Música: o modo vale com outro app na frente", MAIN + "aa/MusicMode.kt",
-     "= update(spotifyInFront(screen, app, media), media.playing, nowMs)", "= update(true, media.playing, nowMs)", ["MusicModeTest", "JoystickMusicTest"]),
+     "val front = spotifyInFront(screen, app, media, appsPending)", "val front = true", ["MusicModeTest", "JoystickMusicTest"]),
     ("P30 Música: a pausa vencida não encerra o modo antes da nova atualização", MAIN + "aa/MusicMode.kt",
      "    fun update(front: Boolean, playing: Boolean, nowMs: Long) {\n        expire(nowMs)\n", "    fun update(front: Boolean, playing: Boolean, nowMs: Long) {\n", ["MusicModeTest"]),
     ("P30 Música: o modo não olha se o Spotify toca", MAIN + "aa/MusicMode.kt",
@@ -3681,7 +3681,7 @@ MUTATIONS = [
     ("P30 Música: o serviço não liga o modo música ao joystick", MAIN + "service/LiveSides.kt",
      "        joystick.musicActive = music::active\n", "", ["MusicModeIsWiredTest"]),
     ("P30 Música: o serviço dá ao modo música um app fixo", MAIN + "service/LiveSides.kt",
-     "music.update(screen, app, media, com.reau.app.util.MonotonicClock.nowMs())", "music.update(screen, com.reau.app.aa.AaApp.SPOTIFY, media, com.reau.app.util.MonotonicClock.nowMs())", ["MusicModeIsWiredTest"]),
+     "music.update(screen, app, media, com.reau.app.util.MonotonicClock.nowMs(), pending)", "music.update(screen, com.reau.app.aa.AaApp.SPOTIFY, media, com.reau.app.util.MonotonicClock.nowMs(), pending)", ["MusicModeIsWiredTest"]),
     ("P30 Música: o serviço não registra o modo música", MAIN + "service/LiveSides.kt",
      "val music = com.reau.app.aa.MusicMode { RideDiagnostics.log(\"dash\", it) }", "val music = com.reau.app.aa.MusicMode { }", ["MusicModeIsWiredTest"]),
     ("P30 Música: o botão não pede o envio do lado segurado", MAIN + "service/LiveSides.kt",
@@ -4858,6 +4858,31 @@ MUTATIONS += [
     # A trava cobre também o liga/desliga do anel de informações (o botão de baixo roda no DashSession antes do toque chegar ao JoystickMap).
     ("P32 Trava de volume: o liga/desliga do anel de informações passa pela trava", MAIN + "dash/DashSession.kt",
      "RingCycle.advancesOn(code) && !pressDropped(code)) switchInfoRing(code)", "RingCycle.advancesOn(code)) switchInfoRing(code)", ["DashSessionRingLockTest"]),
+]
+
+
+# Leva Música 22/11/2026: o modo música só liga quando a imagem confirma o Spotify (o cartão piscava ao abrir outro app pelo menu).
+MUTATIONS += [
+    ("Música 22/11: o select no menu não espera a imagem", MAIN + "aa/AaScreen.kt",
+     "        pendingApps.value = true\n", "        pendingApps.value = false\n", ["MusicWaitsForPictureTest"]),
+    ("Música 22/11: a imagem que confirma o app não encerra a espera", MAIN + "aa/AaScreen.kt",
+     "if (verdict != null || current.value != AaScreen.APPS) pendingApps.value = false", "if (current.value != AaScreen.APPS) pendingApps.value = false", ["MusicWaitsForPictureTest"]),
+    ("Música 22/11: a tecla Home não encerra a espera", MAIN + "aa/AaScreen.kt",
+     "        pendingApps.value = false\n        say(\"aa-screen: menu (the Home key)\")", "        say(\"aa-screen: menu (the Home key)\")", ["MusicWaitsForPictureTest"]),
+    ("Música 22/11: o fim da sessão não encerra a espera", MAIN + "aa/AaScreen.kt",
+     "        pendingApps.value = false\n        appLooks.restart()\n        currentApp.value = AaApp.UNKNOWN\n    }", "        appLooks.restart()\n        currentApp.value = AaApp.UNKNOWN\n    }", ["MusicWaitsForPictureTest"]),
+    ("Música 22/11: a suposição do Spotify tocando vale durante a espera da imagem", MAIN + "aa/AaMedia.kt",
+     "AaApp.UNKNOWN -> !appsPending && screen == AaScreen.APPS", "AaApp.UNKNOWN -> screen == AaScreen.APPS", ["AaMediaTest", "MusicWaitsForPictureTest"]),
+    ("Música 22/11: a espera da imagem vale também para o Spotify que a imagem disse", MAIN + "aa/AaMedia.kt",
+     "AaApp.SPOTIFY -> true", "AaApp.SPOTIFY -> !appsPending", ["AaMediaTest", "MusicWaitsForPictureTest"]),
+    ("Música 22/11: o modo música não sabe da espera da imagem", MAIN + "aa/MusicMode.kt",
+     "val front = spotifyInFront(screen, app, media, appsPending)", "val front = spotifyInFront(screen, app, media)", ["MusicWaitsForPictureTest"]),
+    ("Música 22/11: a espera da imagem é dita a cada mudança, não uma vez", MAIN + "aa/MusicMode.kt",
+     "if (waiting && !waitingForPicture) say(", "if (waiting) say(", ["MusicWaitsForPictureTest"]),
+    ("Música 22/11: a espera da imagem não é dita", MAIN + "aa/MusicMode.kt",
+     "if (waiting && !waitingForPicture) say(", "if (false) say(", ["MusicWaitsForPictureTest"]),
+    ("Música 22/11: o serviço não passa a espera da imagem ao modo música", MAIN + "service/LiveSides.kt",
+     "music.update(screen, app, media, com.reau.app.util.MonotonicClock.nowMs(), pending)", "music.update(screen, app, media, com.reau.app.util.MonotonicClock.nowMs(), false)", ["MusicModeIsWiredTest"]),
 ]
 
 

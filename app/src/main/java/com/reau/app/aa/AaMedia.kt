@@ -52,9 +52,13 @@ class MediaNowWatch(private val say: (String) -> Unit) {
  * Whether Spotify is what Android Auto shows in front, from the picture and from the music status. Spotify as the net sees it ([AaApp.SPOTIFY]) is. When the net is not
  * sure of the app ([AaApp.UNKNOWN]) but the screen is an app's and Android Auto says Spotify is playing, it is Spotify as well (the music app that plays is the one
  * most likely to be open). Another app the net names ([AaApp.OTHER]) is not, nor is the map or the menu ([AaApp.NONE]), whatever plays.
+ *
+ * That guess waits for the picture while the apps' screen is only taken from a select in the menu ([appsPending], [AaScreenWatch.appsPending]): what opened is not
+ * known yet and the music playing in the background says nothing of it (22/11/2026: Spotify playing, Waze picked in the menu, and the music card showed for a
+ * second before the map). Only the picture saying Spotify ([AaApp.SPOTIFY]) turns it on then.
  */
-fun spotifyInFront(screen: AaScreen, app: AaApp, media: MediaNow): Boolean = when (app) {
+fun spotifyInFront(screen: AaScreen, app: AaApp, media: MediaNow, appsPending: Boolean = false): Boolean = when (app) {
     AaApp.SPOTIFY -> true
-    AaApp.UNKNOWN -> screen == AaScreen.APPS && media.playing && media.fromSpotify
+    AaApp.UNKNOWN -> !appsPending && screen == AaScreen.APPS && media.playing && media.fromSpotify
     AaApp.OTHER, AaApp.NONE -> false
 }

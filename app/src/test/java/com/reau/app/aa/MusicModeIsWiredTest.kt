@@ -21,11 +21,19 @@ class MusicModeIsWiredTest {
     }
 
     @Test
-    fun `the projection feeds the music mode with the screen, the app and the media status`() {
+    fun `the projection feeds the music mode with the screen, the app, the media status and the wait for the picture`() {
         val feed = source("service/LiveSides.kt").between("val music = com.reau.app.aa.MusicMode", "// What the joystick asked for")
         assertTrue(feed, feed.contains("joystick.musicActive = music::active"))
-        assertTrue(feed, feed.contains("com.reau.app.aa.AaScreens.watch.screen, com.reau.app.aa.AaScreens.watch.app, com.reau.app.aa.AaMedia.watch.now"))
-        assertTrue(feed, feed.contains("music.update(screen, app, media, com.reau.app.util.MonotonicClock.nowMs())"))
+        val sources = feed.between("combine(", ") { screen, app, media, pending ->").split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        assertEquals(
+            feed,
+            listOf(
+                "com.reau.app.aa.AaScreens.watch.screen", "com.reau.app.aa.AaScreens.watch.app",
+                "com.reau.app.aa.AaMedia.watch.now", "com.reau.app.aa.AaScreens.watch.appsPending",
+            ),
+            sources,
+        )
+        assertTrue(feed, feed.contains("music.update(screen, app, media, com.reau.app.util.MonotonicClock.nowMs(), pending)"))
     }
 
     @Test

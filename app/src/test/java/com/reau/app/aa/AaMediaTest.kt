@@ -189,4 +189,16 @@ class AaMediaTest {
         )
         for (row in rows) assertEquals(row.why, row.expected, spotifyInFront(row.screen, row.app, row.media))
     }
+
+    @Test
+    fun `while the apps' screen waits for the picture after a select only the picture saying Spotify is Spotify`() {
+        val rows = listOf(
+            Row(AaScreen.APPS, AaApp.SPOTIFY, spotifyPlays, true, "the picture says Spotify"),
+            Row(AaScreen.APPS, AaApp.SPOTIFY, nobody, true, "the picture alone"),
+            Row(AaScreen.APPS, AaApp.UNKNOWN, spotifyPlays, false, "what opened is not known, and the music in the background says nothing of it"),
+            Row(AaScreen.APPS, AaApp.OTHER, spotifyPlays, false, "another app"),
+            Row(AaScreen.NAV, AaApp.NONE, spotifyPlays, false, "the map"),
+        )
+        for (row in rows) assertEquals(row.why, row.expected, spotifyInFront(row.screen, row.app, row.media, appsPending = true))
+    }
 }
