@@ -241,18 +241,18 @@ class DefaultsDocsTest {
         }
     }
 
-    /** The terms (version 3) say what the new defaults are, in the three texts of the root and of the app (28/10/2026; the info ring off since 30/10/2026). */
+    /** The terms (version 3) say what the new defaults are, in the three texts of the root and of the app (28/10/2026; the info ring on since 21/11/2026). */
     @Test
-    fun `the terms say that Gemini, the location and the weather come on, that the info ring is off, and that the recordings are optional, off in the app you ride with and on in the test build`() {
+    fun `the terms say that Gemini, the location and the weather come on, that the info ring is on, and that the recordings are optional, off in the app you ride with and on in the test build`() {
         val files = mapOf(
             "en" to listOf("../TERMS_OF_USE.md", "src/main/assets/terms/terms.en.md"),
             "pt" to listOf("../TERMS_OF_USE.pt-br.md", "src/main/assets/terms/termos.pt.md"),
             "es" to listOf("../TERMS_OF_USE.es.md", "src/main/assets/terms/terminos.es.md"),
         )
         val says = mapOf(
-            "en" to listOf("for Gemini, which is on by default", "the location (also on by default)", "(with its album art)", "is on by default and the info ring is off", "are optional: off by default in the app you install to ride and on in the test build", "stay on the phone only", "the map, the route and your positions"),
-            "pt" to listOf("para o Gemini, que vem ligado", "a localização (que também vem ligada)", "(com a capa do álbum)", "vem ligada e o anel de informações vem desligado", "são opcionais: vêm desligadas no app que você instala para andar e ligadas na build de teste", "ficam só no celular", "o mapa, a rota e as posições"),
-            "es" to listOf("para Gemini, que viene activado", "la ubicación (que también viene activada)", "(con su carátula)", "viene activado y el anillo de información viene apagado", "son opcionales: vienen desactivadas en la app que instalas para rodar y activadas en la compilación de prueba", "se quedan solo en el teléfono", "el mapa, la ruta y las posiciones"),
+            "en" to listOf("for Gemini, which is on by default", "the location (also on by default)", "(with its album art)", "and the info ring are on by default", "are optional: off by default in the app you install to ride and on in the test build", "stay on the phone only", "the map, the route and your positions"),
+            "pt" to listOf("para o Gemini, que vem ligado", "a localização (que também vem ligada)", "(com a capa do álbum)", "e o anel de informações vêm ligados", "são opcionais: vêm desligadas no app que você instala para andar e ligadas na build de teste", "ficam só no celular", "o mapa, a rota e as posições"),
+            "es" to listOf("para Gemini, que viene activado", "la ubicación (que también viene activada)", "(con su carátula)", "y el anillo de información vienen activados", "son opcionales: vienen desactivadas en la app que instalas para rodar y activadas en la compilación de prueba", "se quedan solo en el teléfono", "el mapa, la ruta y las posiciones"),
         )
         val old = mapOf(
             "en" to listOf("if you turn Gemini on", "info ring are optional and off by default", "optional and exist only if you turn them on", "exist only in the debug build"),

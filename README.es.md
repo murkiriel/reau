@@ -34,7 +34,7 @@ Wi-Fi del tablero.
 - Un aviso de volumen arriba del video del tablero (viene activado, con un interruptor): una tarjeta pequeña con el volumen de la música o de la llamada cada vez que cambia, desde el teléfono, un intercomunicador Bluetooth o el joystick, en lugar del volumen en el título.
 - Un aviso de llamada arriba del video del tablero (viene activado, con un interruptor): una píldora con quién llama, las pistas del joystick y el tiempo de la llamada, en lugar de la pantalla de llamada del tablero, que tapa casi todo el video; con él activado, izquierda y derecha no hacen nada durante una llamada.
 - Habla portugués, inglés y español: sigue el idioma del teléfono, y los ajustes tienen un selector.
-- Ajusta la calidad del video según la distancia a la próxima maniobra y la velocidad.
+- Ajusta la calidad del video según la distancia a la próxima maniobra y la velocidad, al ritmo que elijas: Original (el de fábrica, 4 y 2 fps) o REau (6 y 3 fps, más fluido).
 - Se enciende con una pulsación larga en el ícono de REau ("Encender") o desde un mosaico de los Ajustes rápidos, para encenderlo en casa, antes del casco.
 - Opcional: muestra Android Auto en un navegador de la red local, protegido por un PIN.
 - Guarda un registro de diagnóstico en el almacenamiento interno de la app (activado por defecto, con un interruptor en los

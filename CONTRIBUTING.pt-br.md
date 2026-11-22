@@ -71,7 +71,7 @@ toda rodada daí em diante. Um alvo novo é um método com `@FuzzTest` que receb
 capturas reais: veja "Dados pessoais"). Para isso os testes unitários rodam na JUnit Platform (o motor vintage roda os de JUnit 4).
 
 `python3 scripts/dev/mutacoes.py` é o teste de mutação: muda uma decisão do código por vez e confere que um teste unitário falha. `--lista`
-conta as mutações e `--fatia I/N` roda uma fatia delas (o workflow semanal roda quinze, e o `mutacao-mensal.yml` roda uma de doze por mês, a do número do mês); uma mutação que sobrevive é um teste que não guarda
+conta as mutações e `--fatia I/N` roda uma fatia delas (o workflow semanal roda vinte e quatro, e o `mutacao-mensal.yml` roda uma de doze por mês, a do número do mês); uma mutação que sobrevive é um teste que não guarda
 aquela decisão.
 
 ## Cobertura, benchmark, dispositivos gerenciados e a verificação de dependências

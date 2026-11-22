@@ -6,19 +6,19 @@ Video from an earlier version: today's app has no Lite and no Accessibility step
 
 2
 00:00:00.000 --> 00:00:03.733
-Step-by-step installation of REau Lite
+Step-by-step installation of REau
 
 3
 00:00:03.733 --> 00:00:10.400
-1. Download the REau Lite APK from the project's Releases page and open the file to install it
+1. Download the REau APK from the project's Releases page and open the file to install it
 
 4
 00:00:10.400 --> 00:00:16.467
-Lite and Full can be installed together, but only one can be on at a time
+Two REau installations can sit together, but only one can be on at a time
 
 5
 00:00:16.467 --> 00:00:22.467
-2. Open REau Lite and scroll the terms of use to the end, or tap Scroll to the end
+2. Open REau and scroll the terms of use to the end, or tap Scroll to the end
 
 6
 00:00:22.467 --> 00:00:25.467
@@ -38,7 +38,7 @@ Also allow the suggested Wi-Fi networks
 
 10
 00:00:39.400 --> 00:00:46.867
-5. On Lite, the Android Auto server is turned on by hand: tap Open Android Auto settings
+5. In REau, the Android Auto server is turned on by hand: tap Open Android Auto settings
 
 11
 00:00:46.867 --> 00:00:50.267
@@ -58,11 +58,11 @@ The server turns off when the session ends and after restarting the phone: turn 
 
 15
 00:01:06.000 --> 00:01:13.333
-6. Go back to REau Lite. The first time, tap Connect so Android lets it join the dash's Wi-Fi
+6. Go back to REau. The first time, tap Connect so Android lets it join the dash's Wi-Fi
 
 16
 00:01:13.333 --> 00:01:18.533
-With Android Auto active and the dash ready, REau Lite is streaming
+With Android Auto active and the dash ready, REau is streaming
 
 17
 00:01:18.533 --> 00:01:23.333

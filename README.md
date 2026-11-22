@@ -33,7 +33,7 @@ in developer mode. It receives the video, fits the picture to the dash's screen 
 - A volume notice at the top of the dash's video (on by default, with a switch): a small card with the music or call volume whenever it changes, from the phone, a Bluetooth intercom or the joystick, in place of the volume in the title.
 - A call notice at the top of the dash's video (on by default, with a switch): a pill with who is calling, the joystick's hints and the time of the call, in place of the dash's own call screen, which covers almost all of the video; with it on, left and right do nothing during a call.
 - Speaks Portuguese, English and Spanish: it follows the phone's language, and the settings have a switch.
-- Adjusts the video quality by the distance to the next maneuver and by speed.
+- Adjusts the video quality by the distance to the next maneuver and by speed, at the pace you choose: Original (the factory one, 4 and 2 fps) or REau (6 and 3 fps, smoother).
 - Starts from a long press on REau's icon ("Turn on") or from a Quick Settings tile, so it can be switched on at home before the helmet.
 - Optional: shows Android Auto in a browser on the local network, protected by a PIN.
 - Keeps a diagnostic log in the app's internal storage (on by default, with a switch in the settings), to analyze on the

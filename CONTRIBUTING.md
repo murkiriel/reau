@@ -71,7 +71,7 @@ target is a method with `@FuzzTest` that takes a `ByteArray`, with a few small s
 The unit tests run on the JUnit Platform for this (the vintage engine runs the JUnit 4 ones).
 
 `python3 scripts/dev/mutacoes.py` is the mutation test: it changes one decision of the code at a time and checks that a unit test fails.
-`--lista` counts the mutations and `--fatia I/N` runs one slice of them (the weekly workflow runs fifteen, and `mutacao-mensal.yml` runs one of twelve each month, the month's number); a mutation that survives means a test that
+`--lista` counts the mutations and `--fatia I/N` runs one slice of them (the weekly workflow runs twenty-four, and `mutacao-mensal.yml` runs one of twelve each month, the month's number); a mutation that survives means a test that
 does not hold that decision.
 
 ## Coverage, benchmark, managed devices and the dependency check
