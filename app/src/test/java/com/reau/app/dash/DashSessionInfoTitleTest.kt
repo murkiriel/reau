@@ -15,7 +15,7 @@ import org.junit.Test
 
 /**
  * The info ring's pages in the title of the route card (P31 Título), as the dash reads it: while guiding and with no route, the street or "REau"
- * turning with the pages, the street alone near the maneuver, the echo of a joystick tap in front of everything for its 1.5 s, and, with the
+ * turning with the pages (the street 20 s and a page 5 s while guiding), the street alone within 500 m of the maneuver and for 15 s after it, the echo of a joystick tap in front of everything for its 1.5 s, and, with the
  * option off, the card exactly as it was. One clock, the test's own, for the echo and for the turns.
  */
 class DashSessionInfoTitleTest {
@@ -54,15 +54,17 @@ class DashSessionInfoTitleTest {
     }
 
     @Test
-    fun `while guiding the street turns with the page, in the ring's time`() {
+    fun `while guiding the street stays 20 s and the page 5 s, whatever the ring's time`() {
         on()
         guide(900)
         assertEquals(STREET, title())
-        now += PERIOD - 1
+        now += STREET_MS - 1
         assertEquals(STREET, title())
         now += 1
         assertEquals("Chuva em 20 min", title())
-        now += PERIOD
+        now += PAGE_MS - 1
+        assertEquals("Chuva em 20 min", title())
+        now += 1
         assertEquals(STREET, title())
     }
 
@@ -77,32 +79,63 @@ class DashSessionInfoTitleTest {
     }
 
     @Test
-    fun `at 299 m the title is the street at the page's turn, and at 300 m the page is back`() {
+    fun `at 499 m the title is the street at the page's turn`() {
         on()
         guide(900)
         title()
-        now += PERIOD
-        guide(299)
+        now += STREET_MS
+        guide(499)
         assertEquals(STREET, title())
-        guide(300)
+    }
+
+    @Test
+    fun `at 500 m the page is there at its turn`() {
+        on()
+        guide(900)
+        title()
+        now += STREET_MS
+        guide(500)
         assertEquals("Chuva em 20 min", title())
     }
 
     @Test
-    fun `the distance is read in metres whatever the unit the dash shows`() {
+    fun `after the maneuver the street holds 15 s and then starts its 20 s again`() {
         on()
-        // 0.2 km (km x 10 = 2) is 200 m: near. 0.3 km (3) is 300 m: far.
-        session.updateNavInfo(0x14, 2, DashCommands.NAV_UNIT_KM_TENTHS, 32, DashCommands.NAV_UNIT_KM_TENTHS, road = STREET)
+        guide(900)
         title()
-        now += PERIOD
+        now += STREET_MS
+        guide(100)
         assertEquals(STREET, title())
-        session.updateNavInfo(0x14, 3, DashCommands.NAV_UNIT_KM_TENTHS, 32, DashCommands.NAV_UNIT_KM_TENTHS, road = STREET)
-        assertEquals("Chuva em 20 min", title())
-        // 900 feet is 274 m: near. 0.2 mile (feet below 550 are feet; above, tenths of a mile) is 322 m: far.
-        session.updateNavInfo(0x14, 900, DashCommands.NAV_UNIT_FEET, 32, DashCommands.NAV_UNIT_KM_TENTHS, road = STREET)
+        now += 1_000
+        guide(900)
         assertEquals(STREET, title())
-        session.updateNavInfo(0x14, 2, DashCommands.NAV_UNIT_MILE_TENTHS, 32, DashCommands.NAV_UNIT_KM_TENTHS, road = STREET)
+        now += 34_999
+        assertEquals("15 s and 20 s of street", STREET, title())
+        now += 1
         assertEquals("Chuva em 20 min", title())
+    }
+
+    /** The title at the first page's turn, the dash saying [value] [unit] to the maneuver (the first look is far, as on every new route). */
+    private fun atTheTurn(value: Int, unit: Int): String {
+        session.infoTitle = InfoTitle(nowMs = { now }, log = { logs += it })
+        session.infoTitle.source = { TitleSource(listOf(rain), true, PERIOD) }
+        on()
+        session.updateNavInfo(0x14, 900, DashCommands.NAV_UNIT_METERS, 32, DashCommands.NAV_UNIT_KM_TENTHS, road = STREET)
+        title()
+        now += STREET_MS
+        session.updateNavInfo(0x14, value, unit, 32, DashCommands.NAV_UNIT_KM_TENTHS, road = STREET)
+        return title()
+    }
+
+    @Test
+    fun `the distance is read in metres whatever the unit the dash shows`() {
+        // 0.4 km (km x 10 = 4) is 400 m: near. 0.5 km (5) is 500 m: far.
+        assertEquals(STREET, atTheTurn(4, DashCommands.NAV_UNIT_KM_TENTHS))
+        assertEquals("Chuva em 20 min", atTheTurn(5, DashCommands.NAV_UNIT_KM_TENTHS))
+        // 540 feet is 165 m: near (feet are shown below 550). 0.3 mile is 483 m: near. 0.4 mile is 644 m: far.
+        assertEquals(STREET, atTheTurn(540, DashCommands.NAV_UNIT_FEET))
+        assertEquals(STREET, atTheTurn(3, DashCommands.NAV_UNIT_MILE_TENTHS))
+        assertEquals("Chuva em 20 min", atTheTurn(4, DashCommands.NAV_UNIT_MILE_TENTHS))
     }
 
     @Test
@@ -110,9 +143,9 @@ class DashSessionInfoTitleTest {
         on()
         guide(900, road = "")
         title()
-        now += PERIOD
+        now += STREET_MS
         assertEquals("Chuva em 20 min", title())
-        now += PERIOD
+        now += PAGE_MS
         assertEquals("REau", title())
     }
 
@@ -121,7 +154,7 @@ class DashSessionInfoTitleTest {
         on()
         guide(900)
         title()
-        now += PERIOD
+        now += STREET_MS
         assertEquals("Chuva em 20 min", title())
         session.echoAction("Next song")
         assertEquals("Next song", title())
@@ -130,7 +163,7 @@ class DashSessionInfoTitleTest {
         now += 1
         assertEquals("the page's turn goes on where it was", "Chuva em 20 min", title())
         // And at the street's turn, near or far, the echo is still first.
-        now += PERIOD
+        now += PAGE_MS
         session.echoAction("Back")
         assertEquals("Back", title())
         guide(100)
@@ -171,7 +204,7 @@ class DashSessionInfoTitleTest {
         on()
         guide(900)
         title()
-        now += PERIOD
+        now += STREET_MS
         assertEquals("Chuva em 20 min", title())
         session.infoTitle.enabled = false
         assertEquals(STREET, title())
@@ -182,7 +215,7 @@ class DashSessionInfoTitleTest {
         on()
         guide(900)
         title()
-        now += PERIOD
+        now += STREET_MS
         session.ringStep = 1
         assertEquals(STREET, title())
         session.ringStep = 0
@@ -208,5 +241,7 @@ class DashSessionInfoTitleTest {
     private companion object {
         const val STREET = "Rua das Flores"
         const val PERIOD = 7_000L
+        const val STREET_MS = 20_000L
+        const val PAGE_MS = 5_000L
     }
 }

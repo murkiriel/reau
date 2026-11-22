@@ -509,7 +509,7 @@
     <string name="info_ring_seconds_value">%1$d s</string>
     <string name="info_title_title">Info in the title (instead of the ring)</string>
     <string name="info_title_sub">The ring leaves the video; its data goes in the dash’s title, turning with the street</string>
-    <string name="info_title_info">Writes the info ring’s data (rain, wind, storms and whatever you tick below) in the title of the dash’s gold band instead of the ring, which is no longer drawn on the video. The title turns between the street (or REau with no route) and the data, for the ring’s time on each; within 300 m of the maneuver it shows the street only. Signal, GPS and the sky stay out, as the dash already shows them; the phone’s battery goes in if you tick it.</string>
+    <string name="info_title_info">Writes the info ring’s data (rain, wind, storms and whatever you tick below) in the title of the dash’s gold band instead of the ring, which is no longer drawn on the video. With no route the title turns between REau and the data, for the ring’s time on each; guiding, 20 s of street and 5 s of data, the street alone within 500 m of the maneuver and for 15 s after it. Signal, GPS and the sky stay out, as the dash already shows them; the phone’s battery goes in if you tick it.</string>
     <string name="info_title_replaces_ring">Info in the title is on: the ring is not drawn on the video. Signal, GPS and the sky do not go in the title.</string>
     <string name="title_rain_now">Raining now</string>
     <string name="title_rain_until">Rain for %1$s min</string>

@@ -497,7 +497,7 @@
     <string name="info_ring_seconds_value">%1$d s</string>
     <string name="info_title_title">Informações no título (no lugar do anel)</string>
     <string name="info_title_sub">O anel some do vídeo; as informações vão no título do painel, alternando com a rua</string>
-    <string name="info_title_info">Escreve os dados do anel de informações (chuva, vento, trovoada e o que você marcar abaixo) no título da faixa dourada do painel, no lugar do anel, que deixa de ser desenhado no vídeo. O título alterna entre a rua (ou REau, sem rota) e os dados, no tempo do anel para cada um; a menos de 300 m da manobra, mostra só a rua. Sinal, GPS e céu ficam de fora, porque o painel já mostra; a bateria do celular entra se você marcar.</string>
+    <string name="info_title_info">Escreve os dados do anel de informações (chuva, vento, trovoada e o que você marcar abaixo) no título da faixa dourada do painel, no lugar do anel, que deixa de ser desenhado no vídeo. Sem rota alterna REau e os dados, no tempo do anel; com rota, 20 s de rua e 5 s de dados, só a rua a menos de 500 m da manobra e por 15 s depois dela. Sinal, GPS e céu ficam de fora, porque o painel já mostra; a bateria do celular entra se você marcar.</string>
     <string name="info_title_replaces_ring">Informações no título ligado: o anel não aparece no vídeo. Sinal, GPS e céu não entram no título.</string>
     <string name="title_rain_now">Chovendo agora</string>
     <string name="title_rain_until">Chuva até %1$s min</string>

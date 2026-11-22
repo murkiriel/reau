@@ -116,7 +116,7 @@ class InfoTitleSettingsTest {
         assertEquals("Información en el título (en lugar del anillo)", string("values-es", "info_title_title"))
         for (folder in listOf("values", "values-pt", "values-es")) {
             for (name in listOf("info_title_sub", "info_title_info", "info_title_replaces_ring")) assertTrue("$folder $name", string(folder, name).isNotBlank())
-            assertTrue("$folder: says the 300 m", "300 m" in string(folder, "info_title_info"))
+            assertTrue("$folder: says the 500 m", "500 m" in string(folder, "info_title_info"))
         }
     }
 
