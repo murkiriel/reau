@@ -494,6 +494,19 @@ internal class LiveSides(
         if (shown && log) RideDiagnostics.log("dash", step.logLine())
     }
 
+    // The call card on the dash's video ([com.reau.app.dash.CallCards], [CallCardFeed]): follows Android Auto's word of the calls whatever the switch says; the switch only
+    // decides whether it is drawn and whether the dash is still sent the call.
+    private val callCard = CallCardFeed(
+        scope, compositor::setCallCard, { com.reau.app.dash.ActionEchoText.callWords(appContext) }, { RideDiagnostics.log("dash", it) },
+    )
+
+    /** The switch of the call card ([com.reau.app.settings.REauSettings.callCard]): the session stops sending the dash the call (and clears what it sent), the joystick has the call's keys for it. */
+    private fun callCardSwitch(on: Boolean) {
+        if (!callCard.switch(on)) return
+        session.callCardOn = on
+        joystick?.callCard = on
+    }
+
     // The map's zoom from the joystick, over the fit last asked for (every remap goes through it); each change is kept and the next
     // projection starts from it.
     private val liveZoom = com.reau.app.video.LiveZoom(setup.zoomMemory)
@@ -546,6 +559,7 @@ internal class LiveSides(
             if (setup.aaConfig.phone) {
                 options = options.copy(onCaller = { caller ->
                     session.showCallerCard(caller, context.getString(R.string.caller_private))
+                    callCard.heard(caller, context.getString(R.string.caller_private))
                     RideDiagnostics.log("call", com.reau.app.phone.CallAudioRoute.describe(context))
                 })
             }
@@ -651,6 +665,7 @@ internal class LiveSides(
             legend.enabled = setup.settings.joystickLegend
             volumeCard.enabled = setup.settings.volumeCard
             joystick.volumeLock.enabled = setup.settings.volumeCard
+            callCardSwitch(setup.settings.callCard)
             session.maneuverCircleEnabled = setup.settings.maneuverRing
             session.ringCycleOn = setup.settings.infoRing
             session.infoInPlace = setup.settings.infoRingInPlace
@@ -1112,6 +1127,7 @@ internal class LiveSides(
                 session.maneuverCircleEnabled = settings.maneuverRing
                 volumeCard.enabled = settings.volumeCard
                 joystick?.volumeLock?.enabled = settings.volumeCard
+                callCardSwitch(settings.callCard)
                 session.ringCycleOn = settings.infoRing
                 session.infoInPlace = settings.infoRingInPlace
                 session.infoTitle.enabled = settings.infoRing && settings.infoTitle

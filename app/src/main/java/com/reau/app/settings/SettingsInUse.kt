@@ -18,7 +18,7 @@ object SettingsInUse {
         "maneuverData", "maneuverFpsProfile", "speedFpsProfile", "navProfileMode",
         "autoJoinWifi", "detailedLog", "rideLog", "useLocation", "logKeepDays", "noDashStopMinutes",
         "answerCalls", "phoneTouch", "dashMusic", "dashCaller", "gemini",
-        "actionEcho", "joystickLegend", "volumeCard", "aaNewProtocol", "clearAaFocus", "dashMask", "spokenAlerts",
+        "actionEcho", "joystickLegend", "volumeCard", "callCard", "aaNewProtocol", "clearAaFocus", "dashMask", "spokenAlerts",
         "statsOverlay", "buttonOverlay", "fpsTestCard", "fpsTestCardFps",
         "dashPhoneStatus", "dashAlbumArt", "dashWeather", "infoRing", "infoRingData", "infoRingCarousel", "infoRingSeconds",
         "infoRingInPlace", "infoTitle",

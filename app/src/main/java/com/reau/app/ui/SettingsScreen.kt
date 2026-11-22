@@ -231,6 +231,12 @@ private fun OnDashGroup(s: REauSettings, change: (REauSettings) -> Unit) {
                 change(s.copy(volumeCard = it))
             }
         },
+        // The call card at the top of the dash's video, in the place of the dash's own call screen: read at each change of the call (LiveSides), applied at once.
+        {
+            SettingSwitch(R.string.call_card_title, R.string.call_card_sub, R.string.call_card, s.callCard, "dash_call_card", now = true) {
+                change(s.copy(callCard = it))
+            }
+        },
         // The side of the road, for the arrows Android Auto gives no direction or side to (a roundabout without one, a U-turn): automatic or chosen.
         { DrivingSideChoice(s, change) },
         { NoDashStop(s, change) },

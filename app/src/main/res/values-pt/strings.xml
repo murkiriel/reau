@@ -666,6 +666,7 @@
     <string name="call_short_volume_down">Volume −</string>
     <string name="call_short_mode">Segue o modo</string>
     <string name="call_short_not_sent">Sem toque</string>
+    <string name="call_short_nothing">Nada</string>
     <string name="call_what_answer">Atende a ligação</string>
     <string name="call_what_reject">Recusa a ligação</string>
     <string name="call_what_end">Desliga a ligação</string>
@@ -673,12 +674,14 @@
     <string name="call_what_volume_down">Diminui o volume da ligação</string>
     <string name="call_what_mode">Faz o que o modo faz</string>
     <string name="call_what_not_sent">O painel não manda este toque</string>
+    <string name="call_what_nothing">Não faz nada</string>
     <string name="call_note_answer">Vale para a ligação de operadora e para a do WhatsApp e outros apps de voz.</string>
     <string name="call_note_reject">Se o intercomunicador do capacete atender antes (com uns 7,5 s de toque), este toque desliga a ligação já atendida. Tocando, o centro não toca nem pausa a música.</string>
     <string name="call_note_end">Vale para operadora e WhatsApp. Depois de agir, o mesmo botão fica mudo por 3 s, para um toque repetido sem querer não fazer nada.</string>
     <string name="call_note_volume">Um passo por toque; o capacete acompanha.</string>
     <string name="call_note_mode">Tocando, cima e baixo continuam sendo os do modo em que o painel está (Modo mapa ou Controle de mídia).</string>
     <string name="call_note_not_sent">Em ligação o painel guarda a esquerda e a direita para ele: o REau não recebe esses toques.</string>
+    <string name="call_note_nothing">Em ligação a esquerda e a direita não fazem nada, para um toque sem querer não atender nem desligar.</string>
 
     <!-- The redesign's permissions page. -->
     <string name="permissions_ask_all_n">Pedir as que faltam (%1$d)</string>
@@ -931,6 +934,15 @@
     <string name="volume_card_title">Aviso de volume no painel</string>
     <string name="volume_card_sub">O volume da música ou da chamada, no alto da imagem</string>
     <string name="volume_card">Mostra no alto do vídeo do painel o volume da música ou da chamada sempre que ele muda, no lugar do aviso no título.</string>
+    <string name="call_card_title">Aviso de chamada no painel</string>
+    <string name="call_card_sub">Quem está ligando, no alto da imagem</string>
+    <string name="call_card">Mostra no alto do vídeo quem está ligando, no lugar da tela de chamada do painel, que cobre quase tudo.</string>
+    <string name="call_card_answer">Atender</string>
+    <string name="call_card_decline">Recusar</string>
+    <string name="call_card_on_call">Em chamada %1$s</string>
+    <string name="call_card_end">Encerrar</string>
+    <string name="call_card_calling">Chamando…</string>
+    <string name="call_card_ended">Encerrada · %1$s</string>
     <string name="echo_media_mode">Modo mídia</string>
     <string name="action_echo_title">Nome da ação no painel</string>
     <string name="action_echo_sub">Mostra o que cada toque do joystick fez</string>

@@ -45,7 +45,7 @@ object LiveTuning {
 
         /**
          * What the dash shows besides the picture, read from the live settings at each beat or event: the phone's state, the album art,
-         * the weather, the info ring, the dash's maneuver ring and the volume card. Nothing is redone: the service only has to be told (it takes the settings), and the
+         * the weather, the info ring, the dash's maneuver ring, the volume card and the call card. Nothing is redone: the service only has to be told (it takes the settings), and the
          * weather, when it is switched on, is fetched at once instead of at the next minute.
          */
         DASH_EXTRAS,
@@ -88,7 +88,7 @@ object LiveTuning {
             before.infoRingData != after.infoRingData || before.infoRingCarousel != after.infoRingCarousel ||
             before.infoRingSeconds != after.infoRingSeconds || before.infoRingInPlace != after.infoRingInPlace ||
             before.infoTitle != after.infoTitle ||
-            before.maneuverRing != after.maneuverRing || before.volumeCard != after.volumeCard
+            before.maneuverRing != after.maneuverRing || before.volumeCard != after.volumeCard || before.callCard != after.callCard
 
     /**
      * What a stream to the dash is made with. [frameSize] is the encoder's picture: it is fixed for the whole stream (a change of size needs a

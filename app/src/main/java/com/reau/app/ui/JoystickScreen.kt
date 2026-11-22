@@ -89,7 +89,7 @@ fun JoystickScreen(settings: REauSettings, onSettings: (REauSettings) -> Unit, o
                     },
                 )
                 if (onCallTab) {
-                    CallTab(moment, { moment = it }, selected) { selected = it }
+                    CallTab(moment, settings.callCard, { moment = it }, selected) { selected = it }
                 } else {
                     Text(
                         stringResource(R.string.joystick_intro),
@@ -217,7 +217,7 @@ private fun ControlCard(
  * [CallPage]'s, which JoystickMap's tests hold to.
  */
 @Composable
-private fun CallTab(moment: CallMoment, onMoment: (CallMoment) -> Unit, selected: Control, onSelect: (Control) -> Unit) {
+private fun CallTab(moment: CallMoment, callCard: Boolean, onMoment: (CallMoment) -> Unit, selected: Control, onSelect: (Control) -> Unit) {
     TabRail(
         listOf(
             TabOption(stringResource(R.string.joystick_call_ringing), null, "joystick_call_ringing"),
@@ -226,11 +226,11 @@ private fun CallTab(moment: CallMoment, onMoment: (CallMoment) -> Unit, selected
         moment.ordinal, { onMoment(CallMoment.entries[it]) },
     )
     Text(stringResource(R.string.joystick_call_intro), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    val labels = Control.entries.associateWith { stringResource(CallPage.effect(moment, it).short) }
+    val labels = Control.entries.associateWith { stringResource(CallPage.effect(moment, it, callCard).short) }
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         DPadMap(labels, Control.entries.toSet(), selected, onSelect, tag = "call_dpad")
     }
-    val effect = CallPage.effect(moment, selected)
+    val effect = CallPage.effect(moment, selected, callCard)
     val momentName = stringResource(if (moment == CallMoment.RINGING) R.string.joystick_call_ringing else R.string.joystick_call_in_call)
     ControlCard(
         stringResource(CONTROLS.getValue(selected)), "${stringResource(R.string.joystick_mode_call)} · $momentName",

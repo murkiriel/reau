@@ -678,6 +678,7 @@
     <string name="call_short_volume_down">Volume −</string>
     <string name="call_short_mode">Follows the mode</string>
     <string name="call_short_not_sent">No tap sent</string>
+    <string name="call_short_nothing">Nothing</string>
     <string name="call_what_answer">Answers the call</string>
     <string name="call_what_reject">Declines the call</string>
     <string name="call_what_end">Hangs up the call</string>
@@ -685,12 +686,14 @@
     <string name="call_what_volume_down">Lowers the call volume</string>
     <string name="call_what_mode">Does what the mode does</string>
     <string name="call_what_not_sent">The dash doesn’t send this tap</string>
+    <string name="call_what_nothing">Does nothing</string>
     <string name="call_note_answer">Applies to carrier calls and to WhatsApp and other voice apps.</string>
     <string name="call_note_reject">If the helmet intercom answers first (after about 7.5 s of ringing), this tap hangs up the call that was already answered. While ringing, center doesn’t play or pause the music.</string>
     <string name="call_note_end">Applies to carrier calls and WhatsApp. After it acts, the same button is ignored for 3 s, so an accidental repeat tap does nothing.</string>
     <string name="call_note_volume">One step per tap; the helmet follows.</string>
     <string name="call_note_mode">While ringing, up and down stay as they are in the mode the dash is in (Map mode or Media control).</string>
     <string name="call_note_not_sent">During a call the dash keeps left and right for itself: REau doesn’t receive those taps.</string>
+    <string name="call_note_nothing">On a call, left and right do nothing, so a stray tap neither answers nor hangs up.</string>
 
     <!-- The redesign's permissions page. -->
     <string name="permissions_ask_all_n">Ask for the missing ones (%1$d)</string>
@@ -942,6 +945,15 @@
     <string name="volume_card_title">Volume notice on the dash</string>
     <string name="volume_card_sub">The music or call volume, at the top of the picture</string>
     <string name="volume_card">Shows at the top of the dash’s video the music or call volume whenever it changes, in place of the notice in the title.</string>
+    <string name="call_card_title">Call notice on the dash</string>
+    <string name="call_card_sub">Who is calling, at the top of the picture</string>
+    <string name="call_card">Shows at the top of the dash’s video who is calling, in place of the dash’s call screen, which covers almost everything.</string>
+    <string name="call_card_answer">Answer</string>
+    <string name="call_card_decline">Decline</string>
+    <string name="call_card_on_call">On call %1$s</string>
+    <string name="call_card_end">End</string>
+    <string name="call_card_calling">Calling…</string>
+    <string name="call_card_ended">Ended · %1$s</string>
     <string name="echo_media_mode">Media mode</string>
     <string name="action_echo_title">Action name on the dash</string>
     <string name="action_echo_sub">Shows what each joystick tap did</string>

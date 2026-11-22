@@ -69,11 +69,67 @@ class CallPageTest {
         assertEquals(CallEffect.NOT_SENT, CallPage.effect(m, Control.RIGHT))
     }
 
+    /** The plain codes of the dash's two modes for a control (what it sends when REau does not tell it of the call), the sides and the middle as in the map mode. */
+    private fun plain(control: Control, media: Boolean): DashButtonEvent = when (control) {
+        Control.LEFT -> if (media) DashButtonEvent.PrevTrack(0x0A) else DashButtonEvent.ZoomIn(0x14)
+        Control.RIGHT -> if (media) DashButtonEvent.NextTrack(0x09) else DashButtonEvent.ZoomOut(0x13)
+        Control.CENTER -> if (media) DashButtonEvent.PlayPause(0x05) else DashButtonEvent.JoystickIn(0x18)
+        Control.UP -> DashButtonEvent.VolumeUp(0x06)
+        Control.DOWN -> DashButtonEvent.VolumeDown(0x07)
+    }
+
+    private fun sentPlain(moment: CallMoment, control: Control, media: Boolean): List<AaCommand> {
+        val state = if (moment == CallMoment.RINGING) CallState.RINGING else CallState.IN_CALL
+        return JoystickMap(callState = { state }).also { it.callCard = true }.press(plain(control, media), 10_000).sent
+    }
+
+    @Test
+    fun `with the call card on, each cell of the tab is what the joystick sends by the plain codes of both modes`() {
+        for (media in listOf(true, false)) {
+            val ringing = CallMoment.RINGING
+            assertEquals(CallEffect.ANSWER, CallPage.effect(ringing, Control.LEFT, callCard = true))
+            assertEquals(listOf<AaCommand>(AaCommand.AnswerCall), sentPlain(ringing, Control.LEFT, media))
+            assertEquals(CallEffect.REJECT, CallPage.effect(ringing, Control.RIGHT, callCard = true))
+            assertEquals(listOf<AaCommand>(AaCommand.EndCall), sentPlain(ringing, Control.RIGHT, media))
+            assertEquals(CallEffect.REJECT, CallPage.effect(ringing, Control.CENTER, callCard = true))
+            assertEquals(listOf<AaCommand>(AaCommand.EndCall), sentPlain(ringing, Control.CENTER, media))
+            val onCall = CallMoment.IN_CALL
+            assertEquals(CallEffect.NOTHING, CallPage.effect(onCall, Control.LEFT, callCard = true))
+            assertTrue(sentPlain(onCall, Control.LEFT, media).isEmpty())
+            assertEquals(CallEffect.NOTHING, CallPage.effect(onCall, Control.RIGHT, callCard = true))
+            assertTrue("right on a call, media=$media", sentPlain(onCall, Control.RIGHT, media).isEmpty())
+            assertEquals(CallEffect.END, CallPage.effect(onCall, Control.CENTER, callCard = true))
+            assertEquals(listOf<AaCommand>(AaCommand.EndCall), sentPlain(onCall, Control.CENTER, media))
+        }
+        // up and down on a call are the volume in the media mode, the one that has them; the map mode's up is the dash's back and its down the page's
+        assertEquals(CallEffect.VOLUME_UP, CallPage.effect(CallMoment.IN_CALL, Control.UP, callCard = true))
+        assertEquals(listOf<AaCommand>(AaCommand.CallVolume(1)), sentPlain(CallMoment.IN_CALL, Control.UP, media = true))
+        assertEquals(CallEffect.VOLUME_DOWN, CallPage.effect(CallMoment.IN_CALL, Control.DOWN, callCard = true))
+        assertEquals(listOf<AaCommand>(AaCommand.CallVolume(-1)), sentPlain(CallMoment.IN_CALL, Control.DOWN, media = true))
+        assertEquals(CallEffect.MODE_PAGE, CallPage.effect(CallMoment.RINGING, Control.UP, callCard = true))
+    }
+
+    @Test
+    fun `the tab says nothing for the sides with the card on and no tap sent with it off`() {
+        for (control in listOf(Control.LEFT, Control.RIGHT)) {
+            assertEquals(CallEffect.NOT_SENT, CallPage.effect(CallMoment.IN_CALL, control))
+            assertEquals(CallEffect.NOT_SENT, CallPage.effect(CallMoment.IN_CALL, control, callCard = false))
+            assertEquals(CallEffect.NOTHING, CallPage.effect(CallMoment.IN_CALL, control, callCard = true))
+        }
+        // the other cells are the same either way
+        for (moment in CallMoment.entries) for (control in Control.entries) {
+            if (moment == CallMoment.IN_CALL && (control == Control.LEFT || control == Control.RIGHT)) continue
+            assertEquals("$moment $control", CallPage.effect(moment, control), CallPage.effect(moment, control, callCard = true))
+        }
+    }
+
     @Test
     fun `every cell has a short label, a sentence and a note`() {
         for (moment in CallMoment.entries) for (control in Control.entries) {
-            val effect = CallPage.effect(moment, control)
-            assertTrue("$moment $control", effect.short != 0 && effect.what != 0 && effect.note != 0)
+            for (callCard in listOf(false, true)) {
+                val effect = CallPage.effect(moment, control, callCard)
+                assertTrue("$moment $control", effect.short != 0 && effect.what != 0 && effect.note != 0)
+            }
         }
     }
 }

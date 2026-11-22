@@ -164,6 +164,9 @@ class DashCompositor(private val log: (String) -> Unit) {
     /** What the volume card says on the dash's video now, or null for none. */
     private var volumeCard: com.reau.app.dash.VolumeNotice? = null
 
+    /** What the call card says on the dash's video now, or null for none. */
+    private var callCard: com.reau.app.dash.CallNotice? = null
+
     /** What the info ring draws on the dash's video now, or null for no ring. */
     private var infoRing: com.reau.app.weather.RingFrame? = null
 
@@ -478,6 +481,30 @@ class DashCompositor(private val log: (String) -> Unit) {
         redrawSoon()
     }
 
+    /**
+     * Shows the call card ([notice]) at the top of the dash's video from the next frame; null takes it off. Drawn once into a texture (here, on the GL thread) when the call
+     * changes and once a second on a call (the time), so a frame costs one more quad; the same notice again does nothing, and a change is drawn at once ([redrawSoon]): the map
+     * may be still or the video at the idle pace, and a call must show with no new picture from Android Auto. While the volume card shows this one is not drawn ([OverlayRules]).
+     */
+    fun setCallCard(notice: com.reau.app.dash.CallNotice?) = onGlThread(wait = false) {
+        if (notice == callCard) return@onGlThread
+        callCard = notice
+        runCatching {
+            if (notice == null) {
+                gl.setCallCard(null)
+            } else {
+                val picture = CallCardInk.render(notice)
+                gl.setCallCard(picture)
+                picture.recycle()
+            }
+        }.onFailure {
+            callCard = null
+            gl.setCallCard(null)
+            log("compositor: the call card failed and is off: $it")
+        }
+        redrawSoon()
+    }
+
     /** Lays the info ring in the place of the dash's manoeuvre bubble ([inPlace]) or on the right; drawn again at once. */
     fun setInfoRingPlace(inPlace: Boolean) = onGlThread(wait = false) {
         if (gl.ringInPlace == inPlace) return@onGlThread
@@ -759,6 +786,16 @@ class DashCompositor(private val log: (String) -> Unit) {
         (if (repeat) repeated else drawn).incrementAndGet()
     }
 
+    /** What goes over the picture, in this order: the info ring, then the legend, the volume card and the call card as [OverlayRules] says, and the stuck-picture badge on top. */
+    private fun drawNotices() {
+        if (infoRing != null) gl.drawRing()
+        val notices = OverlayRules.drawn(volume = volumeCard != null, call = callCard != null, legend = legend != null)
+        if (notices.legend) gl.drawLegend()
+        if (notices.volume) gl.drawVolumeCard()
+        if (notices.call) gl.drawCallCard()
+        if (staleBadge != null) gl.drawBadge()
+    }
+
     private fun drawAndPost(repeat: Boolean) {
         val startNs = System.nanoTime()
         val testRate = fpsTestRate
@@ -774,10 +811,7 @@ class DashCompositor(private val log: (String) -> Unit) {
             gl.fillBlack(cover)
             if (overlay.on) gl.drawOverlay(overlay.x, overlay.y)
             if (buttonOverlay.on) gl.drawButton(buttonOverlay.x, buttonOverlay.y)
-            if (infoRing != null) gl.drawRing()
-            if (legend != null) gl.drawLegend()
-            if (volumeCard != null) gl.drawVolumeCard()
-            if (staleBadge != null) gl.drawBadge()
+            drawNotices()
         }
 
         val clock = CompositorRules.advance(lastStampMs, ptsMs, sinceLastFrameMs, pace.clockSlowPercent)

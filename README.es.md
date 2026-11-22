@@ -32,6 +32,7 @@ Wi-Fi del tablero.
   centro rechazan; durante una llamada, el centro cuelga y arriba y abajo cambian el volumen.
 - Un anillo de información sobre la imagen, a la derecha del tablero (viene encendido, con un interruptor; sus páginas se escriben en el título de la franja dorada del tablero): lluvia, viento, tormentas, UV, calidad del aire, el sol, las temperaturas del día y la batería, la señal y el GPS del teléfono, una cosa a la vez (de fábrica con todas las tarjetas; apagas las que no quieras). Necesita la ubicación e internet para el clima.
 - Un aviso de volumen arriba del video del tablero (viene activado, con un interruptor): una tarjeta pequeña con el volumen de la música o de la llamada cada vez que cambia, desde el teléfono, un intercomunicador Bluetooth o el joystick, en lugar del volumen en el título.
+- Un aviso de llamada arriba del video del tablero (viene activado, con un interruptor): una píldora con quién llama, las pistas del joystick y el tiempo de la llamada, en lugar de la pantalla de llamada del tablero, que tapa casi todo el video; con él activado, izquierda y derecha no hacen nada durante una llamada.
 - Habla portugués, inglés y español: sigue el idioma del teléfono, y los ajustes tienen un selector.
 - Ajusta la calidad del video según la distancia a la próxima maniobra y la velocidad.
 - Se enciende con una pulsación larga en el ícono de REau ("Encender") o desde un mosaico de los Ajustes rápidos, para encenderlo en casa, antes del casco.

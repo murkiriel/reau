@@ -67,11 +67,11 @@ class VolumeCardIsWiredTest {
 
     @Test
     fun `the compositor draws the card over the legend and under the stuck-picture badge, and redraws at once when it changes (the map may be still)`() {
-        val draw = compositor.between("if (legend != null) gl.drawLegend()", "val clock = CompositorRules.advance(")
-        assertTrue(draw, draw.indexOf("if (volumeCard != null) gl.drawVolumeCard()") in 0 until draw.indexOf("if (staleBadge != null) gl.drawBadge()"))
+        val draw = compositor.between("private fun drawNotices() {", "private fun drawAndPost(")
+        assertTrue(draw, draw.indexOf("if (notices.volume) gl.drawVolumeCard()") in 0 until draw.indexOf("if (staleBadge != null) gl.drawBadge()"))
         val set = compositor.between("fun setVolumeCard(notice: com.reau.app.dash.VolumeNotice?)", "/** Lays the info ring in the place")
         assertTrue(set, "VolumeCardInk.render(notice)" in set && "redrawSoon()" in set && "if (notice == volumeCard) return@onGlThread" in set)
-        assertTrue("its own texture", "volumeTexture = ids[6]" in gl && "GLES20.glGenTextures(7, ids, 0)" in gl)
+        assertTrue("its own texture", "volumeTexture = ids[6]" in gl && "GLES20.glGenTextures(8, ids, 0)" in gl)
         assertTrue("laid at the layout's place", "drawQuad(volumeTexture, volumeW, volumeH, VolumeCardLayout.X, VolumeCardLayout.Y)" in gl)
     }
 }

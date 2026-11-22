@@ -667,6 +667,7 @@
     <string name="call_short_volume_down">Volumen −</string>
     <string name="call_short_mode">Sigue el modo</string>
     <string name="call_short_not_sent">No se envía ningún toque</string>
+    <string name="call_short_nothing">Nada</string>
     <string name="call_what_answer">Contesta la llamada</string>
     <string name="call_what_reject">Rechaza la llamada</string>
     <string name="call_what_end">Cuelga la llamada</string>
@@ -674,12 +675,14 @@
     <string name="call_what_volume_down">Baja el volumen de la llamada</string>
     <string name="call_what_mode">Hace lo que hace el modo</string>
     <string name="call_what_not_sent">El tablero no envía este toque</string>
+    <string name="call_what_nothing">No hace nada</string>
     <string name="call_note_answer">Vale para llamadas del operador y para WhatsApp y otras apps de voz.</string>
     <string name="call_note_reject">Si el intercomunicador del casco contesta primero (tras unos 7,5 s sonando), este toque cuelga la llamada que ya estaba contestada. Mientras suena, el centro no reproduce ni pausa la música.</string>
     <string name="call_note_end">Vale para llamadas del operador y para WhatsApp. Después de actuar, el mismo botón se ignora durante 3 s, así un toque repetido por accidente no hace nada.</string>
     <string name="call_note_volume">Un paso por toque; el casco lo sigue.</string>
     <string name="call_note_mode">Mientras suena, arriba y abajo se quedan como están en el modo en que está el tablero (Modo mapa o Control multimedia).</string>
     <string name="call_note_not_sent">Durante una llamada el tablero se queda con la izquierda y la derecha: REau no recibe esos toques.</string>
+    <string name="call_note_nothing">Durante una llamada la izquierda y la derecha no hacen nada, para que un toque sin querer no conteste ni cuelgue.</string>
 
     <!-- The redesign's permissions page. -->
     <string name="permissions_ask_all_n">Pedir los que faltan (%1$d)</string>
@@ -932,6 +935,15 @@
     <string name="volume_card_title">Aviso de volumen en el tablero</string>
     <string name="volume_card_sub">El volumen de la música o de la llamada, arriba de la imagen</string>
     <string name="volume_card">Muestra arriba del video del tablero el volumen de la música o de la llamada cada vez que cambia, en lugar del aviso en el título.</string>
+    <string name="call_card_title">Aviso de llamada en el tablero</string>
+    <string name="call_card_sub">Quién está llamando, arriba de la imagen</string>
+    <string name="call_card">Muestra arriba del video quién está llamando, en lugar de la pantalla de llamada del tablero, que cubre casi todo.</string>
+    <string name="call_card_answer">Atender</string>
+    <string name="call_card_decline">Rechazar</string>
+    <string name="call_card_on_call">En llamada %1$s</string>
+    <string name="call_card_end">Colgar</string>
+    <string name="call_card_calling">Llamando…</string>
+    <string name="call_card_ended">Finalizada · %1$s</string>
     <string name="echo_media_mode">Modo multimedia</string>
     <string name="action_echo_title">Nombre de la acción en el tablero</string>
     <string name="action_echo_sub">Muestra qué hizo cada toque del joystick</string>

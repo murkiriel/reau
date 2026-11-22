@@ -135,7 +135,7 @@ class FpsTestCardTest {
         assertFalse("Android Auto's picture is not drawn on the card", card.contains("window"))
         val order = listOf("gl.drawTestCard()", "gl.drawOverlay(", "gl.drawButton(").map { card.indexOf(it) }
         assertTrue("the card first, then the stats text, then the button text: $order", order.all { it >= 0 } && order == order.sorted())
-        for (leftOut in listOf("drawRing", "drawLegend", "drawBadge")) assertFalse("$leftOut not on the card", card.contains(leftOut))
+        for (leftOut in listOf("drawRing", "drawLegend", "drawBadge", "drawNotices")) assertFalse("$leftOut not on the card", card.contains(leftOut))
         assertTrue(compositor.substringAfter("private fun drawSoon()").substringBefore("val wait").contains("fpsTestRate > 0"))
         assertTrue(compositor.substringAfter("private fun redrawSoon()").substringBefore("burstPending = true").contains("fpsTestRate > 0"))
         assertTrue("the clock tells the rule whether the card is on", compositor.contains("CompositorRules.tickAction(newImage, fpsTestRate > 0, sinceLastFrameMs, pace)"))

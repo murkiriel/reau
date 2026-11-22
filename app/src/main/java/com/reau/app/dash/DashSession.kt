@@ -444,6 +444,19 @@ class DashSession(
     private var lastCardState: DashCommands.CallState? = null
 
     /**
+     * With REau's own call card on ([com.reau.app.dash.CallCards], the "Aviso de chamada no painel" switch) the dash is told nothing of the call: no state (05 21) and no name
+     * (05 22) in the cards' round, and "no call" in the 1 Hz status, so it never opens its own call screen. The session still knows the call ([callerName]): the maneuver
+     * ring stays shown for it. Turned on in the middle of a call, the one "no call" of the cards' round goes at once, for the dash to close the screen it already opened (only
+     * if the round had sent the call before); turned off in the middle of one, the call is sent again at the next round.
+     */
+    @Volatile var callCardOn = false
+        set(value) {
+            if (field == value) return
+            field = value
+            sendCardsNow()
+        }
+
+    /**
      * The song on the dash's own music card (title, album, artist), repeated every second, with the card's flags around
      * the text, in this order: music on, the text, no album art, playing or paused.
      */
@@ -526,7 +539,7 @@ class DashSession(
 
     /** The call as the status packets say it every second: ringing, in a call, or none. */
     private fun callNow(): DashCommands.CallState = when {
-        callerName == null -> DashCommands.CallState.NONE
+        callerName == null || callCardOn -> DashCommands.CallState.NONE
         callerInCall -> DashCommands.CallState.IN_CALL
         else -> DashCommands.CallState.RINGING
     }
@@ -577,7 +590,7 @@ class DashSession(
 
     /** [sendCards] under the monitor; the album's slices still to send, if any. */
     private fun sendCardsHeld(sock: DashSocket): List<ByteArray>? {
-        val caller = callerName
+        val caller = callerName?.takeUnless { callCardOn }
         if (caller != null) {
             // The call card: the state then the name, encrypted under the session key.
             val state = callNow()

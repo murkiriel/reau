@@ -77,10 +77,10 @@ class EchoAndLegendAreWiredTest {
 
     @Test
     fun `the compositor draws the legend over the ring and under the stuck-picture badge, and redraws at once when it changes`() {
-        val draw = compositor.between("if (infoRing != null) gl.drawRing()", "val clock = CompositorRules.advance(")
-        assertTrue(draw, draw.indexOf("if (legend != null) gl.drawLegend()") < draw.indexOf("if (staleBadge != null) gl.drawBadge()"))
+        val draw = compositor.between("private fun drawNotices() {", "private fun drawAndPost(")
+        assertTrue(draw, draw.indexOf("if (notices.legend) gl.drawLegend()") < draw.indexOf("if (staleBadge != null) gl.drawBadge()"))
         val set = compositor.between("fun setLegend(card: com.reau.app.dash.LegendCard?)", "/** Lays the info ring in the place")
         assertTrue(set, "LegendInk.render(card)" in set && "redrawSoon()" in set && "if (card == legend) return@onGlThread" in set)
-        assertTrue("its own texture", "legendTexture = ids[4]" in gl && "GLES20.glGenTextures(7, ids, 0)" in gl)
+        assertTrue("its own texture", "legendTexture = ids[4]" in gl && "GLES20.glGenTextures(8, ids, 0)" in gl)
     }
 }
