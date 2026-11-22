@@ -49,6 +49,7 @@ aparecem).
 - **As chaves de teste das builds de depuração** ("Conexão experimental", "Vídeo experimental", "Painel experimental") saíram; o REau faz o que fazia com todas desligadas.
 
 ### Corrigido
+- **Um nome de rede do painel vazio ou recusado pelo Android não fecha mais o app**: o pedido da rede do painel passa a ser montado com proteção; um nome em branco é recusado antes de chegar ao Android, e um nome que o Android não aceita vira o estado de erro na tela, como uma senha recusada já fazia. Hoje o REau não chega a pedir um nome em branco (a busca descarta redes ocultas, cujo nome vem vazio); é uma proteção a mais.
 - **Com o Spotify na frente e tocando, a faixa dourada do painel mostra a música e o botão de pausa** (o título, o artista e os três botões, como nas outras telas), mesmo quando a página do Joystick não tem controle de música (ainda não testado na moto).
 - **A seta da rotatória no painel era desenhada ao contrário** (o erro foi visto na moto; a correção ainda não): no Brasil o Android Auto diz anti-horário e o painel desenhava horário.
 - **O Wi-Fi do painel deixa de ser chamado de "travado" quando o celular já entrou nele**, e um pedido de rede antigo não derruba mais um mais novo (ainda não visto na moto).

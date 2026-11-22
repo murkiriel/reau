@@ -171,4 +171,37 @@ class DashWifiManagerHelpersTest {
         )
         assertTrue(releaseLine(2, 800, WifiConnStatus.ERROR, answered = false).endsWith("unanswered=true)"))
     }
+
+    // The request for the dash's network: a blank or refused name is an error state, never a crash (JoinRules.requestOrRefusal).
+
+    @Test
+    fun `a blank dash name is refused before Android is asked`() {
+        var asked = false
+        val result = JoinRules.requestOrRefusal(blank = true) { asked = true; "request" }
+        assertTrue(result.isFailure)
+        assertFalse("the builder is not even called", asked)
+        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+    }
+
+    @Test
+    fun `a name the builder refuses with IllegalArgumentException is an error, not a crash`() {
+        val result = JoinRules.requestOrRefusal<String>(blank = false) { throw IllegalArgumentException("invalid SSID") }
+        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+    }
+
+    @Test
+    fun `a builder in a bad state (IllegalStateException) is an error, not a crash`() {
+        val result = JoinRules.requestOrRefusal<String>(blank = false) { throw IllegalStateException("pattern and name both set") }
+        assertTrue(result.exceptionOrNull() is IllegalStateException)
+    }
+
+    @Test
+    fun `a good name gives the request built`() {
+        assertEquals("request", JoinRules.requestOrRefusal(blank = false) { "request" }.getOrNull())
+    }
+
+    @Test(expected = SecurityException::class)
+    fun `any other exception is not the builder's refusal and goes on up`() {
+        JoinRules.requestOrRefusal<String>(blank = false) { throw SecurityException("not the builder") }
+    }
 }

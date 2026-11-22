@@ -48,6 +48,7 @@ English: [CHANGELOG.md](CHANGELOG.md) · Português (pt-BR): [CHANGELOG.pt-br.md
 - **Los interruptores de prueba de las compilaciones de depuración** ("Conexión experimental", "Video experimental", "Tablero experimental") se fueron; REau hace lo que hacía con todos apagados.
 
 ### Corregido
+- **Un nombre de red del tablero vacío o rechazado por Android ya no cierra la app**: la solicitud de la red del tablero ahora se arma con protección; un nombre en blanco se rechaza antes de llegar a Android, y un nombre que Android no acepta pasa al estado de error en pantalla, como ya ocurría con una contraseña rechazada. Hoy REau no llega a pedir un nombre en blanco (la búsqueda descarta las redes ocultas, cuyo nombre llega vacío); es una protección más.
 - **Con Spotify al frente y sonando, la franja dorada del tablero muestra la canción y el botón de pausa** (el título, el artista y los tres botones, como en las otras pantallas), incluso cuando la página del Joystick no tiene control de música (aún no probado en la moto).
 - **La flecha de la rotonda en el tablero se dibujaba al revés** (el error se vio en la moto; la corrección aún no): en Brasil Android Auto dice antihorario y el tablero la dibujaba horaria.
 - **El Wi-Fi del tablero deja de llamarse "trabado" cuando el teléfono ya se unió a él**, y una solicitud de red antigua ya no tumba una más nueva (aún sin ver en la moto).

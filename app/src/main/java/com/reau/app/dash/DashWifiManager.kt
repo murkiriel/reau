@@ -375,34 +375,7 @@ class DashWifiManager(
 
         if (useAlreadyConnectedNetwork()) return
 
-        val specBuilder = WifiNetworkSpecifier.Builder()
-        if (pendingPrefix) specBuilder.setSsidPattern(PatternMatcher(pendingSsid, PatternMatcher.PATTERN_PREFIX))
-        else specBuilder.setSsid(pendingSsid)
-        if (pendingPassword.isNotBlank()) {
-            // The builder throws for a passphrase it cannot take (not ASCII, as a pasted non-breaking space is);
-            // uncaught, that killed the worker thread and the app. Reported like any other failed request.
-            try {
-                specBuilder.setWpa2Passphrase(pendingPassword)
-            } catch (e: IllegalArgumentException) {
-                Log.e(TAG, "the dash password was refused: ${e.message}", e)
-                com.reau.app.data.RideDiagnostics.error("wifi", passphraseRefusedLine(e))
-                _state.value = WifiState(status = WifiConnStatus.ERROR, ssid = pendingSsid, error = "${e.javaClass.simpleName}: ${e.message}")
-                return
-            }
-        }
-
-        val request = NetworkRequest.Builder()
-            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
-            // The dash hotspot has no WAN — it never gets NET_CAPABILITY_INTERNET. Requesting
-            // it anyway (the default) leaves this network's UID exemption from Restricted
-            // Networking Mode / per-app firewall rules improperly registered by netd, since the
-            // request and the actual network never agree on capabilities — that's what produced
-            // "Binding socket to network N failed: EPERM" on a device with Restricted Networking
-            // Mode on, even with no VPN routing involved. Local-only WifiNetworkSpecifier
-            // requests are documented to need this removed for exactly this reason.
-            .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            .setNetworkSpecifier(specBuilder.build())
-            .build()
+        val request = dashNetworkRequest() ?: return
 
         // Android 12+: FLAG_INCLUDE_LOCATION_INFO, so the joined network's name is not redacted.
         val cb = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) BikeCallback(DashName.callbackFlags()) else BikeCallback()
@@ -774,6 +747,50 @@ class DashWifiManager(
             notRestricted = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED),
             apFingerprint = NetNotes.apFingerprint(info?.bssid), // compared in memory only: the address is never logged
         )
+    }
+
+    /**
+     * The request for the dash's network (its name or prefix, its password, no internet asked), or null when it cannot be built: a
+     * password or a name Android refuses, or a blank name, is logged and shown as the ERROR state, never a crash.
+     */
+    private fun dashNetworkRequest(): NetworkRequest? {
+        val specBuilder = WifiNetworkSpecifier.Builder()
+        if (pendingPassword.isNotBlank()) {
+            // The builder throws for a passphrase it cannot take (not ASCII, as a pasted non-breaking space is);
+            // uncaught, that killed the worker thread and the app. Reported like any other failed request.
+            try {
+                specBuilder.setWpa2Passphrase(pendingPassword)
+            } catch (e: IllegalArgumentException) {
+                Log.e(TAG, "the dash password was refused: ${e.message}", e)
+                com.reau.app.data.RideDiagnostics.error("wifi", passphraseRefusedLine(e))
+                _state.value = WifiState(status = WifiConnStatus.ERROR, ssid = pendingSsid, error = "${e.javaClass.simpleName}: ${e.message}")
+                return null
+            }
+        }
+
+        // The name (or its prefix) and both builds go through the guard: a blank or refused name is an ERROR state, not a crash.
+        return JoinRules.requestOrRefusal(pendingSsid.isBlank()) {
+            if (pendingPrefix) specBuilder.setSsidPattern(PatternMatcher(pendingSsid, PatternMatcher.PATTERN_PREFIX))
+            else specBuilder.setSsid(pendingSsid)
+            NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                // The dash hotspot has no WAN — it never gets NET_CAPABILITY_INTERNET. Requesting
+                // it anyway (the default) leaves this network's UID exemption from Restricted
+                // Networking Mode / per-app firewall rules improperly registered by netd, since the
+                // request and the actual network never agree on capabilities — that's what produced
+                // "Binding socket to network N failed: EPERM" on a device with Restricted Networking
+                // Mode on, even with no VPN routing involved. Local-only WifiNetworkSpecifier
+                // requests are documented to need this removed for exactly this reason.
+                .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .setNetworkSpecifier(specBuilder.build())
+                .build()
+        }.getOrElse { e ->
+            Log.e(TAG, "the dash network request could not be built: ${e.javaClass.simpleName}")
+            com.reau.app.data.RideDiagnostics.error("wifi", "the dash network request could not be built: ${e.javaClass.simpleName}")
+            // Only the exception's class: Android's message can carry the network's name, which the log never holds.
+            _state.value = WifiState(status = WifiConnStatus.ERROR, ssid = pendingSsid, error = e.javaClass.simpleName)
+            null
+        }
     }
 
     /** The log line for a passphrase Android refused: whatever Android says, the password itself is not in it. */

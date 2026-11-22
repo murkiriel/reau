@@ -48,6 +48,7 @@ Português (pt-BR): [CHANGELOG.pt-br.md](CHANGELOG.pt-br.md) · Español: [CHANG
 - **The test switches of debug builds** ("Experimental connection", "Experimental video", "Experimental dash") are gone; REau does what it did with all of them off.
 
 ### Fixed
+- **A blank dash network name, or one Android refuses, no longer closes the app**: the request for the dash’s network is now built under a guard; a blank name is refused before Android is asked, and a name Android does not take becomes the error state on screen, as a refused password already did. REau does not ask for a blank name today (the scan drops hidden networks, whose name comes empty); this is one more guard.
 - **With Spotify in front and playing, the dash's gold band shows the song and the pause button** (the song, the artist and the three buttons, as on the other screens), even when the Joystick page has no music control (not yet tried on the bike).
 - **The roundabout arrow on the dash was drawn the other way round** (the error was seen on the bike; the fix was not yet): in Brazil Android Auto says counter-clockwise and the dash drew it clockwise.
 - **The dash's Wi-Fi is no longer called "stuck" when the phone has already joined it**, and an old network request no longer drops a newer one (not yet seen on the bike).

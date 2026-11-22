@@ -134,4 +134,22 @@ internal object JoinRules {
      */
     internal fun reconnectDue(wantConnected: Boolean, scheduledAt: Int, latestRequest: Int): Boolean =
         wantConnected && scheduledAt == latestRequest
+
+    /**
+     * The request for the dash's network, built by [build] (the WifiNetworkSpecifier and the NetworkRequest), or the error Android
+     * threw while building it. Android's builders throw IllegalArgumentException or IllegalStateException for a name or a pattern
+     * they cannot take (an empty name, say); uncaught, that would end the app (a hidden network's name comes empty). A [blank]
+     * name is refused before Android is asked: it would match any network.
+     * Any other exception is not the builder's refusal and goes on up.
+     */
+    internal fun <T> requestOrRefusal(blank: Boolean, build: () -> T): Result<T> {
+        if (blank) return Result.failure(IllegalArgumentException("the dash network name is blank"))
+        return try {
+            Result.success(build())
+        } catch (e: IllegalArgumentException) {
+            Result.failure(e)
+        } catch (e: IllegalStateException) {
+            Result.failure(e)
+        }
+    }
 }
