@@ -29,17 +29,39 @@ class EngineWatchTest {
     }
 
     @Test
-    fun `a start is one reading at 0xB0 or more after stopped`() {
+    fun `a start is two readings in a row at 0xB0 or more after stopped, said at the second`() {
         val w = EngineWatch()
         feed(w, 0x40)
-        assertEquals(listOf("engine: running (0C26 0xE8)"), w.onReading(0xE8))
+        assertEquals("one alone says nothing yet", emptyList<String>(), w.onReading(0xE8))
+        assertEquals(listOf("engine: running (0C26 0xE0)"), w.onReading(0xE0))
         assertEquals(emptyList<String>(), w.onReading(0xE0))
+        assertEquals(2, EngineWatch.START_READINGS)
+    }
+
+    @Test
+    fun `a lone reading at 0xB0 or more, a start that did not take, says nothing at all`() {
+        // The ride of 23/11/2026: one reading 0xB0 or more, ten seconds later low again; before, "running" and then "stopped".
+        val w = EngineWatch()
+        assertEquals(listOf("engine at connect: stopped (0C26 0x40)"), w.onReading(0x40))
+        assertEquals(emptyList<String>(), feed(w, 0xE8, 0x40, 0x40, 0x40))
+        // and the lone ones do not add up, with anything between them
+        assertEquals(emptyList<String>(), feed(w, 0xE8, 0x60, 0xE8, 0xA0, 0xE8, 0x40, 0xE8, 0x40))
+        assertEquals("the pair that follows does start it", listOf("engine: running (0C26 0xB0)"), feed(w, 0xB1, 0xB0))
+    }
+
+    @Test
+    fun `the two readings are the readings of a run, the dead band and the low ones break it`() {
+        val w = EngineWatch()
+        feed(w, 0x40)
+        assertEquals(emptyList<String>(), feed(w, 0xB0, 0xAF, 0xB0))
+        assertEquals(listOf("engine: running (0C26 0xB0)"), w.onReading(0xB0))
     }
 
     @Test
     fun `a start from unknown is said too`() {
         val w = EngineWatch()
         feed(w, 0xA0)
+        assertEquals(emptyList<String>(), w.onReading(0xB0))
         assertEquals(listOf("engine: running (0C26 0xB0)"), w.onReading(0xB0))
     }
 
@@ -115,7 +137,7 @@ class EngineWatchTest {
             listOf(
                 "engine at connect: running (0C26 0xE8)",
                 "engine: stopped (0C26 0x50, 0x40)",
-                "engine: running (0C26 0xC0)",
+                "engine: running (0C26 0xC1)",
                 "engine: stopped (0C26 0x20, 0x21)",
             ),
             lines,
@@ -134,13 +156,11 @@ class EngineWatchTest {
     }
 
     @Test
-    fun `0xF0 or more after stopped says the start and the high value`() {
+    fun `0xF0 or more after stopped says the high value at the first reading and the start at the second`() {
         val w = EngineWatch()
         feed(w, 0x40)
-        assertEquals(
-            listOf("engine: 0C26 0xF9 (cranking or external supply)", "engine: running (0C26 0xF9)"),
-            w.onReading(0xF9),
-        )
+        assertEquals("the apart notice stays one reading", listOf("engine: 0C26 0xF9 (cranking or external supply)"), w.onReading(0xF9))
+        assertEquals(listOf("engine: running (0C26 0xFA)"), w.onReading(0xFA))
     }
 
     @Test
@@ -158,6 +178,10 @@ class EngineWatchTest {
         feed(w, 0x60) // a low one left over from the connection before
         w.reset()
         assertEquals(listOf("engine at connect: stopped (0C26 0x40)"), feed(w, 0x40))
+        feed(w, 0xE8) // a lone high one left over from the connection before
+        w.reset()
+        assertEquals(listOf("engine at connect: stopped (0C26 0x40)"), feed(w, 0x40))
+        assertEquals("the high one of before does not count", emptyList<String>(), feed(w, 0xE8))
         w.reset()
         // the low one of before does not count: one low reading alone after running says nothing
         assertEquals(listOf("engine at connect: running (0C26 0xE8)"), feed(w, 0xE8))

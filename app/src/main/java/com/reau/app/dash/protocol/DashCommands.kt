@@ -377,8 +377,9 @@ object DashCommands {
         /** The proximity bar (05 0C), the one the nav packet carries; null keeps the template's (the card with no route). */
         proximity: Int? = null,
     ): ByteArray {
-        // Latin-1, how the dash reads every name it draws (the street's name goes here too).
-        val rt = latin1(title, 60) + 0x00.toByte()
+        // Latin-1, how the dash reads every name it draws (the street's name goes here too), cut at [ROAD_MAX] like the nav packet's street (05 01): the same
+        // field of the dash, so the two say the same words and it never flips between the whole street and the cut one (the owner's decision of 23/11/2026).
+        val rt = latin1(title, ROAD_MAX) + 0x00.toByte()
 
         val out = ByteArrayOutputStream()
         out.write(navPrefix)
@@ -569,7 +570,7 @@ object DashCommands {
         else -> 5
     }
 
-    /** The street's name in the nav packet: 19 characters, what the dash's field holds. */
+    /** The title field (05 01), in the route card and in the nav packet: 19 characters, what the dash's field holds. */
     const val ROAD_MAX = 19
 
     /**
