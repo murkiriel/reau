@@ -687,7 +687,7 @@ class DashSession(
      * itself. The nav packet's street (05 01) is the same field of the dash as the card's title and both go every second, a few tens of
      * milliseconds apart: if the packet kept saying the street, it would take the page or the name from the dash a moment after each card, and
      * the title would flip between the two (the ride of 23/11/2026). So the packet says what the card said, and the turns of the info are decided
-     * in one place only, by the card.
+     * in one place only, by the card. Both packets cut the words at [DashCommands.ROAD_MAX], so a long street is the same cut street in the two.
      */
     @Volatile private var cardTitleOverride: String? = null
 

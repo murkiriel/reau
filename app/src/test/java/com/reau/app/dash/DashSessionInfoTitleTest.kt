@@ -108,6 +108,26 @@ class DashSessionInfoTitleTest {
     }
 
     @Test
+    fun `a street of 26 letters is the same 19 letters in the card and in the nav packet, second by second`() {
+        val long = "Avenida das Palmeiras Alta" // 26 letters; cut at 19
+        val cut = long.take(19)
+        assertEquals(19, DashCommands.ROAD_MAX)
+        on()
+        guide(900, road = long)
+        for (second in 0 until (STREET_MS + PAGE_MS).toInt() / 1_000) {
+            val card = title()
+            val packet = navTitle()
+            assertEquals("second $second", card, packet)
+            assertEquals("second $second", true, card == cut || card == "Chuva em 20 min")
+            now += 1_000
+        }
+        // The card with the option off too: the 19 letters, never the whole street.
+        session.infoTitle.enabled = false
+        assertEquals(cut, title())
+        assertEquals(cut, navTitle())
+    }
+
+    @Test
     fun `with the option off the nav packet is the street, as it always was`() {
         guide(900)
         title()

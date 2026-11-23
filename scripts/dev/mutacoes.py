@@ -5070,6 +5070,8 @@ MUTATIONS += [
      "            if (waitedForGap(this, maxOf(CompositorMath.RING_REDRAW_GAP_MS, frameGapFloorMs))) return\n", "", ["FrameCeilingTest"]),
     ("P32 Teto: o desenho da rajada não espera o intervalo do ritmo", MAIN + "video/DashCompositor.kt",
      "            if (waitedForGap(this, burstGapMs)) return\n", "", ["FrameCeilingTest"]),
+    ("P32 Título único: o cartão de rota manda a rua inteira e o pacote de navegação a cortada", MAIN + "dash/protocol/DashCommands.kt",
+     "val rt = latin1(title, ROAD_MAX) + 0x00.toByte()", "val rt = latin1(title, 60) + 0x00.toByte()", ["DashSessionInfoTitleTest"]),
     ("P32 Motor: uma leitura alta isolada já diz que o motor ligou (contagem 1 em vez de 2)", MAIN + "dash/EngineWatch.kt",
      "const val START_READINGS = 2", "const val START_READINGS = 1", ["EngineWatchTest"]),
     ("P32 Motor: a faixa morta não quebra a sequência de leituras altas", MAIN + "dash/EngineWatch.kt",
