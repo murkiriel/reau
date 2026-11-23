@@ -57,6 +57,7 @@ REau (o `INFO.txt` e o pacote `com.reau.app` no dumpsys dizem qual é; sem eles,
 "AVISOS DA LEITURA" com o pacote e o `uid` (`wifi_sistema.nomes_dos_uids`), sem nome de rede. `TX send failing`/`RTP send failing` com `NetworkOnMainThreadException` é defeito do app
 (o pacote não saiu), não queda. Entendem-se as linhas do ramo do painel: `panel settings:` (a escrita das unidades; acusa o bloco que o soquete recusou, a escrita não confirmada e o
 «sent once» sem pacote 04xx/0A02 no `[detail]`), `nav distances in …` e `dash says it changed a setting` (linha do tempo).
+Desde 22/11/2026: as linhas `engine …` (o motor ligou ou desligou, pelo 0C26 do painel; só registro) entram na linha do tempo.
 
 Desde 08/11/2026, noite: a união que o app não viu na varredura mas foi a resposta ao pedido do REau diz o número do pedido (só a que o
 celular fez sozinho, `joined by the phone itself`, diz que foi ele); o aviso de cobertura do logcat do sistema fala de cada buffer (o `main`, pelas etiquetas do `wpa_supplicant`, do Android
@@ -239,6 +240,10 @@ PAINEL_RECUSADO = "panel settings: the socket refused the block"
 PAINEL_TX = re.compile(r"\bdash tx\b.*(?<![0-9A-Fa-f:])(?:04[0-9A-Fa-f]{2}|0A02)(?=[: ]|$)")
 PAINEL_TX_JANELA_S = 3.0
 PAINEL_NAV_UNIDADE = re.compile(r"^nav distances in (.*?) \((.*)\)$")
+# O motor, dito pelo campo 0C26 do painel (só registro, desde 22/11/2026): `engine at connect: running (0C26 0xE8)`, `engine: stopped (0C26 0x5F, 0x4E)`, `engine: running (0C26 0xE8)`
+# e `engine: 0C26 0xF9 (cranking or external supply)`. O sentido do campo é deduzido dos registros: forte para «motor rodando»; a grandeza física não se conhece.
+PAINEL_MOTOR = re.compile(r"^engine(?: at connect)?: (running|stopped|unknown) \((0C26 [^)]*)\)$")
+PAINEL_MOTOR_ALTO = re.compile(r"^engine: (0C26 0x[0-9A-F]{2}) \(cranking or external supply\)$")
 PAINEL_AVISO_09_05 = re.compile(r"^dash says (?:it changed a setting \(09 05 = 01\)|09 05 = (\S+), not the 01)")
 # Sinais de que a transmissão acabou ou recomeçou entre duas linhas de 5 s: o intervalo não é buraco.
 SEM_VIDEO = ("session fail", "video loop stop", "→ STREAMING")
@@ -2216,6 +2221,15 @@ def _eventos_do_painel(t):
         if t.startswith(PAINEL_ESCRITA + "not written"):
             return [f"escrita no painel: não escrita {t[len(PAINEL_ESCRITA + 'not written'):].strip()}"]
         return [f"escrita no painel: {t[len(PAINEL_ESCRITA):100]}"]
+    m = PAINEL_MOTOR.match(t)
+    if m:
+        estado = {"running": "rodando", "stopped": "parado", "unknown": "não sabido"}[m.group(1)]
+        if t.startswith("engine at connect"):
+            return [f"motor ao conectar: {estado} ({m.group(2)})"]
+        return [f"motor {'ligou' if m.group(1) == 'running' else 'desligou'} ({m.group(2)}; só registro, o app não faz nada com isso)"]
+    m = PAINEL_MOTOR_ALTO.match(t)
+    if m:
+        return [f"motor: {m.group(1)} (partida ou alimentação externa; só registro)"]
     m = PAINEL_NAV_UNIDADE.match(t)
     if m:
         unidade = "pés e décimos de milha" if "feet" in m.group(1) else "metros e décimos de quilômetro"

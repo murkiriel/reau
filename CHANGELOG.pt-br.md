@@ -44,6 +44,7 @@ aparecem).
 - **A rede neural que distingue as telas foi retreinada** para o Android Auto 18, o Spotify e o Organic Maps, e de novo em 22/11/2026 com mais 5066 quadros (52796 no total; Waze, Google Maps, o menu de apps, o Spotify e o cartão de chamada do WhatsApp sobre o mapa, todos olhados a olho). O que melhora: o Spotify com capa colorida (a tela "tocando" era lida certo em 83% das vezes, agora 96%; o Spotify todo, 97,9%, agora 99,2%) e um pouco menos de "sem certeza" no mapa (1,2%, agora 0,9%), medido em gravações que a rede não tinha visto. O que custa: 0,02 ponto a mais de erro com certeza no mapa (0,07%, agora 0,09%), quase todo no Organic Maps de noite. A classe "outro app" não ganhou nenhum quadro novo (continua com 438) e continua sem ser confiável. **Ainda não testado na moto.** O que o piloto vê não deve mudar.
 - **O início rápido (o atalho do ícone e o bloco das Configurações rápidas) só liga a projeção com o celular desbloqueado.**
 - **O botão "Descer até o fim" dos termos de uso leva de 1 a 2 segundos** (antes podiam ser até 10): o texto ainda passa à vista, mas sem espera.
+- **O registro da corrida passa a dizer quando o motor liga e desliga, e há quanto tempo o painel estava ligado quando o REau conectou** (lido de um campo que o painel manda a cada 5 s; só para diagnóstico, nada do que o REau faz depende disso; **ainda não testado na moto**).
 
 ### Removido
 - **O serviço de acessibilidade da edição Completa saiu de vez**: ele não aparece nas configurações de Acessibilidade do Android, e nenhuma tela, permissão ou texto fala dele.
