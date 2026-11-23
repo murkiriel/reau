@@ -693,7 +693,8 @@
     <string name="call_note_volume">One step per tap; the helmet follows.</string>
     <string name="call_note_mode">While ringing, up and down stay as they are in the mode the dash is in (Map mode or Media control).</string>
     <string name="call_note_not_sent">During a call the dash keeps left and right for itself: REau doesn’t receive those taps.</string>
-    <string name="call_note_nothing">On a call, left and right do nothing, so a stray tap neither answers nor hangs up.</string>
+    <string name="call_note_nothing">On a call, up and down do nothing: the call volume is on the right (+) and the left (−), in both dash modes.</string>
+    <string name="call_note_volume_side">One step per tap, the same in both dash modes (the dash doesn’t send the map mode’s “up”); the helmet follows. The 5 s volume lock applies to these taps.</string>
     <string name="call_note_nothing_ringing">While ringing, up and down do nothing, so a stray tap neither changes the volume nor moves the page.</string>
 
     <!-- The redesign's permissions page. -->

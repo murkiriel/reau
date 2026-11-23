@@ -13,6 +13,8 @@ enum class CallEffect(val short: Int, val what: Int, val note: Int) {
     END(R.string.call_short_end, R.string.call_what_end, R.string.call_note_end),
     VOLUME_UP(R.string.call_short_volume_up, R.string.call_what_volume_up, R.string.call_note_volume),
     VOLUME_DOWN(R.string.call_short_volume_down, R.string.call_what_volume_down, R.string.call_note_volume),
+    SIDE_VOLUME_UP(R.string.call_short_volume_up, R.string.call_what_volume_up, R.string.call_note_volume_side),
+    SIDE_VOLUME_DOWN(R.string.call_short_volume_down, R.string.call_what_volume_down, R.string.call_note_volume_side),
     MODE_PAGE(R.string.call_short_mode, R.string.call_what_mode, R.string.call_note_mode),
     NOT_SENT(R.string.call_short_not_sent, R.string.call_what_not_sent, R.string.call_note_not_sent),
     NOTHING(R.string.call_short_nothing, R.string.call_what_nothing, R.string.call_note_nothing),
@@ -21,9 +23,10 @@ enum class CallEffect(val short: Int, val what: Int, val note: Int) {
 
 /**
  * The calls' controls, with nothing to pick: the same in the dash's two modes. Ringing, the left answers and the
- * right and the middle reject; up and down stay the page's, or do nothing with REau's own call card on ([callCard], [CallEffect.NOTHING_RINGING]). On a call the middle ends it and up and down are the call's volume; the left and the right are
- * the dash's own (it sends no such tap, [CallEffect.NOT_SENT]) while REau tells it the call, and with REau's own call card on ([callCard], which stops that, the dash then
- * sending the plain codes of its two modes) they do nothing ([CallEffect.NOTHING]). JoystickMap does it; CallPageTest holds the two together.
+ * right and the middle reject; up and down stay the page's, or do nothing with REau's own call card on ([callCard], [CallEffect.NOTHING_RINGING]). On a call the middle ends it.
+ * While REau tells the dash of the call, up and down are the call's volume (the dash's own call screen sends them) and the left and the right are the dash's own (it sends no such
+ * tap, [CallEffect.NOT_SENT]); with REau's own call card on ([callCard], which stops that, the dash then sending the plain codes of its two modes) the right raises the call's
+ * volume and the left lowers it ([CallEffect.SIDE_VOLUME_UP], [CallEffect.SIDE_VOLUME_DOWN]) and up and down do nothing ([CallEffect.NOTHING]). JoystickMap does it; CallPageTest holds the two together.
  */
 object CallPage {
     fun effect(moment: CallMoment, control: Control, callCard: Boolean = false): CallEffect = when (moment) {
@@ -33,10 +36,11 @@ object CallPage {
             Control.UP, Control.DOWN -> if (callCard) CallEffect.NOTHING_RINGING else CallEffect.MODE_PAGE
         }
         CallMoment.IN_CALL -> when (control) {
-            Control.LEFT, Control.RIGHT -> if (callCard) CallEffect.NOTHING else CallEffect.NOT_SENT
+            Control.LEFT -> if (callCard) CallEffect.SIDE_VOLUME_DOWN else CallEffect.NOT_SENT
+            Control.RIGHT -> if (callCard) CallEffect.SIDE_VOLUME_UP else CallEffect.NOT_SENT
             Control.CENTER -> CallEffect.END
-            Control.UP -> CallEffect.VOLUME_UP
-            Control.DOWN -> CallEffect.VOLUME_DOWN
+            Control.UP -> if (callCard) CallEffect.NOTHING else CallEffect.VOLUME_UP
+            Control.DOWN -> if (callCard) CallEffect.NOTHING else CallEffect.VOLUME_DOWN
         }
     }
 }

@@ -28,10 +28,10 @@ in developer mode. It receives the video, fits the picture to the dash's screen 
 - Sends the dash the maneuver, the distance, the arrival time and the time left on the route.
 - Also sends the music that is playing (when the joystick page has a music control), calls and the weather, for the dash's cards.
 - Uses the handlebar joystick to control Android Auto (map, menu, music, calls and Gemini, which comes on and works once you allow the microphone): while ringing, left answers and right or
-  center decline; during a call, center hangs up and up and down change the volume.
+  center decline; during a call, center hangs up, right raises the volume and left lowers it, and up and down do nothing (with the call notice on, the default).
 - An info ring over the picture, on the right of the dash (on by default, with a switch; its pages are written in the title of the dash's gold band): rain, wind, storms, UV, air quality, the sun, the day's temperatures and the phone's battery, signal and GPS, one at a time (every card at first; you switch off the ones you don't want). It needs the location and the internet for the weather.
 - A volume notice at the top of the dash's video (on by default, with a switch): a small card with the music or call volume whenever it changes, from the phone, a Bluetooth intercom or the joystick, in place of the volume in the title.
-- A call notice at the top of the dash's video (on by default, with a switch): a pill with who is calling, the joystick's hints and the time of the call, in place of the dash's own call screen, which covers almost all of the video; with it on, left and right do nothing during a call.
+- A call notice at the top of the dash's video (on by default, with a switch): a pill with who is calling, the joystick's hints and the time of the call, in place of the dash's own call screen, which covers almost all of the video; with it on, during a call right and left are the call's volume and up and down do nothing.
 - Speaks Portuguese, English and Spanish: it follows the phone's language, and the settings have a switch.
 - Adjusts the video quality by the distance to the next maneuver and by speed, at the pace you choose: Original (the factory one, 4 and 2 fps) or REau (6 and 3 fps, smoother).
 - Starts from a long press on REau's icon ("Turn on") or from a Quick Settings tile, so it can be switched on at home before the helmet.

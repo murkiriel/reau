@@ -127,11 +127,44 @@ class DashSessionRingLockTest {
     }
 
     @Test
+    fun `with the call card on, a ringing phone or a call moves no ring, not the maneuver ring and not the info ring`() {
+        joystick.callCard = true
+        session.callOwnsPress = joystick::callOwnsPress
+        session.maneuverCircleEnabled = false
+        // the ride of 23/11/2026: the middle that ended the call hid the ring, the left that answered showed it
+        for (state in listOf(CallState.RINGING, CallState.IN_CALL)) {
+            call = state
+            for (code in listOf(0x13, 0x14, 0x15, 0x12, 0x18, 0x05, 0x06, 0x07, 0x09, 0x0A)) {
+                assertFalse("0x${code.toString(16)} in $state", session.ringAfterPress(code))
+            }
+            assertFalse("the maneuver ring stays hidden", session.ringVisible)
+            assertEquals("the info ring stays as it was", 0, session.ringStep)
+        }
+        call = CallState.IDLE
+        assertTrue("with no call the map mode's press shows it again", session.ringAfterPress(0x13))
+        assertTrue(session.ringAfterPress(0x05))
+        session.ringAfterPress(0x13)
+        session.ringAfterPress(0x15)
+        assertEquals("and the info ring's switch works again", 1, session.ringStep)
+    }
+
+    @Test
+    fun `with the call card off a call moves the rings as before`() {
+        session.callOwnsPress = joystick::callOwnsPress
+        session.maneuverCircleEnabled = false
+        call = CallState.IN_CALL
+        assertTrue(session.ringAfterPress(0x13))
+        assertTrue(session.ringAfterPress(0x05))
+    }
+
+    @Test
     fun `the live sides give the session the joystick's answer`() {
         val live = File("src/main/java/com/reau/app/service/LiveSides.kt").readText()
         assertTrue(live, "session.pressDropped = { code ->" in live)
+        assertTrue(live, "session.callOwnsPress = joystick::callOwnsPress" in live)
         assertTrue(live, "joystick.wouldDrop(com.reau.app.dash.protocol.DashButtonEvent.fromByte(code.toByte()), com.reau.app.util.MonotonicClock.nowMs())" in live)
         val dash = File("src/main/java/com/reau/app/dash/DashSession.kt").readText()
         assertTrue(dash, "if (infoRingSwitchable && RingCycle.advancesOn(code) && !pressDropped(code)) switchInfoRing(code)" in dash)
+        assertTrue(dash, "if (callOwnsPress()) return false" in dash)
     }
 }

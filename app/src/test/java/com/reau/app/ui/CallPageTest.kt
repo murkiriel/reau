@@ -59,6 +59,7 @@ class CallPageTest {
         val m = CallMoment.IN_CALL
         assertEquals(CallEffect.END, CallPage.effect(m, Control.CENTER))
         assertEquals(listOf(AaCommand.EndCall), sent(m, Control.CENTER))
+        // with the dash told of the call, up and down are its own call screen's volume
         assertEquals(CallEffect.VOLUME_UP, CallPage.effect(m, Control.UP))
         assertEquals(listOf<AaCommand>(AaCommand.CallVolume(1)), sent(m, Control.UP))
         assertEquals(CallEffect.VOLUME_DOWN, CallPage.effect(m, Control.DOWN))
@@ -94,40 +95,44 @@ class CallPageTest {
             assertEquals(CallEffect.REJECT, CallPage.effect(ringing, Control.CENTER, callCard = true))
             assertEquals(listOf<AaCommand>(AaCommand.EndCall), sentPlain(ringing, Control.CENTER, media))
             val onCall = CallMoment.IN_CALL
-            assertEquals(CallEffect.NOTHING, CallPage.effect(onCall, Control.LEFT, callCard = true))
-            assertTrue(sentPlain(onCall, Control.LEFT, media).isEmpty())
-            assertEquals(CallEffect.NOTHING, CallPage.effect(onCall, Control.RIGHT, callCard = true))
-            assertTrue("right on a call, media=$media", sentPlain(onCall, Control.RIGHT, media).isEmpty())
+            assertEquals(CallEffect.SIDE_VOLUME_DOWN, CallPage.effect(onCall, Control.LEFT, callCard = true))
+            assertEquals("left on a call, media=$media", listOf<AaCommand>(AaCommand.CallVolume(-1)), sentPlain(onCall, Control.LEFT, media))
+            assertEquals(CallEffect.SIDE_VOLUME_UP, CallPage.effect(onCall, Control.RIGHT, callCard = true))
+            assertEquals("right on a call, media=$media", listOf<AaCommand>(AaCommand.CallVolume(1)), sentPlain(onCall, Control.RIGHT, media))
             assertEquals(CallEffect.END, CallPage.effect(onCall, Control.CENTER, callCard = true))
             assertEquals(listOf<AaCommand>(AaCommand.EndCall), sentPlain(onCall, Control.CENTER, media))
         }
-        // up and down: nothing while it rings, the call's volume on a call, the same in both modes
+        // up and down: nothing while it rings and nothing on a call, the same in both modes
         for (media in listOf(true, false)) {
             assertEquals(CallEffect.NOTHING_RINGING, CallPage.effect(CallMoment.RINGING, Control.UP, callCard = true))
             assertTrue("up ringing, media=$media", sentPlain(CallMoment.RINGING, Control.UP, media).isEmpty())
             assertEquals(CallEffect.NOTHING_RINGING, CallPage.effect(CallMoment.RINGING, Control.DOWN, callCard = true))
             assertTrue("down ringing, media=$media", sentPlain(CallMoment.RINGING, Control.DOWN, media).isEmpty())
-            assertEquals(CallEffect.VOLUME_UP, CallPage.effect(CallMoment.IN_CALL, Control.UP, callCard = true))
-            assertEquals(listOf<AaCommand>(AaCommand.CallVolume(1)), sentPlain(CallMoment.IN_CALL, Control.UP, media))
-            assertEquals(CallEffect.VOLUME_DOWN, CallPage.effect(CallMoment.IN_CALL, Control.DOWN, callCard = true))
-            assertEquals(listOf<AaCommand>(AaCommand.CallVolume(-1)), sentPlain(CallMoment.IN_CALL, Control.DOWN, media))
+            assertEquals(CallEffect.NOTHING, CallPage.effect(CallMoment.IN_CALL, Control.UP, callCard = true))
+            assertTrue("up on a call, media=$media", sentPlain(CallMoment.IN_CALL, Control.UP, media).isEmpty())
+            assertEquals(CallEffect.NOTHING, CallPage.effect(CallMoment.IN_CALL, Control.DOWN, callCard = true))
+            assertTrue("down on a call, media=$media", sentPlain(CallMoment.IN_CALL, Control.DOWN, media).isEmpty())
         }
     }
 
     @Test
-    fun `the tab says nothing for the sides with the card on and no tap sent with it off`() {
+    fun `the tab changes with the card only where the joystick does`() {
         for (control in listOf(Control.LEFT, Control.RIGHT)) {
             assertEquals(CallEffect.NOT_SENT, CallPage.effect(CallMoment.IN_CALL, control))
             assertEquals(CallEffect.NOT_SENT, CallPage.effect(CallMoment.IN_CALL, control, callCard = false))
-            assertEquals(CallEffect.NOTHING, CallPage.effect(CallMoment.IN_CALL, control, callCard = true))
         }
-        // the other cells are the same either way, but ringing's up and down: the page's with the card off, nothing with it on
+        // on a call the card swaps the roles: the sides are the volume, up and down are nothing
+        for (control in listOf(Control.UP, Control.DOWN)) {
+            assertEquals(CallEffect.NOTHING, CallPage.effect(CallMoment.IN_CALL, control, callCard = true))
+            assertTrue(CallPage.effect(CallMoment.IN_CALL, control, callCard = false).let { it == CallEffect.VOLUME_UP || it == CallEffect.VOLUME_DOWN })
+        }
+        // ringing's up and down: the page's with the card off, nothing with it on
         for (control in listOf(Control.UP, Control.DOWN)) {
             assertEquals(CallEffect.MODE_PAGE, CallPage.effect(CallMoment.RINGING, control))
             assertEquals(CallEffect.NOTHING_RINGING, CallPage.effect(CallMoment.RINGING, control, callCard = true))
         }
         for (moment in CallMoment.entries) for (control in Control.entries) {
-            if (moment == CallMoment.IN_CALL && (control == Control.LEFT || control == Control.RIGHT)) continue
+            if (moment == CallMoment.IN_CALL && control != Control.CENTER) continue
             if (moment == CallMoment.RINGING && (control == Control.UP || control == Control.DOWN)) continue
             assertEquals("$moment $control", CallPage.effect(moment, control), CallPage.effect(moment, control, callCard = true))
         }
@@ -144,8 +149,11 @@ class CallPageTest {
     }
 
     @Test
-    fun `ringing's nothing for up and down has its own note, and the tab reads the call card from the settings`() {
+    fun `ringing's nothing for up and down has its own note, the sides' volume too, and the tab reads the call card from the settings`() {
         assertTrue(CallEffect.NOTHING_RINGING.note != CallEffect.NOTHING.note)
+        assertTrue(CallEffect.SIDE_VOLUME_UP.note != CallEffect.VOLUME_UP.note)
+        assertEquals(CallEffect.VOLUME_UP.short, CallEffect.SIDE_VOLUME_UP.short)
+        assertEquals(CallEffect.VOLUME_DOWN.what, CallEffect.SIDE_VOLUME_DOWN.what)
         assertEquals(CallEffect.NOTHING.short, CallEffect.NOTHING_RINGING.short)
         val screen = java.io.File("src/main/java/com/reau/app/ui/JoystickScreen.kt").readText()
         assertTrue(screen, "CallPage.effect(moment, it, callCard).short" in screen)

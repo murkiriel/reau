@@ -7,7 +7,7 @@ package com.reau.app.aa
  * the page (the wheel, home, confirm); in the map mode, the sides move the focus, down is the info ring's switch and the rest does nothing. That is not the
  * page the app starts with: that one is [com.reau.app.settings.REauSettings.DEFAULT_JOYSTICK] (the app menu and Gemini in the media
  * mode, zoom out and zoom in on the map mode's sides, the info ring below them), which a new install starts with. The calls act above the page
- * ([JoystickMap]).
+ * ([JoystickMap]): with REau's own call card on, a call going on takes the sides for its volume and leaves up and down doing nothing, whatever the page says.
  *
  * No "twice": a double tap does not work well on the dash's joystick; a "twice" choice saved before
  * is left out when read. "Held" is kept but never fires: as far as is known the dash sends one code per press,

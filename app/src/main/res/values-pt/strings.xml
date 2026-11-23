@@ -681,7 +681,8 @@
     <string name="call_note_volume">Um passo por toque; o capacete acompanha.</string>
     <string name="call_note_mode">Tocando, cima e baixo continuam sendo os do modo em que o painel está (Modo mapa ou Controle de mídia).</string>
     <string name="call_note_not_sent">Em ligação o painel guarda a esquerda e a direita para ele: o REau não recebe esses toques.</string>
-    <string name="call_note_nothing">Em ligação a esquerda e a direita não fazem nada, para um toque sem querer não atender nem desligar.</string>
+    <string name="call_note_nothing">Em ligação cima e baixo não fazem nada: o volume da ligação fica na direita (+) e na esquerda (−), nos dois modos do painel.</string>
+    <string name="call_note_volume_side">Um passo por toque, igual nos dois modos do painel (o painel não manda o “cima” do modo mapa); o capacete acompanha. A trava de volume de 5 s vale para estes toques.</string>
     <string name="call_note_nothing_ringing">Tocando, cima e baixo não fazem nada, para um toque sem querer não mexer no volume nem na página.</string>
 
     <!-- The redesign's permissions page. -->

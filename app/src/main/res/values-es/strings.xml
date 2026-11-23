@@ -682,7 +682,8 @@
     <string name="call_note_volume">Un paso por toque; el casco lo sigue.</string>
     <string name="call_note_mode">Mientras suena, arriba y abajo se quedan como están en el modo en que está el tablero (Modo mapa o Control multimedia).</string>
     <string name="call_note_not_sent">Durante una llamada el tablero se queda con la izquierda y la derecha: REau no recibe esos toques.</string>
-    <string name="call_note_nothing">Durante una llamada la izquierda y la derecha no hacen nada, para que un toque sin querer no conteste ni cuelgue.</string>
+    <string name="call_note_nothing">Durante una llamada arriba y abajo no hacen nada: el volumen de la llamada está en la derecha (+) y la izquierda (−), en los dos modos del tablero.</string>
+    <string name="call_note_volume_side">Un paso por toque, igual en los dos modos del tablero (el tablero no envía el “arriba” del modo mapa); el casco lo sigue. El bloqueo de volumen de 5 s vale para estos toques.</string>
     <string name="call_note_nothing_ringing">Mientras suena, arriba y abajo no hacen nada, para que un toque sin querer no cambie el volumen ni la página.</string>
 
     <!-- The redesign's permissions page. -->

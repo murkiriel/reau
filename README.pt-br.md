@@ -30,10 +30,10 @@ pela rede Wi-Fi do painel.
 - Manda também a música tocando (quando a página do joystick tem um controle de música), as chamadas e o clima, para os
   cartões do painel.
 - Usa o joystick do guidão para comandar o Android Auto (mapa, menu, música, chamadas e Gemini, que vem ligado e passa a funcionar quando você libera o microfone): tocando, a esquerda atende e a
-  direita ou o centro recusam; em ligação, o centro desliga e cima e baixo mudam o volume.
+  direita ou o centro recusam; em ligação, o centro desliga, a direita aumenta o volume e a esquerda diminui, e cima e baixo não fazem nada (com o aviso de chamada ligado, o padrão).
 - Um anel de informações sobre a imagem, à direita do painel (vem ligado, com uma chave; as páginas dele são escritas no título da faixa dourada do painel): chuva, vento, tempestade, UV, qualidade do ar, o sol, as temperaturas do dia e a bateria, o sinal e o GPS do celular, uma coisa de cada vez (de fábrica com todos os cartões; você desliga os que não quiser). Precisa da localização e da internet para o clima.
 - Um aviso de volume no alto do vídeo do painel (vem ligado, com uma chave): um cartão pequeno com o volume da música ou da chamada sempre que ele muda, pelo celular, por um intercomunicador Bluetooth ou pelo joystick, no lugar do volume no título.
-- Um aviso de chamada no alto do vídeo do painel (vem ligado, com uma chave): uma pílula com quem está ligando, as dicas do joystick e o tempo da chamada, no lugar da tela de chamada do painel, que cobre quase todo o vídeo; com ele ligado, esquerda e direita não fazem nada durante uma chamada.
+- Um aviso de chamada no alto do vídeo do painel (vem ligado, com uma chave): uma pílula com quem está ligando, as dicas do joystick e o tempo da chamada, no lugar da tela de chamada do painel, que cobre quase todo o vídeo; com ele ligado, durante uma chamada a direita e a esquerda são o volume da chamada e cima e baixo não fazem nada.
 - Fala português, inglês e espanhol: segue o idioma do celular, e há um seletor nos Ajustes.
 - Ajusta a qualidade do vídeo pela distância da próxima manobra e pela velocidade, no ritmo que você escolhe: Original (o de fábrica, 4 e 2 fps) ou REau (6 e 3 fps, mais fluido).
 - Liga com um toque longo no ícone do REau ("Ligar") ou por um bloco das Configurações rápidas, para ligar em casa, antes do capacete.

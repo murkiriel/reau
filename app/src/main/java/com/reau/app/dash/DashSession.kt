@@ -310,8 +310,11 @@ class DashSession(
      * A press with [code]: the info ring's switch ([RingCycle]) when it is on and the screen is a navigation one (on the menu and the apps the
      * choice stands, so the navigation comes back as the rider left it), and, with the maneuver switch off, the maneuver ring following the mode
      * the code says. True when the maneuver ring changed (the card goes at once); the info ring is on the video and needs no card.
+     * With REau's own call card on and the phone ringing or in a call ([callOwnsPress]) the presses are the call's (answer, decline, volume, end) and move no ring: not the
+     * maneuver ring (a ride of 23/11/2026 hid it with the press that ended the call and showed it with the one that answered) and not the info ring's switch.
      */
     internal fun ringAfterPress(code: Int): Boolean {
+        if (callOwnsPress()) return false
         // Under the joystick's volume lock no other command is taken, the info ring's switch included: the joystick says whether the press would be dropped.
         if (infoRingSwitchable && RingCycle.advancesOn(code) && !pressDropped(code)) switchInfoRing(code)
         return !maneuverCircleEnabled && ringByPress.press(code)
@@ -322,6 +325,9 @@ class DashSession(
      * answer to a press that the joystick drops: nothing, as far as it is its own (the info ring is not switched).
      */
     @Volatile var pressDropped: (code: Int) -> Boolean = { false }
+
+    /** Whether the phone rings or a call goes on with REau's own call card on, so the joystick's presses are the call's and move no ring ([com.reau.app.aa.JoystickMap.callOwnsPress]); the projection sets it. */
+    @Volatile var callOwnsPress: () -> Boolean = { false }
 
     /** Whether a press of the down button may switch the info ring now: it is on, the button is its switch ([infoRingPress]) and the screen is a navigation one. */
     private val infoRingSwitchable: Boolean get() = ringCycleOn && infoRingPress && !ringsAwayForScreen

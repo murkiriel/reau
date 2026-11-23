@@ -661,6 +661,8 @@ internal class LiveSides(
         session.pressDropped = { code ->
             joystick.wouldDrop(com.reau.app.dash.protocol.DashButtonEvent.fromByte(code.toByte()), com.reau.app.util.MonotonicClock.nowMs())
         }
+        // With the call card on, the presses of a ringing or going call are the call's: the session moves no ring for them.
+        session.callOwnsPress = joystick::callOwnsPress
         if (setup.settings != null) {
             session.zoomLabel = joystick.bindings.zoomControls
             session.musicCardAllowed = joystick.bindings.mediaControls
