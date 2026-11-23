@@ -11,7 +11,7 @@ import org.junit.Test
 
 /**
  * "Informações no título" (P31 Título): the title of the dash's gold band turning between its base (the street, or "REau") and the info ring's
- * pages in words: with no route in the ring's own time; guiding, 20 s of street and 5 s of a page; the street only within 500 m of the maneuver,
+ * pages in words: with no route in the ring's own time; guiding, 20 s of street and 7 s of a page; the street only within 500 m of the maneuver,
  * and 15 s more of street after passing one; the danger pages ahead of the others but never ahead of the street near the turn. The clock is the
  * test's own: nothing waits.
  */
@@ -49,23 +49,23 @@ class InfoTitleTest {
     }
 
     @Test
-    fun `guiding, the street stays 20 s and a page 5 s, and the pages go round`() {
+    fun `guiding, the street stays 20 s and a page 7 s, and the pages go round`() {
         feed(rain, wind)
         assertEquals(STREET, at(0))
         assertEquals(STREET, at(STREET_MS - 1))
         assertEquals("a page after 20 s of street", "Chuva em 20 min", at(STREET_MS))
         assertEquals("Chuva em 20 min", at(ROUND - 1))
-        assertEquals("the street again after 5 s of page", STREET, at(ROUND))
+        assertEquals("the street again after 7 s of page", STREET, at(ROUND))
         assertEquals(STREET, at(ROUND + STREET_MS - 1))
         assertEquals("the next page", "Vento 45 km/h", at(ROUND + STREET_MS))
         assertEquals(STREET, at(2 * ROUND))
         assertEquals("round again to the first page", "Chuva em 20 min", at(2 * ROUND + STREET_MS))
         assertEquals(20_000L, InfoTitle.ROUTE_STREET_MS)
-        assertEquals(5_000L, InfoTitle.ROUTE_PAGE_MS)
+        assertEquals(7_000L, InfoTitle.ROUTE_PAGE_MS)
     }
 
     @Test
-    fun `guiding, the 20 s and 5 s are the same whatever the ring's time the rider set`() {
+    fun `guiding, the 20 s and 7 s are the same whatever the ring's time the rider set`() {
         for (period in listOf(3_000L, 7_000L, 60_000L)) {
             fresh()
             feed(rain, periodMs = period)
@@ -93,11 +93,13 @@ class InfoTitleTest {
         assertEquals("REau", at(0, base = "REau", meters = null))
         assertEquals("REau", at(11_999, base = "REau", meters = null))
         assertEquals("Chuva em 20 min", at(12_000, base = "REau", meters = null))
+        assertEquals("the page stays the ring's 12 s, not the 7 s of the least", "Chuva em 20 min", at(23_999, base = "REau", meters = null))
         assertEquals("REau", at(24_000, base = "REau", meters = null))
+        assertEquals("REau stays the ring's 12 s too", "REau", at(35_999, base = "REau", meters = null))
     }
 
     @Test
-    fun `with the carousel off the title stays on the most urgent page and the street, 20 s and 5 s guiding`() {
+    fun `with the carousel off the title stays on the most urgent page and the street, 20 s and 7 s guiding`() {
         feed(rain, wind, carousel = false)
         assertEquals(STREET, at(0))
         assertEquals("Chuva em 20 min", at(STREET_MS))
@@ -146,7 +148,7 @@ class InfoTitleTest {
         assertEquals("15 s of street, and a little less", STREET, at(passed + 14_999, meters = 900))
         assertEquals("the hold is over, the street starts again for 20 s", STREET, at(passed + 15_000, meters = 900))
         assertEquals(STREET, at(passed + 15_000 + STREET_MS - 1, meters = 900))
-        assertEquals("then the page, 5 s", "Chuva em 20 min", at(passed + 15_000 + STREET_MS, meters = 900))
+        assertEquals("then the page, 7 s", "Chuva em 20 min", at(passed + 15_000 + STREET_MS, meters = 900))
         assertEquals("Chuva em 20 min", at(passed + 15_000 + ROUND - 1, meters = 900))
         assertEquals(STREET, at(passed + 15_000 + ROUND, meters = 900))
         assertEquals(15_000L, InfoTitle.AFTER_MANEUVER_HOLD_MS)
@@ -466,11 +468,113 @@ class InfoTitleTest {
         assertTrue(logs.toString(), logs.isEmpty())
     }
 
+    @Test
+    fun `guiding, a page stays 7 s and not a millisecond less, 20 s of street then 7 s of page, in numbers`() {
+        feed(rain)
+        assertEquals(STREET, at(0))
+        assertEquals(STREET, at(19_999))
+        assertEquals("Chuva em 20 min", at(20_000))
+        assertEquals("Chuva em 20 min", at(26_999))
+        assertEquals("the 7 s are over", STREET, at(27_000))
+        assertEquals(20_000L, InfoTitle.ROUTE_STREET_MS)
+        assertEquals(7_000L, InfoTitle.ROUTE_PAGE_MS)
+        assertEquals(com.reau.app.weather.RingOptions.MIN_SECONDS * 1_000L, InfoTitle.ROUTE_PAGE_MS)
+    }
+
+    @Test
+    fun `the 500 m and the 15 s after the maneuver go on as they were with the 7 s page`() {
+        feed(rain)
+        assertEquals(STREET, at(0))
+        assertEquals("500 m: the page's turn", "Chuva em 20 min", at(STREET_MS, meters = 500))
+        assertEquals("499 m: the street only, even inside the page's 7 s", STREET, at(STREET_MS + 3_000, meters = 499))
+        // Far again at 24 s: the street holds 15 s, then 20 s of street, then the 7 s of page.
+        assertEquals(STREET, at(STREET_MS + 4_000, meters = 900))
+        assertEquals(STREET, at(STREET_MS + 4_000 + 14_999, meters = 900))
+        assertEquals(STREET, at(STREET_MS + 4_000 + 15_000 + STREET_MS - 1, meters = 900))
+        assertEquals("Chuva em 20 min", at(STREET_MS + 4_000 + 15_000 + STREET_MS, meters = 900))
+        assertEquals("Chuva em 20 min", at(STREET_MS + 4_000 + 15_000 + STREET_MS + 6_999, meters = 900))
+        assertEquals(STREET, at(STREET_MS + 4_000 + 15_000 + STREET_MS + 7_000, meters = 900))
+        assertEquals(15_000L, InfoTitle.AFTER_MANEUVER_HOLD_MS)
+    }
+
+    @Test
+    fun `with no route a source that asks for less than 7 s is held at 7 s, whoever built it`() {
+        feed(rain, wind, periodMs = 3_000)
+        assertEquals("REau", at(0, base = "REau", meters = null))
+        assertEquals("REau", at(6_999, base = "REau", meters = null))
+        assertEquals("Chuva em 20 min", at(7_000, base = "REau", meters = null))
+        assertEquals("Chuva em 20 min", at(13_999, base = "REau", meters = null))
+        assertEquals("REau", at(14_000, base = "REau", meters = null))
+        fresh()
+        feed(rain, periodMs = 7_000)
+        assertEquals("Chuva em 20 min", at(7_000, base = "REau", meters = null))
+        assertEquals("REau", at(14_000, base = "REau", meters = null))
+    }
+
+    /** Every run of a page in the title, as its words and how long it lasted (ms), watched every 100 ms for [forMs]: [meters] null with no route. */
+    private fun pageRuns(forMs: Long, meters: Int?): List<Pair<String, Long>> {
+        val runs = mutableListOf<Pair<String, Long>>()
+        var current: String? = null
+        var since = 0L
+        for (t in 0L..forMs step 100L) {
+            now = START + t
+            val said = title.page(meters, true)
+            if (said != current) {
+                current?.let { runs += it to (t - since) }
+                current = said
+                since = t
+            }
+        }
+        return runs
+    }
+
+    @Test
+    fun `the 5 + 1 rule, with a route or without, never stays on a page under 7 s, danger or normal`() {
+        for (meters in listOf(FAR, null)) {
+            fresh()
+            feed(thunder, strongWind, rain, wind)
+            val pages = pageRuns(10 * 60_000L, meters)
+            assertTrue("route=$meters: ${pages.size} runs", pages.size >= 20)
+            for ((text, ms) in pages) assertTrue("route=$meters: $text for $ms ms", ms >= 7_000L)
+            // The rule itself goes on: the danger pages alternate five times, the sixth turn is the next of the others, and the alternation goes on.
+            val danger = "Trovoada"
+            val gust = "Vento 75 km/h"
+            assertEquals(
+                "route=$meters",
+                listOf(danger, gust, danger, gust, danger, "Chuva em 20 min", gust, danger, gust, danger, gust, "Vento 45 km/h"),
+                pages.map { it.first }.take(12),
+            )
+        }
+    }
+
+    @Test
+    fun `the turn of the cycle is the round's, not each look's, looked at again and again inside a page it stays the page`() {
+        feed(thunder, rain)
+        now = START
+        title.page(FAR, true)
+        // A page's window, looked at every 250 ms (several times a second, as the card and the other senders do): one page, the first turn.
+        for (t in STREET_MS until STREET_MS + PAGE_MS step 250L) {
+            now = START + t
+            assertEquals("t=$t", "Trovoada", title.page(FAR, true))
+        }
+        now = START + ROUND
+        assertEquals(STREET, title.page(FAR, true) ?: STREET)
+        // The next page window: the second turn of the cycle (a danger again), and the five turns of danger, the sixth the normal one.
+        val said = (1..6).map { k ->
+            now = START + k * ROUND + STREET_MS + 1_000
+            val first = title.page(FAR, true)
+            now += 500
+            assertEquals("the same page when looked at again", first, title.page(FAR, true))
+            first
+        }
+        assertEquals(listOf("Trovoada", "Trovoada", "Trovoada", "Trovoada", "Chuva em 20 min", "Trovoada"), said)
+    }
+
     private companion object {
         const val STREET = "Rua das Flores"
         const val PERIOD = 7_000L
         const val STREET_MS = 20_000L
-        const val PAGE_MS = 5_000L
+        const val PAGE_MS = 7_000L
         const val ROUND = STREET_MS + PAGE_MS
         const val START = 50_000L
         const val FAR = 5_000

@@ -286,8 +286,37 @@ class REauSettingsTest {
     }
 
     @Test
+    fun `a time of five seconds saved by an older build is loaded as seven`() {
+        val prefs = KeystoreBackedPrefsTest.FakePrefs()
+        SettingsStore(prefs).save(REauSettings(infoRingSeconds = 12))
+        prefs.map["info_ring_seconds"] = 5
+        val back = SettingsStore(prefs).load()
+        assertEquals(7, back.infoRingSeconds)
+        assertEquals(7_000L, back.infoRingOptions.periodMs)
+    }
+
+    @Test
+    fun `the settings screen offers no time under seven seconds`() {
+        val panel = java.io.File("src/main/java/com/reau/app/ui/FitPanel.kt").readText()
+        assertTrue(panel.contains("(s.infoRingSeconds - 1).coerceIn(RingOptions.SECONDS)"))
+        assertEquals(7, com.reau.app.weather.RingOptions.SECONDS.first)
+        // The minus at the least stays at the least, the plus at the most stays at the most.
+        assertEquals(7, (7 - 1).coerceIn(com.reau.app.weather.RingOptions.SECONDS))
+        assertEquals(30, (30 + 1).coerceIn(com.reau.app.weather.RingOptions.SECONDS))
+        for (lang in listOf("values", "values-pt", "values-es")) {
+            val strings = java.io.File("src/main/res/$lang/strings.xml").readText()
+            val sub = Regex("""name="info_ring_seconds_sub">([^<]*)<""").find(strings)!!.groupValues[1]
+            assertTrue("$lang: $sub", "7" in sub && "30" in sub && "5" !in sub)
+        }
+    }
+
+    @Test
     fun `the info ring's time and kinds are brought back into range`() {
-        assertEquals(5, REauSettings(infoRingSeconds = 1).sanitized().infoRingSeconds)
+        assertEquals(7, REauSettings(infoRingSeconds = 1).sanitized().infoRingSeconds)
+        assertEquals("a time saved when five was the least", 7, REauSettings(infoRingSeconds = 5).sanitized().infoRingSeconds)
+        assertEquals(7, REauSettings(infoRingSeconds = 6).sanitized().infoRingSeconds)
+        assertEquals(7, REauSettings(infoRingSeconds = 7).sanitized().infoRingSeconds)
+        assertEquals(8, REauSettings(infoRingSeconds = 8).sanitized().infoRingSeconds)
         assertEquals(30, REauSettings(infoRingSeconds = 500).sanitized().infoRingSeconds)
         assertEquals(12, REauSettings(infoRingSeconds = 12).sanitized().infoRingSeconds)
         assertEquals(com.reau.app.weather.RingData.ALL, REauSettings(infoRingData = 0x7FFF).sanitized().infoRingData)

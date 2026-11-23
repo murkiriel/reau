@@ -494,11 +494,11 @@
     <string name="info_ring_carousel_title">Carrusel</string>
     <string name="info_ring_carousel_sub">Pasa al siguiente dato cada pocos segundos. Apagado, se queda en el más urgente. Un peligro recibe cinco turnos de cada seis en los dos casos, y uno va al siguiente dato</string>
     <string name="info_ring_seconds_title">Tiempo en cada dato</string>
-    <string name="info_ring_seconds_sub">De 5 a 30 segundos</string>
+    <string name="info_ring_seconds_sub">De 7 a 30 segundos</string>
     <string name="info_ring_seconds_value">%1$d s</string>
     <string name="info_title_title">Información en el título (en lugar del anillo)</string>
     <string name="info_title_sub">El anillo sale del video; los datos van en el título del tablero, alternando con la calle</string>
-    <string name="info_title_info">Escribe los datos del anillo de información (lluvia, viento, tormenta y lo que marques abajo) en el título de la franja dorada del tablero, en lugar del anillo, que ya no se dibuja en el video. Sin ruta alterna REau y los datos, en el tiempo del anillo; con ruta, 20 s de calle y 5 s de datos, solo la calle a menos de 500 m de la maniobra y por 15 s después de ella. Señal, GPS y cielo quedan fuera, porque el tablero ya los muestra; la batería del teléfono entra si la marcas.</string>
+    <string name="info_title_info">Escribe los datos del anillo de información (lluvia, viento, tormenta y lo que marques abajo) en el título de la franja dorada del tablero, en lugar del anillo, que ya no se dibuja en el video. Sin ruta alterna REau y los datos, en el tiempo del anillo; con ruta, 20 s de calle y 7 s de datos, solo la calle a menos de 500 m de la maniobra y por 15 s después de ella. Señal, GPS y cielo quedan fuera, porque el tablero ya los muestra; la batería del teléfono entra si la marcas.</string>
     <string name="info_title_replaces_ring">Información en el título activada: el anillo no aparece en el video. Señal, GPS y cielo no entran en el título.</string>
     <string name="title_rain_now">Lloviendo ahora</string>
     <string name="title_rain_until">Lluvia por %1$s min</string>

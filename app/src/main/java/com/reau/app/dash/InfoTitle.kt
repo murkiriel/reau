@@ -3,6 +3,7 @@ package com.reau.app.dash
 import com.reau.app.dash.protocol.DashCommands
 import com.reau.app.util.MonotonicClock
 import com.reau.app.weather.InfoRingRotation
+import com.reau.app.weather.RingOptions
 import com.reau.app.weather.RingPage
 
 /** A page of the info ring in words, for the title of the dash's gold band ([com.reau.app.weather.InfoRingTitle]). */
@@ -100,8 +101,10 @@ class InfoTitle(
         }
         seenKinds = kinds
         // While guiding the street is long and the page short, whatever the ring's time; with no route both are the ring's time.
-        val baseMs = if (route) ROUTE_STREET_MS else src.periodMs.coerceAtLeast(1L)
-        val pageMs = if (route) ROUTE_PAGE_MS else src.periodMs.coerceAtLeast(1L)
+        // Never under the ring's least, whoever built the source: each turn of the 5 + 1 rule, danger or not, is a page that stays at least that long.
+        val ringMs = src.periodMs.coerceAtLeast(ROUTE_PAGE_MS)
+        val baseMs = if (route) ROUTE_STREET_MS else ringMs
+        val pageMs = if (route) ROUTE_PAGE_MS else ringMs
         val elapsed = (now - anchorMs).coerceAtLeast(0L)
         // Each round is the base's time then a page's: base, first page, base, second page...
         val round = elapsed / (baseMs + pageMs)
@@ -152,8 +155,8 @@ class InfoTitle(
         /** While guiding, how long the street stays before a page (ms), whatever the ring's time. */
         const val ROUTE_STREET_MS = 20_000L
 
-        /** While guiding, how long a page stays (ms), whatever the ring's time. */
-        const val ROUTE_PAGE_MS = 5_000L
+        /** While guiding, how long a page stays (ms), whatever the ring's time: the least a page of the ring stays anywhere (23/11/2026; it was 5 s). */
+        const val ROUTE_PAGE_MS = RingOptions.MIN_SECONDS * 1_000L
 
         /** After passing a maneuver (near to far), how long the street holds before the turns start over from it (ms). */
         const val AFTER_MANEUVER_HOLD_MS = 15_000L

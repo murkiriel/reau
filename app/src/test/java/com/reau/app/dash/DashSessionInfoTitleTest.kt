@@ -15,7 +15,7 @@ import org.junit.Test
 
 /**
  * The info ring's pages in the title of the route card (P31 Título), as the dash reads it: while guiding and with no route, the street or "REau"
- * turning with the pages (the street 20 s and a page 5 s while guiding), the street alone within 500 m of the maneuver and for 15 s after it, the echo of a joystick tap in front of everything for its 1.5 s, and, with the
+ * turning with the pages (the street 20 s and a page 7 s while guiding), the street alone within 500 m of the maneuver and for 15 s after it, the echo of a joystick tap in front of everything for its 1.5 s, and, with the
  * option off, the card exactly as it was. One clock, the test's own, for the echo and for the turns.
  */
 class DashSessionInfoTitleTest {
@@ -46,6 +46,10 @@ class DashSessionInfoTitleTest {
         error("no title in the route card")
     }
 
+    /** The street field (05 01) of the nav packet now, the other sender of the same field of the dash. */
+    private fun navTitle(): String? = DashDump.outgoingTlvs(session.navPacketNow()!!).firstOrNull { it.type == 0x05 && it.sub == 0x01 }
+        ?.let { String(it.value, 0, it.value.size - 1, Charsets.ISO_8859_1) }
+
     private fun guide(meters: Int, road: String = STREET) =
         session.updateNavInfo(0x14, meters, DashCommands.NAV_UNIT_METERS, 32, DashCommands.NAV_UNIT_KM_TENTHS, road = road)
 
@@ -54,7 +58,7 @@ class DashSessionInfoTitleTest {
     }
 
     @Test
-    fun `while guiding the street stays 20 s and the page 5 s, whatever the ring's time`() {
+    fun `while guiding the street stays 20 s and the page 7 s, whatever the ring's time`() {
         on()
         guide(900)
         assertEquals(STREET, title())
@@ -66,6 +70,62 @@ class DashSessionInfoTitleTest {
         assertEquals("Chuva em 20 min", title())
         now += 1
         assertEquals(STREET, title())
+    }
+
+    @Test
+    fun `the nav packet says the same title as the card, the page and the echo too, never the street over them`() {
+        // The ride of 23/11/2026: the card said the page and the nav packet, 80 to 130 ms apart, the street, every second: the dash flipped between the two.
+        on()
+        guide(900)
+        assertEquals(STREET, title())
+        assertEquals(STREET, navTitle())
+        now += STREET_MS
+        assertEquals("Chuva em 20 min", title())
+        assertEquals("the page in the packet too", "Chuva em 20 min", navTitle())
+        session.echoAction("Next song")
+        assertEquals("Next song", title())
+        assertEquals("the echo in the packet too", "Next song", navTitle())
+        now += 1_500
+        assertEquals("Chuva em 20 min", title())
+        assertEquals("Chuva em 20 min", navTitle())
+        now += PAGE_MS
+        assertEquals(STREET, title())
+        assertEquals(STREET, navTitle())
+    }
+
+    @Test
+    fun `second by second for two rounds the two packets carry one title`() {
+        on()
+        guide(900)
+        val seen = mutableSetOf<String>()
+        for (second in 0 until 2 * (STREET_MS + PAGE_MS).toInt() / 1_000) {
+            val card = title()
+            assertEquals("second $second", card, navTitle())
+            seen += card
+            now += 1_000
+        }
+        assertEquals("the street and the page, both, were sent", setOf(STREET, "Chuva em 20 min"), seen)
+    }
+
+    @Test
+    fun `with the option off the nav packet is the street, as it always was`() {
+        guide(900)
+        title()
+        assertEquals(STREET, navTitle())
+        now += STREET_MS
+        title()
+        assertEquals(STREET, navTitle())
+    }
+
+    @Test
+    fun `a disconnection does not carry the last page to the next session's packet`() {
+        on()
+        guide(900)
+        now += STREET_MS
+        assertEquals("Chuva em 20 min", title())
+        session.disconnect()
+        guide(900)
+        assertEquals(STREET, navTitle())
     }
 
     @Test
@@ -242,6 +302,6 @@ class DashSessionInfoTitleTest {
         const val STREET = "Rua das Flores"
         const val PERIOD = 7_000L
         const val STREET_MS = 20_000L
-        const val PAGE_MS = 5_000L
+        const val PAGE_MS = 7_000L
     }
 }

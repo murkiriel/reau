@@ -570,9 +570,9 @@ class InfoRingTest {
     )
 
     private fun kindsShown(options: RingOptions, snap: WeatherKeeper.Snapshot = snapshot(busy())): List<RingKind> {
-        // One look per turn of the shortest carousel (five seconds), to see every page that comes round.
+        // One look per turn of the shortest carousel (seven seconds), to see every page that comes round.
         val r = InfoRingRotation()
-        return (0 until 12).mapNotNull { frame0(snap, r, it * 5_000L, options)?.page?.kind }.distinct()
+        return (0 until 12).mapNotNull { frame0(snap, r, it * 7_000L, options)?.page?.kind }.distinct()
     }
 
     private fun frame0(snap: WeatherKeeper.Snapshot, r: InfoRingRotation, at: Long, options: RingOptions) =
@@ -580,11 +580,11 @@ class InfoRingTest {
 
     @Test
     fun `a kind of data the rider unticked is never said, the others are`() {
-        val all = kindsShown(RingOptions(seconds = 5))
+        val all = kindsShown(RingOptions(seconds = 7))
         assertTrue(RingKind.RAIN_SOON in all && RingKind.WIND_ALERT in all)
-        val noRain = kindsShown(RingOptions(data = RingData.ALL and RingData.RAIN.bit.inv(), seconds = 5))
+        val noRain = kindsShown(RingOptions(data = RingData.ALL and RingData.RAIN.bit.inv(), seconds = 7))
         assertTrue(RingKind.RAIN_SOON !in noRain && RingKind.WIND_ALERT in noRain)
-        val noWind = kindsShown(RingOptions(data = RingData.ALL and RingData.WIND.bit.inv(), seconds = 5))
+        val noWind = kindsShown(RingOptions(data = RingData.ALL and RingData.WIND.bit.inv(), seconds = 7))
         assertTrue(RingKind.WIND_ALERT !in noWind && RingKind.RAIN_SOON in noWind)
     }
 
@@ -610,11 +610,11 @@ class InfoRingTest {
     @Test
     fun `with the carousel off the ring stays on the most urgent page, however long it goes`() {
         val r = InfoRingRotation()
-        val options = RingOptions(carousel = false, seconds = 5)
+        val options = RingOptions(carousel = false, seconds = 7)
         val first = frame0(snapshot(busy()), r, 0L, options)?.page?.kind
         assertEquals(RingKind.WIND_ALERT, first)
-        for (at in listOf(5_000L, 6_000L, 12_000L, 100_000L)) assertEquals(first, frame0(snapshot(busy()), r, at, options)?.page?.kind)
-        assertEquals("on, it turns", true, kindsShown(RingOptions(seconds = 5)).size > 1)
+        for (at in listOf(7_000L, 8_000L, 14_000L, 100_000L)) assertEquals(first, frame0(snapshot(busy()), r, at, options)?.page?.kind)
+        assertEquals("on, it turns", true, kindsShown(RingOptions(seconds = 7)).size > 1)
     }
 
     @Test
@@ -628,13 +628,49 @@ class InfoRingTest {
     }
 
     @Test
-    fun `the carousel's time is five to thirty seconds, whatever was asked`() {
+    fun `the carousel's time is seven to thirty seconds, whatever was asked`() {
         assertEquals(7_000L, RingOptions().periodMs)
-        assertEquals(5_000L, RingOptions(seconds = 1).periodMs)
+        assertEquals("under the least: the least", 7_000L, RingOptions(seconds = 1).periodMs)
+        assertEquals("a time saved when five was the least", 7_000L, RingOptions(seconds = 5).periodMs)
+        assertEquals(7_000L, RingOptions(seconds = 6).periodMs)
+        assertEquals(7_000L, RingOptions(seconds = 7).periodMs)
+        assertEquals(8_000L, RingOptions(seconds = 8).periodMs)
+        assertEquals(7_000L, RingOptions(seconds = -3).periodMs)
         assertEquals(30_000L, RingOptions(seconds = 99).periodMs)
         assertEquals(12_000L, RingOptions(seconds = 12).periodMs)
-        assertEquals(5..30, RingOptions.SECONDS)
+        assertEquals(7..30, RingOptions.SECONDS)
+        assertEquals(7, RingOptions.MIN_SECONDS)
         assertEquals(7, RingOptions.DEFAULT_SECONDS)
+    }
+
+    @Test
+    fun `a carousel saved at five seconds turns every seven, in the ring itself`() {
+        val pages = listOf(page(RingKind.UV, 3), page(RingKind.SKY, 4))
+        val r = InfoRingRotation()
+        val options = RingOptions(seconds = 5)
+        assertEquals(RingKind.UV, r.pick(pages, 0, true, options.periodMs)?.kind)
+        assertEquals("not at five", RingKind.UV, r.pick(pages, 5_000, true, options.periodMs)?.kind)
+        assertEquals(RingKind.UV, r.pick(pages, 6_999, true, options.periodMs)?.kind)
+        assertEquals(RingKind.SKY, r.pick(pages, 7_000, true, options.periodMs)?.kind)
+    }
+
+    @Test
+    fun `the 5 + 1 turns of the ring are each at least seven seconds, whatever was saved`() {
+        val danger = listOf(page(RingKind.THUNDER, 1), page(RingKind.WIND_DANGER, 1), page(RingKind.UV, 3), page(RingKind.SKY, 4))
+        val r = InfoRingRotation()
+        val options = RingOptions(seconds = 5)
+        val runs = mutableListOf<Long>()
+        var last: RingKind? = null
+        var since = 0L
+        for (t in 0L..120_000L step 100L) {
+            val kind = r.pick(danger, t, true, options.periodMs)?.kind
+            if (kind != last) {
+                if (last != null && t > 0L) runs += t - since
+                last = kind
+                since = t
+            }
+        }
+        assertTrue(runs.toString(), runs.size >= 10 && runs.all { it >= 7_000L })
     }
 
     // The phone's cards: the battery, the link, the GPS.

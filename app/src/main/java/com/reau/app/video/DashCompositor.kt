@@ -618,8 +618,7 @@ class DashCompositor(private val log: (String) -> Unit) {
 
     private fun dropOutput() {
         handler.removeCallbacks(tick)
-        handler.removeCallbacks(burstDraw)
-        burstPending = false
+        cancelOffTick()
         gl.detachOutput()
         onFrameSubmitted = {}
     }
@@ -665,25 +664,53 @@ class DashCompositor(private val log: (String) -> Unit) {
         handler.postDelayed(ringDraw, CompositorMath.redrawWaitMs(lastFrameAtMs, SystemClock.uptimeMillis(), gapMs))
     }
 
-    private val ringDraw = Runnable {
+    /**
+     * A frame went out, so any draw off the tick still waiting for its turn (the ring's, the burst's) is moot: the frame has just drawn everything
+     * as it is now. Left standing it would come a moment after the tick that fell on the same instant, the same picture a second time, and each
+     * redraw would be a frame over the pace (the call card's time, once a second, took the video to 7 fps at the 6 fps pace: ride of 23/11/2026).
+     */
+    private fun cancelOffTick() {
+        handler.removeCallbacks(ringDraw)
+        handler.removeCallbacks(burstDraw)
         burstPending = false
-        if (!gl.hasOutput) return@Runnable
-        val now = SystemClock.uptimeMillis()
-        handler.removeCallbacks(tick)
-        sinceLastFrameMs = now - lastFrameAtMs
-        emitFrame(repeat = !newImage)
-        tickSpanMs = pace.activeMs
-        nextTickAtMs = now + tickSpanMs
-        handler.postAtTime(tick, nextTickAtMs)
     }
 
-    private val burstDraw = Runnable {
-        burstPending = false
-        if (!gl.hasOutput || !newImage) return@Runnable
+    private val ringDraw: Runnable = object : Runnable {
+        override fun run() {
+            burstPending = false
+            if (!gl.hasOutput) return
+            if (waitedForGap(this, maxOf(CompositorMath.RING_REDRAW_GAP_MS, frameGapFloorMs))) return
+            drawOffTick(repeat = !newImage)
+        }
+    }
+
+    private val burstDraw: Runnable = object : Runnable {
+        override fun run() {
+            burstPending = false
+            if (!gl.hasOutput || !newImage) return
+            if (waitedForGap(this, burstGapMs)) return
+            drawOffTick(repeat = false)
+        }
+    }
+
+    /**
+     * Whatever came between the ask and now, a frame off the tick is never closer to the last frame than the pace allows: if it would be, [draw]
+     * is posted again for what is left of the [gapMs] and true is returned (nothing is drawn now).
+     */
+    private fun waitedForGap(draw: Runnable, gapMs: Long): Boolean {
+        val wait = CompositorMath.redrawWaitMs(lastFrameAtMs, SystemClock.uptimeMillis(), gapMs)
+        if (wait <= 0L) return false
+        burstPending = true
+        handler.postDelayed(draw, wait)
+        return true
+    }
+
+    /** A frame off the tick, now: the clock of the ticks starts again from it, a whole interval away. */
+    private fun drawOffTick(repeat: Boolean) {
         val now = SystemClock.uptimeMillis()
         handler.removeCallbacks(tick)
         sinceLastFrameMs = now - lastFrameAtMs
-        emitFrame(repeat = false)
+        emitFrame(repeat)
         tickSpanMs = pace.activeMs
         nextTickAtMs = now + tickSpanMs
         handler.postAtTime(tick, nextTickAtMs)
@@ -828,6 +855,8 @@ class DashCompositor(private val log: (String) -> Unit) {
         sinceLastFrameMs = 0L
         newImage = false
         countFrame(repeat)
+        // This frame drew everything as it is: a draw off the tick still waiting would only be a frame over the pace.
+        cancelOffTick()
         val composedNs = System.nanoTime() - startNs
         composeNs.addAndGet(composedNs)
         composeClock.add(composedNs)

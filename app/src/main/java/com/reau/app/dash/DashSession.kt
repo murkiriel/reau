@@ -665,6 +665,7 @@ class DashSession(
         // For a moment after a joystick tap the title is the short name of its action ([echo]), guiding or not. After it, with "Informações no
         // título", the info ring's page in its turn ([infoTitle], never near the maneuver); at the street's turn, or with the option off, the rest.
         val echoed = echo.current() ?: infoTitle.page(n?.let { DashCommands.navMeters(it.primaryDist, it.primaryUnit) }, titlePagesShown)
+        cardTitleOverride = echoed
         return if (n != null) DashCommands.routeCard(
             // The action's name or the page for a moment, else the street while guiding, else REau.
             echoed ?: n.road.ifBlank { destinationName }, projectionOn,
@@ -680,6 +681,15 @@ class DashSession(
         )
         else DashCommands.idleRouteCard(if (ringOn) idleCard else DashIdleCard.HIDDEN, echoed ?: destinationName, projectionOn, clockHHMM())
     }
+
+    /**
+     * What the last route card said as its title when it was not the street: the echo of a tap or a page of the info, null when it was the street
+     * itself. The nav packet's street (05 01) is the same field of the dash as the card's title and both go every second, a few tens of
+     * milliseconds apart: if the packet kept saying the street, it would take the page or the name from the dash a moment after each card, and
+     * the title would flip between the two (the ride of 23/11/2026). So the packet says what the card said, and the turns of the info are decided
+     * in one place only, by the card.
+     */
+    @Volatile private var cardTitleOverride: String? = null
 
     /**
      * The info ring's pages in the title of the card ("Informações no título", [InfoTitle]) in the place of the ring on the video. Internal so a test
@@ -887,6 +897,7 @@ class DashSession(
         statsJob?.cancel()
         // A name of a tap still showing is not carried to the next session, and its wait ends here.
         echo.drop(); songEcho.cancel()
+        cardTitleOverride = null
         nav = null
         forgetLastManeuver()
         socket?.let { sock ->
@@ -1540,7 +1551,8 @@ class DashSession(
             primaryUnit = n.primaryUnit,
             totalDist = n.totalDist,
             totalUnit = n.totalUnit,
-            road = n.road,
+            // The street, or what the card's title is now in its place (a tap's name, a page of the info): the same words in both packets.
+            road = cardTitleOverride ?: n.road,
             decimalComma = decimalComma(),
             proximity = proximityBar(n),
             nextManeuver = nextShown(n),

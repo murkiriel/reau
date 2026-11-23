@@ -73,8 +73,12 @@ data class RingOptions(val data: Int = RingData.ALL, val carousel: Boolean = tru
     val periodMs: Long get() = seconds.coerceIn(SECONDS) * MS_PER_SECOND
 
     companion object {
-        /** Each change costs bits of the video and the ring blurs for about a second after it: not faster than every five seconds. */
-        val SECONDS = 5..30
+        /**
+         * Each change costs bits of the video and the ring blurs for about a second after it, and a page is read in a glance at the road: not
+         * faster than every seven seconds (the owner's decision of 23/11/2026; it was five). A time saved under it counts as seven.
+         */
+        val SECONDS = MIN_SECONDS..30
+        const val MIN_SECONDS = 7
         const val DEFAULT_SECONDS = 7
         private const val MS_PER_SECOND = 1_000L
     }
