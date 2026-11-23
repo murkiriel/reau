@@ -4988,6 +4988,13 @@ MUTATIONS += [
      "        listening = false\n        appKeyMs = APP_KEY_NONE\n", "        listening = false\n", ["AaScreenAppUnsureTest"]),
     ("Tela 22/11: assumir apps também liga a espera do select (appsPending)", MAIN + "aa/AaScreen.kt",
      "        appKeyMs = APP_KEY_NONE\n        picture.restart()\n        current.value = AaScreen.APPS\n", "        appKeyMs = APP_KEY_NONE\n        picture.restart()\n        current.value = AaScreen.APPS\n        pendingApps.value = true\n", ["AaScreenAppUnsureTest"]),
+    ("DashWifiSuggestions: a sugestão igual já registrada é recolocada (derruba o Wi-Fi do painel ao abrir o app)", MAIN + "dash/DashWifiSuggestionPlan.kt",
+     "return if (desired in current) SuggestionPlan(SuggestionMove.KEEP, leftovers) else SuggestionPlan(SuggestionMove.ADD, leftovers)",
+     "return SuggestionPlan(SuggestionMove.ADD, leftovers)", ["DashWifiSuggestionPlanTest"]),
+    ("DashWifiSuggestions: a troca de senha remove a sugestão antiga, que o Android já atualizou no lugar", MAIN + "dash/DashWifiSuggestionPlan.kt",
+     "current.filter { !it.sameIdentity(desired) }", "current.filter { it != desired }", ["DashWifiSuggestionPlanTest"]),
+    ("DashWifiSuggestions: no API 29, que não lê a lista, o plano confia na lista", MAIN + "dash/DashWifiSuggestionPlan.kt",
+     "if (sdkInt < READABLE_FROM_SDK || current == null) return", "if (current == null) return", ["DashWifiSuggestionPlanTest"]),
 ]
 
 

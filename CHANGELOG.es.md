@@ -47,6 +47,7 @@ English: [CHANGELOG.md](CHANGELOG.md) · Português (pt-BR): [CHANGELOG.pt-br.md
 - **Los interruptores de prueba de las compilaciones de depuración** ("Conexión experimental", "Video experimental", "Tablero experimental") se fueron; REau hace lo que hacía con todos apagados.
 
 ### Corregido
+- **Abrir la app con el teléfono ya en el Wi-Fi del tablero ya no corta la conexión**: la app quitaba y volvía a poner su sugerencia de Wi-Fi en cada inicio, y quitar la que estaba en uso desconectaba el teléfono (unos 5 s más hasta la imagen); ahora la sugerencia que ya está registrada y es la misma no se toca, y solo se quitan las que sobran.
 - **Al abrir la música con el joystick, la pantalla de Android Auto ya no se queda atascada en el recorte del mapa cuando la imagen de la app no se reconoce**: tras unos 3 s sin certeza, REau toma la pantalla de apps (las teclas Media y Teléfono solo abren una app); una imagen de mapa o de menú con certeza en medio sigue valiendo.
 - **Un nombre de red del tablero vacío o rechazado por Android ya no cierra la app**: la solicitud de la red del tablero se arma con protección; un nombre en blanco se rechaza antes de llegar a Android, y un nombre que Android no acepta pasa al estado de error en pantalla, como ya ocurría con una contraseña rechazada.
 - **La flecha de la rotonda en el tablero se dibujaba al revés** (el error se vio en la moto; la corrección aún no): en Brasil Android Auto dice antihorario y el tablero la dibujaba horaria.
