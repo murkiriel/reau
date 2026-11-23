@@ -823,6 +823,7 @@ class DashSession(
         if (clockNoticeBeforeStream) aliveWithoutAck = true
         coverPending = coverSlices != null // a stream is new to the dash: the picture again
         com.reau.app.data.RideDiagnostics.log("session", "→ STREAMING")
+        TimeToPicture.marks.streaming(MonotonicClock.nowMs())
         ImageGap.clock.streaming(MonotonicClock.nowMs())?.let { com.reau.app.data.RideDiagnostics.log("session", it) }
         // Projection-on route card + faster keep-alive begin now
         launchProjectionHeartbeat()
@@ -850,6 +851,7 @@ class DashSession(
     fun keyframeSent(bytes: Int, packets: Int) {
         keyframeQuiet.keyframeEnded(MonotonicClock.nowMs())
         stats.sendTail.keyframe(bytes, packets)
+        TimeToPicture.marks.keyframeSent(MonotonicClock.nowMs())?.let { com.reau.app.data.RideDiagnostics.log("dash", it) }
     }
 
     /** A keyframe starts to go out: the routine sends keep away from it ([KeyframeQuiet]). */
@@ -1060,6 +1062,7 @@ class DashSession(
             Log.i(TAG, "Authenticated ✓")
             com.reau.app.data.RideDiagnostics.log("auth", DashReadiness.keyLine(MonotonicClock.nowMs() - burstStartMs, resends))
             com.reau.app.data.RideDiagnostics.log("auth", "authenticated (07 01 01) — entering nav mode")
+            TimeToPicture.marks.authenticated(MonotonicClock.nowMs())
         }
         return authConfirmed
     }

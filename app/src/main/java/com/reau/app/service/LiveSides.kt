@@ -1051,6 +1051,7 @@ internal class LiveSides(
                 "sighting" to { com.reau.app.dash.DashSighting.release(sightingListener) },
                 "wifi radio" to { WifiRadio.release(radioListener) },
                 "image gap" to { com.reau.app.dash.ImageGap.clock.forget() },
+                "time to picture" to { com.reau.app.dash.TimeToPicture.marks.forget() },
                 "scope" to { scope.cancel() },
                 "compositor" to { compositor.release() },
             ),

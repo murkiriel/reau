@@ -186,6 +186,7 @@ class DashWifiManager(
     fun connect(ssid: String, password: String = "", prefixMatch: Boolean = false) {
         wantConnected    = true
         everConnected    = false   // fresh user-initiated attempt
+        com.reau.app.data.RideDiagnostics.log("wifi", NetworkBlock.defaultLine(context))
         notes.forget()
         unavailableInARow = 0
         sightedRefiles = 0
@@ -290,6 +291,7 @@ class DashWifiManager(
         }
         resolvedSsid = activeSsid
         requestAnswered = true
+        TimeToPicture.marks.networkUp(MonotonicClock.nowMs())
         joinedByPhone = true
         lostAtUs = 0L
         absence.back()
@@ -365,6 +367,7 @@ class DashWifiManager(
         requestAnswered = false
         requests++
         requestStartMs = MonotonicClock.nowMs()
+        TimeToPicture.marks.requested(requestStartMs)
         reconnectActedMs = requestStartMs
         val timeout = chooseTimeout()
         Log.i(TAG, "Requesting WiFi: '${maskSsid(pendingSsid)}' " +
@@ -582,6 +585,7 @@ class DashWifiManager(
             if (!wantConnected) return
             this@DashWifiManager.network = network
             requestAnswered = true
+            TimeToPicture.marks.networkUp(MonotonicClock.nowMs())
             joinedByPhone = false
             lostAtUs = 0L
             absence.back()
@@ -977,6 +981,7 @@ class DashWifiManager(
             val owner = networkOwner()
             val verdict = bindRefusals.refused(dead, phoneJoined)
             com.reau.app.data.RideDiagnostics.warn("wifi", verdict.line(dead, owner))
+            NetworkBlock.vpnRefusalNote(NetworkBlock.vpnHolds(context))?.let { com.reau.app.data.RideDiagnostics.log("wifi", it) }
             val serial = ++refusalSerial
             dead?.let(refusedNetworks::remember)
             release()

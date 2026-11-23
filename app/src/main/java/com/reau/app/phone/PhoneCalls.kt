@@ -46,13 +46,17 @@ class PhoneCalls(context: Context) {
 
     /** Answers the ringing call; a no-op without the permission or with nothing ringing. */
     @Suppress("MissingPermission", "DEPRECATION") // checked by permitted(); still the system's only way for an app
-    fun answer(): Boolean = act("answer") { telecom?.acceptRingingCall(); true }
+    fun answer(): Boolean = act("answer", { "answer asked of Telecom (it does not say whether it answered)" }) { telecom?.acceptRingingCall(); true }
 
     // acceptRingingCall says nothing back (and does nothing for a voice app's call), so its line says "asked".
 
     /** Rejects the ringing call or ends the one going on; a no-op without the permission or with no call. */
     @Suppress("MissingPermission", "DEPRECATION") // checked by permitted(); still the system's only way for an app
-    fun end(): Boolean = act("end") { telecom?.endCall() == true }
+    fun end(): Boolean {
+        // Read before Telecom is asked: the joystick's key to Android Auto goes first and may have ended the call already (the line says so).
+        val before = state()
+        return act("end", { endLine(it, before) }) { telecom?.endCall() == true }
+    }
 
     /**
      * The dash's volume codes while a call goes on (`adjustStreamVolume(STREAM_VOICE_CALL, ±1)` with the click): one [step] up or down on the call's own volume, which a Bluetooth headset follows. No permission. The line says the
@@ -72,22 +76,29 @@ class PhoneCalls(context: Context) {
         false
     }
 
-    private fun act(what: String, block: () -> Boolean): Boolean {
+    private fun act(what: String, line: (Boolean) -> String, block: () -> Boolean): Boolean {
         if (!permitted()) {
             RideDiagnostics.log("call", "$what: no permission to answer calls")
             return false
         }
         return runCatching(block)
-            .onSuccess {
-                val line = if (what == "answer") "answer asked of Telecom (it does not say whether it answered)" else "$what by the joystick: $it"
-                RideDiagnostics.log("call", line)
-            }
+            .onSuccess { RideDiagnostics.log("call", line(it)) }
             .onFailure { RideDiagnostics.log("call", "$what failed: ${it.javaClass.simpleName}") }
             .getOrDefault(false)
     }
 
     companion object {
         val PERMISSIONS = arrayOf(Manifest.permission.ANSWER_PHONE_CALLS, Manifest.permission.READ_PHONE_STATE)
+
+        /**
+         * The line of an end asked of Telecom: what `endCall` answered and the call's state just before. A false is not a failure by itself: the
+         * key the joystick sent to Android Auto goes first and may have ended the call, so Telecom had nothing left to end (ride log of 22/11/2026,
+         * which said only `end by the joystick: false`).
+         */
+        fun endLine(ended: Boolean, before: CallState): String {
+            val head = "end by the joystick: Telecom.endCall returned $ended (call state before: $before"
+            return if (ended) "$head)" else "$head; the call may already have ended by the key sent to Android Auto)"
+        }
 
         /** Ringing wins over a call already going on (a second call ringing is still a call to answer). */
         fun stateOf(ringing: Boolean, inCall: Boolean): CallState = when {

@@ -35,14 +35,17 @@ internal object PhoneSide {
         else -> "unknown"
     }
 
+    /** The kind of a network for the log: the VPN first (a VPN rides on another network), then Wi-Fi, cell and ethernet. */
+    internal fun kindOf(caps: NetworkCapabilities): String = when {
+        caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> "vpn"
+        caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
+        caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "cell"
+        caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "ethernet"
+        else -> "other"
+    }
+
     private fun netOf(caps: NetworkCapabilities) = LinkLoss.PhoneNet(
-        kind = when {
-            caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> "vpn"
-            caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
-            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "cell"
-            caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "ethernet"
-            else -> "other"
-        },
+        kind = kindOf(caps),
         validated = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
     )
 }

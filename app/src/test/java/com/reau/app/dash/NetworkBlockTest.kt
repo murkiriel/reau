@@ -45,3 +45,20 @@ class NetworkBlockBindRefusalTest {
         org.junit.Assert.assertFalse(NetworkBlock.isBindRefusal(IOException()))
     }
 }
+
+/** The ride log says which network is the app's default and whether a VPN covers REau (plan 32, C12): only a line, no decision. */
+class NetworkBlockVpnLineTest {
+    @Test
+    fun `the default network is told with the VPN answer`() {
+        assertEquals("default network: cell (VPN: no)", NetworkBlock.defaultLine("cell", false))
+        assertEquals("default network: vpn (VPN: yes)", NetworkBlock.defaultLine("vpn", true))
+        assertEquals("default network: wifi (VPN: unknown)", NetworkBlock.defaultLine("wifi", null))
+        assertEquals("default network: none (VPN: no)", NetworkBlock.defaultLine(null, false))
+    }
+
+    @Test
+    fun `a refused bind gets the VPN note only when a VPN covers REau`() {
+        assertEquals("a VPN covers REau: binding to the dash network may be refused", NetworkBlock.vpnRefusalNote(true))
+        org.junit.Assert.assertNull(NetworkBlock.vpnRefusalNote(false))
+    }
+}

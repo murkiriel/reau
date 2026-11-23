@@ -27,4 +27,30 @@ object NetworkBlock {
         val manager = context.getSystemService(android.net.ConnectivityManager::class.java)
         manager.getNetworkCapabilities(manager.activeNetwork)?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) == true
     }.getOrDefault(false)
+
+    /**
+     * The ride log's line for the app's default network and whether a VPN covers it (`default network: cell (VPN: no)`): [kind] is what
+     * [PhoneSide.kindOf] says of it (`vpn` when it is the VPN's own), null with no default network; [vpn] null when Android would not say.
+     */
+    fun defaultLine(kind: String?, vpn: Boolean?): String = "default network: ${kind ?: "none"} (VPN: ${vpnWord(vpn)})"
+
+    /** The same, read now; `unknown` for what Android refuses to say. Never throws. */
+    fun defaultLine(context: android.content.Context): String {
+        val caps = runCatching {
+            val manager = context.getSystemService(android.net.ConnectivityManager::class.java)
+            manager.activeNetwork?.let { manager.getNetworkCapabilities(it) }
+        }
+        val read = caps.getOrNull()
+        val vpn = if (caps.isFailure) null else read?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) == true
+        return defaultLine(read?.let(PhoneSide::kindOf), vpn)
+    }
+
+    /** What the log adds to a refused bind when a VPN covers REau ([vpn] true), else null: the refusal alone is what it was. */
+    fun vpnRefusalNote(vpn: Boolean): String? = if (vpn) "a VPN covers REau: binding to the dash network may be refused" else null
+
+    private fun vpnWord(vpn: Boolean?) = when (vpn) {
+        true -> "yes"
+        false -> "no"
+        null -> "unknown"
+    }
 }
