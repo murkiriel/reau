@@ -6,8 +6,9 @@ Android app that brings the **phone's own Android Auto** to the motorcycle's TFT
 phone screen off. REau draws no map of its own: it repeats on the dash what the navigation app (Waze, Google Maps)
 draws in Android Auto.
 
-> **Compatibility:** works with the **Tripper Dash**. REau is an independent project, with no connection to Royal
-> Enfield, and is neither endorsed nor maintained by it.
+> **Compatibility:** works with the **Tripper Dash**; it was verified only with the dash's firmware 13.10, and on
+> another firmware nothing is guaranteed. REau is an independent project, not affiliated with or endorsed by Royal
+> Enfield, Google, Waze or Meta. Royal Enfield, Tripper, Android Auto and Waze belong to their owners.
 
 ## How it works
 
@@ -29,11 +30,14 @@ in developer mode. It receives the video, fits the picture to the dash's screen 
 - Also sends the music that is playing (when the joystick page has a music control), calls and the weather, for the dash's cards.
 - Uses the handlebar joystick to control Android Auto (map, menu, music, calls and Gemini, which comes on and works once you allow the microphone): while ringing, left answers and right or
   center decline; during a call, center hangs up, right raises the volume and left lowers it, and up and down do nothing (with the call notice on, the default).
-- An info ring over the picture, on the right of the dash (on by default, with a switch; its pages are written in the title of the dash's gold band): rain, wind, storms, UV, air quality, the sun, the day's temperatures and the phone's battery, signal and GPS, one at a time (every card at first; you switch off the ones you don't want). It needs the location and the internet for the weather.
+- An info ring (on by default, with a switch): rain, wind, storms, UV, air quality, the sun, the day's temperatures and the phone's battery, signal and GPS, one at a time (every card at first; you switch off the ones you don't want). By default it is written in the title of the dash's gold band ("Info in the title"); with that switched off, it is drawn over the picture, on the right of the dash. It needs the location and the internet for the weather; the weather screen also shows the forecast, with the rain in millimeters.
+- Music with Spotify: with Spotify in front and playing, the joystick's left, right and center are previous, next and play/pause, and the dash's gold band shows the song, the artist and the three buttons (not yet tried on the bike).
+- A fit assistant (Android Auto screen > "Fit assistant"; it opens by itself the first time): it helps a new phone check that the maneuver arrow and the speed show whole on the dash. It was not tried on other phones yet.
+- Notices for the rider on the phone and on the dash (Wi-Fi off, phone hot, dash Wi-Fi hung, waiting for Android Auto) and a Tips page. Spoken alerts in the headset are optional.
 - A volume notice at the top of the dash's video (on by default, with a switch): a small card with the music or call volume whenever it changes, from the phone, a Bluetooth intercom or the joystick, in place of the volume in the title.
 - A call notice at the top of the dash's video (on by default, with a switch): a pill with who is calling, the joystick's hints and the time of the call, in place of the dash's own call screen, which covers almost all of the video; with it on, during a call right and left are the call's volume and up and down do nothing.
 - Speaks Portuguese, English and Spanish: it follows the phone's language, and the settings have a switch.
-- Adjusts the video quality by the distance to the next maneuver and by speed, at the pace you choose: Original (the factory one, 4 and 2 fps) or REau (6 and 3 fps, smoother).
+- Adjusts the video quality by the distance to the next maneuver and by speed, at the pace you choose: Original (the factory one, 4 and 2 fps, the default) or REau (6 and 3 fps, smoother). The picture is a fixed 528×304 at 400 kbps at most, and REau never goes above 6 fps: in tests on the bike, above that the dash began to fail.
 - Starts from a long press on REau's icon ("Turn on") or from a Quick Settings tile, so it can be switched on at home before the helmet.
 - Optional: shows Android Auto in a browser on the local network, protected by a PIN.
 - Keeps a diagnostic log in the app's internal storage (on by default, with a switch in the settings), to analyze on the
@@ -52,6 +56,8 @@ in developer mode. It receives the video, fits the picture to the dash's screen 
 Install the published APK, `REau-0.3.0.apk` (application id `com.reau.app`, name "REau"). It is a single app: REau tells which Android Auto screen is showing (map, menu, apps) from the picture itself, with a small neural network that runs on the phone.
 
 Coming from the old REau Lite (package `com.reau.app.lite`)? REau 0.3.0 is a new app for you: redo the settings and the pairing with the dash, then uninstall the old Lite (the new app shows a discreet line, and a warning if Android Auto does not answer, while the old Lite is still installed). Coming from the earlier REau (package `com.reau.app`)? Just update over it: settings and pairing stay. Two installations together compete for Android Auto's single server, which takes one session at a time.
+
+A test (debug) build and the official one cannot replace each other: to change from one to the other, uninstall the first (after sharing its logs in Settings > Debug, because uninstalling erases the app's data). The step by step, with the permissions to allow and the FAQ, is on the site: <https://murkiriel.github.io/reau/en/>.
 
 Tip: Obtainium (a free third-party app) installs and updates REau straight from the repository's Releases: under "Add app", paste `https://github.com/Murkiriel/reau`; only published versions count, not test builds, and REau changes nothing because of it.
 
@@ -73,7 +79,7 @@ An APK is published on the project's Releases page; to build your own instead, G
 
 REau has no account, no ads and no data collection. The **"REau and your data"** screen, inside the app, says what
 stays on the phone and what leaves it, and why. What leaves the phone goes to the dash and, only with the optional network
-server on, to other devices on your local network; the only trips to the internet are the weather (Open-Meteo, for the dash and for the info ring, both on by default: nothing is asked until you allow the location, and each has a switch) and the update check in Settings (the “Check for updates” button and, once a day by itself, the “Notify when there is an update” switch, on by default), which asks GitHub only for the latest version number. The location permission also lets Android give REau the list of Wi-Fi networks, to see the dash's, while the app is behind another one (Android Auto, Waze) or the screen is off; REau reads no position for that, and Android may show the location icon during the projection.
+server on, to other devices on your local network; the only trips to the internet are the weather (Open-Meteo, for the dash and for the info ring, both on by default: nothing is asked until you allow the location, and each has a switch) and the update check in Settings (the “Check now” button and, once a day by itself, the “Notify when there is an update” switch, on by default), which asks GitHub only for the latest version number. The location permission also lets Android give REau the list of Wi-Fi networks, to see the dash's, while the app is behind another one (Android Auto, Waze) or the screen is off; REau reads no position for that, and Android may show the location icon during the projection.
 
 ## Safety
 

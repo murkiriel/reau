@@ -6,8 +6,9 @@ Aplicación Android que lleva el **Android Auto del propio teléfono** al tabler
 pantalla del teléfono apagada. REau no dibuja ningún mapa: repite en el tablero lo que la app de navegación (Waze, Google Maps)
 dibuja en Android Auto.
 
-> **Compatibilidad:** funciona con el **Tripper Dash**. REau es un proyecto independiente, sin relación con Royal
-> Enfield, y ni ella lo respalda ni lo mantiene.
+> **Compatibilidad:** funciona con el **Tripper Dash**; se verificó solo con el firmware 13.10 del tablero, y con
+> otro firmware no se garantiza nada. REau es un proyecto independiente, sin afiliación ni respaldo de Royal Enfield,
+> Google, Waze o Meta. Royal Enfield, Tripper, Android Auto y Waze pertenecen a sus dueños.
 
 ## Cómo funciona
 
@@ -30,11 +31,14 @@ Wi-Fi del tablero.
 - Envía también la música que suena (cuando la página del joystick tiene un control de música), las llamadas y el clima, para las tarjetas del tablero.
 - Usa el joystick del manillar para controlar Android Auto (mapa, menú, música, llamadas y Gemini, que viene activado y funciona cuando concedes el micrófono): mientras suena una llamada, la izquierda contesta y la derecha o el
   centro rechazan; durante una llamada, el centro cuelga, la derecha sube el volumen y la izquierda lo baja, y arriba y abajo no hacen nada (con el aviso de llamada activado, el predeterminado).
-- Un anillo de información sobre la imagen, a la derecha del tablero (viene encendido, con un interruptor; sus páginas se escriben en el título de la franja dorada del tablero): lluvia, viento, tormentas, UV, calidad del aire, el sol, las temperaturas del día y la batería, la señal y el GPS del teléfono, una cosa a la vez (de fábrica con todas las tarjetas; apagas las que no quieras). Necesita la ubicación e internet para el clima.
+- Un anillo de información (viene encendido, con un interruptor): lluvia, viento, tormentas, UV, calidad del aire, el sol, las temperaturas del día y la batería, la señal y el GPS del teléfono, una cosa a la vez (de fábrica con todas las tarjetas; apagas las que no quieras). De fábrica se escribe en el título de la franja dorada del tablero ("Información en el título"); con eso apagado, se dibuja sobre la imagen, a la derecha del tablero. Necesita la ubicación e internet para el clima; la pantalla del clima también muestra el pronóstico, con la lluvia en milímetros.
+- Música con Spotify: con Spotify al frente y sonando, izquierda, derecha y centro del joystick son canción anterior, siguiente y reproducir/pausa, y la franja dorada del tablero muestra la canción, el artista y los tres botones (aún no probado en la moto).
+- Un asistente de ajuste (pantalla de Android Auto > "Asistente de ajuste"; se abre solo la primera vez): ayuda a un teléfono nuevo a comprobar que la flecha de la maniobra y la velocidad se vean enteras en el tablero. Aún no se probó en otros teléfonos.
+- Avisos para el piloto en el teléfono y en el tablero (Wi-Fi apagado, teléfono caliente, Wi-Fi del tablero colgado, esperando a Android Auto) y una página de Consejos. Las alertas habladas en el auricular son opcionales.
 - Un aviso de volumen arriba del video del tablero (viene activado, con un interruptor): una tarjeta pequeña con el volumen de la música o de la llamada cada vez que cambia, desde el teléfono, un intercomunicador Bluetooth o el joystick, en lugar del volumen en el título.
 - Un aviso de llamada arriba del video del tablero (viene activado, con un interruptor): una píldora con quién llama, las pistas del joystick y el tiempo de la llamada, en lugar de la pantalla de llamada del tablero, que tapa casi todo el video; con él activado, durante una llamada la derecha y la izquierda son el volumen de la llamada y arriba y abajo no hacen nada.
 - Habla portugués, inglés y español: sigue el idioma del teléfono, y los ajustes tienen un selector.
-- Ajusta la calidad del video según la distancia a la próxima maniobra y la velocidad, al ritmo que elijas: Original (el de fábrica, 4 y 2 fps) o REau (6 y 3 fps, más fluido).
+- Ajusta la calidad del video según la distancia a la próxima maniobra y la velocidad, al ritmo que elijas: Original (el de fábrica, 4 y 2 fps, el predeterminado) o REau (6 y 3 fps, más fluido). La imagen es fija, de 528×304, con 400 kbps como máximo, y REau nunca pasa de 6 fps: en pruebas en la moto, por encima de eso el tablero empezó a fallar.
 - Se enciende con una pulsación larga en el ícono de REau ("Encender") o desde un mosaico de los Ajustes rápidos, para encenderlo en casa, antes del casco.
 - Opcional: muestra Android Auto en un navegador de la red local, protegido por un PIN.
 - Guarda un registro de diagnóstico en el almacenamiento interno de la app (activado por defecto, con un interruptor en los
@@ -54,6 +58,8 @@ Wi-Fi del tablero.
 Instala el APK publicado, `REau-0.3.0.apk` (applicationId `com.reau.app`, nombre "REau"). Es una sola app: REau sabe qué pantalla de Android Auto se muestra (mapa, menú, apps) por la propia imagen, con una red neuronal pequeña que corre en el teléfono.
 
 ¿Vienes de la antigua REau Lite (paquete `com.reau.app.lite`)? REau 0.3.0 es una app nueva para ti: rehaz los ajustes y el emparejamiento con el tablero y luego desinstala la Lite antigua (la app nueva muestra una línea discreta y, si Android Auto no responde, un aviso, mientras la Lite antigua siga instalada). ¿Vienes del REau anterior (paquete `com.reau.app`)? Solo actualiza encima: los ajustes y el emparejamiento se quedan. Dos instalaciones juntas compiten por el único servidor de Android Auto, que acepta una sesión a la vez.
+
+Una compilación de prueba (debug) y la oficial no se reemplazan entre sí: para pasar de una a la otra, desinstala la primera (después de compartir sus registros en Ajustes > Depuración, porque desinstalar borra los datos de la app). El paso a paso, con los permisos que hay que conceder, y las preguntas frecuentes están en el sitio: <https://murkiriel.github.io/reau/es/>.
 
 Consejo: Obtainium (una app libre de terceros) instala y actualiza REau directamente desde las Releases del repositorio: en "Añadir app", pega `https://github.com/Murkiriel/reau`; solo valen las versiones publicadas, sin las builds de prueba, y REau no cambia nada por ello.
 
@@ -75,7 +81,7 @@ Hay un APK publicado en la página de Releases del proyecto; para compilar el tu
 
 REau no tiene cuenta, ni anuncios, ni recoge datos. La pantalla **"REau y tus datos"**, dentro de la app, dice qué se queda en el
 teléfono, qué sale y por qué. Lo que sale del teléfono va al tablero y, solo con el servidor de red opcional encendido, a otros
-dispositivos de tu red local; los únicos viajes a internet son el del clima (Open-Meteo, para el tablero y para el anillo de información, que vienen activados: no se pide nada hasta que concedas la ubicación, y cada uno tiene un interruptor) y la verificación de actualizaciones de los Ajustes (el botón “Buscar actualizaciones” y, una vez al día, por sí sola, el interruptor “Avisar cuando haya una actualización”, activado por defecto), que solo consulta a GitHub cuál es la última versión. El permiso de ubicación también deja que Android entregue a REau la lista de redes Wi-Fi, para ver la del tablero, con la app detrás de otra (Android Auto, Waze) o con la pantalla apagada; REau no lee la posición para eso, y Android puede mostrar el ícono de ubicación durante la proyección.
+dispositivos de tu red local; los únicos viajes a internet son el del clima (Open-Meteo, para el tablero y para el anillo de información, que vienen activados: no se pide nada hasta que concedas la ubicación, y cada uno tiene un interruptor) y la verificación de actualizaciones de los Ajustes (el botón “Buscar ahora” y, una vez al día, por sí sola, el interruptor “Avisar cuando haya una actualización”, activado por defecto), que solo consulta a GitHub cuál es la última versión. El permiso de ubicación también deja que Android entregue a REau la lista de redes Wi-Fi, para ver la del tablero, con la app detrás de otra (Android Auto, Waze) o con la pantalla apagada; REau no lee la posición para eso, y Android puede mostrar el ícono de ubicación durante la proyección.
 
 ## Seguridad
 
