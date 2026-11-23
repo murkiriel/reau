@@ -4995,6 +4995,12 @@ MUTATIONS += [
      "current.filter { !it.sameIdentity(desired) }", "current.filter { it != desired }", ["DashWifiSuggestionPlanTest"]),
     ("DashWifiSuggestions: no API 29, que não lê a lista, o plano confia na lista", MAIN + "dash/DashWifiSuggestionPlan.kt",
      "if (sdkInt < READABLE_FROM_SDK || current == null) return", "if (current == null) return", ["DashWifiSuggestionPlanTest"]),
+    ("EngineWatch: o motor ligou já com uma leitura da faixa morta (limiar de partida 0xAF em vez de 0xB0)", MAIN + "dash/EngineWatch.kt",
+     "const val RUNNING_FROM = 0xB0", "const val RUNNING_FROM = 0xAF", ["EngineWatchTest"]),
+    ("EngineWatch: a leitura 0x8F não conta como baixa (limiar de parada 0x8F em vez de 0x90)", MAIN + "dash/EngineWatch.kt",
+     "const val STOPPED_BELOW = 0x90", "const val STOPPED_BELOW = 0x8F", ["EngineWatchTest"]),
+    ("EngineWatch: uma leitura baixa isolada já diz que o motor desligou (contagem 1 em vez de 2)", MAIN + "dash/EngineWatch.kt",
+     "const val STOP_READINGS = 2", "const val STOP_READINGS = 1", ["EngineWatchTest"]),
 ]
 
 

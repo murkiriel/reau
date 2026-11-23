@@ -220,6 +220,17 @@ class LinhasDoRamoDoPainel(unittest.TestCase):
         self.assertIn("não pede de novo", t)
         self.assertIn("o painel disse 09 05 = 02 (não é o 01 de ajuste mudado): nada feito", t)
 
+    def test_o_motor_pelo_0c26_do_painel(self):
+        t = self.tempo(
+            linha("10:03:00.000", "dash", "engine at connect: running (0C26 0xE8)"),
+            linha("10:03:10.000", "dash", "engine: 0C26 0xF9 (cranking or external supply)"),
+            linha("10:03:20.000", "dash", "engine: stopped (0C26 0x5F, 0x4E)"),
+            linha("10:03:30.000", "dash", "engine: running (0C26 0xE8)"),
+            linha("10:03:40.000", "dash", "engine at connect: unknown (0C26 0x9A)"))
+        for esperado in ("motor ao conectar: rodando (0C26 0xE8)", "motor: 0C26 0xF9 (partida ou alimentação externa; só registro)",
+                         "motor desligou (0C26 0x5F, 0x4E;", "motor ligou (0C26 0xE8;", "motor ao conectar: não sabido (0C26 0x9A)"):
+            self.assertIn(esperado, t)
+
     def test_o_que_o_app_diz_enviado_sem_pacote_04_no_registro_de_pacotes_e_acusado(self):
         # 08/11 12:58:34: "sent once" with the packet log on (the 0556 beats are there) and no 04xx nor 0A02.
         achados = self.da_escrita(linha("10:03:00.000", "dash", ESCRITA), linha("10:03:00.001", "dash", ENVIADA),

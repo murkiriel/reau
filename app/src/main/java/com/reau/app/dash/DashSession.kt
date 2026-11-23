@@ -113,6 +113,8 @@ class DashSession(
     // The 10 s mark came before the stream (AUTHENTICATING or READY): the dash was alive then; startStreaming() counts it.
     @Volatile private var clockNoticeBeforeStream = false
     private val linkNotice = LinkNotice()
+    // The engine, as the dash's 0C26 says it (log only); one state per connection ([beginAuthState] resets it).
+    private val engine = EngineWatch()
     private var resentOnNotice = false
     // Wall-clock of the last packet received from the dash — fed to the RX watchdog.
     @Volatile private var lastRxMs = 0L
@@ -1072,6 +1074,7 @@ class DashSession(
     internal fun beginAuthState(network: android.net.Network?) {
         clockNoticeAfterMs = -1L
         firstHeartbeat = -1
+        engine.reset()
         clockNoticeBeforeStream = linkNotice.knownOn(network ?: NO_NETWORK)
         resendOnNotice = false
         resentOnNotice = false
@@ -1321,6 +1324,10 @@ class DashSession(
             }
             // ── 0C xx: dash → app telemetry (trip/odo/fuel/temp) ──
             if (tlv.type == 0x0C) {
+                // 0C26 (about every 5 s): the engine, for the ride log only.
+                if (tlv.sub == 0x26 && tlv.value.size == 1) {
+                    engine.onReading(tlv.value[0].toInt() and 0xFF).forEach { com.reau.app.data.RideDiagnostics.log("dash", it) }
+                }
                 _telemetry.tryEmit(com.reau.app.dash.protocol.TelemetryEvent(System.currentTimeMillis(), tlv.type, tlv.sub, tlv.value))
                 continue
             }
