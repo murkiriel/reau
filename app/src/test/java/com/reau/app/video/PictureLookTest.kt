@@ -10,7 +10,7 @@ import org.junit.Test
  * [PictureLook] and [ScreenNet] on synthetic pictures only (no frame of anybody's route is in the repository). The pictures are ones the study fed to its
  * independent reference implementation in C (a small program in C, same float32 sums): the expected logits and confidences below come from it, so
  * any change to a weight, a feature or the calibration shows here. What the net gets right on real screens was measured on recorded frames of the Android Auto 17 and 18 (see [PictureLook] and [ScreenNet],
- * which also have the retrainings; the four outputs of 17/11/2026 replaced the three of 10/11/2026, and the expected values below are the four-output net's: the same pictures, run through the same C reference).
+ * which also have the retrainings; the four outputs of 17/11/2026 replaced the three of 10/11/2026, and the retraining of 22/11/2026 changed the weights again: the expected values below are the 22/11 net's, the same pictures run through the same C reference).
  */
 class PictureLookTest {
     private val w = PictureLook.SAMPLE_W
@@ -62,10 +62,10 @@ class PictureLookTest {
     /** Black with white-ish bars on the left and on top: about 80% black. */
     private fun bars() = rgba { x, y -> if (x < 8 || y < 4) 200 else 0 }
 
-    /** Gray [v] with a lighter frame (96) on the left and on top: just over the limit of 0,9 for the net. */
+    /** Gray [v] with a frame of 96 on the left and on top: with [v] 148 the net is just over the limit of 0,9 (the map, 0.914). */
     private fun grayWithEdge(v: Int) = rgba { x, y -> if (x < 8 || y < 4) 96 else v }
 
-    /** Gray [v] on the top half and [v] + 40 below: just under the limit of 0,9 for the net when [v] is 48. */
+    /** Gray [v] on the top half and [v] + 40 below: well under the limit of 0,9 for the net when [v] is 48. */
     private fun darkTop(v: Int) = rgba { _, y -> if (y < h / 2) v else v + 40 }
 
     private class Expected(val kind: PictureLook.Kind, val screen: ScreenNet.Screen, val confidence: Float, val logits: FloatArray)
@@ -80,23 +80,24 @@ class PictureLookTest {
 
     @Test
     fun `the net says what the independent C reference says on twelve synthetic pictures`() {
+        // values of the 22/11 weights; gradient and white-over-dark changed class with the new weights (synthetic pictures, not real screens)
         val nav = ScreenNet.Screen.NAV
         val menu = ScreenNet.Screen.MENU
         val spotify = ScreenNet.Screen.SPOTIFY
         val other = ScreenNet.Screen.OTHER
         val unsure = ScreenNet.Screen.UNSURE
-        check("black", flat(0), Expected(PictureLook.Kind.UNSURE, unsure, 0f, floatArrayOf(0.441469014f, 0.532338262f, -4.38581991f, 3.68386197f)))
-        check("white", flat(255), Expected(PictureLook.Kind.MAP, nav, 0.995860457f, floatArrayOf(4.67090893f, -3.61211133f, -3.91430616f, -0.92388773f)))
-        check("gray 46", flat(46), Expected(PictureLook.Kind.APPS, other, 0.968424499f, floatArrayOf(-0.622571409f, -4.59371996f, -0.097496748f, 3.79745793f)))
-        check("noise", noise(), Expected(PictureLook.Kind.UNSURE, unsure, 0.871895909f, floatArrayOf(-1.98248124f, 4.60605526f, 2.67867064f, -6.1414814f)))
-        check("gradient", gradient(), Expected(PictureLook.Kind.APPS, spotify, 0.900832117f, floatArrayOf(0.325516135f, -1.38584065f, 2.70985293f, -3.94291186f)))
-        check("black with bars", bars(), Expected(PictureLook.Kind.UNSURE, unsure, 0.84280318f, floatArrayOf(3.1362524f, -0.492825925f, -5.5337944f, 1.30244732f)))
-        check("dark over white", darkOverWhite(), Expected(PictureLook.Kind.MAP, nav, 0.999477625f, floatArrayOf(7.14153719f, -6.7543087f, -1.03582597f, -1.19005311f)))
-        check("white over dark", rgba { _, y -> if (y < h / 2) 255 else 0 }, Expected(PictureLook.Kind.UNSURE, unsure, 0.808787882f, floatArrayOf(0.982171834f, 0.445790768f, -5.01566792f, 2.88638783f)))
-        check("gray 63 with a lighter edge", grayWithEdge(63), Expected(PictureLook.Kind.UNSURE, unsure, 0.828594506f, floatArrayOf(0.324827641f, -5.30339766f, -0.0303505957f, 2.43388247f)))
-        check("dark top 48", darkTop(48), Expected(PictureLook.Kind.UNSURE, unsure, 0.403555125f, floatArrayOf(1.59409034f, -6.70220947f, 1.8553865f, 1.50969577f)))
-        check("menu grid", menuGrid(), Expected(PictureLook.Kind.MENU, menu, 0.998319566f, floatArrayOf(-5.4595089f, 7.28407574f, -1.83925653f, 0.828200817f)))
-        check("spotify-like", spotifyLike(), Expected(PictureLook.Kind.APPS, spotify, 0.999964714f, floatArrayOf(-3.87947416f, -2.55076051f, 8.38833523f, -2.87414455f)))
+        check("black", flat(0), Expected(PictureLook.Kind.UNSURE, unsure, 0f, floatArrayOf(0.433394611f, 1.08315051f, -5.04730368f, 3.43430018f)))
+        check("white", flat(255), Expected(PictureLook.Kind.MAP, nav, 0.998083293f, floatArrayOf(4.6976614f, -3.75474024f, -2.79271102f, -2.07159686f)))
+        check("gray 46", flat(46), Expected(PictureLook.Kind.APPS, other, 0.98541832f, floatArrayOf(-0.991919816f, -4.16231918f, -0.706932783f, 4.08499908f)))
+        check("noise", noise(), Expected(PictureLook.Kind.UNSURE, unsure, 0.705390036f, floatArrayOf(-3.86236453f, 5.12712431f, 4.25366879f, -5.49709749f)))
+        check("gradient", gradient(), Expected(PictureLook.Kind.UNSURE, unsure, 0.684529722f, floatArrayOf(0.245725065f, 0.134932518f, 1.66542208f, -4.27155828f)))
+        check("black with bars", bars(), Expected(PictureLook.Kind.UNSURE, unsure, 0.895520627f, floatArrayOf(3.08743858f, -0.38659215f, -6.14357662f, 0.629123867f)))
+        check("dark over white", darkOverWhite(), Expected(PictureLook.Kind.MAP, nav, 0.999376297f, floatArrayOf(6.74319267f, -5.97317886f, -1.06735349f, -1.6986177f)))
+        check("white over dark", rgba { _, y -> if (y < h / 2) 255 else 0 }, Expected(PictureLook.Kind.APPS, other, 0.961969793f, floatArrayOf(-0.480604768f, 0.467582583f, -4.59611416f, 4.03019285f)))
+        check("gray 63 with a lighter edge", grayWithEdge(63), Expected(PictureLook.Kind.UNSURE, unsure, 0.806194901f, floatArrayOf(0.22348313f, -5.28569221f, 0.150547802f, 2.30839634f)))
+        check("dark top 48", darkTop(48), Expected(PictureLook.Kind.UNSURE, unsure, 0.562249959f, floatArrayOf(0.63745594f, -6.164639f, 2.02754879f, 1.39123428f)))
+        check("menu grid", menuGrid(), Expected(PictureLook.Kind.MENU, menu, 0.998966098f, floatArrayOf(-4.516747f, 7.23546362f, -2.20629978f, 0.274055183f)))
+        check("spotify-like", spotifyLike(), Expected(PictureLook.Kind.APPS, spotify, 0.999637246f, floatArrayOf(-3.49035335f, -0.686475992f, 7.32425308f, -4.1016016f)))
     }
 
     @Test
@@ -130,14 +131,14 @@ class PictureLookTest {
 
     @Test
     fun `a picture that is not sure enough (confidence under 0,9) is unsure, not the class it leans to`() {
-        val result = ScreenNet.classify(noise(), w, h)
+        val result = ScreenNet.classify(bars(), w, h)
         val logits = ScreenNet.lastLogits()
-        assertTrue("the leaning class would be the menu", logits[1] > logits[0] && logits[1] > logits[2] && logits[1] > logits[3])
+        assertTrue("the leaning class would be the map", logits[0] > logits[1] && logits[0] > logits[2] && logits[0] > logits[3])
         assertEquals(ScreenNet.Screen.UNSURE, result.screen)
         assertTrue("confidence ${result.confidence}", result.confidence < ScreenNet.MIN_CONFIDENCE && result.confidence > 0.85f)
-        val over = ScreenNet.classify(gradient(), w, h)
+        val over = ScreenNet.classify(grayWithEdge(148), w, h)
         assertTrue("just over the limit it is the class: confidence ${over.confidence}", over.confidence > ScreenNet.MIN_CONFIDENCE && over.confidence < 0.92f)
-        assertEquals(ScreenNet.Screen.SPOTIFY, over.screen)
+        assertEquals(ScreenNet.Screen.NAV, over.screen)
     }
 
     @Test
