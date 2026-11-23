@@ -323,7 +323,9 @@ class InfoRingTitleTest {
         assertEquals("the battery is one of the turns", setOf(RingKind.TEMPS, RingKind.BATTERY), seen.toSet())
         val critical = titlePages(forecast(), options, phone = phone(5))
         assertEquals("a critical battery is a danger page, as in the ring", 1, critical.first { it.kind == RingKind.BATTERY }.level)
-        assertEquals("the danger page takes the turns alone", listOf(RingKind.BATTERY), InfoRingRotation().turn(critical, 0L)!!.pages.map { it.kind })
+        val turn = InfoRingRotation().turn(critical, 0L)!!
+        assertEquals("the danger page is the danger of the turns", listOf(RingKind.BATTERY), turn.danger.map { it.kind })
+        assertEquals("five turns of it, then one of the other page", List(5) { RingKind.BATTERY } + RingKind.TEMPS, (0L until 6L).map { turn.at(it).kind })
         val ring = InfoRing.pages(forecast(), null, now, true, WeatherUnits(), ringWords, phone(5)).filter { it.kind in InfoRingTitle.KINDS && RingData.shown(options.data, RingData.of(it.kind)) }
         assertEquals(ring, critical)
         assertEquals("low is level 2", 2, titlePages(forecast(), options, phone = phone(15)).first { it.kind == RingKind.BATTERY }.level)

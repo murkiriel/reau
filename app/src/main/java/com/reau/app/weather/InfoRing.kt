@@ -66,7 +66,8 @@ enum class RingData(val bit: Int) {
 
 /**
  * The rider's choices for the ring: which [data] it may say (a mask of [RingData] bits), whether it is a [carousel] that turns from
- * one page to the next every [seconds], or stays on the most urgent one.
+ * one page to the next every [seconds], or stays on the most urgent one (with danger pages, on the most urgent danger page and, one turn in six, on
+ * the most urgent of the others: [InfoRingRotation]).
  */
 data class RingOptions(val data: Int = RingData.ALL, val carousel: Boolean = true, val seconds: Int = DEFAULT_SECONDS) {
     val periodMs: Long get() = seconds.coerceIn(SECONDS) * MS_PER_SECOND
@@ -83,8 +84,8 @@ data class RingOptions(val data: Int = RingData.ALL, val carousel: Boolean = tru
 data class RingText(val text: String, val big: Boolean)
 
 /**
- * One page of the ring. [level] is its urgency, 1 (danger) to 4 (normal): level 1 pages alternate on their own and push everything
- * else out; the others take turns.
+ * One page of the ring. [level] is its urgency, 1 (danger) to 4 (normal): with level 1 pages the ring turns five times on them (alternating)
+ * and once on the next of the others ([InfoRingRotation]); with none, the others take turns from the most urgent.
  */
 data class RingPage(
     val kind: RingKind,
@@ -616,36 +617,83 @@ object InfoRing {
 }
 
 /**
- * Which page the ring is on. Level 1 pages (danger) alone take their turns, and a new one shows at once; with none, the others take
- * theirs from the most urgent, each for the carousel's time ([RingOptions.seconds]). With the carousel off the ring stays on the most urgent
- * page. Only the set of pages, not their words, restarts the turns.
+ * Which page the ring is on. With no level 1 page (danger) the others take their turns from the most urgent, each for the carousel's time
+ * ([RingOptions.seconds]); with the carousel off the ring stays on the most urgent page.
+ *
+ * With at least one level 1 page the rule is "5 + 1" (the owner's decision of 22/11/2026): a cycle of [CYCLE_TURNS] turns, each as long as
+ * the carousel's time, the first [DANGER_TURNS] for the danger pages and the last [NORMAL_TURNS] for the next page of the others. With
+ * several danger pages the [DANGER_TURNS] are the total, and they alternate (T, C, T, C, T, normal, then C, T, C, T, C, normal...: the
+ * alternation goes on from one cycle to the next). The normal turn of each cycle is the next of the others, in their order of urgency, so
+ * with time all of them show; with none of the others only the danger pages turn. With the carousel off it is the most urgent danger page
+ * five times and the most urgent of the others once. A new set of danger pages shows at once and the count of five starts again. Only the
+ * set of pages, not their words, restarts the turns.
  */
 class InfoRingRotation {
     private var kinds: List<RingKind> = emptyList()
     private var sinceMs = 0L
 
-    /** The pages that take their turns now and how long ago (ms) the set of them last changed: the turns count from there. */
-    class Turn(val pages: List<RingPage>, val elapsedMs: Long)
+    /**
+     * The pages that take their turns now: the [danger] ones (level 1) and the [normal] ones (the others), both in order of urgency, and
+     * how long ago ([elapsedMs]) the set that restarts the turns last changed: the turns count from there.
+     */
+    class Turn(val danger: List<RingPage>, val normal: List<RingPage>, val elapsedMs: Long) {
+        /** Every page that can show now, the danger ones first. */
+        val pages: List<RingPage> get() = danger + normal
 
-    /** Which pages take their turns now (the level 1 ones alone, if any; with the carousel off the most urgent one only), or null for none. */
+        /** What restarts the turns when it changes: the danger pages if there are any, else all of them (the normal queue of a cycle just goes on). */
+        val restartKinds: List<RingKind> get() = (danger.ifEmpty { normal }).map { it.kind }
+
+        /**
+         * The page of the [slot]th turn (0 the first, one per turn of the carousel's time, or per turn of information in the dash's title):
+         * the danger pages' 5 + 1 cycle when there are any, else the pages one after the other.
+         */
+        fun at(slot: Long): RingPage {
+            val n = slot.coerceAtLeast(0L)
+            val inCycle = n % InfoRingRotation.CYCLE_TURNS
+            val cycles = n / InfoRingRotation.CYCLE_TURNS
+            return when {
+                danger.isEmpty() -> normal[(n % normal.size).toInt()]
+                normal.isEmpty() -> danger[(n % danger.size).toInt()]
+                inCycle < InfoRingRotation.DANGER_TURNS -> danger[((cycles * InfoRingRotation.DANGER_TURNS + inCycle) % danger.size).toInt()]
+                else -> normal[((cycles * InfoRingRotation.NORMAL_TURNS + inCycle - InfoRingRotation.DANGER_TURNS) % normal.size).toInt()]
+            }
+        }
+    }
+
+    /**
+     * Which pages take their turns now (with the carousel off only the most urgent danger page and the most urgent of the others), or
+     * null for none.
+     */
     fun turn(pages: List<RingPage>, nowMs: Long, carousel: Boolean = true): Turn? {
         if (pages.isEmpty()) {
             kinds = emptyList()
             return null
         }
-        val danger = pages.filter { it.level == 1 }
-        val shown = (danger.ifEmpty { pages }).let { if (carousel) it else it.take(1) }
-        val now = shown.map { it.kind }
+        val (danger, normal) = pages.partition { it.level == 1 }
+        val turn = if (carousel) Turn(danger, normal, 0L) else Turn(danger.take(1), normal.take(1), 0L)
+        val now = turn.restartKinds
         if (now != kinds) {
             kinds = now
             sinceMs = nowMs
         }
-        return Turn(shown, (nowMs - sinceMs).coerceAtLeast(0L))
+        return Turn(turn.danger, turn.normal, (nowMs - sinceMs).coerceAtLeast(0L))
     }
 
     fun pick(pages: List<RingPage>, nowMs: Long, carousel: Boolean = true, periodMs: Long = RingOptions().periodMs): RingPage? {
         val turn = turn(pages, nowMs, carousel) ?: return null
-        val period = periodMs.coerceAtLeast(1L)
-        return turn.pages[((turn.elapsedMs / period) % turn.pages.size).toInt()]
+        return turn.at(turn.elapsedMs / periodMs.coerceAtLeast(1L))
+    }
+
+    companion object {
+        /**
+         * Turns of danger pages in each cycle, in all, however many danger pages there are (the owner's decision of 22/11/2026: "5 + 1").
+         */
+        const val DANGER_TURNS = 5
+
+        /** Turns of the next normal page (level 2 to 4) in each cycle, after the danger ones (the owner's decision of 22/11/2026). */
+        const val NORMAL_TURNS = 1
+
+        /** The turns of a whole cycle. */
+        const val CYCLE_TURNS = DANGER_TURNS + NORMAL_TURNS
     }
 }

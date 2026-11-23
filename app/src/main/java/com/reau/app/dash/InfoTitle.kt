@@ -16,8 +16,9 @@ class TitleSource(val entries: List<TitleEntry>, val carousel: Boolean, val peri
  * [DashSession]) instead of drawn as a ring on the video: one or the other, never both.
  *
  * The title turns between its base (the street while guiding, "REau" otherwise) and the pages, one at a time: base, a page, base, the next
- * page. Which pages, and in what order of urgency, is the ring's own rule ([InfoRingRotation]: the danger pages alone when there are any, the
- * most urgent one alone with the carousel off).
+ * page. Which pages, and in what order of urgency, is the ring's own rule ([InfoRingRotation]: with danger pages, five turns of them and one of
+ * the next of the others, over and over; with the carousel off, the most urgent of each). Here a turn of the rule is a turn of information: each
+ * time a page is said counts as one of the cycle, with a route or without one.
  *
  * With no route the base is "REau" and each side stays for [TitleSource.periodMs], the ring's time as the rider set it. While guiding the
  * street is what the rider needs, so it stays much longer, whatever the ring's time: [ROUTE_STREET_MS] of street, then [ROUTE_PAGE_MS] of a
@@ -46,6 +47,14 @@ class InfoTitle(
     private var seenKinds: List<com.reau.app.weather.RingKind>? = null
     private var streetOnly = false
 
+    // The turns of information said so far, to say which of the rule's turns comes next: one for each time a page enters the title (a round of
+    // base and page), not one for each tick of the clock, so the rounds that were never shown (near a maneuver, hidden by the joystick) do not
+    // use up a turn of the cycle, and a maneuver passed, which starts the clock again, does not start the cycle again. A new set of danger
+    // pages, or the option switched, does. [lastRound] is the round of the clock that took the last one (-1: none since the clock began).
+    private var turnsSaid = 0L
+    private var lastRound = -1L
+    private var thisTurn = 0L
+
     /** What the title can say now, asked at each title; null (or no entries) while there is nothing to say. Set by whoever has the weather. */
     @Volatile var source: (() -> TitleSource?)? = null
 
@@ -56,8 +65,9 @@ class InfoTitle(
             field = value
             streetOnly = false
             guiding = null
-            anchorMs = nowMs()
+            restartClock(nowMs())
             seenKinds = null
+            restartCycle()
             log("info title ${if (value) "on: the info ring's pages are written in the title and the ring is off the video" else "off: the ring is back"}")
         }
 
@@ -82,25 +92,44 @@ class InfoTitle(
         val entries = src.entries.filter { it.text.isNotBlank() && it.text.length <= DashCommands.ROAD_MAX }
         val now = nowMs()
         val turn = rotation.turn(entries.map { it.page }, now, src.carousel)
-        val kinds = turn?.pages?.map { it.kind }
+        val kinds = turn?.restartKinds
         // A new set of pages starts again from the base (the street or REau); the first set seen keeps the clock of the option coming on.
-        if (seenKinds != null && kinds != seenKinds) anchorMs = maxOf(now, anchorMs)
+        if (seenKinds != null && kinds != seenKinds) {
+            restartClock(maxOf(now, anchorMs))
+            restartCycle()
+        }
         seenKinds = kinds
         // While guiding the street is long and the page short, whatever the ring's time; with no route both are the ring's time.
         val baseMs = if (route) ROUTE_STREET_MS else src.periodMs.coerceAtLeast(1L)
         val pageMs = if (route) ROUTE_PAGE_MS else src.periodMs.coerceAtLeast(1L)
         val elapsed = (now - anchorMs).coerceAtLeast(0L)
         // Each round is the base's time then a page's: base, first page, base, second page...
-        return turn?.takeIf { elapsed % (baseMs + pageMs) >= baseMs }?.let { t ->
-            val kind = t.pages[((elapsed / (baseMs + pageMs)) % t.pages.size).toInt()].kind
-            entries.firstOrNull { it.page.kind == kind }?.text
+        val round = elapsed / (baseMs + pageMs)
+        if (turn == null || elapsed % (baseMs + pageMs) < baseMs) return null
+        if (round != lastRound) {
+            lastRound = round
+            thisTurn = turnsSaid++
         }
+        val kind = turn.at(thisTurn).kind
+        return entries.firstOrNull { it.page.kind == kind }?.text
+    }
+
+    /** The turns' clock starts again at [atMs]: its rounds are numbered anew, and the next page said takes the next turn of the cycle. */
+    private fun restartClock(atMs: Long) {
+        anchorMs = atMs
+        lastRound = -1L
+    }
+
+    /** The cycle of the rule starts over (a new set of danger pages, the option switched): the next page said is its first turn. */
+    private fun restartCycle() {
+        turnsSaid = 0L
+        lastRound = -1L
     }
 
     /** A route beginning or ending changes what the base is and how long it stays: the turns start over from the base. */
     private fun noteRoute(route: Boolean) {
         if (route == guiding) return
-        if (guiding != null) anchorMs = nowMs()
+        if (guiding != null) restartClock(nowMs())
         guiding = route
     }
 
@@ -108,7 +137,7 @@ class InfoTitle(
         if (near == streetOnly) return
         streetOnly = near
         val hold = !near && route
-        if (hold) anchorMs = nowMs() + AFTER_MANEUVER_HOLD_MS
+        if (hold) restartClock(nowMs() + AFTER_MANEUVER_HOLD_MS)
         log(
             if (near) "info title: the street only, near the maneuver"
             else if (hold) "info title: past the maneuver, the street holds for 15 s and the pages turn again"
