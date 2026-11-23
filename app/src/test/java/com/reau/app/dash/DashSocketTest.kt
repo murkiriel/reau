@@ -154,7 +154,11 @@ class DashSocketTest {
     fun `sends from several threads keep the suppression counters whole`() {
         val s = DashSocket().apply { close() }
         val packet = byteArrayOf(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-        val threads = List(4) { Thread { repeat(5_000) { s.send(packet) } }.apply { start() } }
+        // Eight threads let go at the same instant, many times over: without the lock the counters lose updates on any runner, not only
+        // when the scheduler happens to interleave a few threads (a CI runner with two cores let a lockless counter pass twice).
+        val start = java.util.concurrent.CountDownLatch(1)
+        val threads = List(8) { Thread { start.await(); repeat(40_000) { s.send(packet) } }.apply { start() } }
+        start.countDown()
         threads.forEach { it.join() }
         org.junit.Assert.assertTrue(s.testOnlyTxSuppressed())
         // every call of a suppressed link is counted once, and all of them are held back but the probe, the 20th, 40th...
