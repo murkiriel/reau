@@ -202,8 +202,14 @@ class InfoTitleTest {
         assertEquals("Chuva em 20 min", at(PERIOD + 1 + STREET_MS + 1 + PERIOD, base = "REau", meters = null))
     }
 
+    /** The page of the [n]th round (0 the first) while guiding: asked in the middle of its 5 s of information. */
+    private fun guidingTurn(n: Long, meters: Int? = FAR) = at(n * ROUND + STREET_MS + 1, meters = meters)
+
+    /** The page of the [n]th round with no route: asked in the middle of the ring's time of information. */
+    private fun freeTurn(n: Long) = at(n * 2 * PERIOD + PERIOD + 1, base = "REau", meters = null)
+
     @Test
-    fun `danger pages go ahead of the other pages and alone, and the street still comes between`() {
+    fun `danger pages alternate five turns in all and then one of the others, and the street still comes between`() {
         feed(rain, thunder, wind, strongWind)
         assertEquals(STREET, at(0))
         assertEquals("a danger page, not the first of the list", "Trovoada", at(STREET_MS))
@@ -211,7 +217,97 @@ class InfoTitleTest {
         assertEquals("the other danger page", "Vento 75 km/h", at(ROUND + STREET_MS))
         assertEquals(STREET, at(2 * ROUND))
         assertEquals("round again", "Trovoada", at(2 * ROUND + STREET_MS))
-        for (k in 0..9L) assertTrue("no ordinary page while there is a danger one", at(k * PAGE_MS) !in listOf("Chuva em 20 min", "Vento 45 km/h"))
+        assertEquals("Vento 75 km/h", guidingTurn(3))
+        assertEquals("Trovoada", guidingTurn(4))
+        assertEquals("the sixth turn is the first of the others", "Chuva em 20 min", guidingTurn(5))
+        assertEquals("the alternation goes on: the second danger starts the next five", "Vento 75 km/h", guidingTurn(6))
+        assertEquals("Trovoada", guidingTurn(7))
+        assertEquals("Vento 75 km/h", guidingTurn(8))
+        assertEquals("Trovoada", guidingTurn(9))
+        assertEquals("Vento 75 km/h", guidingTurn(10))
+        assertEquals("and the next of the others", "Vento 45 km/h", guidingTurn(11))
+        assertEquals("Trovoada", guidingTurn(12))
+    }
+
+    @Test
+    fun `a turn of information is a turn of the cycle, with the street between them, with a route`() {
+        feed(thunder, rain, wind)
+        for (n in 0L..4L) assertEquals("turn $n", "Trovoada", guidingTurn(n))
+        assertEquals("Chuva em 20 min", guidingTurn(5))
+        for (n in 6L..10L) assertEquals("turn $n", "Trovoada", guidingTurn(n))
+        assertEquals("Vento 45 km/h", guidingTurn(11))
+        for (n in 12L..16L) assertEquals("turn $n", "Trovoada", guidingTurn(n))
+        assertEquals("round again to the first of the others", "Chuva em 20 min", guidingTurn(17))
+    }
+
+    @Test
+    fun `a turn of information is a turn of the cycle with no route too, in the ring's time`() {
+        feed(thunder, strongWind, rain)
+        val t = "Trovoada"
+        val w = "Vento 75 km/h"
+        assertEquals(listOf(t, w, t, w, t, "Chuva em 20 min", w, t), (0L..7L).map { freeTurn(it) })
+    }
+
+    @Test
+    fun `a round that was never shown does not use up a turn of the cycle`() {
+        feed(thunder, rain)
+        assertEquals("Trovoada", guidingTurn(0))
+        // Rounds 1 and 2 go by with the info hidden by the joystick: no turn is said, none is used.
+        assertEquals(STREET, at(ROUND + STREET_MS + 1, shown = false))
+        assertEquals(STREET, at(2 * ROUND + STREET_MS + 1, shown = false))
+        // The info is back in round 3: the second turn of the cycle, not the fourth.
+        for (n in 3L..6L) assertEquals("round $n", "Trovoada", guidingTurn(n))
+        assertEquals("the sixth turn said is the normal one", "Chuva em 20 min", guidingTurn(7))
+    }
+
+    @Test
+    fun `passing a maneuver starts the street over but not the cycle`() {
+        feed(thunder, rain)
+        assertEquals("Trovoada", guidingTurn(0))
+        assertEquals("Trovoada", guidingTurn(1))
+        // Near the maneuver, then past it: the street holds 15 s and the clock starts again.
+        at(2 * ROUND, meters = 100)
+        val past = 2 * ROUND + 1_000
+        assertEquals(STREET, at(past, meters = 800))
+        assertEquals("still the street while the hold lasts", STREET, at(past + 14_000, meters = 800))
+        val firstPage = past + InfoTitle.AFTER_MANEUVER_HOLD_MS + STREET_MS
+        assertEquals("the third turn of the same cycle", "Trovoada", at(firstPage, meters = 800))
+        assertEquals(STREET, at(firstPage + PAGE_MS, meters = 800))
+        assertEquals("Trovoada", at(firstPage + ROUND, meters = 800))
+        assertEquals("Trovoada", at(firstPage + 2 * ROUND, meters = 800))
+        assertEquals("the sixth turn said is the normal one", "Chuva em 20 min", at(firstPage + 3 * ROUND, meters = 800))
+    }
+
+    @Test
+    fun `a new danger shows after the street and the count of five starts again`() {
+        feed(thunder, rain)
+        for (n in 0L..2L) assertEquals("Trovoada", guidingTurn(n))
+        title.source = { TitleSource(listOf(thunder, strongWind, rain), true, PERIOD) }
+        assertEquals("the new set starts with the street", STREET, at(3 * ROUND + 1))
+        val t0 = 3 * ROUND + 1
+        assertEquals("Trovoada", at(t0 + STREET_MS))
+        assertEquals("Vento 75 km/h", at(t0 + ROUND + STREET_MS))
+        assertEquals("Trovoada", at(t0 + 2 * ROUND + STREET_MS))
+        assertEquals("Vento 75 km/h", at(t0 + 3 * ROUND + STREET_MS))
+        assertEquals("Trovoada", at(t0 + 4 * ROUND + STREET_MS))
+        assertEquals("the sixth turn since the new danger is the normal one", "Chuva em 20 min", at(t0 + 5 * ROUND + STREET_MS))
+    }
+
+    @Test
+    fun `with the carousel off the danger is five turns and the most urgent of the others one, with a route or not`() {
+        feed(thunder, strongWind, rain, wind, carousel = false)
+        for (n in 0L..4L) assertEquals("turn $n", "Trovoada", guidingTurn(n))
+        assertEquals("Chuva em 20 min", guidingTurn(5))
+        assertEquals("Trovoada", guidingTurn(6))
+        fresh()
+        feed(thunder, strongWind, rain, wind, carousel = false)
+        assertEquals(List(5) { "Trovoada" } + "Chuva em 20 min" + "Trovoada", (0L..6L).map { freeTurn(it) })
+    }
+
+    @Test
+    fun `with no danger the pages go one after the other, as they always did`() {
+        feed(rain, wind)
+        assertEquals(listOf("Chuva em 20 min", "Vento 45 km/h", "Chuva em 20 min", "Vento 45 km/h"), (0L..3L).map { guidingTurn(it) })
     }
 
     @Test
