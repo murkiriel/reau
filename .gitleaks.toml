@@ -17,5 +17,5 @@ description = "The made-up dash Wi-Fi name the log reader's tests use in their s
 regexes = ['''RE_AB12_345678''']
 
 [[allowlists]]
-description = "The name of the settings' mark that the notification permission was asked (notifications_asked_20261124): a preference key, not a secret"
-regexes = ['''notifications_asked_20261124''']
+description = "The names of the settings' marks that the notification permission was asked (notifications_asked_20261124) and that Ligar opened the app's page (start_app_page_opened_20261124): preference keys, not secrets"
+regexes = ['''notifications_asked_20261124|start_app_page_opened_20261124''']

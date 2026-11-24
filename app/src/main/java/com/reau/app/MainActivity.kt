@@ -109,6 +109,21 @@ class MainActivity : ComponentActivity() {
         notificationsAsked(answers)
         answers[StartAsks.FINE_LOCATION]?.let { wifiListAnswered(it) }
         if (startingCard) ProjectionService.startCard(this) else ProjectionService.start(this)
+        startAnswered(answers)
+    }
+
+    // When Ligar's window was launched, to tell a window the rider answered from one Android never showed (StartAsks.openAppPageAfter).
+    private var askedStartAtMs = 0L
+
+    /** The projection already started: a refusal with no window opens the app's page, once (the mark is erased when Ligar has nothing to ask). */
+    private fun startAnswered(answers: Map<String, Boolean>) {
+        val store = SettingsStore.open(this)
+        val elapsed = com.reau.app.util.MonotonicClock.nowMs() - askedStartAtMs
+        if (!StartAsks.openAppPageAfter(answers, elapsed, store.startAppPageOpened())) return
+        store.startAppPageOpenedNow()
+        val refused = answers.count { !it.value }
+        RideDiagnostics.log("ui", "Ligar asked, Android refused with no window ($refused of ${answers.size}): the app's page opened, once")
+        PermissionRows.openAppSettings(this)
     }
 
     // The Wi-Fi screen's "Permitir a localização" (only for the Wi-Fi list).
@@ -543,8 +558,13 @@ class MainActivity : ComponentActivity() {
         )
         startingCard = card
         if (card) RideDiagnostics.log("ui", "the rider switched the card mode on")
+        // Nothing to ask (all allowed or not needed): a later refusal opens the app's page once again.
+        if (asks.isEmpty()) SettingsStore.open(this).startAppPageForget()
         when {
-            asks.isNotEmpty() -> askBeforeStart.launch(asks.toTypedArray())
+            asks.isNotEmpty() -> {
+                askedStartAtMs = com.reau.app.util.MonotonicClock.nowMs()
+                askBeforeStart.launch(asks.toTypedArray())
+            }
             card -> ProjectionService.startCard(this)
             else -> ProjectionService.start(this)
         }

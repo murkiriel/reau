@@ -79,6 +79,19 @@ class SettingsStore(private val prefs: SharedPreferences) {
 
     fun notificationsAskedNow() = prefs.edit { putBoolean(KEY_NOTIFICATIONS_ASKED, true) }
 
+    /**
+     * Ligar already opened the app's page in Android after a refusal with no window ([StartAsks.openAppPageAfter]): it does not open it again at
+     * every Ligar of a rider who refused on purpose. Ligar erases the mark when it has nothing to ask, so a later refusal opens the page once more.
+     */
+    fun startAppPageOpened(): Boolean = prefs.getBoolean(KEY_START_APP_PAGE_OPENED, false)
+
+    fun startAppPageOpenedNow() = prefs.edit { putBoolean(KEY_START_APP_PAGE_OPENED, true) }
+
+    /** Erases the mark; writes nothing when it is not there. */
+    fun startAppPageForget() {
+        if (prefs.contains(KEY_START_APP_PAGE_OPENED)) prefs.edit { remove(KEY_START_APP_PAGE_OPENED) }
+    }
+
     /** The mark once it is written; before it, whether a fit is stored. [ownFit]: a fit that is not the factory one is being saved. */
     private fun fitAssistantDone(ownFit: Boolean): Boolean = when {
         ownFit -> true
@@ -386,6 +399,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val KEY_CROP_CENTER_Y = "crop_center_y"
         private const val KEY_FIT_ASSISTANT = "fit_assistant_done_20261113"
         private const val KEY_NOTIFICATIONS_ASKED = "notifications_asked_20261124"
+        private const val KEY_START_APP_PAGE_OPENED = "start_app_page_opened_20261124"
         private const val KEY_MOVE_X = "move_x"
         private const val KEY_MOVE_Y = "move_y"
         /** The preferences of the navigation apps' own fit. */
