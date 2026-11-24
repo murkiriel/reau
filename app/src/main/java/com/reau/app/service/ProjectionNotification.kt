@@ -284,6 +284,11 @@ object ProjectionNotification {
         context.getSystemService(NotificationManager::class.java).notify(ID_WIFI_OFF, notification)
     }
 
+    /** The radio is on again (or the projection is off): the notice of [showWifiOff] goes. */
+    fun clearWifiOff(context: Context) {
+        context.getSystemService(NotificationManager::class.java).cancel(ID_WIFI_OFF)
+    }
+
     /**
      * Told once for an episode in which another app holds the dash's port (UDP 2002; the tries 2 to 30 s apart say nothing more): in the alert channel,
      * since the rider cannot see the screen while riding. [clearDashTaken] takes it away when REau connects or the projection ends.
@@ -325,11 +330,6 @@ object ProjectionNotification {
             .setAutoCancel(true)
             .build()
         context.getSystemService(NotificationManager::class.java).notify(id, notification)
-    }
-
-    /** The radio is on again (or the projection is off): the notice of [showWifiOff] goes. */
-    fun clearWifiOff(context: Context) {
-        context.getSystemService(NotificationManager::class.java).cancel(ID_WIFI_OFF)
     }
 
     /** The phone cooled down (or the projection is off): the notice of [showPhoneHot] goes. */
