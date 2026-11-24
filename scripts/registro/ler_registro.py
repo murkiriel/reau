@@ -19,8 +19,8 @@ cold start`) não entra. Novas linhas e regras: "tela por tempo" (mapa/menu/apps
 varredura com o pedido de rede saindo mais de 10 s depois.
 
 Uma queda de Wi-Fi que estava firme até sumir de uma vez (sinal bom e parado nas últimas amostras) sai na linha do tempo como
-"painel desligou (moto desligada?)" e não vira problema, a não ser que o painel volte em até 5 min (aí é o Wi-Fi dele que reiniciou,
-mesmo em outro canal). O fim da viagem também se reconhece pelo sistema: o `reason 3` (o ponto de acesso do painel avisou que estava saindo; não o celular) do logcat do
+"painel desligou (moto desligada?)" e não vira problema, a não ser que o painel volte em até 5 min sem ter ligado de novo (aí é o Wi-Fi dele que reiniciou,
+mesmo em outro canal; ver "Desde 24/11/2026"). O fim da viagem também se reconhece pelo sistema: o `reason 3` (o ponto de acesso do painel avisou que estava saindo; não o celular) do logcat do
 sistema ou do dumpsys do Wi-Fi, de 20 s antes a 5 s depois da queda, sem o painel voltar em 5 min, vale como fim de viagem e não como queda (`marcar_fim_de_viagem`); sem log do
 sistema na hora, o Wi-Fi firme que não voltou e a projeção desligada em até 30 s valem o mesmo, dito no texto. O painel que fica na varredura com sinal bom e recusa todos os pedidos (a linha `dash visible but refusing`
 do app, ou, em registro antigo, os `unavailable ... the dash: ... dBm` de 30 s ou mais) sai como problema "painel travado": só desligar
@@ -58,6 +58,13 @@ REau (o `INFO.txt` e o pacote `com.reau.app` no dumpsys dizem qual é; sem eles,
 (o pacote não saiu), não queda. Entendem-se as linhas do ramo do painel: `panel settings:` (a escrita das unidades; acusa o bloco que o soquete recusou, a escrita não confirmada e o
 «sent once» sem pacote 04xx/0A02 no `[detail]`), `nav distances in …` e `dash says it changed a setting` (linha do tempo).
 Desde 22/11/2026: as linhas `engine …` (o motor ligou ou desligou, pelo 0C26 do painel; só registro) entram na linha do tempo.
+Desde 24/11/2026 (A8): (1) uma projeção que o registro deixou sem a marca de desligar não vai mais até a próxima partida: acaba na linha em que o piloto desligou o registro
+(`log switched off`, ou `process end`), ou no último evento dela antes de o app recomeçar (`process start`), ou antes da próxima marca de ligar; a linha do tempo diz "projeção sem fim
+registrado (motivo)" e o resumo por data conta quantas (a de 21/11 12:09 saía com 7 288 s por 5 min de projeção). O arquivo novo do mesmo processo (`continued from`) não fecha nada.
+(2) Uma queda do painel é "moto desligada" pela assinatura dela, não pelo que o registro ainda tinha para mostrar depois: a saída do painel (o `reason 3` do sistema ou, sem log do sistema,
+o Wi-Fi firme que sumiu de uma vez) com o painel que não voltou em 5 min é o fim da viagem (como antes); com o painel que voltou em até 5 min é "painel desligou e religou (moto desligada e ligada
+de novo?)", também fora dos problemas, se a idade do painel no primeiro pacote mostra que ele ligou de novo depois da queda, ou se a queda passou de 256 s (o contador dá a volta e a leitura diz que a
+idade é um mínimo). Painel ligado o tempo todo, ou registro sem a idade, continua "Wi-Fi do painel reiniciou" ou "caiu e voltou". O critério está em `ler_registro.py` (CRITÉRIO DA QUEDA DO PAINEL).
 
 Desde 08/11/2026, noite: a união que o app não viu na varredura mas foi a resposta ao pedido do REau diz o número do pedido (só a que o
 celular fez sozinho, `joined by the phone itself`, diz que foi ele); o aviso de cobertura do logcat do sistema fala de cada buffer (o `main`, pelas etiquetas do `wpa_supplicant`, do Android
@@ -122,6 +129,11 @@ NIVEL = re.compile(r"^([WE]): (.*)$")
 LINHA = re.compile(r"^(\d\d:\d\d:\d\d\.\d{3})\s+(?:\+\s*\d+ms\s+)?(?:\[([\w-]+)\]\s+)?(.*)$")
 LIGOU = ("---- projeção ligada", "==== session start: projection")
 DESLIGOU = ("---- projeção desligada", "==== session end: projection")
+# O que fecha uma projeção que ficou sem a marca de desligar (A8, 24/11/2026: o piloto desligou o registro com a projeção ligada e o leitor a manteve aberta pelos arquivos
+# seguintes até a próxima partida: 7 288 s para 5 min de projeção). Uma projeção não atravessa o fim do registro nem a morte do app; um arquivo novo do mesmo processo
+# (`==== continued from …`, a troca de dia ou de tamanho) não fecha nada.
+FIM_DO_REGISTRO = (("==== log switched off", "registro desligado pelo piloto"), ("==== process end:", "o app terminou"))
+PROCESSO_RECOMECOU = (tempo.PROCESSO_COMECOU, "o app recomeçou")
 TERMICO = ["none", "light", "moderate", "severe", "critical", "emergency", "shutdown"]
 # `dark=2/3m02s (max 1m08s)` in the resumo: the interruptions of the picture on the dash (since 20/10/2026), the longest listed above this.
 DARK = re.compile(r"dark=(\d+)/(\S+) \(max (\S+)\)")
@@ -290,6 +302,17 @@ DEAUTH_DEPOIS_S = 5.0
 # With no system log around the fall, the rider switching the projection off this soon after a fall of a firm Wi-Fi that never came back is read as the same end.
 FIM_DO_DONO_S = 30.0
 SINAIS_DO_WIFI = ("link lost — reconnecting", "bike network lost", "RX watchdog:")
+# CRITÉRIO DA QUEDA DO PAINEL (A8, 24/11/2026). Uma queda do painel é "moto desligada" pela ASSINATURA da queda, nunca pelo que o registro ainda tinha para mostrar depois:
+# a de 10:11:54 (22/11) e a de 11:46:15 (21/11) tinham a mesma (Wi-Fi firme que sumiu de uma vez, o painel calado, a saída avisada pelo próprio painel), mas a primeira foi
+# lida como "Wi-Fi do painel reiniciou" (problema) só porque o painel voltou 276 s depois, e a segunda como fim de viagem só porque o piloto desligou a projeção 13 s depois
+# e o registro não esperou para ver. A leitura agora é a mesma para as duas:
+#   1. a SAÍDA do painel: o `reason 3` do sistema perto da queda (`marcar_fim_de_viagem`) ou, sem log do sistema, o Wi-Fi firme que sumiu de uma vez (`_sumiu_de_uma_vez`);
+#      o sistema ter visto o Wi-Fi sair por outro motivo (ou pelo celular) tira a queda daqui;
+#   2. o painel não voltou em `VOLTA_S` s: moto desligada (fim de viagem, ou o piloto desligou a projeção antes de ver se voltava);
+#   3. o painel voltou em `VOLTA_S` s: é a moto desligada e ligada de novo só se o painel LIGOU DE NOVO (a idade no primeiro pacote é menor que o tempo da queda: `religou`
+#      de `quedas.interrupcoes`) ou se a queda passou de `CONTADOR_VOLTA_S` s, em que o contador de idade dá a volta e não separa as duas coisas (a leitura sai dita como
+#      "a idade é um mínimo"). Se a idade mostra o painel ligado o tempo todo, ou o registro não traz a idade, o Wi-Fi do painel reiniciou ou caiu e voltou, como antes.
+CONTADOR_VOLTA_S = quedas.CONTADOR_VOLTA_S
 VOLTA_DO_PAINEL = ("bike network available", "→ STREAMING")
 # A request for the dash's Wi-Fi that ran out with the dash in the scan: what the driver said around it (`Join Failure Timeout`: the dash did not answer the join in time) and
 # whether another app had the dash's Wi-Fi in the 60 s before (the dash answers one phone at a time, and takes a moment to let go of the other).
@@ -756,16 +779,37 @@ def _caminhadas(linhas):
     return saida
 
 
+class Bloco(list):
+    """As linhas de uma projeção. `sem_fim` diz por que ela acaba sem a marca de desligar (texto curto); vazio quando a marca existe, ou quando o registro simplesmente
+    acaba (a coleta pode ter sido feita com a projeção ainda ligada)."""
+    sem_fim = ""
+
+
 def projecoes(linhas):
-    """As linhas de cada projeção, da marca de ligar à de desligar (ou ao fim do arquivo)."""
-    blocos, atual = [], None
+    """As linhas de cada projeção, da marca de ligar à de desligar. Sem a marca de desligar, a projeção acaba (A8):
+    - no `==== log switched off` (o piloto desligou o registro; a linha entra: é o último momento sabido) ou no `==== process end:`;
+    - na linha antes de um `==== process start:` (o app morreu e recomeçou: a projeção não sobrevive a isso; vale o último evento dela, não o recomeço);
+    - na linha antes da próxima marca de ligar (a anterior nunca disse que parou).
+    Esses blocos levam o motivo em `sem_fim`; o resto do arquivo não é mais dela, mesmo que o arquivo seguinte seja da mesma coleta."""
+    blocos: list[Bloco] = []
+    atual: Bloco | None = None
     for x in linhas:
         if x.texto.startswith(LIGOU):
-            atual = [x]
+            if atual is not None:
+                atual.sem_fim = atual.sem_fim or "outra projeção começou sem a marca de desligar desta"
+            atual = Bloco([x])
             blocos.append(atual)
         elif atual is not None:
+            if x.texto.startswith(PROCESSO_RECOMECOU[0]):
+                atual.sem_fim = PROCESSO_RECOMECOU[1]
+                atual = None
+                continue
             atual.append(x)
-            if x.texto.startswith(DESLIGOU):
+            fim = next((motivo for marca, motivo in FIM_DO_REGISTRO if x.texto.startswith(marca)), None)
+            if fim:
+                atual.sem_fim = fim
+                atual = None
+            elif x.texto.startswith(DESLIGOU):
                 atual = None
     return blocos
 
@@ -809,7 +853,14 @@ def _resumo_da_queda(grupo, bloco):
             causas.append((nome, x.segundos - grupo[0].segundos))
     partes = [nome if atraso < 0.5 else f"{nome} {atraso:.0f} s depois" for nome, atraso in causas]
     volta = _voltou(grupo, bloco)
-    if volta:
+    religou = _painel_religou(grupo, bloco)
+    if religou is not None:
+        quando = volta or f"voltou em {religou['voltou']:.0f} s"
+        ligou = f"; a idade do painel no primeiro pacote mostra que ele ligou de novo {religou['religou']:.0f} s depois da queda" if religou["religou"] is not None else ""
+        minimo = "; a queda passou de 256 s, o contador de idade do painel dá a volta e a idade é um mínimo: não se separa de um Wi-Fi do painel que reiniciou sozinho" if religou["minimo"] else ""
+        saida = [f"{grupo[0].hora}  painel desligou e religou (moto desligada e ligada de novo?): {', '.join(partes)}; {quando}; "
+                 f"{'o sistema registrou a saída do painel (reason 3) às ' + grupo[0].saiu_reason3 if grupo[0].saiu_reason3 else 'sem o log do sistema: o Wi-Fi estava firme e sumiu de uma vez'}{ligou}{minimo}"]
+    elif volta:
         # Another channel is the access point restarting; the same one, or none known, only says it came back.
         reiniciou = "→" in volta and "mesmo canal" not in volta
         saida = [f"{grupo[0].hora}  Wi-Fi do painel {'reiniciou' if reiniciou else 'caiu e voltou'} ({volta})"]
@@ -881,9 +932,10 @@ def _wifi_antes(grupo, bloco):
 def _painel_desligou(grupo, bloco):
     """A queda que é o fim da viagem (o painel desligando junto com a moto), não um problema de rádio. Duas leituras:
     1. o histórico do sinal: um Wi-Fi firme (sinal bom e quase parado nas últimas amostras) que sumiu de uma vez e não voltou em `VOLTA_S`;
-    2. `_fim_de_viagem`: o sistema registrou a saída do painel (`reason 3`), ou, sem log do sistema, o Wi-Fi firme que não voltou e o piloto desligou logo.
+    2. `_fim_de_viagem`: o sistema registrou a saída do painel (`reason 3`), ou, sem log do sistema, o Wi-Fi firme que não voltou e o piloto desligou logo;
+    3. `_painel_religou`: a mesma saída, mas o painel ligou de novo em até `VOLTA_S` s (a moto desligada e ligada de novo).
     Sem o histórico do sinal nem o sistema no registro, não se afirma."""
-    return _desligou_pelo_historico(grupo, bloco) or _fim_de_viagem(grupo, bloco) is not None
+    return _desligou_pelo_historico(grupo, bloco) or _fim_de_viagem(grupo, bloco) is not None or _painel_religou(grupo, bloco) is not None
 
 
 def _desligou_pelo_historico(grupo, bloco):
@@ -897,6 +949,34 @@ def _desligou_pelo_historico(grupo, bloco):
         return False
     amostras = [int(v) for v in historico.group(1).split() if re.fullmatch(r"-?\d+", v)][-AMOSTRAS_RSSI:]
     return bool(amostras) and min(amostras) >= RSSI_FRACO_DBM and max(amostras) - min(amostras) <= RSSI_VARIACAO_DB
+
+
+def _sumiu_de_uma_vez(grupo, bloco):
+    """O Wi-Fi firme (sinal bom e quase parado nas últimas amostras) que sumiu de uma vez: a assinatura do painel desligando. Não olha se o painel voltou (isso é `_painel_religou`)."""
+    if not any("link lost — reconnecting" in x.texto or "bike network lost" in x.texto for x in grupo):
+        return False
+    antes = _wifi_antes(grupo, bloco)
+    historico = HISTORICO_RSSI.search(antes[-1].texto) if antes else None
+    if not historico:
+        return False
+    amostras = [int(v) for v in historico.group(1).split() if re.fullmatch(r"-?\d+", v)][-AMOSTRAS_RSSI:]
+    return bool(amostras) and min(amostras) >= RSSI_FRACO_DBM and max(amostras) - min(amostras) <= RSSI_VARIACAO_DB
+
+
+def _painel_religou(grupo, bloco):
+    """A queda do painel que voltou em até `VOLTA_S` s e é a moto desligada e ligada de novo (ver o CRITÉRIO DA QUEDA DO PAINEL): {"voltou": quanto depois da queda, em s, ou None,
+    "religou": quanto depois da queda a idade diz que o painel ligou, ou None, "minimo": o contador de idade deu a volta (a queda passou de 256 s) e a leitura é por isso}; None se não é."""
+    if not any(s in x.texto for x in grupo for s in SINAIS_DO_WIFI) or not _painel_voltou(grupo, bloco) or grupo[0].sistema_viu_outra_causa:
+        return None
+    if not (grupo[0].saiu_reason3 or _sumiu_de_uma_vez(grupo, bloco)):
+        return None
+    interrupcao = next(iter(quedas.interrupcoes(bloco, [grupo])), None)
+    if interrupcao is None or interrupcao["voltou"] is None:
+        return None
+    longa = interrupcao["total"] >= quedas.CONTADOR_VOLTA_S
+    if interrupcao["religou"] is None and not longa:
+        return None  # a idade mostra o painel ligado o tempo todo (ou o registro não a traz): só o Wi-Fi caiu e voltou
+    return {"voltou": tempo.dif(interrupcao["voltou"].segundos, grupo[0].segundos), "religou": interrupcao["religou"], "minimo": longa}
 
 
 def _painel_voltou(grupo, bloco):
@@ -1169,6 +1249,8 @@ def linha_do_tempo(linhas):
             if id(x) in sem_imagem:
                 saida.append(f"{x.hora}  {quedas.texto_da_interrupcao(sem_imagem[id(x)])}")
             saida += [f"{x.hora}  {novo}" for novo in _eventos_novos(x, bloco)]
+        if bloco.sem_fim:
+            saida.append(f"{bloco[-1].hora}  projeção sem fim registrado ({bloco.sem_fim}): vale até o último evento dela, {tempo.duracao_texto(tempo.dif(bloco[-1].segundos, bloco[0].segundos))} depois de ligar")
     return saida
 
 
@@ -2425,15 +2507,20 @@ def _por_data_e_build(linhas):
     for bloco in projecoes(linhas):
         dia = bloco[0].dia or "sem data"
         build = versoes.get(id(bloco[0])) or "sem versão"
-        n = por.setdefault((dia, build), {"projecoes": 0, "quedas": 0, "fins": 0, "segundos": 0.0})
+        n = por.setdefault((dia, build), {"projecoes": 0, "quedas": 0, "fins": 0, "religadas": 0, "segundos": 0.0, "sem_fim": 0})
         n["projecoes"] += 1
+        n["sem_fim"] += 1 if bloco.sem_fim else 0
         grupos = _grupos_de_queda(bloco)
-        n["fins"] += sum(1 for g in grupos if _painel_desligou(g, bloco))  # the end of the ride (the bike switched off) is told apart from a fall
+        religadas = sum(1 for g in grupos if _painel_religou(g, bloco) is not None)  # the bike switched off and on again: told apart from the end of the ride too
+        n["religadas"] += religadas
+        n["fins"] += sum(1 for g in grupos if _painel_desligou(g, bloco)) - religadas  # the end of the ride (the bike switched off) is told apart from a fall
         n["quedas"] += len(grupos) - sum(1 for g in grupos if _painel_desligou(g, bloco))
         n["segundos"] += tempo.dif(bloco[-1].segundos, bloco[0].segundos)
     return [f"{dia[8:10] + '/' + dia[5:7] if len(dia) == 10 else dia}: build {build}: {n['projecoes']} {'projeção' if n['projecoes'] == 1 else 'projeções'}, "
             f"{tempo.duracao_texto(n['segundos'])} ligada{'s' if n['projecoes'] != 1 else ''}, {n['quedas']} {'queda' if n['quedas'] == 1 else 'quedas'}"
-            + (f", {n['fins']} {'fim de viagem' if n['fins'] == 1 else 'fins de viagem'}" if n["fins"] else "") for (dia, build), n in sorted(por.items())]
+            + (f", {n['fins']} {'fim de viagem' if n['fins'] == 1 else 'fins de viagem'}" if n["fins"] else "")
+            + (f", {n['religadas']} {'moto desligada e religada' if n['religadas'] == 1 else 'motos desligadas e religadas'}" if n["religadas"] else "")
+            + (f", {n['sem_fim']} sem fim registrado" if n["sem_fim"] else "") for (dia, build), n in sorted(por.items())]
 
 
 def _sinal_antes_dbm(grupo, bloco):
