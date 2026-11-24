@@ -70,6 +70,15 @@ class SettingsStore(private val prefs: SharedPreferences) {
     /** The assistant was finished or skipped: it never opens by itself again (the rider can still open it by hand). */
     fun fitAssistantSeen() = prefs.edit { putBoolean(KEY_FIT_ASSISTANT, true) }
 
+    /**
+     * REau already asked Android for the notification permission (Ligar or the permissions page asked, or it was found granted): from then on a
+     * blocked app is a refusal and the main screen's alert card says so; before it, on a clean install, nobody has refused anything and the card
+     * stays away ([com.reau.app.ui.AlertRoute]). Asking writes nothing.
+     */
+    fun notificationsAsked(): Boolean = prefs.getBoolean(KEY_NOTIFICATIONS_ASKED, false)
+
+    fun notificationsAskedNow() = prefs.edit { putBoolean(KEY_NOTIFICATIONS_ASKED, true) }
+
     /** The mark once it is written; before it, whether a fit is stored. [ownFit]: a fit that is not the factory one is being saved. */
     private fun fitAssistantDone(ownFit: Boolean): Boolean = when {
         ownFit -> true
@@ -376,6 +385,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val KEY_CROP_CENTER_X = "crop_center_x"
         private const val KEY_CROP_CENTER_Y = "crop_center_y"
         private const val KEY_FIT_ASSISTANT = "fit_assistant_done_20261113"
+        private const val KEY_NOTIFICATIONS_ASKED = "notifications_asked_20261124"
         private const val KEY_MOVE_X = "move_x"
         private const val KEY_MOVE_Y = "move_y"
         /** The preferences of the navigation apps' own fit. */

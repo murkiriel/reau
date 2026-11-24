@@ -74,7 +74,7 @@ internal fun Warning(warning: Warning, state: MainUiState, onOpenAndroidAutoSett
             warn, R.drawable.ic_ms_error, stringResource(R.string.warn_location_title), stringResource(R.string.warn_location),
             null, null, tag = "location_warning",
         )
-        Warning.ALERTS_MUTED, Warning.ALERTS_BLOCKED -> AlertWarning(warning, extras.onOpenAlertSettings)
+        Warning.ALERTS_MUTED, Warning.ALERTS_BLOCKED -> AlertWarning(warning, state.alertRoute, extras.onOpenAlertSettings)
         Warning.NAME_NEEDED -> WarningCard(
             StatusKind.ERROR, R.drawable.ic_ms_error, stringResource(R.string.warn_name_title), stringResource(R.string.dash_name_warning),
             null, CardAction(stringResource(R.string.action_open_bike_data_short), "name_open_settings", extras.onOpenWifi),
@@ -83,18 +83,22 @@ internal fun Warning(warning: Warning, state: MainUiState, onOpenAndroidAutoSett
     }
 }
 
-/** The card for the alert channel muted or blocked in Android, with the way to Android's page of the channel. */
+/** The card for the alert channel muted or blocked in Android, with the way out: Android's window for the permission, or the page of the app or of the channel. */
 @Composable
-private fun AlertWarning(warning: Warning, onOpenAlertSettings: () -> Unit) {
+private fun AlertWarning(warning: Warning, route: AlertRoute.Route, onOpenAlertSettings: () -> Unit) {
     val muted = warning == Warning.ALERTS_MUTED
     WarningCard(
         StatusKind.CONNECTING, R.drawable.ic_ms_error,
         stringResource(if (muted) R.string.warn_alerts_muted_title else R.string.warn_alerts_blocked_title),
         stringResource(if (muted) R.string.warn_alerts_muted else R.string.warn_alerts_blocked),
-        null, CardAction(stringResource(R.string.action_open_alert_settings), "open_alert_settings", onOpenAlertSettings),
+        null, CardAction(stringResource(alertActionLabel(route)), "open_alert_settings", onOpenAlertSettings),
         tag = if (muted) "alerts_muted_warning" else "alerts_blocked_warning",
     )
 }
+
+/** "Permitir os avisos" when the button asks for the permission; the settings' words when it opens a page. */
+internal fun alertActionLabel(route: AlertRoute.Route): Int =
+    if (route == AlertRoute.Route.ASK_PERMISSION) R.string.action_allow_alerts else R.string.action_open_alert_settings
 
 /** The "Android Auto does not answer" card: how to restart its server, in Android Auto's own menu. */
 @Composable

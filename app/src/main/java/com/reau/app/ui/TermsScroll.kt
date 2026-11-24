@@ -1,30 +1,11 @@
 package com.reau.app.ui
 
-import kotlin.math.roundToLong
-
 /**
- * The pace at which the "Descer até o fim" button carries the terms to their end: a steady scroll, slow enough for the
- * eye to see the text go by (as if it were being read), not a jump.
+ * How long the "Descer até o fim" button takes to carry the terms to their end: always one second, a steady scroll the eye can see go by,
+ * whatever the length of the text and the density of the screen (the owner's decision of 24/11/2026; before it the time followed the distance,
+ * from 1 to 2 s). A touch on the text stops it at any time. When there is nothing to roll (the text fits the screen) there is no scroll at all.
  */
 object TermsScroll {
-    /**
-     * The pace in dp per second, the same on any density: about a screen and a half a second, a text the eye can follow as it goes
-     * by. (It was 1,800, three times quicker, but a 1 s ceiling made it a jump that nobody could see.)
-     */
-    const val DP_PER_SECOND = 600f
-
-    /** Never quicker than this, however short the distance: the rider must see the text roll. */
-    const val MIN_MS = 1_000
-
-    /** Never slower than this, however long the text: the rider is not kept waiting; the whole roll takes 1 to 2 s (a touch on the text stops it at any time). */
-    const val MAX_MS = 2_000
-
-    private const val MS_PER_SECOND = 1_000L
-
-    /** How long to scroll [distancePx] at [DP_PER_SECOND], on a screen of [density] px per dp, kept between [MIN_MS] and [MAX_MS]. */
-    fun durationMs(distancePx: Int, density: Float): Int {
-        if (distancePx <= 0 || density <= 0f) return MIN_MS
-        val ms = (distancePx.toDouble() / (DP_PER_SECOND * density) * MS_PER_SECOND).roundToLong()
-        return ms.coerceIn(MIN_MS.toLong(), MAX_MS.toLong()).toInt()
-    }
+    /** The whole roll, from where the text is to its end. */
+    const val DURATION_MS = 1_000
 }

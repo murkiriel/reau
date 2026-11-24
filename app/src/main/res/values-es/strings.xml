@@ -93,6 +93,7 @@
     <string name="battery_saver_on">El ahorro de batería está activado: con la pantalla apagada, Android corta la red y la ubicación de las apps en segundo plano (la tarjeta de GPS del anillo de información puede entonces llegar con retraso). REau sigue funcionando gracias a su notificación fija; si el tablero o Android Auto se cae, desactiva el ahorro de batería.</string>
     <string name="action_battery_saver">Abrir el ahorro de batería</string>
     <string name="action_open_alert_settings">Abrir los ajustes de los avisos</string>
+    <string name="action_allow_alerts">Permitir los avisos</string>
     <string name="aa_screen_mask">Máscara del tablero: oscurece lo que no llega al cristal redondo del tablero, según el ajuste elegido abajo, y muestra dónde está el aro del tablero</string>
     <string name="gemini">Gemini con el joystick: escucha por el auricular Bluetooth del casco o, sin uno, por el micrófono del teléfono. Viene activado, pero el micrófono sigue cerrado hasta que se conceda el permiso (acceso Permisos). Este interruptor es lo que hace funcionar la acción \"Gemini\" de la página del joystick, y un cambio se aplica la próxima vez que enciendas.</string>
     <string name="aa_screen_view_only">Solo vista: tocar aquí no llega a Android Auto. El tablero sigue recibiendo la imagen con normalidad.</string>

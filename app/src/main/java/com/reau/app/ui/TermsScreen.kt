@@ -31,7 +31,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -56,7 +55,7 @@ import kotlinx.coroutines.withContext
  * else until the current version is accepted: the three tabs (the Portuguese first), no way back to the app, the two
  * buttons at the foot ("Li e aceito" / "Não aceito", in the language of the tab) and the system's back as a refusal. The two buttons only appear
  * once the text has been read to its end (scrolled there, or taken there by the one button the foot shows until then,
- * "Descer até o fim", which rolls the text on steadily at a reading pace, [TermsScroll], and which a touch on the text
+ * "Descer até o fim", which rolls the text on steadily in one second, [TermsScroll], and which a touch on the text
  * interrupts); a text that fits the screen counts as read. Without it, from the
  * settings, it is only a page to read, in the app's own language alone.
  */
@@ -113,7 +112,6 @@ private object FullSpeedClock : MotionDurationScale {
 @Composable
 private fun TermsFoot(readToEnd: Boolean, language: Int, scroll: ScrollState, onAccept: () -> Unit, onDecline: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val density = LocalDensity.current.density
     // True while the button is rolling the text by itself; a touch on the text cancels the roll and clears it.
     var autoScrolling by remember { mutableStateOf(false) }
     Row(
@@ -134,11 +132,11 @@ private fun TermsFoot(readToEnd: Boolean, language: Int, scroll: ScrollState, on
                     scope.launch {
                         autoScrolling = true
                         try {
-                            val distance = scroll.maxValue - scroll.value
-                            val ms = TermsScroll.durationMs(distance, density)
-                            // Nothing left to roll (the text fits): no animation, the end is already here.
-                            if (distance > 0) {
-                                withContext(FullSpeedClock) { scroll.animateScrollTo(scroll.maxValue, tween<Float>(ms, easing = LinearEasing)) }
+                            // Nothing left to roll (the text fits): no animation, the end is already here; else always one second.
+                            if (scroll.maxValue - scroll.value > 0) {
+                                withContext(FullSpeedClock) {
+                                    scroll.animateScrollTo(scroll.maxValue, tween<Float>(TermsScroll.DURATION_MS, easing = LinearEasing))
+                                }
                             }
                         } finally {
                             // Also on a rider's drag, which cancels the roll: the button is "Descer até o fim" again.

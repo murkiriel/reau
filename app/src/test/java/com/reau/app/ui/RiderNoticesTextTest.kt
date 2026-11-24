@@ -39,7 +39,7 @@ class RiderNoticesTextTest {
 
     private val newNames = listOf(
         "notif_title_bind_refused", "notif_text_bind_refused", "warn_alerts_muted_title", "warn_alerts_muted", "warn_alerts_blocked_title",
-        "warn_alerts_blocked", "action_open_alert_settings",
+        "warn_alerts_blocked", "action_open_alert_settings", "action_allow_alerts",
     )
 
     @Test

@@ -63,7 +63,8 @@ class MainActivity : ComponentActivity() {
 
     private var permissionRows by mutableStateOf(emptyList<com.reau.app.settings.AppPermissions.Row>())
     // The permissions page asks for what is missing; the rows are read again after.
-    private val askPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+    private val askPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { answers ->
+        notificationsAsked(answers)
         permissionRows = PermissionRows.read(this)
     }
     internal val askRuntime: (List<String>) -> Unit = { askPermissions.launch(it.toTypedArray()) }
@@ -90,6 +91,7 @@ class MainActivity : ComponentActivity() {
     // Android 13+ asks before the projection's notification may show and, while the dash's whole name is not known,
     // for the location, only for the Wi-Fi list (StartAsks); the projection starts either way.
     private val askBeforeStart = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { answers ->
+        notificationsAsked(answers)
         answers[StartAsks.FINE_LOCATION]?.let { wifiListAnswered(it) }
         if (startingCard) ProjectionService.startCard(this) else ProjectionService.start(this)
     }
@@ -105,6 +107,22 @@ class MainActivity : ComponentActivity() {
 
     // Whether the alert channel would be heard (read at each return to the screen): muted or blocked in Android, the main screen says so.
     private var alertLevel by mutableStateOf(com.reau.app.service.AlertChannelState.Level.LOUD)
+    private var alertRoute by mutableStateOf(com.reau.app.ui.AlertRoute.Route.NONE)
+
+    // The alert card's "Permitir os avisos": Android's window for the notification permission (13+); when it was launched, to tell a window
+    // the rider answered from one Android never showed (AlertRoute.openAppPageAfter).
+    private var askedNotificationsAtMs = 0L
+    private val askNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        com.reau.app.ui.AlertSettings.answered(this, granted, askedNotificationsAtMs)
+        readAlertLevel()
+        permissionRows = PermissionRows.read(this)
+    }
+
+    /** The notification permission was among what Android just asked: REau has asked, and a blocked app is a refusal now (AlertRoute). */
+    private fun notificationsAsked(answers: Map<String, Boolean>) {
+        if (StartAsks.NOTIFICATIONS in answers) SettingsStore.open(this).notificationsAskedNow()
+        readAlertLevel()
+    }
 
     // Whether the old "lite" app is installed (read at each return to the screen), for the main screen's card and note.
     private var otherEditionInstalled by mutableStateOf(false)
@@ -325,13 +343,18 @@ class MainActivity : ComponentActivity() {
             startedAtMs = startedAt, dashName = dashName, permissionsMissing = permissionsMissing(settings), vpnHoldsREau = vpnHoldsREau,
             locationOff = locationOff,
             alertLevel = alertLevel,
+            alertRoute = alertRoute,
             otherEditionInstalled = otherEditionInstalled,
             weatherOn = settings.dashWeather,
         )
 
     /** Reads whether the alert channel would be heard; the ride log says it when it changes (and the main screen's card follows [alertLevel]). */
     private fun readAlertLevel() {
-        val level = com.reau.app.service.AlertChannelState.read(this)
+        val read = com.reau.app.service.AlertChannelState.read(this)
+        val route = com.reau.app.ui.AlertSettings.routeNow(this, read)
+        // On a clean install, before REau asked for the permission, the card waits: nobody has refused anything (AlertRoute).
+        val level = if (route == com.reau.app.ui.AlertRoute.Route.NONE) com.reau.app.service.AlertChannelState.Level.LOUD else read
+        alertRoute = route
         if (level != alertLevel) {
             val line = com.reau.app.service.AlertChannelState.line(level)
             if (line != null) RideDiagnostics.warn("ui", line) else RideDiagnostics.log("ui", "alerts: the alert channel would be heard again")
@@ -350,7 +373,12 @@ class MainActivity : ComponentActivity() {
         onShowAndroidAuto = onShowAndroidAuto,
         onAskBatteryExemption = { com.reau.app.ui.BatteryWatch.askExemption(this) },
         onOpenBatterySaver = { com.reau.app.ui.BatteryWatch.openSaver(this) },
-        onOpenAlertSettings = { com.reau.app.ui.AlertSettings.open(this) },
+        onOpenAlertSettings = {
+            com.reau.app.ui.AlertSettings.open(this) {
+                askedNotificationsAtMs = com.reau.app.util.MonotonicClock.nowMs()
+                askNotifications.launch(StartAsks.NOTIFICATIONS)
+            }
+        },
         onOpenWifiPanel = { com.reau.app.service.WifiPanel.open(this) },
     )
 

@@ -93,6 +93,7 @@
     <string name="battery_saver_on">Economia de bateria ligada: com a tela apagada, o Android corta a rede e a localização de quem está em segundo plano (o cartão de GPS do anel de informações pode atrasar). O REau segue pela notificação fixa; se o painel ou o Android Auto cair, desligue a economia.</string>
     <string name="action_battery_saver">Abrir a economia de bateria</string>
     <string name="action_open_alert_settings">Abrir configurações dos avisos</string>
+    <string name="action_allow_alerts">Permitir os avisos</string>
     <string name="aa_screen_mask">Máscara do painel: escurece o que não chega ao vidro redondo do painel, com o encaixe escolhido abaixo, e mostra onde fica o anel do painel</string>
     <string name="gemini">Gemini pelo joystick: ele ouve pelo fone Bluetooth do capacete ou, sem ele, pelo microfone do celular. Vem ligado, mas o microfone fica fechado até a permissão ser liberada (atalho Permissões). É esta chave que faz funcionar a ação \"Gemini\" da página do Joystick, e uma mudança vale na próxima vez que ligar.</string>
     <string name="aa_screen_view_only">Só para ver: o toque aqui não chega ao Android Auto. O painel continua recebendo a imagem normalmente.</string>

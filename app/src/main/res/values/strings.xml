@@ -93,6 +93,7 @@
     <string name="battery_saver_on">Battery saver is on: with the screen off, Android cuts the network and location for background apps (the GPS card of the info ring can then be late). REau keeps going thanks to its pinned notification; if the dash or Android Auto drops, turn battery saver off.</string>
     <string name="action_battery_saver">Open battery saver</string>
     <string name="action_open_alert_settings">Open alert settings</string>
+    <string name="action_allow_alerts">Allow the alerts</string>
     <string name="aa_screen_mask">Dash mask: darkens what doesn’t reach the dash’s round glass, using the fit chosen below, and shows where the dash ring is</string>
     <string name="gemini">Gemini by joystick: it listens through the helmet’s Bluetooth headset or, without one, the phone’s microphone. On by default, but the microphone stays closed until its permission is granted (Permissions shortcut). This switch is what makes the \"Gemini\" action on the Joystick page work, and a change applies the next time you turn on.</string>
     <string name="aa_screen_view_only">View only: touch here doesn’t reach Android Auto. The dash keeps receiving the picture normally.</string>

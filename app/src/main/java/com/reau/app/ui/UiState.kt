@@ -25,6 +25,8 @@ data class MainUiState(
     val locationOff: Boolean = false,
     /** Whether the alert channel (stuck dash, refused network, hot phone) would be heard, or is muted or blocked in Android. */
     val alertLevel: com.reau.app.service.AlertChannelState.Level = com.reau.app.service.AlertChannelState.Level.LOUD,
+    /** What the alert card's button does ([AlertRoute]): asking for the notification permission changes its words. */
+    val alertRoute: AlertRoute.Route = AlertRoute.Route.NONE,
     /** The old "lite" app is installed too ([com.reau.app.OtherEdition]): it may be holding Android Auto's server, and it can be uninstalled. */
     val otherEditionInstalled: Boolean = false,
     /** REau's own version, under Android Auto's at the foot. */
