@@ -62,12 +62,27 @@ class MainActivity : ComponentActivity() {
     private var onScreen by mutableStateOf(false)
 
     private var permissionRows by mutableStateOf(emptyList<com.reau.app.settings.AppPermissions.Row>())
+    // When the page's window was launched, to tell a window the rider answered from one Android never showed (AppPermissions.openAppPageAfter).
+    private var askedPermissionsAtMs = 0L
     // The permissions page asks for what is missing; the rows are read again after.
     private val askPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { answers ->
         notificationsAsked(answers)
         permissionRows = PermissionRows.read(this)
+        permissionsAnswered(answers)
     }
-    internal val askRuntime: (List<String>) -> Unit = { askPermissions.launch(it.toTypedArray()) }
+    internal val askRuntime: (List<String>) -> Unit = {
+        askedPermissionsAtMs = com.reau.app.util.MonotonicClock.nowMs()
+        askPermissions.launch(it.toTypedArray())
+    }
+
+    /** Something asked is still refused and no window can have been shown (Android refuses by itself after two refusals): the app's page in Android opens. */
+    private fun permissionsAnswered(answers: Map<String, Boolean>) {
+        val elapsed = com.reau.app.util.MonotonicClock.nowMs() - askedPermissionsAtMs
+        if (!com.reau.app.settings.AppPermissions.openAppPageAfter(answers, elapsed)) return
+        val refused = answers.count { !it.value }
+        RideDiagnostics.log("ui", "the permissions page asked, Android refused with no window ($refused of ${answers.size}): the app's page opened")
+        PermissionRows.openAppSettings(this)
+    }
 
     // Battery saver and the exemption, read again at each return to the screen and when battery saver flips.
     private var battery by mutableStateOf(com.reau.app.ui.BatteryUi())

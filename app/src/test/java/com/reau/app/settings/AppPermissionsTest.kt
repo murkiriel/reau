@@ -1,5 +1,6 @@
 package com.reau.app.settings
 
+import com.reau.app.R
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -72,8 +73,48 @@ class AppPermissionsTest {
             granted = { false },
             batteryExempt = false,
         )
-        assertEquals(4, rows.size)
+        assertEquals("the special access, the location (one row) and the internet", 3, rows.size)
         assertEquals(rows.size, rows.map { it.explained.permission }.toSet().size)
+    }
+
+    private val fine = "android.permission.ACCESS_FINE_LOCATION"
+    private val coarse = "android.permission.ACCESS_COARSE_LOCATION"
+
+    private fun locationRows(requested: List<String>, granted: Set<String>) =
+        AppPermissions.rows(requested, { it in granted }, batteryExempt = false).filter { it.explained.permission in setOf(fine, coarse) }
+
+    @Test
+    fun `the two location permissions are one row, the precise one, with the location text`() {
+        val rows = locationRows(listOf(coarse, fine), granted = emptySet())
+        assertEquals(listOf(fine), rows.map { it.explained.permission })
+        assertEquals(R.string.perm_location_title, rows.single().explained.title)
+        assertEquals(R.string.perm_location_why, rows.single().explained.why)
+        assertEquals("the order they were asked in does not matter", rows, locationRows(listOf(fine, coarse), granted = emptySet()))
+    }
+
+    @Test
+    fun `the merged location row is granted when the precise one is, whatever the approximate one is`() {
+        assertEquals(true, locationRows(listOf(fine, coarse), granted = setOf(fine)).single().granted)
+        assertEquals(true, locationRows(listOf(fine, coarse), granted = setOf(fine, coarse)).single().granted)
+        assertEquals("the approximate one alone does not open the Wi-Fi list", false, locationRows(listOf(fine, coarse), granted = setOf(coarse)).single().granted)
+        assertEquals(false, locationRows(listOf(fine, coarse), granted = emptySet()).single().granted)
+    }
+
+    @Test
+    fun `a location permission asked alone keeps its own row, as it is`() {
+        assertEquals(listOf(fine to true), locationRows(listOf(fine), granted = setOf(fine)).map { it.explained.permission to it.granted })
+        assertEquals(listOf(coarse to false), locationRows(listOf(coarse), granted = setOf(fine)).map { it.explained.permission to it.granted })
+        assertEquals(listOf(coarse to true), locationRows(listOf(coarse), granted = setOf(coarse)).map { it.explained.permission to it.granted })
+    }
+
+    @Test
+    fun `the merged row still asks for both location permissions and counts once`() {
+        val rows = AppPermissions.rows(listOf(fine, coarse), { false }, batteryExempt = true)
+        val row = rows.single { it.explained.permission == fine }
+        assertEquals(AppPermissions.Ask.Runtime(listOf(fine, coarse)), AppPermissions.ask(row, 34, locationAllowed = true))
+        assertEquals(1, AppPermissions.missing(rows, 34, locationAllowed = true))
+        assertEquals(listOf(fine, coarse), AppPermissions.askAll(rows, 34, locationAllowed = true))
+        assertEquals(0, AppPermissions.missing(rows, 34, locationAllowed = false))
     }
 
     @Test

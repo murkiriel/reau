@@ -2,6 +2,7 @@ package com.reau.app.settings
 
 import androidx.annotation.StringRes
 import com.reau.app.R
+import com.reau.app.ui.AlertRoute
 
 /**
  * The permissions page: every permission REau asks for, what it is for, and whether it
@@ -57,7 +58,9 @@ object AppPermissions {
     private const val TIRAMISU = 33
     private const val MICROPHONE = P + "RECORD_AUDIO"
     private val PHONE = listOf(P + "ANSWER_PHONE_CALLS", P + "READ_PHONE_STATE")
-    private val LOCATION = listOf(P + "ACCESS_FINE_LOCATION", P + "ACCESS_COARSE_LOCATION")
+    private const val FINE_LOCATION = P + "ACCESS_FINE_LOCATION"
+    private const val COARSE_LOCATION = P + "ACCESS_COARSE_LOCATION"
+    private val LOCATION = listOf(FINE_LOCATION, COARSE_LOCATION)
     private val SINCE_TIRAMISU = setOf(P + "POST_NOTIFICATIONS")
 
     /**
@@ -117,12 +120,26 @@ object AppPermissions {
 
     /**
      * The page's rows: the special access, then every permission in [requested] (what Android says the installed
-     * app asks for), known ones in the catalog's order and the rest after them, each once.
+     * app asks for), known ones in the catalog's order and the rest after them, each once. The two location
+     * permissions are asked together and told with one text, so they make one row, the precise one: REau needs it for
+     * the Wi-Fi list, so the row is granted only when it is (the approximate one alone does not open the list).
      */
     fun rows(requested: List<String>, granted: (String) -> Boolean, batteryExempt: Boolean): List<Row> {
         val special = listOf(Row(explain(BATTERY), batteryExempt))
         val order = catalog.withIndex().associate { (i, e) -> e.permission to i }
-        val asked = requested.distinct().sortedBy { order[it] ?: Int.MAX_VALUE }.map { Row(explain(it), granted(it)) }
+        val names = requested.distinct()
+        val merged = if (FINE_LOCATION in names && COARSE_LOCATION in names) names - COARSE_LOCATION else names
+        val asked = merged.sortedBy { order[it] ?: Int.MAX_VALUE }.map { Row(explain(it), granted(it)) }
         return special + asked
     }
+
+    /**
+     * After Android's window for [answers] (permission to whether it was granted): the app's page in Android's settings
+     * opens when something asked is still refused and the answer came back sooner than a person can read and answer a
+     * window ([elapsedMs] below [AlertRoute.WINDOW_MIN_MS]). Android answers "denied" by itself, with no window, once the
+     * rider has refused twice; the button would then do nothing the rider can see. A window closed with no answer
+     * (an empty [answers]) has nothing refused.
+     */
+    fun openAppPageAfter(answers: Map<String, Boolean>, elapsedMs: Long): Boolean =
+        answers.values.any { !it } && elapsedMs < AlertRoute.WINDOW_MIN_MS
 }

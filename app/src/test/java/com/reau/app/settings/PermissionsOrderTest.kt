@@ -27,7 +27,7 @@ class PermissionsOrderTest {
     fun `the ones the rider grants go from what the connection needs to what only serves a switch`() {
         assertEquals(
             listOf(
-                "ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", // the full Wi-Fi name of the bike, or no automatic connection
+                "ACCESS_FINE_LOCATION", // the full Wi-Fi name of the bike, or no automatic connection (one row for it and the approximate one)
                 "POST_NOTIFICATIONS", // the projection's own notification and its off button
                 "ANSWER_PHONE_CALLS", "READ_PHONE_STATE", // calls by the joystick (a switch)
                 "RECORD_AUDIO", // Gemini by the joystick (a switch)
