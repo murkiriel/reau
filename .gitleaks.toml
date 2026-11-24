@@ -15,3 +15,7 @@ regexes = ['''dGhlIHNhbXBsZSBub25jZQ==''']   # the RFC's sample nonce itself: th
 [[allowlists]]
 description = "The made-up dash Wi-Fi name the log reader's tests use in their sample lines (configKey=\"RE_AB12_345678\"): a sample, not a network"
 regexes = ['''RE_AB12_345678''']
+
+[[allowlists]]
+description = "The name of the settings' mark that the notification permission was asked (notifications_asked_20261124): a preference key, not a secret"
+regexes = ['''notifications_asked_20261124''']
