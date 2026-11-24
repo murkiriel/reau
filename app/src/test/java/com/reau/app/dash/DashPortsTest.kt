@@ -2,6 +2,8 @@ package com.reau.app.dash
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.DatagramSocket
@@ -48,5 +50,30 @@ class DashPortsTest {
     fun `the port checked for the dash is the one it answers on`() {
         assertEquals(2002, DashPorts.DASH_RX_PORT)
         assertEquals(DashSocket.RX_PORT, DashPorts.DASH_RX_PORT)
+    }
+
+    @Test
+    fun `a bind that fails says the exception and its message for the log, and one that works says nothing`() {
+        val port = freePort()
+        assertNull(DashPorts.bindFailure(port))
+        DatagramSocket(null).use { other ->
+            other.bind(InetSocketAddress(port))
+            val why = DashPorts.bindFailure(port)
+            assertNotNull(why)
+            assertTrue(why, why!!.startsWith("BindException: "))
+            assertFalse("the failure is the system's own words", why.contains("\n"))
+        }
+    }
+
+    @Test
+    fun `the receive port decides and the log hears nothing when it is free, or says both ports when it is not`() {
+        val said = mutableListOf<String>()
+        val free = DashPorts.receivePortFree { said += it }
+        if (free) assertTrue("nothing told for a port that binds", said.isEmpty())
+        else {
+            assertEquals(1, said.size)
+            assertTrue(said[0], said[0].startsWith("could not bind UDP 2002 ("))
+            assertTrue(said[0], said[0].contains("UDP 2000"))
+        }
     }
 }

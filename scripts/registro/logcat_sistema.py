@@ -298,3 +298,118 @@ FALHA_DE_ENTRADA = ("lim_process_join_failure_timeout", "Join Failure Timeout")
 def falhas_de_entrada(caminhos, ano):
     """Os instantes (datetime, em ordem) das falhas de entrada numa rede Wi-Fi que o driver registrou (`FALHA_DE_ENTRADA`)."""
     return sorted(quando for quando, _ in _cruas(caminhos, ano, FALHA_DE_ENTRADA))
+
+
+# O TIPO de cada perda do Wi-Fi do painel, pelo que o driver e o `wpa_supplicant` dizem em volta da queda (plano 32). Quatro tipos, e `?` sem logcat do sistema na hora:
+#   A  o painel saiu: o ponto de acesso do painel mandou `Deauth RX … reason 3` (`DEAUTH_LEAVING`, `LG: 0`, o `wpa_supplicant` sem `locally_generated=1`): a ignição desligou;
+#   B  o painel sumiu do ar: `ROAM_TRIGGER … "BEACON MISS"` ou `QCA_DISCONNECT_REASON_BEACON_MISS_FAILURE` (reason 0; o dumpsys do Wi-Fi o conta como -1), sem aviso de saída antes;
+#   C  o painel parou de responder com o Wi-Fi no ar: `STA kickout … reason:2` / `QCA_DISCONNECT_REASON_PEER_INACTIVITY` (reason 1) sem nenhum `BEACON MISS`;
+#   D  4-way recusado: `Deauth RX … reason 15` / `WLAN_REASON_4WAY_HANDSHAKE_TIMEOUT`, a assinatura do painel travado (21/11/2026 07:25).
+# A ganha de D, que ganha de B, que ganha de C: o aviso de saída explica tudo o que vem depois; o 4-way recusado vem DEPOIS da queda (o celular tenta entrar de novo) e diz mais do
+# que o kickout que o abriu (21/11 07:25 tem kickout e 4-way); o `BEACON MISS` vem junto do kickout (10:01 de 21/11) e o diz melhor. O driver escreve a hora do logcat até 3 s antes da
+# do `wpa_supplicant` (21/11 07:47: `07:47:24.0` e `07:47:27.1` para o mesmo evento), então a janela olha para trás mais do que para a frente.
+TIPO_SAIU, TIPO_SUMIU, TIPO_CALOU, TIPO_RECUSADO, TIPO_SEM_LOGCAT = "A", "B", "C", "D", "?"
+PERDA_ANTES_S = 20.0  # o sinal do sistema até tanto antes da primeira linha da queda
+PERDA_DEPOIS_SAIU_S = 5.0  # o aviso de saída vem na hora; mais tarde que isso já é o da queda seguinte
+PERDA_DEPOIS_S = 15.0  # o `BEACON MISS` e o kickout vêm até ~9 s depois da primeira linha (o vigia do app cala o painel antes de o sistema desistir: 21/11 11:46)
+PERDA_DEPOIS_4WAY_S = 30.0  # o 4-way recusado é a nova tentativa do celular, 8 a 11 s depois (21/11 07:25)
+PERDA_ANTES_4WAY_S = 5.0
+SINAL_SAIU, SINAL_SUMIU, SINAL_INATIVIDADE, SINAL_4WAY = "saiu", "sumiu", "inatividade", "4way"
+MOTIVO_4WAY = 15
+MARCAS_DA_PERDA = ("Deauth RX", "Disconnect reason", "CTRL-EVENT-DISCONNECTED", "STA kickout", "BEACON MISS")
+SinalDaPerda = namedtuple("SinalDaPerda", "quando sinal")
+TipoDaPerda = namedtuple("TipoDaPerda", "tipo quando coberto")
+NOME_DO_TIPO = {
+    TIPO_SAIU: "o painel saiu",
+    TIPO_SUMIU: "o painel sumiu do ar",
+    TIPO_CALOU: "o painel parou de responder com o Wi-Fi no ar",
+    TIPO_RECUSADO: "4-way recusado",
+    TIPO_SEM_LOGCAT: "sem logcat do sistema na hora",
+}
+PROVA_DO_TIPO = {
+    TIPO_SAIU: "o ponto de acesso do painel avisou que estava saindo (reason 3, DEAUTH_LEAVING; a ignição desligou)",
+    TIPO_SUMIU: "o celular parou de ouvir o painel (BEACON MISS), sem aviso de saída",
+    TIPO_CALOU: "o ponto de acesso expulsou o celular por inatividade (STA kickout, PEER_INACTIVITY), sem BEACON MISS",
+    TIPO_RECUSADO: "o painel recusou o aperto de mão de 4 vias (reason 15, 4WAY_HANDSHAKE_TIMEOUT; painel travado, só desligar e ligar a ignição resolve)",
+}
+COBERTURA_PERDA_MIN = 20  # linhas do logcat (sem a enchente térmica) na janela da queda para dizer que ele cobre a hora
+COBERTURA_PERDA_BALDE_S = 10
+
+
+def _sinal_da_linha(bruta):
+    """SINAL_* que a linha crua do driver, do `wpa_supplicant` ou do `STA kickout` conta, ou None. Só o nome do sinal: nunca o endereço."""
+    if "BEACON MISS" in bruta:
+        return SINAL_SUMIU
+    if "STA kickout" in bruta:
+        return SINAL_INATIVIDADE
+    if "Deauth RX" in bruta and (m := DEAUTH_RX.search(bruta)):
+        motivo, local = int(m.group(1)), False
+    elif "Disconnect reason" in bruta and (m := DESCONEXAO_HDD.search(bruta)):
+        motivo, local = int(m.group(1)), m.group(2) == "1"
+        if "BEACON_MISS_FAILURE" in bruta:
+            return SINAL_SUMIU
+        if "PEER_INACTIVITY" in bruta:
+            return SINAL_INATIVIDADE
+    elif "CTRL-EVENT-DISCONNECTED" in bruta and (m := DESCONEXAO_WPA.search(bruta)):
+        motivo, local = int(m.group(1)), m.group(2) == "1"
+    else:
+        return None
+    if motivo == MOTIVO_4WAY:
+        return SINAL_4WAY
+    return SINAL_SAIU if motivo == 3 and not local else None
+
+
+def sinais_da_perda(caminhos, ano):
+    """(sinais, cobertura) dos `logcat-sistema*.txt`: os `SinalDaPerda(quando, sinal)` em ordem de hora e quantas linhas o logcat tem em cada balde de `COBERTURA_PERDA_BALDE_S` s
+    (a chave é `MM-DD HH:MM:D`, dezenas de segundos), sem a enchente térmica. Uma passada só pelo arquivo, que pode ter milhões de linhas."""
+    sinais, cobertura = [], {}
+    for a in arquivos(caminhos):
+        with open(a, encoding="utf-8", errors="replace") as f:
+            for bruta in f:
+                if len(bruta) < 19 or bruta[2] != "-" or bruta[5] != " " or ENCHENTE_TERMICA[0] in bruta or ENCHENTE_TERMICA[1] in bruta:
+                    continue
+                balde = bruta[:13]
+                cobertura[balde] = cobertura.get(balde, 0) + 1
+                if not any(marca in bruta for marca in MARCAS_DA_PERDA):
+                    continue
+                sinal = _sinal_da_linha(bruta)
+                h = HORA_CRUA.match(bruta)
+                if sinal is None or h is None:
+                    continue
+                try:
+                    quando = datetime(ano, int(h.group(1)), int(h.group(2)), int(h.group(3)), int(h.group(4)), int(h.group(5))) + timedelta(milliseconds=int(h.group(6)))
+                except ValueError:
+                    continue
+                sinais.append(SinalDaPerda(quando, sinal))
+    return sorted(sinais), cobertura
+
+
+def _cobre(cobertura, de, ate):
+    """O logcat tem `COBERTURA_PERDA_MIN` linhas ou mais entre `de` e `ate` (datetime)."""
+    total, t = 0, de - timedelta(seconds=de.second % COBERTURA_PERDA_BALDE_S, microseconds=de.microsecond)
+    while t <= ate:
+        total += cobertura.get(f"{t:%m-%d %H:%M:}{t.second // COBERTURA_PERDA_BALDE_S}", 0)
+        t += timedelta(seconds=COBERTURA_PERDA_BALDE_S)
+    return total >= COBERTURA_PERDA_MIN
+
+
+def tipo_da_perda(inicio, fim, sinais, cobertura):
+    """O `TipoDaPerda(tipo, quando, coberto)` de uma queda do Wi-Fi do painel cuja primeira linha é de `inicio` e a última de `fim` (datetime), pelos `sinais` e pela `cobertura` de
+    `sinais_da_perda`. `quando` é a hora do sinal que decidiu (None em `?`); `coberto` diz se o logcat tem linhas na hora (`?` com ele coberto é um logcat que não viu a perda)."""
+    def entre(sinal, antes, depois):
+        return [s.quando for s in sinais if s.sinal == sinal and inicio - timedelta(seconds=antes) <= s.quando <= fim + timedelta(seconds=depois)]
+    coberto = _cobre(cobertura, inicio - timedelta(seconds=PERDA_ANTES_S), fim + timedelta(seconds=PERDA_DEPOIS_4WAY_S))
+    for tipo, achados in ((TIPO_SAIU, entre(SINAL_SAIU, PERDA_ANTES_S, PERDA_DEPOIS_SAIU_S)),
+                          (TIPO_RECUSADO, entre(SINAL_4WAY, PERDA_ANTES_4WAY_S, PERDA_DEPOIS_4WAY_S)),
+                          (TIPO_SUMIU, entre(SINAL_SUMIU, PERDA_ANTES_S, PERDA_DEPOIS_S)),
+                          (TIPO_CALOU, entre(SINAL_INATIVIDADE, PERDA_ANTES_S, PERDA_DEPOIS_S))):
+        if achados:
+            return TipoDaPerda(tipo, min(achados), True)
+    return TipoDaPerda(TIPO_SEM_LOGCAT, None, coberto)
+
+
+def texto_do_tipo(t):
+    """`tipo da perda: A, o painel saiu — o ponto de acesso … (reason 3, …), às 21:16:07` para a linha do tempo; `?` diz se faltou o logcat ou se ele não viu a perda."""
+    if t.tipo == TIPO_SEM_LOGCAT:
+        return f"tipo da perda: ? ({'o logcat do sistema cobre a hora mas não registrou a perda' if t.coberto else NOME_DO_TIPO[TIPO_SEM_LOGCAT]})"
+    return f"tipo da perda: {t.tipo}, {NOME_DO_TIPO[t.tipo]} — {PROVA_DO_TIPO[t.tipo]}, às {t.quando:%H:%M:%S}"

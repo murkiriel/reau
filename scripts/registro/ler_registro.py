@@ -66,6 +66,11 @@ o Wi-Fi firme que sumiu de uma vez) com o painel que não voltou em 5 min é o f
 de novo?)", também fora dos problemas, se a idade do painel no primeiro pacote mostra que ele ligou de novo depois da queda, ou se a queda passou de 256 s (o contador dá a volta e a leitura diz que a
 idade é um mínimo). Painel ligado o tempo todo, ou registro sem a idade, continua "Wi-Fi do painel reiniciou" ou "caiu e voltou". O critério está em `ler_registro.py` (CRITÉRIO DA QUEDA DO PAINEL).
 
+Desde 24/11/2026 (plano 32): cada queda do Wi-Fi do painel diz o TIPO da perda (`marcar_tipo_da_perda`, `logcat_sistema.tipo_da_perda`), numa linha "tipo da perda" logo abaixo dela, pelo que o
+logcat do sistema registrou em volta: A "o painel saiu" (o ponto de acesso mandou `Deauth RX … reason 3`, a ignição), B "o painel sumiu do ar" (`BEACON MISS` / `BEACON_MISS_FAILURE`), C "o painel
+parou de responder com o Wi-Fi no ar" (`STA kickout` / `PEER_INACTIVITY` sem `BEACON MISS`), D "4-way recusado" (`reason 15`, o painel travado) e `?` sem logcat do sistema na hora (ou com ele cobrindo
+a hora mas sem ter visto a perda, dito no texto). Só informa: não muda o que é fim de viagem, queda, problema nem contagem.
+
 Desde 08/11/2026, noite: a união que o app não viu na varredura mas foi a resposta ao pedido do REau diz o número do pedido (só a que o
 celular fez sozinho, `joined by the phone itself`, diz que foi ele); o aviso de cobertura do logcat do sistema fala de cada buffer (o `main`, pelas etiquetas do `wpa_supplicant`, do Android
 Auto e do `WifiNetworkFactory`, e o `system`, pelas do `ActivityManager`) e a enchente do HAL térmico (`ThermalHalWrapper`) não conta como cobertura e é dita; a queda que é o painel
@@ -350,6 +355,10 @@ class Linha:
     # `reason 3` (the access point said it was leaving), or that the system saw the Wi-Fi go for another reason; empty without a system log around the fall.
     saiu_reason3: str = ""
     sistema_viu_outra_causa: bool = False
+    # O tipo da perda do Wi-Fi do painel (`marcar_tipo_da_perda`, só na primeira linha da queda): `A` a `D`, ou `?` sem logcat do sistema na hora; vazio se não foi marcado.
+    # `tipo_da_perda_texto` é a frase pronta da linha do tempo (`logcat_sistema.texto_do_tipo`).
+    tipo_da_perda: str = ""
+    tipo_da_perda_texto: str = ""
 
     @property
     def segundos(self):
@@ -870,6 +879,8 @@ def _resumo_da_queda(grupo, bloco):
         saida = [f"{grupo[0].hora}  painel desligou (moto desligada?): fim de viagem, não queda ({', '.join(partes)}); {fim}"]
     else:
         saida = [f"{grupo[0].hora}  queda ({', '.join(partes)})"]
+    if grupo[0].tipo_da_perda:
+        saida.append(f"{grupo[0].hora}  {grupo[0].tipo_da_perda_texto}")
     painel = _wifi_do_painel(grupo, bloco)
     if painel:
         saida.append(f"{grupo[0].hora}  Wi-Fi do painel antes da queda: {painel}")
@@ -1033,6 +1044,23 @@ def marcar_fim_de_viagem(caminhos, linhas):
                 g[0].saiu_reason3 = f"{min(saidas)[1]:%H:%M:%S}"
             elif perto:
                 g[0].sistema_viu_outra_causa = True
+
+
+def marcar_tipo_da_perda(caminhos, linhas):
+    """Põe em cada queda do Wi-Fi do painel (a primeira linha do grupo, que tem `SINAIS_DO_WIFI`) o tipo da perda, A a D, ou `?` sem logcat do sistema na hora (`logcat_sistema.tipo_da_perda`).
+    Só diz o tipo: não muda nenhuma contagem nem o que é fim de viagem (isso é o critério da queda, acima). A queda do Android Auto sem sinal do Wi-Fi no grupo não recebe tipo."""
+    dias = sorted({x.dia for x in linhas if x.dia})
+    if not dias:
+        return
+    sinais, cobertura = logcat_sistema.sinais_da_perda(caminhos, int(dias[0][:4]))
+    for bloco in projecoes(linhas):
+        for g in _grupos_de_queda(bloco):
+            inicio, fim = instante(g[0]), instante(g[-1])
+            if inicio is None or fim is None or not any(s in x.texto for x in g for s in SINAIS_DO_WIFI):
+                continue
+            tipo = logcat_sistema.tipo_da_perda(inicio, fim, sinais, cobertura)
+            g[0].tipo_da_perda = tipo.tipo
+            g[0].tipo_da_perda_texto = logcat_sistema.texto_do_tipo(tipo)
 
 
 def _fim_pedido(x, bloco):
@@ -2607,6 +2635,7 @@ def main(argv):
     if info["excluidos"]:
         print(f"recorte: {len(info['excluidos'])} registros fora da janela ({info['excluidos'][0]} a {info['excluidos'][-1]})")
     marcar_fim_de_viagem(caminhos, linhas)
+    marcar_tipo_da_perda(caminhos, linhas)
     for v in versoes_do_app(linhas):
         print(v)
     for g in _por_data_e_build(linhas):

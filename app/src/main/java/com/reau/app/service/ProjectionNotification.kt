@@ -24,6 +24,8 @@ object ProjectionNotification {
     private const val ID_PHONE_HOT = 5304
     private const val ID_BIND_REFUSED = 5305
     private const val ID_WIFI_OFF = 5306
+    private const val ID_DASH_TAKEN = 5307
+    private const val ID_DASH_SILENT = 5308
     private const val CHANNEL_ID = "reau_projection"
 
     /** The channel of the notices that must be heard with the phone's screen off in a pocket: high importance, sound and vibration. */
@@ -280,6 +282,49 @@ object ProjectionNotification {
             .setAutoCancel(true)
             .build()
         context.getSystemService(NotificationManager::class.java).notify(ID_WIFI_OFF, notification)
+    }
+
+    /**
+     * Told once for an episode in which another app holds the dash's port (UDP 2002; the tries 2 to 30 s apart say nothing more): in the alert channel,
+     * since the rider cannot see the screen while riding. [clearDashTaken] takes it away when REau connects or the projection ends.
+     */
+    fun showDashTaken(context: Context) = showAlert(context, ID_DASH_TAKEN, R.string.notif_title_dash_taken, R.string.notif_text_dash_taken_alert)
+
+    /** REau connected (or the projection is off): the notice of [showDashTaken] goes. */
+    fun clearDashTaken(context: Context) {
+        context.getSystemService(NotificationManager::class.java).cancel(ID_DASH_TAKEN)
+    }
+
+    /**
+     * Told once for a run of sessions in which the dash, with its Wi-Fi up, stops answering ([com.reau.app.dash.SilentDash]): switching the
+     * bike's ignition off and on is what clears it. [clearDashSilent] takes it away when the dash talks again or the projection ends.
+     */
+    fun showDashSilent(context: Context) = showAlert(context, ID_DASH_SILENT, R.string.notif_title_dash_silent, R.string.notif_text_dash_silent)
+
+    /** The dash talks again (or the projection is off): the notice of [showDashSilent] goes. */
+    fun clearDashSilent(context: Context) {
+        context.getSystemService(NotificationManager::class.java).cancel(ID_DASH_SILENT)
+    }
+
+    /** One notice in the alert channel (sound and vibration), in the colour of a warning; its tap opens the app. */
+    private fun showAlert(context: Context, id: Int, title: Int, text: Int) {
+        createAlertChannel(context)
+        val open = PendingIntent.getActivity(
+            context, 0, Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE,
+        )
+        val words = context.getString(text)
+        val notification = Notification.Builder(context, ALERT_CHANNEL_ID)
+            .setContentTitle(context.getString(title))
+            .setContentText(words)
+            .setStyle(Notification.BigTextStyle().bigText(words))
+            .setSmallIcon(R.drawable.ic_stat_reau)
+            .setCategory(Notification.CATEGORY_STATUS)
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setColor(WARNING)
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .build()
+        context.getSystemService(NotificationManager::class.java).notify(id, notification)
     }
 
     /** The radio is on again (or the projection is off): the notice of [showWifiOff] goes. */

@@ -429,4 +429,16 @@ MUTATIONS_SCRIPTS = [
      "de = max(ate - float(m.group(2)), 0.0)", "de = ate - float(m.group(2))", [A4]),
     ("leva30/A7: o primeiro quadro calculado repete o que o app já escreveu", REG + "ler_registro.py",
      '    if any("dash DECODED first IDR" in x.texto for x in bloco):\n        return None\n', "", [A4]),
+    # Conexão 24/11: o tipo da perda do Wi-Fi do painel (A saiu, B sumiu do ar, C parou de responder, D 4-way recusado).
+    ("Conexão 24/11/tipo: o BEACON MISS e o kickout valem só 5 s depois", REG + "logcat_sistema.py",
+     "PERDA_DEPOIS_S = 15.0", "PERDA_DEPOIS_S = 5.0", ["registro/test_tipo_da_perda.py"]),
+    ("Conexão 24/11/tipo: o 4-way recusado vale só 10 s depois", REG + "logcat_sistema.py",
+     "PERDA_DEPOIS_4WAY_S = 30.0", "PERDA_DEPOIS_4WAY_S = 10.0", ["registro/test_tipo_da_perda.py"]),
+    ("Conexão 24/11/tipo: o reason 3 do próprio celular vale como o painel saindo", REG + "logcat_sistema.py",
+     "return SINAL_SAIU if motivo == 3 and not local else None", "return SINAL_SAIU if motivo == 3 else None", ["registro/test_tipo_da_perda.py"]),
+    ("Conexão 24/11/tipo: qualquer logcat cobre a hora", REG + "logcat_sistema.py",
+     "    return total >= COBERTURA_PERDA_MIN", "    return True", ["registro/test_tipo_da_perda.py"]),
+    ("Conexão 24/11/tipo: a queda só do Android Auto também recebe tipo", REG + "ler_registro.py",
+     "            if inicio is None or fim is None or not any(s in x.texto for x in g for s in SINAIS_DO_WIFI):\n                continue\n            tipo = logcat_sistema",
+     "            if inicio is None or fim is None:\n                continue\n            tipo = logcat_sistema", ["registro/test_tipo_da_perda.py"]),
 ]

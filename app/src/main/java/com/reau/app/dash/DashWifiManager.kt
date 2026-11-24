@@ -193,6 +193,7 @@ class DashWifiManager(
         holdOffMs = 0L
         absence.back()
         DashHeard.forget()
+        SilentDash.shared.reset() // a fresh attempt: the run of silent sessions starts over
         pendingSsid      = ssid
         pendingPassword  = password
         pendingPrefix    = prefixMatch
@@ -485,17 +486,17 @@ class DashWifiManager(
     private fun logRequestContext(timeout: Int) {
         if (firstRequestMs == 0L) firstRequestMs = requestStartMs
         val now = SystemClock.elapsedRealtime()
-        val power = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
-        val keyguard = context.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
         val sinceFirst = (MonotonicClock.nowMs() - firstRequestMs) / 1_000
         val gap = if (releasedUnansweredMs == 0L) "first" else "${now - releasedUnansweredMs} ms after the last was let go unanswered"
         val line = "requestNetwork '${maskSsid(pendingSsid)}' everConnected=$everConnected timeout=${timeout}ms; " +
-            "request #$requests (${sinceFirst}s since the first, $gap), screen interactive=${power?.isInteractive} " +
-            "locked=${keyguard?.isKeyguardLocked}, ${lastScanEvidence()}, " +
+            "request #$requests (${sinceFirst}s since the first, $gap), screen ${screenWords()}, ${lastScanEvidence()}, " +
             "approvedBefore=${approvedBefore()}"
         Log.i(TAG, line)
         com.reau.app.data.RideDiagnostics.log("wifi", line)
     }
+
+    /** Log only: `interactive=true locked=false`, the screen's state as the system's join dialog needs it (on and unlocked). */
+    private fun screenWords(): String = screenWordsOf(context)
 
     /** Log only: what the last Wi-Fi scan says of the dash, and how old that sighting is. */
     private fun lastScanEvidence(): String = scan.evidence(pendingSsid, pendingPrefix, network)
@@ -812,6 +813,7 @@ class DashWifiManager(
         absence.lost(now)
         ImageGap.clock.lost(now, DashHeard.agoMs(now))
         stuck.lost(now, dashSpoke = DashHeard.agoMs(now) != null)
+        SilentDash.shared.reset() // the network fell: a dash that is gone is not a silent one
         val screenOn = (context.getSystemService(Context.POWER_SERVICE) as? PowerManager)?.isInteractive
         com.reau.app.data.RideDiagnostics.warn(
             "wifi", LinkLoss.lostLine(notes.facts, now, DashHeard.agoMs(now), screenOn, RECONNECT_DELAY),
@@ -870,24 +872,27 @@ class DashWifiManager(
         val nowMs = MonotonicClock.nowMs()
         val pause = reconnectJob?.isActive == true
         val sinceLostMs = (nowUs - lostAtUs) / MICROS_PER_MILLI
+        val sightingUs = scan.newestSightingUs(pendingSsid, pendingPrefix)
+        // How long ago the phone left another network (SystemEvents): a join of the dash's Wi-Fi is about to begin, so the request is not let go yet.
+        val leftMs = PhoneLeftNetwork.shared.sinceMs()
         val decision = DashJoin.refileAfterLossHeld(
-            requestFirstApproval, lostAtUs, scan.newestSightingUs(pendingSsid, pendingPrefix), nowUs,
+            requestFirstApproval, lostAtUs, sightingUs, nowUs,
             requestAgeMs = nowMs - requestStartMs, inPause = pause,
             sinceLastRefileMs = if (lastRefileMs == 0L) null else nowMs - lastRefileMs,
-            hold = hold, nowMs = SystemClock.elapsedRealtime(),
+            hold = hold, nowMs = SystemClock.elapsedRealtime(), phoneLeftMs = { leftMs },
             joiningNow = { joins.probe.holdsNow(findAlreadyConnectedDashNetwork() != null, SystemClock.elapsedRealtime()) },
         )
         when (decision) {
             DashJoin.LossRefile.NO, DashJoin.LossRefile.HELD -> Unit
-            DashJoin.LossRefile.HELD_FIRST ->
-                com.reau.app.data.RideDiagnostics.log("wifi", joins.probe.lossLine(sinceLostMs, requests, maskSsid(pendingSsid)))
+            DashJoin.LossRefile.HELD_FIRST_LEAVING -> com.reau.app.data.RideDiagnostics.log("wifi", PhoneLeftNetwork.line(leftMs ?: 0L))
+            DashJoin.LossRefile.HELD_FIRST -> com.reau.app.data.RideDiagnostics.log("wifi", joins.probe.lossLine(sinceLostMs, requests, maskSsid(pendingSsid)))
             DashJoin.LossRefile.REFILE -> {
                 lastRefileMs = nowMs
                 reconnectJob?.cancel()
-                com.reau.app.data.RideDiagnostics.log(
-                    "wifi", "the dash showed up in the scan $sinceLostMs ms after the Wi-Fi was lost: " +
-                        "asking again" + if (pause) " (the pause is cut short)" else "",
-                )
+                // Log only: what the scan and the phone said at the look that asks again (the dash's result age, the loss and the screen).
+                com.reau.app.data.RideDiagnostics.log("wifi", ScanLookLog.refileLine(sightingUs, nowUs, sinceLostMs, requests, screenWords()))
+                val cut = if (pause) " (the pause is cut short)" else ""
+                com.reau.app.data.RideDiagnostics.log("wifi", "the dash showed up in the scan $sinceLostMs ms after the Wi-Fi was lost: asking again$cut")
                 // A request let go before its time, with the dash in the scan, is a try that did not get it (a request that ended already counted).
                 if (!pause) noteFailedTry()
             }
@@ -1065,4 +1070,11 @@ class DashWifiManager(
             com.reau.app.data.RideDiagnostics.warn("wifi", "could not watch the joined WiFi: ${e.javaClass.simpleName}: ${e.message}")
         }
     }
+}
+
+/** Log only: `interactive=true locked=false`, the screen's state as the system's join dialog needs it (on and unlocked). */
+private fun screenWordsOf(context: Context): String {
+    val power = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+    val keyguard = context.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+    return "interactive=${power?.isInteractive} locked=${keyguard?.isKeyguardLocked}"
 }

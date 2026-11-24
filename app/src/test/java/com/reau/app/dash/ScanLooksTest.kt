@@ -153,4 +153,27 @@ class ScanLooksTest {
         val log = ScanLookLog()
         assertFalse(log.line(listOf(net("RE_1234ABCD", 1)), "RE_9999", false, nowUs)!!.contains("the dash is in the list"))
     }
+
+    @Test
+    fun `the look of the watch over a loss that asks again says the age of the dash's result, the loss, the request and the screen`() {
+        // 24/11/2026, 07:34:15.321: the dash's newest result 3 s old, the Wi-Fi lost 317 ms before, request #1 out.
+        assertEquals(
+            "scan look: the dash is in the list, its newest result 3 s old, 317 ms after the Wi-Fi was lost; " +
+                "asking again after request #1, screen interactive=true locked=false",
+            ScanLookLog.refileLine(sightingUs = 12_000_000L, nowUs = 15_321_000L, sinceLostMs = 317, request = 1, screen = "interactive=true locked=false"),
+        )
+        assertEquals(
+            "a stamp that says nothing is told so",
+            "scan look: the dash is in the list, its newest result unstamped, 5 ms after the Wi-Fi was lost; asking again after request #2, screen interactive=null locked=null",
+            ScanLookLog.refileLine(null, 1_000_000L, 5, 2, "interactive=null locked=null"),
+        )
+    }
+
+    @Test
+    fun `the request line and the look that asks again read the screen the same way`() {
+        val source = java.io.File("src/main/java/com/reau/app/dash/DashWifiManager.kt").readText()
+        assertTrue(source.contains("screen ${'$'}{screenWords()}, ${'$'}{lastScanEvidence()}"))
+        assertTrue(source.contains("ScanLookLog.refileLine(sightingUs, nowUs, sinceLostMs, requests, screenWords())"))
+        assertTrue(source.contains("return \"interactive=${'$'}{power?.isInteractive} locked=${'$'}{keyguard?.isKeyguardLocked}\""))
+    }
 }

@@ -51,6 +51,9 @@
     <string name="notif_text_network_server">Android Auto in the browser, no dash</string>
     <string name="notif_title_dash_taken">Another app has the dash</string>
     <string name="notif_text_dash_taken">Turn off the other app’s streaming; REau tries again on its own</string>
+    <string name="notif_text_dash_taken_alert">Another app is using the dash connection. Close it so REau can come back.</string>
+    <string name="notif_title_dash_silent">Dash not responding</string>
+    <string name="notif_text_dash_silent">The dash stopped responding. If it does not come back, turn the ignition off and on.</string>
     <string name="notif_title_card">Wallpaper on the dash</string>
     <string name="notif_text_card">Still image, no Android Auto</string>
     <string name="notif_text_stopping">Turning off</string>

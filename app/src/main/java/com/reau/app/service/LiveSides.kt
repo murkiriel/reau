@@ -85,7 +85,7 @@ internal class LiveSides(
         val mapping: FrameFit.Mapping? = null,
         val card: (() -> Bitmap)? = null,
         /** Whether no other app holds the dash's port; checked before every try to reach the dash. */
-        val dashPortFree: () -> Boolean = { DashPorts.isFree(DashPorts.DASH_RX_PORT) },
+        val dashPortFree: () -> Boolean = { DashPorts.receivePortFree { RideDiagnostics.log("projection", it) } },
         /** Day or night for Android Auto's night sensor, asked every [nightCheckMs] while the sides live. */
         val night: () -> Boolean = { false },
         /** Whether the phone has a working network, for the lost-signal icon while recalculating. */
@@ -329,6 +329,12 @@ internal class LiveSides(
         },
         weatherProvider = { if (tuned?.dashWeather == true) setup.weather() else null },
         readings = setup.readings,
+        // The phone's network to the dash still known to Android (a lost one has no capabilities): what tells a silent dash from a gone one (SilentDash).
+        networkUp = { network ->
+            network != null && runCatching {
+                appContext.getSystemService(android.net.ConnectivityManager::class.java)?.getNetworkCapabilities(network) != null
+            }.getOrDefault(false)
+        },
     )
     // The listener of the dash's sighting is this one's own, so the release gives back only what this instance took (a next one may hold it by then).
     private val sightingListener: () -> Unit = { report(ProjectionEvent.DashSighted) }

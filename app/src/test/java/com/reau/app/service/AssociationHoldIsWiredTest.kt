@@ -47,6 +47,19 @@ class AssociationHoldIsWiredTest {
     }
 
     @Test
+    fun `both holds also leave the request alone for a second after the phone left another network, inside the same six seconds`() {
+        // The hold over a request reads the stamp in JoinHold and the one over a loss in refileForSighting; both go through HoldWhileJoining's one count.
+        val hold = probe.substringAfter("internal class JoinHold(")
+        assertTrue(hold.contains("clock.holds(up || probe.joining(up, now), now, left)"))
+        val refile = wifi.between("private fun refileForSighting(", "// ── A hung dash")
+        assertTrue(refile.contains("val leftMs = PhoneLeftNetwork.shared.sinceMs()"))
+        assertTrue(refile.contains("phoneLeftMs = { leftMs }"))
+        val join = File(dir + "dash/DashJoin.kt").readText().substringAfter("internal class HoldWhileJoining {")
+        assertTrue(join.contains("DashJoin.holdWhileJoining(true, nowMs - from)"))
+        assertEquals("one count for both reasons", 1, Regex("""since = null""").findAll(join).count())
+    }
+
+    @Test
     fun `the line of the join masks the network's name, and the probe writes neither a name nor an address`() {
         assertTrue(wifi.between("private inner class Joins {", "private fun scheduleReconnect").contains("maskSsid(pendingSsid)"))
         assertFalse(probe.contains("Log."))

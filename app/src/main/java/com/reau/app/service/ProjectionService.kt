@@ -260,6 +260,9 @@ class ProjectionService : Service() {
     // The state the machine was in before the one it reports now, to tell what changed (StateAlerts); only the thread that reports reads and writes it.
     private var lastReported = Projection()
 
+    // Whether the rider has been told, for this episode, that another app holds the dash's port (TakenNotice); the worker reads and writes it.
+    private val taken = com.reau.app.dash.TakenNotice()
+
     // The sides of the kind last switched on, built at that start; only the worker reads and writes these three.
     private var sides: ProjectionSides? = null
     private var sidesForCard = false
@@ -321,6 +324,15 @@ class ProjectionService : Service() {
             log = { RideDiagnostics.log("audio", it) },
         )
         RiderVoice.install(voice)
+        // A dash that keeps going quiet with its Wi-Fi up (SilentDash): the rider is told, in the alert channel, and the notice goes when it is talking again.
+        com.reau.app.dash.SilentDash.shared.notice = { tell ->
+            if (tell) {
+                log("projection: the dash has gone quiet in session after session with its Wi-Fi up: the rider is told")
+                ProjectionNotification.showDashSilent(this)
+            } else {
+                ProjectionNotification.clearDashSilent(this)
+            }
+        }
         // The settings are decoded once (the Keystore, the file) and kept; read here, on the worker, the tap on Ligar finds
         // them warm when goForeground() reads them on the main thread.
         worker.execute { runCatching { SettingsStore.open(this).load() } }
@@ -399,6 +411,7 @@ class ProjectionService : Service() {
                     // The sides (compositor, codecs, Wi-Fi) are let go here too, off the main thread (BackgroundRelease): once the worker is
                     // gone nothing else touches them; a next start builds its own.
                     "voice" to {
+                        com.reau.app.dash.SilentDash.shared.notice = null
                         RiderVoice.uninstall(voice)
                         voice.release()
                     },
@@ -590,6 +603,9 @@ class ProjectionService : Service() {
             ProjectionNotification.clearPhoneHot(this@ProjectionService)
             // The Wi-Fi notice goes with the projection, and the voice lets its engine and the audio focus go (a next projection starts clean).
             ProjectionNotification.clearWifiOff(this@ProjectionService)
+            // The notices about the dash that stay for the rider to read go with the projection.
+            com.reau.app.dash.SilentDash.shared.reset()
+            if (taken.end()) ProjectionNotification.clearDashTaken(this@ProjectionService)
             voice.release()
             RideDiagnostics.log(
                 "projection",
@@ -689,6 +705,16 @@ class ProjectionService : Service() {
                 StateAlerts.Alert.WIFI_OFF_CLEAR -> ProjectionNotification.clearWifiOff(this)
                 StateAlerts.Alert.DASH_BACK -> RiderVoice.speak(VoiceCue.DASH_BACK)
             }
+        }
+        // Another app holding the dash's port: told once for the episode, in the alert channel, and taken away when REau connects ([TakenNotice]).
+        val running = after.phase == Phase.RUNNING
+        when (taken.link(taken = running && after.dash == DashLink.TAKEN, ready = running && after.dash == DashLink.READY)) {
+            com.reau.app.dash.TakenNotice.Edge.SHOW -> {
+                log("projection: another app holds the dash's port: the rider is told once, in the alert channel")
+                ProjectionNotification.showDashTaken(this)
+            }
+            com.reau.app.dash.TakenNotice.Edge.CLEAR -> ProjectionNotification.clearDashTaken(this)
+            com.reau.app.dash.TakenNotice.Edge.NONE -> Unit
         }
     }
 

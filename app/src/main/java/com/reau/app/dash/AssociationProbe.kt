@@ -57,16 +57,20 @@ internal class JoinHold(
     private val say: (String) -> Unit,
     private val maskedSsid: () -> String,
     private val nowMs: () -> Long = SystemClock::elapsedRealtime,
+    /** How long ago the phone left another network (null: not known), for [PhoneLeftNetwork]. */
+    private val phoneLeftMs: () -> Long? = { PhoneLeftNetwork.shared.sinceMs() },
 ) {
     private val clock = HoldWhileJoining()
 
     fun holds(request: Int): Boolean {
         val now = nowMs()
         val up = joined()
-        val verdict = clock.holds(up || probe.joining(up, now), now)
+        val left = phoneLeftMs()
+        val verdict = clock.holds(up || probe.joining(up, now), now, left)
         if (verdict.began) {
             say(
-                if (up) "the dash's Wi-Fi is already joined in request #$request: leaving it to be answered"
+                if (verdict.byLeaving) PhoneLeftNetwork.line(left ?: 0L)
+                else if (up) "the dash's Wi-Fi is already joined in request #$request: leaving it to be answered"
                 else probe.line("in request #$request", maskedSsid()),
             )
         }

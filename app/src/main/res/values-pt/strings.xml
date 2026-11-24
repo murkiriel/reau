@@ -51,6 +51,9 @@
     <string name="notif_text_network_server">Android Auto no navegador, sem painel</string>
     <string name="notif_title_dash_taken">Outro app está com o painel</string>
     <string name="notif_text_dash_taken">Desligue a transmissão do outro app; o REau tenta de novo sozinho</string>
+    <string name="notif_text_dash_taken_alert">Outro app está usando a conexão do painel. Feche-o para o REau voltar.</string>
+    <string name="notif_title_dash_silent">Painel sem resposta</string>
+    <string name="notif_text_dash_silent">O painel parou de responder. Se não voltar, desligue e ligue a ignição.</string>
     <string name="notif_title_card">Wallpaper no painel</string>
     <string name="notif_text_card">Imagem parada, sem Android Auto</string>
     <string name="notif_text_stopping">Desligando</string>

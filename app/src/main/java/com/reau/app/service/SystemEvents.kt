@@ -18,6 +18,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.content.ContextCompat
 import com.reau.app.aa.UsbSessionEnd
+import com.reau.app.dash.PhoneLeftNetwork
 import com.reau.app.data.RideDiagnostics
 
 /**
@@ -178,7 +179,11 @@ object SystemEvents {
 
                 override fun onLosing(network: Network, maxMsToLive: Int) = log(networks.losing(network.hashCode(), maxMsToLive))
 
-                override fun onLost(network: Network) = log(networks.lost(network.hashCode()))
+                override fun onLost(network: Network) {
+                    log(networks.lost(network.hashCode()))
+                    // The watches over the dash's Wi-Fi wait a moment after this: the phone is about to join another one (PhoneLeftNetwork).
+                    PhoneLeftNetwork.shared.left()
+                }
 
                 override fun onUnavailable() = log(WifiEvents.Networks.UNAVAILABLE)
             })
@@ -193,6 +198,7 @@ object SystemEvents {
         val state = androidx.core.content.IntentCompat.getParcelableExtra(
             intent, WifiManager.EXTRA_NEW_STATE, android.net.wifi.SupplicantState::class.java,
         )
+        if (WifiEvents.leavesANetwork(state?.name)) PhoneLeftNetwork.shared.left()
         return supplicant.line(state?.name, intent.getIntExtra(WifiManager.EXTRA_SUPPLICANT_ERROR, 0))
     }
 

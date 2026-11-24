@@ -67,6 +67,10 @@ class DashSession(
     private val readings: DashReadingSink? = null,
     /** The session's waits; a test shortens them (27/10/2026 review: the fake-dash tests took 86 s on the real ones). */
     private val timing: Timing = Timing(),
+    /** Whether the phone's network to the dash ([linkNetwork], the one this session opened on) is still up: a silent session on it is told ([SilentDash]). */
+    private val networkUp: (android.net.Network?) -> Boolean = { false },
+    /** The run of silent sessions; the process-wide one in the app, a test's own in a test. */
+    private val silentDash: SilentDash = SilentDash.shared,
 ) {
     /**
      * The waits of a session: [keyPatienceMs] for the dash's key before the greeting goes again, [rxWatchdogMs] of silence before the
@@ -838,6 +842,7 @@ class DashSession(
     fun startStreaming() {
         if (_state.value != DashState.READY) return
         _state.value = DashState.STREAMING
+        silentDash.reset() // the dash is talking: a notice about its silence goes
         streamingStartMs = MonotonicClock.nowMs()
         // The dash's 10 s mark came before the stream: it was alive then, so the stream starts at the pace of one that is (no wait for
         // a mark that does not come again, 12:00:53 to 12:01:08 at 2 fps on 20/10/2026).
@@ -1024,6 +1029,13 @@ class DashSession(
         }
     }
 
+    /** Not a single packet in the whole wait, from a dash that did speak earlier in this projection: told with the RX watchdog's silences. */
+    private fun noteSilentAuthEnd(mine: Int) {
+        if (lastRxMs != 0L) return
+        val now = MonotonicClock.nowMs()
+        noteSilentEnd((now - burstStartMs) / MS_PER_SECOND_SILENT, dashSpoke = DashHeard.agoMs(now) != null, mine)
+    }
+
     /** The initial burst and the wait for the dash's 07 01 01; false after a timeout, already said through [fail]. */
     private suspend fun authenticate(sock: DashSocket, mine: Int, ssid: String): Boolean {
         _state.value = DashState.AUTHENTICATING
@@ -1071,6 +1083,7 @@ class DashSession(
         }
 
         if (!authConfirmed) {
+            noteSilentAuthEnd(mine)
             fail(
                 authTimeoutReason(
                     heardFromDash = lastRxMs > 0L, ssid = ssid, keySeen = auth?.keySeen ?: true,
@@ -1405,6 +1418,7 @@ class DashSession(
                     com.reau.app.data.RideDiagnostics.error("error", "RX watchdog: dash silent ${silent}s → link lost")
                     logLinkAtFailure()
                     com.reau.app.data.ProjectionSummary.current.watchdog("dash-rx")
+                    noteSilentEnd(silent, dashSpoke = true, mine)
                     fail("Dash stopped responding — connection lost", mine)
                     break
                 }
@@ -1475,6 +1489,20 @@ class DashSession(
             linkBaselineLogged = true
             com.reau.app.data.RideDiagnostics.log("link", "${LinkReport.describe(sample)} | ${LinkReport.trend(linkHistory.snapshot())}")
         }
+    }
+
+    /** The session of the last silent end noted ([noteSilentEnd]), so that [fail] does not count it as another kind of end. */
+    @Volatile private var silentEndOf = NO_FAILED_SESSION
+
+    /**
+     * Session [generation] is about to end with the dash silent for [silentS] s ([dashSpoke]: it had spoken in this projection). With the phone's network to
+     * the dash still joined the ride log says so, and the run of such sessions goes on ([SilentDash]: the rider is told at the third).
+     */
+    internal fun noteSilentEnd(silentS: Long, dashSpoke: Boolean, generation: Int) {
+        silentEndOf = generation
+        val joined = networkUp(linkNetwork)
+        silentDash.silentEnd(joined, dashSpoke)
+        if (joined) com.reau.app.data.RideDiagnostics.warn("session", SilentDash.line(silentS, silentDash.silentRun()))
     }
 
     /** The Wi-Fi link when a watchdog fires: the moment and the minute before it (the failure's own context). */
@@ -1627,6 +1655,8 @@ class DashSession(
         ImageGap.clock.lost(MonotonicClock.nowMs(), DashHeard.agoMs(MonotonicClock.nowMs()))
         logTrail("the session failed")
         com.reau.app.data.RideDiagnostics.error("error", "session fail: $msg")
+        // Any end that is not a silent one (noted just before it) is the end of a run of silent sessions.
+        if (silentEndOf != generation) silentDash.reset()
         rxJob?.cancel(); heartbeatJob?.cancel(); projHbJob?.cancel(); routeCardJob?.cancel(); navInfoJob?.cancel()
         // The 5 s stats line and the cards loop have nothing to report once the session is down; left running they
         // wrote a `dash-stats ... tx=0` line every 5 s for as long as the dash stayed away.
@@ -1672,6 +1702,8 @@ class DashSession(
     }
 
     companion object {
+        private const val MS_PER_SECOND_SILENT = 1_000L
+
         /** No session has failed yet ([failedGeneration]); session numbers start at 0. */
         private const val NO_FAILED_SESSION = -1
 

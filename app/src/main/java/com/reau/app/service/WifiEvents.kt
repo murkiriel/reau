@@ -16,6 +16,9 @@ internal object WifiEvents {
     /** The supplicant states that are only a scan going on: ten of them a minute on a phone with nothing to join. Not written. */
     private val SCAN_NOISE = setOf("SCANNING", "INTERFACE_DISABLED", "DORMANT", "UNINITIALIZED")
 
+    /** Whether the supplicant's [state] says the phone's Wi-Fi has just left the network it was on (DISCONNECTED): [com.reau.app.dash.PhoneLeftNetwork] is stamped. */
+    fun leavesANetwork(state: String?): Boolean = state == "DISCONNECTED"
+
     /** The ERROR_AUTHENTICATING of [android.net.wifi.WifiManager.EXTRA_SUPPLICANT_ERROR]. */
     private const val ERROR_AUTHENTICATING = 1
 

@@ -113,5 +113,16 @@ internal class ScanLookLog(private val maxLines: Int = MAX_LINES) {
 
     companion object {
         const val MAX_LINES = 80
+
+        /**
+         * The line for the look of the watch over a loss that sees the dash and asks for its network again: how old the dash's newest result
+         * is ([sightingUs] and [nowUs], microseconds since boot), how long since the loss, the request that goes out and the screen
+         * ([screen]: `interactive=… locked=…`). Log only; the 24/11/2026 ride had the look at 17 ms and the request at 33 ms of a join Android was about to make.
+         */
+        fun refileLine(sightingUs: Long?, nowUs: Long, sinceLostMs: Long, request: Int, screen: String): String {
+            val age = sightingUs?.let { newestAge(it, nowUs) }?.let { "$it s old" } ?: "unstamped"
+            return "scan look: the dash is in the list, its newest result $age, $sinceLostMs ms after the Wi-Fi was lost; " +
+                "asking again after request #$request, screen $screen"
+        }
     }
 }

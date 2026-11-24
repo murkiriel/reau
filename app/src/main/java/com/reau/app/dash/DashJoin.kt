@@ -116,9 +116,10 @@ object DashJoin {
 
     /**
      * What [refileAfterLossHeld] decided: nothing to do, a refiling held back because the dash's Wi-Fi is being joined ([HELD_FIRST]: the
-     * first time of this join, when the log says so), or a refiling.
+     * first time of this join, when the log says so), a refiling held back because the phone has just left another network
+     * ([HELD_FIRST_LEAVING], the first time of the hold: [PhoneLeftNetwork]), or a refiling.
      */
-    enum class LossRefile { NO, HELD_FIRST, HELD, REFILE }
+    enum class LossRefile { NO, HELD_FIRST, HELD, HELD_FIRST_LEAVING, REFILE }
 
     /**
      * [refileAfterLoss] with the hold of [holdWhileJoining]: ride log of 31/10/2026, 10:06:56. The dash came back after 93 s, the loss
@@ -127,7 +128,7 @@ object DashJoin {
      * it failed with EPERM for 4.5 minutes. [watchForTheDash] had the hold since 26/10; the watch over a loss did not. [joiningNow] is read
      * only when a refiling is due (it asks Android for its networks), and [hold] keeps since when the Wi-Fi has been joined.
      */
-    @Suppress("LongParameterList") // the seven facts of [refileAfterLoss] and the two of the hold
+    @Suppress("LongParameterList") // the seven facts of [refileAfterLoss] and the three of the hold
     internal fun refileAfterLossHeld(
         firstApproval: Boolean,
         lostAtUs: Long,
@@ -139,11 +140,13 @@ object DashJoin {
         hold: HoldWhileJoining,
         nowMs: Long,
         joiningNow: () -> Boolean,
+        phoneLeftMs: () -> Long? = { null },
     ): LossRefile {
         if (!refileAfterLoss(firstApproval, lostAtUs, sightingStampUs, nowUs, requestAgeMs, inPause, sinceLastRefileMs)) return LossRefile.NO
-        val verdict = hold.holds(joiningNow(), nowMs)
+        val verdict = hold.holds(joiningNow(), nowMs, phoneLeftMs())
         return when {
             !verdict.holds -> LossRefile.REFILE
+            verdict.began && verdict.byLeaving -> LossRefile.HELD_FIRST_LEAVING
             verdict.began -> LossRefile.HELD_FIRST
             else -> LossRefile.HELD
         }
@@ -220,18 +223,27 @@ object DashJoin {
  * [DashJoin.HOLD_WHILE_JOINING_MS] too. Time is given, not read, so a test sets the clock.
  */
 internal class HoldWhileJoining {
-    /** [holds]: leave the request alone; [began]: the first time of this join, the moment to say so in the log. */
-    data class Verdict(val holds: Boolean, val began: Boolean)
+    /**
+     * [holds]: leave the request alone; [began]: the first time of this hold, the moment to say so in the log; [byLeaving]: the hold is for the
+     * phone having just left another network ([PhoneLeftNetwork]), not for a join.
+     */
+    data class Verdict(val holds: Boolean, val began: Boolean, val byLeaving: Boolean = false)
 
     private var since: Long? = null
 
-    fun holds(joiningNow: Boolean, nowMs: Long): Verdict {
-        if (!joiningNow) {
+    /**
+     * [joiningNow]: the dash's Wi-Fi is joined or being joined. [phoneLeftMs]: how long ago the phone left another network (null: not known);
+     * under [PhoneLeftNetwork.HOLD_MS] it holds too, since a join of the dash's Wi-Fi is about to begin. The two reasons share one count, so
+     * all the waits of a hold together end at [DashJoin.HOLD_WHILE_JOINING_MS].
+     */
+    fun holds(joiningNow: Boolean, nowMs: Long, phoneLeftMs: Long? = null): Verdict {
+        val leaving = !joiningNow && PhoneLeftNetwork.holds(phoneLeftMs)
+        if (!joiningNow && !leaving) {
             since = null
             return Verdict(holds = false, began = false)
         }
         val began = since == null
         val from = since ?: nowMs.also { since = it }
-        return Verdict(DashJoin.holdWhileJoining(true, nowMs - from), began)
+        return Verdict(DashJoin.holdWhileJoining(true, nowMs - from), began, byLeaving = leaving)
     }
 }
