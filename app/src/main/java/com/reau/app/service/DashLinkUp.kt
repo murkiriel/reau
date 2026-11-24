@@ -182,7 +182,7 @@ internal class WifiDashLinkUp(
 
         /** Why a start fails when the network to approve is not asked for yet: the dash is not in the recent Wi-Fi scan. */
         /** How often, and for how long at most, the scan is looked at while a first approval waits for the dash. */
-        const val SIGHTING_POLL_MS = 2_000L
+        const val SIGHTING_POLL_MS = com.reau.app.dash.DashJoin.WATCH_PERIOD_MS
         const val SIGHTING_WATCH_MAX_MS = 60_000L
 
         /** The pause after a failed request is the controller's wait (2 s up to the minute of a long absence): the watch outlasts it, and the next start ends it. */

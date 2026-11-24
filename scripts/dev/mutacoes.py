@@ -4192,6 +4192,13 @@ MUTATIONS = [
      "PhoneReader.battery(context).takeIf { RingData.shown(options.data, RingData.BATTERY) }),", "PhoneReader.battery(context)),", ["InfoTitleSettingsTest"]),
     ("P32S Bateria no título: o texto da bateria em português muda", "app/src/main/res/values-pt/strings.xml",
      '<string name="title_battery">Bateria %1$s%%</string>', '<string name="title_battery">Carga %1$s%%</string>', ["InfoRingTitleTest"]),
+    # Plano 32 (23/11/2026): a volta ao painel depois da ignição: o pedido não derruba a associação em curso e a varredura é olhada a cada 0,5 s.
+    ("AssociationInFlight: a associação vista há muito tempo ainda segura o pedido", MAIN + "dash/AssociationInFlight.kt",
+     "return !networkUp && nowMs - at <= windowMs", "return !networkUp", ["AssociationInFlightTest"]),
+    ("AssociationInFlight: a associação com outra rede também segura o pedido", MAIN + "dash/AssociationInFlight.kt",
+     "if (ofTheDash && counts(state)) {", "if (counts(state)) {", ["AssociationInFlightTest"]),
+    ("DashJoin: o vigia da varredura volta a olhar a cada 2 s", MAIN + "dash/DashJoin.kt",
+     "const val WATCH_PERIOD_MS = 500L", "const val WATCH_PERIOD_MS = 2_000L", ["AssociationInFlightTest", "AssociationHoldIsWiredTest"]),
 ]
 
 

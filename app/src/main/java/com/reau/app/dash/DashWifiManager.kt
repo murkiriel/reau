@@ -34,9 +34,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/** How often an unanswered request looks at the scan for the dash ([DashWifiManager.watchForTheDash]). */
-private const val WATCH_PERIOD_MS = 2_000L
-
 private const val MICROS_PER_MILLI = 1_000L
 private const val MS_PER_SECOND = 1_000L
 
@@ -68,6 +65,9 @@ class DashWifiManager(
     // The readers of Android that keep nothing of the request: the Wi-Fi list, and the Wi-Fi the phone joined by itself.
     private val scan = DashScan(context, wifi, cm)
     private val joinedWifi = JoinedWifi(cm, wifi)
+
+    // What the watches know of the phone's own join of the dash's Wi-Fi: a request is not put out again under a join Android is making.
+    private val joins = Joins()
 
     /**
      * Is the phone's Wi‑Fi radio on? WifiNetworkSpecifier can only associate to the dash when
@@ -403,7 +403,7 @@ class DashWifiManager(
     }
 
     /**
-     * While request [request] goes unanswered with the dash not in the scan, looks at the scan every [WATCH_PERIOD_MS] and puts
+     * While request [request] goes unanswered with the dash not in the scan, looks at the scan every [DashJoin.WATCH_PERIOD_MS] and puts
      * the request out again once the dash shows up (the rule is [DashJoin.refileOnSighting]). The loop ends by itself when
      * another request goes out, the request is answered, or the rider switches off.
      */
@@ -413,10 +413,10 @@ class DashWifiManager(
         // [DashJoin.REFILE_SIGHTED_MS] the request is put out again (a request left 30 s was followed by one that joined in 5.4 s).
         val seenAtRequest = seenInLastScan(pendingSsid, pendingPrefix)
         val begun = SystemClock.elapsedRealtime()
-        val hold = JoinHold()
+        val hold = joins.hold()
         scope.launch {
             while (stillRequesting(request)) {
-                delay(WATCH_PERIOD_MS)
+                joins.tick()
                 val waited = SystemClock.elapsedRealtime() - begun
                 if (!stillRequesting(request)) return@launch
                 val seenNow = seenInLastScan(pendingSsid, pendingPrefix)
@@ -439,19 +439,22 @@ class DashWifiManager(
     private fun refileWhy(slow: Boolean) = if (slow) "was in the scan when it went out and has not joined" else "showed up in the scan"
 
     /**
-     * The dash's Wi-Fi already joined while a request is still unanswered: that request is holding the network up, and putting
-     * it out again would drop it ([DashJoin.holdWhileJoining]). One per watch; remembers since when it holds.
+     * The watches' look at the phone's own join of the dash's Wi-Fi ([AssociationProbe]), one for the manager: [tick] is the wait between two
+     * looks at the scan, ending in a look at the join, and [hold] the guard of a watch over a request ([JoinHold]), which leaves the request
+     * alone when the dash's network is up already or being joined.
      */
-    private inner class JoinHold {
-        private val clock = HoldWhileJoining()
+    private inner class Joins {
+        val probe = AssociationProbe(wifi, scan)
 
-        fun holds(request: Int): Boolean {
-            val verdict = clock.holds(findAlreadyConnectedDashNetwork() != null, SystemClock.elapsedRealtime())
-            if (verdict.began) {
-                com.reau.app.data.RideDiagnostics.log("wifi", "the dash's Wi-Fi is already joined in request #$request: leaving it to be answered")
-            }
-            return verdict.holds
+        suspend fun tick() {
+            delay(DashJoin.WATCH_PERIOD_MS)
+            probe.look(pendingSsid, pendingPrefix, SystemClock.elapsedRealtime())
         }
+
+        fun hold() = JoinHold(
+            joined = { findAlreadyConnectedDashNetwork() != null }, probe = probe,
+            say = { com.reau.app.data.RideDiagnostics.log("wifi", it) }, maskedSsid = { maskSsid(pendingSsid) },
+        )
     }
 
     private fun scheduleReconnect() {
@@ -836,7 +839,7 @@ class DashWifiManager(
     }
 
     /**
-     * While the dash's network stays lost, looks at the scan every [WATCH_PERIOD_MS] and asks for the network at once when the
+     * While the dash's network stays lost, looks at the scan every [DashJoin.WATCH_PERIOD_MS] and asks for the network at once when the
      * dash shows up newer than the loss, cutting the 4 s pause or a request already out ([DashJoin.refileAfterLoss]). One watch
      * for a loss; it ends when the network is back or the rider switches off.
      */
@@ -848,7 +851,7 @@ class DashWifiManager(
             // The join of the dash's Wi-Fi is held for its own few seconds in each loss (the watch lasts as long as the loss does).
             val hold = HoldWhileJoining()
             while (stillLost()) {
-                delay(WATCH_PERIOD_MS)
+                joins.tick()
                 if (stillLost() && refileForSighting(hold)) requestNetwork()
             }
         }
@@ -859,7 +862,8 @@ class DashWifiManager(
 
     /**
      * The decision of [watchAfterLoss] for this moment, with the line that tells it. A request is not put out again while the dash's Wi-Fi
-     * is already joined and waiting to be answered ([DashJoin.refileAfterLossHeld]): letting the request go takes that network down.
+     * is already joined and waiting to be answered, or the phone is in the middle of joining it ([DashJoin.refileAfterLossHeld]): letting the
+     * request go takes that network down, or drops the join Android is making.
      */
     private fun refileForSighting(hold: HoldWhileJoining): Boolean {
         val nowUs = SystemClock.elapsedRealtime() * MICROS_PER_MILLI
@@ -870,14 +874,13 @@ class DashWifiManager(
             requestFirstApproval, lostAtUs, scan.newestSightingUs(pendingSsid, pendingPrefix), nowUs,
             requestAgeMs = nowMs - requestStartMs, inPause = pause,
             sinceLastRefileMs = if (lastRefileMs == 0L) null else nowMs - lastRefileMs,
-            hold = hold, nowMs = SystemClock.elapsedRealtime(), joiningNow = { findAlreadyConnectedDashNetwork() != null },
+            hold = hold, nowMs = SystemClock.elapsedRealtime(),
+            joiningNow = { joins.probe.holdsNow(findAlreadyConnectedDashNetwork() != null, SystemClock.elapsedRealtime()) },
         )
         when (decision) {
             DashJoin.LossRefile.NO, DashJoin.LossRefile.HELD -> Unit
-            DashJoin.LossRefile.HELD_FIRST -> com.reau.app.data.RideDiagnostics.log(
-                "wifi", "the dash showed up in the scan $sinceLostMs ms after the Wi-Fi was lost and its Wi-Fi is already joined in request #$requests: " +
-                    "leaving it to be answered",
-            )
+            DashJoin.LossRefile.HELD_FIRST ->
+                com.reau.app.data.RideDiagnostics.log("wifi", joins.probe.lossLine(sinceLostMs, requests, maskSsid(pendingSsid)))
             DashJoin.LossRefile.REFILE -> {
                 lastRefileMs = nowMs
                 reconnectJob?.cancel()

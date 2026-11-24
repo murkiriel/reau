@@ -14,6 +14,16 @@ interface JoinMemory {
  * every other request keeps the waits it always had.
  */
 object DashJoin {
+    /**
+     * How often the watches over the dash's Wi-Fi look at Android's list of networks for the dash ([DashWifiManager]'s watch over a request and
+     * over a loss, and [com.reau.app.service.DashLinkUp]'s over the pause and the first approval): 0.5 s since 23/11/2026, from 2 s. The ride log of
+     * that night had the dash in the list 2.9 to 7.0 s before REau acted, 1 s of it the look falling late on the 2 s tick. Only the list the system
+     * already has is read; a scan is never asked for (Android limits those and they cost battery), so the scan itself, 3 to 6 s, is the system's.
+     * The rules that follow a look keep their own times (the 4 s between two refilings, the 2 s a request is left alone, the 6 s hold), so a
+     * faster look does not make a faster loop of requests.
+     */
+    const val WATCH_PERIOD_MS = 500L
+
     /** How long the request for a network the rider has not approved yet waits: time to read the dialog and tap. */
     const val FIRST_APPROVAL_TIMEOUT_MS = 120_000
 
@@ -179,7 +189,7 @@ object DashJoin {
      * screen is off) or unreadable: nothing is decided then. [requestAgeMs] is how long ago the latest request went out; [inPause]:
      * it is over and the 4 s pause before the next one is running, which a sighting cuts short. The same rules of a newer sighting
      * and of the gap between two refilings apply in the pause, so a dash in sight that refuses the join does not turn it into a
-     * request every 2 s; only the 2 s a request is left alone first do not. Never for the first approval of a network
+     * request at every look; only the 2 s a request is left alone first do not. Never for the first approval of a network
      * ([firstApproval]: the system's dialog). [sinceLastRefileMs] is null when this loss has not been refiled yet.
      */
     @Suppress("LongParameterList") // one decision with its seven facts; a holder class would only rename them
@@ -204,7 +214,8 @@ object DashJoin {
 }
 
 /**
- * Since when the dash's Wi-Fi has been seen joined while a request is unanswered, for [DashJoin.holdWhileJoining]: one per watch.
+ * Since when the dash's Wi-Fi has been seen joined, or being joined by the phone ([AssociationInFlight]), while a request is unanswered, for
+ * [DashJoin.holdWhileJoining]: one per watch.
  * Not joined any more, the count is forgotten, so a watch that lasts minutes (a loss) holds the next join for its own
  * [DashJoin.HOLD_WHILE_JOINING_MS] too. Time is given, not read, so a test sets the clock.
  */
