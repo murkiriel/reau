@@ -29,8 +29,8 @@ private data class DashFound(val name: String?, val fresh: Boolean)
  * for and the network in use are given at each call, read by the manager at that moment. One per manager (its [ScanLookLog] is the
  * manager's own), while [dashSearches] is one for the whole process.
  *
- * The list is read from the system in four places on purpose: [search] and [read] note the reading in [ScanHistory.trail], [verdict]
- * and [newestSightingUs] do not.
+ * The list is read from the system in five places on purpose: [search] and [read] note the reading in [ScanHistory.trail], [verdict],
+ * [newestSightingUs] and [dashBssids] do not. It is only read: no scan is asked for ([android.net.wifi.WifiManager.startScan] is limited by Android and costs battery).
  */
 internal class DashScan(
     private val context: Context,
@@ -141,4 +141,13 @@ internal class DashScan(
             r.SSID?.trim('"')?.let { it.isNotBlank() && matchesPendingSsid(it, ssid, prefix) } == true
         }.maxOfOrNull { it.timestamp }
     }.getOrNull()
+
+    /** The addresses of the dash in the last scan, lowercase (for [AssociationInFlight.ofTheDash]; compared in memory, never written); empty when none or unreadable. */
+    @SuppressLint("MissingPermission")
+    @Suppress("DEPRECATION") // ScanResult.SSID, as in search
+    fun dashBssids(ssid: String, prefix: Boolean): Set<String> = runCatching {
+        wifi.scanResults.filter { r ->
+            r.SSID?.trim('"')?.let { it.isNotBlank() && matchesPendingSsid(it, ssid, prefix) } == true
+        }.mapNotNull { it.BSSID?.lowercase() }.toSet()
+    }.getOrDefault(emptySet())
 }
