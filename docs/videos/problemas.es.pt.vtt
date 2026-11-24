@@ -1,0 +1,62 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:04.200
+Problemas de instalação e de Wi-Fi do REau, e como resolver
+
+2
+00:00:04.200 --> 00:00:12.667
+1. O Play Protect bloqueou a instalação: pause a verificação de apps na Play Store, instale o APK de novo e religue o Play Protect
+
+3
+00:00:12.667 --> 00:00:22.067
+2. Servidor do Android Auto desligado: abra as configurações do Android Auto e, no menu de três pontos, toque em Iniciar servidor da unidade principal
+
+4
+00:00:22.067 --> 00:00:29.267
+Reiniciou o celular? O servidor desliga: ligue de novo à mão. O REau conecta sozinho quando ele responde
+
+5
+00:00:29.267 --> 00:00:39.000
+3. O menu não mostra Iniciar servidor? O modo desenvolvedor do Android Auto não está ligado: toque dez vezes em Versão. O do celular não serve
+
+6
+00:00:39.000 --> 00:00:47.400
+4. Depois de Desligar, o Android Auto leva até um minuto para fechar a sessão anterior. Espere, ou pare e inicie o servidor
+
+7
+00:00:47.400 --> 00:00:56.400
+5. Android Auto sem resposta ou sem imagem: force a parada dele, depois desligue e ligue o REau. Em Bateria, dê a ele Sem restrições
+
+8
+00:00:56.400 --> 00:01:05.800
+6. Se o REau avisar que uma VPN o está segurando: desligue a VPN ou deixe o REau fora dela, pela divisão de túnel, e reconecte a VPN
+
+9
+00:01:05.800 --> 00:01:15.533
+7. Wi-Fi do painel não encontrado: confira a chave da moto, o Wi-Fi e a localização do celular e, em Dados da moto, o nome inteiro da rede
+
+10
+00:01:15.533 --> 00:01:20.600
+Se trocou de moto ou há mais de um painel por perto, toque em Esquecer e procure de novo
+
+11
+00:01:20.600 --> 00:01:27.933
+8. Se aparecer Outro app está com o painel, pare a transmissão do outro app para o painel. O REau tenta de novo sozinho
+
+12
+00:01:27.933 --> 00:01:35.067
+O painel pode ter travado: desligue a moto pela chave, espere uns trinta segundos e ligue de novo
+
+13
+00:01:35.067 --> 00:01:44.267
+9. Se o painel mostrar Imagem parada ou o app disser Sem imagem nova, o Android Auto parou de mandar imagem. Normalmente ela volta sozinha
+
+14
+00:01:44.267 --> 00:01:51.000
+10. Se ligou o servidor de rede, o REau não procura o painel: desligue essa chave para usar a moto
+
+15
+00:01:51.000 --> 00:01:54.800
+Mais respostas estão nas perguntas frequentes do REau
+

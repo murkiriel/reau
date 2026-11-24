@@ -1,62 +1,82 @@
 WEBVTT
 
 1
-00:00:00.000 --> 00:00:03.000
-Vídeo de uma versão anterior: o app de hoje não tem a Lite nem o passo da Acessibilidade
-
-2
 00:00:00.000 --> 00:00:03.467
 Uso do REau no dia a dia, com a moto e o painel
 
+2
+00:00:03.467 --> 00:00:07.067
+1. Ligue a moto, abra o REau e toque em Ligar
+
 3
-00:00:03.467 --> 00:00:10.133
-1. Ligue a moto, abra o REau e toque em Ligar. Na Lite, ligue antes o servidor do Android Auto
+00:00:07.067 --> 00:00:14.733
+O REau leva você ao Android Auto: no menu de três pontos, toque em Iniciar servidor da unidade principal e volte ao REau
 
 4
-00:00:10.133 --> 00:00:17.200
-Quando o Android Auto estiver ativo e o painel pronto, está transmitindo. Guarde o celular, com a tela apagada
+00:00:14.733 --> 00:00:22.133
+Com o Android Auto Ativo e o painel Pronto, o REau mostra Transmitindo. Guarde o celular, até com a tela apagada
 
 5
-00:00:17.200 --> 00:00:23.867
+00:00:22.133 --> 00:00:28.667
 2. Com a moto parada, coloque o destino pelo app do Waze, por voz ou pela Tela do Android Auto
 
 6
-00:00:23.867 --> 00:00:30.733
-3. Na Tela do Android Auto, toque e arraste a imagem para usar o Android Auto como em um carro
+00:00:28.667 --> 00:00:35.267
+3. Na Tela do Android Auto, toque e arraste a imagem para usar o Android Auto como num carro
 
 7
-00:00:30.733 --> 00:00:38.133
-Se abrir o Google Maps ou o menu de apps, escolha o Waze nessa tela. Depois de usar uma vez, ele tende a abrir direto
+00:00:35.267 --> 00:00:42.000
+Se abrir o Google Maps ou o menu de apps, escolha o Waze. Depois de usar uma vez, ele tende a abrir direto
 
 8
-00:00:38.133 --> 00:00:47.400
-4. No joystick, em controle de mídia: esquerda música anterior, direita próxima, cima menu de apps, baixo Gemini, centro tocar ou pausar
+00:00:42.000 --> 00:00:50.133
+4. Joystick, modo mapa: esquerda afasta, direita aproxima, cima é o voltar do painel e o centro abre o controle de mídia
 
 9
-00:00:47.400 --> 00:00:55.267
-No modo mapa, esquerda e direita movem o foco e baixo confirma. Cima é o voltar do painel e o centro abre o controle de mídia
+00:00:50.133 --> 00:00:58.200
+No controle de mídia: esquerda e direita andam pelos itens, cima abre o menu de apps, baixo chama o Gemini e o centro confirma
 
 10
-00:00:55.267 --> 00:01:04.333
-5. Chamadas: tocando, a esquerda atende e a direita ou o centro recusam. Em ligação, o centro desliga e cima e baixo mudam o volume
+00:00:58.200 --> 00:01:04.467
+Com o Spotify na tela e tocando, esquerda e direita trocam de música e o centro toca ou pausa
 
 11
-00:01:04.333 --> 00:01:10.600
-Com a tela do celular bloqueada, o painel continua normalmente; só a prévia dentro do app para
+00:01:04.467 --> 00:01:11.267
+5. Chamada tocando: esquerda atende, direita e centro recusam. Cima e baixo não fazem nada
 
 12
-00:01:10.600 --> 00:01:17.467
-6. Se o Wi-Fi do painel cair, o REau passa a Conectando e volta sozinho quando a rede reaparece
+00:01:11.267 --> 00:01:17.733
+Em chamada: direita aumenta o volume, esquerda diminui, cima e baixo não fazem nada e o centro encerra
 
 13
-00:01:17.467 --> 00:01:22.267
-7. Para encerrar, toque em Desligar no app ou na notificação
+00:01:17.733 --> 00:01:26.133
+No alto da imagem do painel aparecem o nome de quem liga e o volume. No volume máximo, o toque mostra de novo: Chamada oito de oito
 
 14
-00:01:22.267 --> 00:01:29.200
-Para sair de novo, toque em Ligar. Se o Android Auto ainda estiver fechando a sessão, aguarde até um minuto
+00:01:26.133 --> 00:01:32.667
+6. O anel de informações mostra, uma de cada vez, chuva, vento, sol e a bateria do celular
 
 15
-00:01:29.200 --> 00:01:32.867
+00:01:32.667 --> 00:01:38.000
+Cada informação fica pelo menos sete segundos: o tempo vai de sete a trinta
+
+16
+00:01:38.000 --> 00:01:45.733
+Ou, com Informações no título, elas vão no título da faixa dourada. Com rota: vinte segundos de rua e sete de informação
+
+17
+00:01:45.733 --> 00:01:51.867
+Com a tela do celular bloqueada, o painel continua normalmente; só a prévia dentro do app para
+
+18
+00:01:51.867 --> 00:01:59.933
+7. Se o Wi-Fi do painel cair, o REau avisa e volta sozinho quando a rede reaparece. Ao desligar a moto, isso é normal
+
+19
+00:01:59.933 --> 00:02:04.533
+8. Para encerrar, toque em Desligar no app ou na notificação
+
+20
+00:02:04.533 --> 00:02:08.133
 Boa viagem. Na estrada, o olho fica na estrada
 

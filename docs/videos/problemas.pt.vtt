@@ -1,86 +1,62 @@
 WEBVTT
 
 1
-00:00:00.000 --> 00:00:03.000
-Vídeo de uma versão anterior: o app de hoje não tem a Lite nem o passo da Acessibilidade
-
-2
-00:00:00.000 --> 00:00:04.267
+00:00:00.000 --> 00:00:04.067
 Problemas de instalação e de Wi-Fi do REau, e como resolver
 
+2
+00:00:04.067 --> 00:00:12.667
+1. O Play Protect bloqueou a instalação: pause a verificação de apps na Play Store, instale o APK de novo e religue o Play Protect
+
 3
-00:00:04.267 --> 00:00:09.600
-1. O Play Protect bloqueou a instalação: é esperado na edição Completa
+00:00:12.667 --> 00:00:22.667
+2. Servidor do Android Auto desligado: abra as configurações do Android Auto e, no menu de três pontos, toque em Iniciar servidor da unidade principal
 
 4
-00:00:09.600 --> 00:00:16.133
-Pause a verificação de apps na Play Store, instale o APK de novo e religue o Play Protect depois
+00:00:22.667 --> 00:00:29.333
+Reiniciou o celular? O servidor desliga: ligue de novo à mão. O REau conecta sozinho quando ele responde
 
 5
-00:00:16.133 --> 00:00:22.533
-2. Ao ativar a Acessibilidade aparece Configuração restrita ou Acesso negado ao app
+00:00:29.333 --> 00:00:39.000
+3. O menu não mostra Iniciar servidor? O modo desenvolvedor do Android Auto não está ligado: toque dez vezes em Versão. O do celular não serve
 
 6
-00:00:22.533 --> 00:00:29.667
-Tente ativar primeiro. Depois, em Apps, REau, menu de três pontos, toque em Permitir configurações restritas
+00:00:39.000 --> 00:00:47.533
+4. Depois de Desligar, o Android Auto leva até um minuto para fechar a sessão anterior. Espere, ou pare e inicie o servidor
 
 7
-00:00:29.667 --> 00:00:36.333
-Volte à Acessibilidade e ative o REau. Se o interruptor estava cinza, é essa configuração restrita
+00:00:47.533 --> 00:00:56.667
+5. Android Auto sem resposta ou sem imagem: force a parada dele, depois desligue e ligue o REau. Em Bateria, dê a ele Sem restrições
 
 8
-00:00:36.333 --> 00:00:41.400
-No Samsung, a Acessibilidade do REau fica em Aplicativos instalados
+00:00:56.667 --> 00:01:06.267
+6. Se o REau avisar que uma VPN o está segurando: desligue a VPN ou deixe o REau fora dela, pela divisão de túnel, e reconecte a VPN
 
 9
-00:00:41.400 --> 00:00:49.267
-3. Servidor do Android Auto desligado: na Completa, ative a Acessibilidade e a chave Ligar o servidor sozinho
+00:01:06.267 --> 00:01:15.933
+7. Wi-Fi do painel não encontrado: confira a chave da moto, o Wi-Fi e a localização do celular e, em Dados da moto, o nome inteiro da rede
 
 10
-00:00:49.267 --> 00:00:56.600
-Na Lite, ligue à mão: configurações do Android Auto, menu de três pontos, Iniciar servidor da unidade principal
-
-11
-00:00:56.600 --> 00:01:04.267
-4. Modo desenvolvedor do Android Auto desligado: abra as configurações dele e toque dez vezes em Versão
-
-12
-00:01:04.267 --> 00:01:12.400
-5. Depois de Desligar, o Android Auto leva até um minuto para fechar a sessão anterior: espere ou reinicie o servidor
-
-13
-00:01:12.400 --> 00:01:21.200
-6. Uma VPN está segurando o REau: desligue a VPN ou deixe o REau fora dela, pela divisão de túnel, e reconecte a VPN
-
-14
-00:01:21.200 --> 00:01:29.933
-7. Wi-Fi do painel não encontrado: confira a chave da moto, a localização liberada e, em Dados da moto, o nome inteiro da rede
-
-15
-00:01:29.933 --> 00:01:35.800
+00:01:15.933 --> 00:01:21.733
 Se trocou de moto ou há mais de um painel por perto, toque em Esquecer e procure de novo
 
-16
-00:01:35.800 --> 00:01:41.400
-Na primeira vez, o Android pergunta Conectar ao dispositivo: toque em Conectar
+11
+00:01:21.733 --> 00:01:29.200
+8. Se aparecer Outro app está com o painel, pare a transmissão do outro app para o painel. O REau tenta de novo sozinho
 
-17
-00:01:41.400 --> 00:01:48.200
-8. Se aparecer Outro app está com o painel, pare a transmissão do outro app, como o aplicativo oficial
+12
+00:01:29.200 --> 00:01:35.400
+O painel pode ter travado: desligue a moto pela chave, espere uns trinta segundos e ligue de novo
 
-18
-00:01:48.200 --> 00:01:54.600
-Se o painel recusar a conexão, desligue a moto pela chave, espere uns trinta segundos e ligue de novo
+13
+00:01:35.400 --> 00:01:45.133
+9. Se o painel mostrar Imagem parada ou o app disser Sem imagem nova, o Android Auto parou de mandar imagem. Normalmente ela volta sozinha
 
-19
-00:01:54.600 --> 00:02:00.800
-9. Android Auto sem imagem: force a parada do Android Auto, desligue e ligue o REau
-
-20
-00:02:00.800 --> 00:02:07.467
+14
+00:01:45.133 --> 00:01:51.667
 10. Se ligou o servidor de rede, o REau não procura o painel: desligue essa chave para usar a moto
 
-21
-00:02:07.467 --> 00:02:11.467
+15
+00:01:51.667 --> 00:01:55.467
 Mais respostas estão nas perguntas frequentes do REau
 

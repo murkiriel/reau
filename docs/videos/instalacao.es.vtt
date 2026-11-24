@@ -1,0 +1,70 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:03.467
+Instalación de REau, paso a paso
+
+2
+00:00:03.467 --> 00:00:10.067
+1. Descarga el APK desde la página de Releases del proyecto y abre el archivo para instalarlo
+
+3
+00:00:10.067 --> 00:00:20.600
+Play Protect puede bloquear la instalación. En Play Store toca la foto de perfil, Play Protect y el engranaje. Pausa el análisis, instala el APK y vuelve a activar Play Protect
+
+4
+00:00:20.600 --> 00:00:26.267
+2. Abre REau y baja los términos de uso hasta el final, o toca Bajar hasta el final
+
+5
+00:00:26.267 --> 00:00:29.267
+Luego toca Lo leí y acepto
+
+6
+00:00:29.267 --> 00:00:39.333
+3. Permite la ubicación mientras usas la app: sirve solo para encontrar el Wi-Fi del tablero. Si Android pregunta, permite también las redes Wi-Fi sugeridas
+
+7
+00:00:39.333 --> 00:00:43.400
+4. Toca Encender y permite las notificaciones
+
+8
+00:00:43.400 --> 00:00:49.600
+5. El servidor de Android Auto se enciende a mano: toca Abrir los ajustes de Android Auto
+
+9
+00:00:49.600 --> 00:00:55.200
+La primera vez, baja hasta el final y toca diez veces en Versión. Confirma con OK
+
+10
+00:00:55.200 --> 00:01:03.000
+En el menú de tres puntos, toca Iniciar servidor de unidad principal. Si ya está encendido, el elemento pasa a ser Detener
+
+11
+00:01:03.000 --> 00:01:08.933
+El modo desarrollador es solo la primera vez. Después, cada vez, basta el menú de tres puntos
+
+12
+00:01:08.933 --> 00:01:17.600
+6. Vuelve a REau. La primera vez, Android pregunta Conectar al dispositivo: toca Conectar para que REau entre al Wi-Fi del tablero
+
+13
+00:01:17.600 --> 00:01:22.067
+Con Android Auto Activo y el tablero Listo, REau está Transmitiendo
+
+14
+00:01:22.067 --> 00:01:26.600
+7. En Permisos, toca Pedir los que faltan y permite todo
+
+15
+00:01:26.600 --> 00:01:33.467
+Deja también a REau fuera de la optimización de batería, para que Android no pause la app con la pantalla apagada
+
+16
+00:01:33.467 --> 00:01:42.733
+8. En la Pantalla de Android Auto, el Asistente de encaje comprueba que la flecha de la maniobra y la velocidad se vean enteras en el tablero
+
+17
+00:01:42.733 --> 00:01:47.667
+Listo. Pon la ruta en Waze y guarda el teléfono. Para terminar, toca Apagar
+

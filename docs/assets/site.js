@@ -18,17 +18,27 @@ function align(A,B){var n=A.length,m=B.length,L=[],i,j;for(i=0;i<=n;i++){L.push(
 for(i=n-1;i>=0;i--)for(j=m-1;j>=0;j--)L[i][j]=sig(A[i])===sig(B[j])?L[i+1][j+1]+1:Math.max(L[i+1][j],L[i][j+1]);
 var out=[];i=0;j=0;while(i<n&&j<m){if(sig(A[i])===sig(B[j])){out.push([A[i],B[j]]);i++;j++;}else if(L[i+1][j]>=L[i][j+1]){out.push([A[i],null]);i++;}else{out.push([null,B[j]]);j++;}}
 while(i<n)out.push([A[i++],null]);while(j<m)out.push([null,B[j++]]);return out;}
+// cada idioma tem o seu vídeo narrado: ao trocar de idioma, troca a fonte, o pôster e as legendas e continua do mesmo ponto (pela fração do vídeo), tocando se estava tocando
+function syncVideo(a,b){var sa=a.querySelector('source'),sb=b.querySelector('source');
+if(!sa||!sb||sa.getAttribute('src')===sb.getAttribute('src'))return;
+var frac=a.duration>0?a.currentTime/a.duration:0,play=!a.paused&&!a.ended,on=[].some.call(a.textTracks,function(t){return t.mode==='showing';});
+if(b.hasAttribute('poster'))a.setAttribute('poster',b.getAttribute('poster'));
+[].slice.call(a.querySelectorAll('source,track')).forEach(function(n){a.removeChild(n);});
+[].slice.call(b.querySelectorAll('source,track')).forEach(function(n){a.appendChild(document.importNode(n,true));});
+if(!on)[].forEach.call(a.textTracks,function(t){t.mode='disabled';});
+a.load();
+if(frac>0||play)a.addEventListener('loadedmetadata',function f(){a.removeEventListener('loadedmetadata',f);try{if(frac>0&&a.duration>0)a.currentTime=frac*a.duration;}catch(e){}if(play&&a.play){var p=a.play();if(p&&p.catch)p.catch(function(){});}});}
 function sync(a,b){
 if(a.nodeType===3){if(a.nodeValue!==b.nodeValue)a.nodeValue=b.nodeValue;return;}
 if(a.nodeType!==1)return;
-attrs(a,b);if(a.tagName==='VIDEO')return;
+attrs(a,b);if(a.tagName==='VIDEO'){syncVideo(a,b);return;}
 var ops=align(kids(a),kids(b)),last=null;
 ops.forEach(function(p){
 if(p[0]&&p[1]){sync(p[0],p[1]);last=p[0];}
 else if(p[0]){a.removeChild(p[0]);}
 else{var c=document.importNode(p[1],true);a.insertBefore(c,last?last.nextSibling:a.firstChild);last=c;}});}
 function head(d){r.setAttribute('lang',d.documentElement.getAttribute('lang'));document.title=d.title;
-['meta[name=description]','meta[property="og:title"]','meta[property="og:description"]','meta[property="og:url"]'].forEach(function(s){var x=document.querySelector(s),y=d.querySelector(s);if(x&&y)x.setAttribute('content',y.getAttribute('content'));});
+['meta[name=description]','meta[property="og:title"]','meta[property="og:description"]','meta[property="og:url"]','meta[property="og:locale"]'].forEach(function(s){var x=document.querySelector(s),y=d.querySelector(s);if(x&&y)x.setAttribute('content',y.getAttribute('content'));});
 var xc=document.querySelector('link[rel=canonical]'),yc=d.querySelector('link[rel=canonical]');if(xc&&yc)xc.setAttribute('href',yc.getAttribute('href'));
 var xa=document.querySelectorAll('link[rel=alternate][hreflang]'),ya=d.querySelectorAll('link[rel=alternate][hreflang]');
 for(var i=0;i<xa.length&&i<ya.length;i++){xa[i].setAttribute('hreflang',ya[i].getAttribute('hreflang'));xa[i].setAttribute('href',ya[i].getAttribute('href'));}}

@@ -9,18 +9,19 @@ import org.junit.Test
 /**
  * The site describes the app of today, which is one app (`com.reau.app`): no Lite or Full edition to choose, no step that turns on an
  * Accessibility service, no "Try again" button (the owner's decision of 15/11/2026, in the three languages). What may still be said is
- * history that is true and useful, and each such phrase is in [allowed]: the migration note for whoever has the old Lite installed, and the
- * statements that the Accessibility service is gone (and that the last two videos still show its step). A page that says anything else about them fails here.
+ * history that is true and useful, and each such phrase is in [allowed]: the migration note for whoever has the old Lite installed and the
+ * statements that the Accessibility service is gone. A page that says anything else about them fails here.
  *
- * The videos and the screenshots are from before the single app (the owner chose to change only the text), so each old picture says so, and
- * each video has its subtitles in Portuguese, English and Spanish, with the same warning in the first 3 seconds. Read from the files, as
- * [SiteIntegrityTest] does.
+ * The three videos (installation, problems, everyday use) were remade for 0.3.0, one narrated file per language (`video.pt.mp4`, `.en.mp4`,
+ * `.es.mp4`), so no picture or video says it is from an earlier version any more. Each narrated video has its own subtitles and the other two
+ * languages' subtitles on the same timing, and each install page offers the video of its own language, with its own subtitles first and chosen.
+ * Read from the files, as [SiteIntegrityTest] does.
  */
 class SiteSingleAppTest {
     private val root = listOf(File(".."), File(".")).first { File(it, "gradle/wrapper").isDirectory }
     private val docs = File(root, "docs")
     private val languages = listOf("pt", "en", "es")
-    private val videos = listOf("lite", "problemas", "uso")
+    private val videos = listOf("instalacao", "problemas", "uso")
     private fun pages(language: String) = File(docs, language).listFiles { f -> f.extension == "html" }!!.sortedBy { it.name }
 
     /** What a page may not say, by language: the old editions, the Accessibility step and the button that went with the service. */
@@ -38,23 +39,9 @@ class SiteSingleAppTest {
 
     /** The only phrases that may carry one of the forbidden words: history, never a step of today. */
     private val allowed: Map<String, List<String>> = mapOf(
-        "pt" to listOf("antiga REau Lite", "Lite antiga", "a Lite tinha o pacote", "serviço de acessibilidade que as versões anteriores usavam", "configurações de Acessibilidade do Android", "o passo da Acessibilidade"),
-        "en" to listOf("old REau Lite", "old Lite", "the Lite had the package", "accessibility service that earlier versions used", "Android’s Accessibility settings", "the Accessibility step"),
-        "es" to listOf("antigua REau Lite", "Lite antigua", "la Lite tenía el paquete", "servicio de accesibilidad que usaban las versiones anteriores", "ajustes de Accesibilidad de Android", "el paso de Accesibilidad"),
-    )
-
-    /** What the pages say next to a picture or a video of an earlier version of the app. */
-    private val pictureNotice = mapOf(
-        "pt" to "Imagem de uma versão anterior do app.",
-        "en" to "Picture from an earlier version of the app.",
-        "es" to "Imagen de una versión anterior de la app.",
-    )
-
-    /** The first cue of every subtitle file (the first 3 seconds): the video is from before the single app. */
-    private val cueNotice = mapOf(
-        "pt" to "Vídeo de uma versão anterior: o app de hoje não tem a Lite nem o passo da Acessibilidade",
-        "en" to "Video from an earlier version: today's app has no Lite and no Accessibility step",
-        "es" to "Video de una versión anterior: la app de hoy no tiene la Lite ni el paso de Accesibilidad",
+        "pt" to listOf("antiga REau Lite", "Lite antiga", "a Lite tinha o pacote", "serviço de acessibilidade que as versões anteriores usavam", "configurações de Acessibilidade do Android"),
+        "en" to listOf("old REau Lite", "old Lite", "the Lite had the package", "accessibility service that earlier versions used", "Android’s Accessibility settings"),
+        "es" to listOf("antigua REau Lite", "Lite antigua", "la Lite tenía el paquete", "servicio de accesibilidad que usaban las versiones anteriores", "ajustes de Accesibilidad de Android"),
     )
 
     private fun offenders(language: String, html: String): List<String> {
@@ -95,40 +82,61 @@ class SiteSingleAppTest {
     }
 
     @Test
-    fun `each video has valid subtitles in the three languages and each starts with the warning`() {
-        for (video in videos) {
-            val byLanguage = languages.associateWith { cuesOf(File(docs, "videos/$video.$it.vtt")) }
-            for (language in languages) {
-                assertEquals("$video.$language.vtt", emptyList<String>(), problemsOf(byLanguage.getValue(language), cueNotice.getValue(language)))
-            }
-            // The English and Spanish subtitles follow the Portuguese ones cue by cue, with the same times.
-            val times = byLanguage.getValue("pt").map { it.from to it.to }
-            for (language in listOf("en", "es")) {
-                assertEquals("$video.$language.vtt: the times of the Portuguese one", times, byLanguage.getValue(language).map { it.from to it.to })
+    fun `every video exists once per narration language, small enough, with a poster and subtitles in the three languages on the same timing`() {
+        for (video in videos) for (narration in languages) {
+            val name = "$video.$narration"
+            val mp4 = File(docs, "videos/$name.mp4")
+            assertTrue("$name.mp4 is there", mp4.isFile)
+            assertTrue("$name.mp4 is under 6.5 MB (the repository carries nine of them): ${mp4.length()}", mp4.length() in 1_000_000L..6_500_000L)
+            assertTrue("$name.jpg poster", File(docs, "videos/$name.jpg").isFile)
+            val own = cuesOf(File(docs, "videos/$name.vtt"))
+            assertEquals("$name.vtt", emptyList<String>(), problemsOf(own))
+            for (sub in languages - narration) {
+                val other = cuesOf(File(docs, "videos/$name.$sub.vtt"))
+                assertEquals("$name.$sub.vtt: cue by cue the times of the narration", own.map { it.from to it.to }, other.map { it.from to it.to })
+                assertTrue("$name.$sub.vtt: another language", other.map { it.text } != own.map { it.text })
             }
         }
     }
 
     @Test
-    fun `each install page offers the three subtitle tracks of every video, its own language first`() {
+    fun `each install page offers the video of its own language, with the poster, its subtitles chosen and the other two as options`() {
         val said = mapOf(
-            "pt" to "as legendas existem em português, em inglês e em espanhol",
-            "en" to "subtitles are available in English, Portuguese and Spanish",
-            "es" to "hay subtítulos en español, inglés y portugués",
+            "pt" to "Cada página tem a narração no seu idioma",
+            "en" to "Each page has the narration in its own language",
+            "es" to "Cada página tiene la narración en su propio idioma",
         )
         for (language in languages) {
             val html = File(docs, "$language/install.html").readText()
-            assertTrue("$language: says the three languages", said.getValue(language) in html)
-            val tracks = Regex("""<track [^>]*>""").findAll(html).map { it.value }.toList()
-            assertEquals("$language: tracks", videos.size * languages.size, tracks.size)
-            for (video in videos) for (track in languages) {
-                val found = tracks.count { "src=\"../videos/$video.$track.vtt\"" in it && "srclang=\"$track\"" in it }
-                assertEquals("$language: $video.$track.vtt", 1, found)
+            assertTrue("$language: says the narration is in its language", said.getValue(language) in html)
+            val players = Regex("""<video [^>]*>.*?</video>""", RegexOption.DOT_MATCHES_ALL).findAll(html).map { it.value }.toList()
+            assertEquals("$language: players", videos.size, players.size)
+            for ((index, video) in videos.withIndex()) {
+                val player = players[index]
+                val opening = player.substringBefore(">") + ">"
+                for (attribute in listOf("controls", "playsinline", "preload=\"metadata\"", "poster=\"../videos/$video.$language.jpg\"", "aria-label=\"")) {
+                    assertTrue("$language/$video: $attribute", attribute in opening)
+                }
+                assertTrue("$language/$video: the narrated file of its language", "<source src=\"../videos/$video.$language.mp4\" type=\"video/mp4\">" in player)
+                val tracks = Regex("""<track [^>]*>""").findAll(player).map { it.value }.toList()
+                assertEquals("$language/$video: tracks", languages.size, tracks.size)
+                val own = tracks.first()
+                assertTrue("$language/$video: its own subtitles first and chosen: $own", "src=\"../videos/$video.$language.vtt\"" in own && "srclang=\"$language\"" in own && own.endsWith(" default>") && "label=" in own)
+                for (sub in languages - language) {
+                    val found = tracks.count { "src=\"../videos/$video.$language.$sub.vtt\"" in it && "srclang=\"$sub\"" in it && "label=" in it && "default" !in it }
+                    assertEquals("$language/$video: the $sub subtitles as an option", 1, found)
+                }
             }
-            val chosen = tracks.filter { it.endsWith(" default>") }
-            assertEquals("$language: one default track per video", videos.size, chosen.size)
-            for (track in chosen) assertTrue("$language: the default track is in $language: $track", "srclang=\"$language\"" in track)
         }
+    }
+
+    @Test
+    fun `the script swaps the narrated file, the poster and the subtitles when the language changes in the page`() {
+        val js = File(docs, "assets/site.js").readText()
+        assertTrue("the function is there", "function syncVideo(a,b){" in js)
+        val body = js.substringAfter("function syncVideo(a,b){").substringBefore("function sync(a,b){")
+        for (part in listOf("poster", "source,track", "a.load()", "currentTime", "textTracks")) assertTrue("syncVideo: $part", part in body)
+        assertTrue("sync calls it for a video", "if(a.tagName==='VIDEO'){syncVideo(a,b);return;}" in js)
     }
 
     @Test
@@ -141,18 +149,24 @@ class SiteSingleAppTest {
     }
 
     @Test
-    fun `the old pictures and the videos say they are from an earlier version, in the page's own language`() {
+    fun `only the picture that was not redone says it is from an earlier version, and no video does`() {
+        val notice = mapOf(
+            "pt" to "Imagem de uma versão anterior do app.",
+            "en" to "Picture from an earlier version of the app.",
+            "es" to "Imagen de una versión anterior de la app.",
+        )
         for (language in languages) {
-            val notice = pictureNotice.getValue(language)
-            for ((page, count) in listOf("faq.html" to 3, "install.html" to 4)) {
-                val html = File(docs, "$language/$page").readText()
-                val said = Regex("""class="old">\s*([^<]*)<""").findAll(html).map { it.groupValues[1].trim() }.toList()
-                assertEquals("$language/$page: how many notices", count, said.size)
-                assertEquals("$language/$page: the words", List(count) { notice }, said)
+            for (page in pages(language).filter { it.name != "faq.html" }) {
+                val html = page.readText()
+                assertFalse("${page.relativeTo(docs)}: a notice class", "class=\"old\"" in html)
+                assertFalse("${page.relativeTo(docs)}: a notice text", notice.getValue(language) in html)
             }
+            // The "Connect to device" request is the one picture with no new capture (Android's own dialog, not reachable on the emulator).
             val faq = File(docs, "$language/faq.html").readText()
-            val figure = Regex("""streaming\.jpg.*?</figure>""", RegexOption.DOT_MATCHES_ALL).find(faq)?.value ?: error("$language: no streaming figure")
-            assertTrue("$language: the picture of the old main screen carries the notice", notice in figure)
+            val said = Regex("""class="old">\s*([^<]*)<""").findAll(faq).map { it.groupValues[1].trim() }.toList()
+            assertEquals("$language/faq.html: the notices", listOf(notice.getValue(language)), said)
+            val figure = Regex("""<figure>(?:(?!</figure>).)*connect_dialog\.jpg.*?</figure>""", RegexOption.DOT_MATCHES_ALL).find(faq)?.value ?: error("$language: no connect_dialog figure")
+            assertTrue("$language: the notice is on the connect_dialog picture", notice.getValue(language) in figure)
         }
     }
 }
@@ -177,21 +191,15 @@ private fun cuesOf(file: File): List<SiteVttCue> {
     }
 }
 
-/**
- * What is wrong with the cues of one subtitle file: the first is the warning, in the first 3 seconds (it may overlap the first spoken cue,
- * since the narration starts at 0), and the spoken ones go forward with no overlap and have text.
- */
-private fun problemsOf(cues: List<SiteVttCue>, notice: String): List<String> {
-    if (cues.size <= 3) return listOf("too few cues")
+/** What is wrong with the cues of one subtitle file: they go forward with no overlap, from 0, and have text; there are enough of them. */
+private fun problemsOf(cues: List<SiteVttCue>): List<String> {
+    if (cues.size < 10) return listOf("too few cues")
     val problems = mutableListOf<String>()
-    if (cues.first().text != notice) problems += "the first cue is not the warning: ${cues.first().text}"
-    if (cues.first().from != 0L || cues.first().to !in 1L..3000L) problems += "the warning is not within the first 3 s"
-    val spoken = cues.drop(1)
-    if (spoken.first().from != 0L) problems += "the narration does not start at 0"
-    spoken.forEachIndexed { i, cue ->
-        if (cue.text.isBlank()) problems += "cue ${i + 2} has no text"
-        if (cue.to <= cue.from) problems += "cue ${i + 2} ends before it starts"
-        if (i > 0 && cue.from < spoken[i - 1].to) problems += "cue ${i + 2} starts before the one before it ends"
+    if (cues.first().from != 0L) problems += "the narration does not start at 0"
+    cues.forEachIndexed { i, cue ->
+        if (cue.text.isBlank()) problems += "cue ${i + 1} has no text"
+        if (cue.to <= cue.from) problems += "cue ${i + 1} ends before it starts"
+        if (i > 0 && cue.from < cues[i - 1].to) problems += "cue ${i + 1} starts before the one before it ends"
     }
     return problems
 }

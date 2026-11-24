@@ -1,62 +1,82 @@
 WEBVTT
 
 1
-00:00:00.000 --> 00:00:03.000
-Video de una versión anterior: la app de hoy no tiene la Lite ni el paso de Accesibilidad
+00:00:00.000 --> 00:00:03.533
+Uso de REau todos los días, con la moto y el tablero
 
 2
-00:00:00.000 --> 00:00:03.467
-Uso diario de REau, con la moto y el tablero
+00:00:03.533 --> 00:00:07.400
+1. Enciende la moto, abre REau y toca Encender
 
 3
-00:00:03.467 --> 00:00:10.133
-1. Enciende la moto, abre REau y toca Encender. En la Lite, enciende antes el servidor de Android Auto
+00:00:07.400 --> 00:00:14.733
+REau te lleva a Android Auto: en el menú de tres puntos, toca Iniciar servidor de unidad principal y vuelve a REau
 
 4
-00:00:10.133 --> 00:00:17.200
-Cuando Android Auto esté activo y el tablero listo, está transmitiendo. Guarda el teléfono, con la pantalla apagada
+00:00:14.733 --> 00:00:22.533
+Con Android Auto Activo y el tablero Listo, REau muestra Transmitiendo. Guarda el teléfono, incluso con la pantalla apagada
 
 5
-00:00:17.200 --> 00:00:23.867
-2. Con la moto detenida, define el destino en la app Waze, por voz o desde la pantalla de Android Auto
+00:00:22.533 --> 00:00:28.867
+2. Con la moto detenida, pon el destino en la app de Waze, por voz o en la Pantalla de Android Auto
 
 6
-00:00:23.867 --> 00:00:30.733
-3. En la pantalla de Android Auto, toca y arrastra la imagen para usar Android Auto como en un auto
+00:00:28.867 --> 00:00:35.600
+3. En la Pantalla de Android Auto, toca y arrastra la imagen para usar Android Auto como en un coche
 
 7
-00:00:30.733 --> 00:00:38.133
-Si se abre Google Maps o el menú de apps, elige Waze en esa pantalla. Después de usarlo una vez, suele abrirse directo
+00:00:35.600 --> 00:00:42.267
+Si se abre Google Maps o el menú de apps, elige Waze. Después de usarlo una vez, suele abrirse directo
 
 8
-00:00:38.133 --> 00:00:47.400
-4. En el joystick, en el control de medios: izquierda canción anterior, derecha siguiente, arriba menú de apps, abajo Gemini, centro reproducir o pausar
+00:00:42.267 --> 00:00:50.933
+4. Joystick, modo mapa: izquierda aleja, derecha acerca, arriba es el volver del tablero y el centro abre el control de medios
 
 9
-00:00:47.400 --> 00:00:55.267
-En el modo mapa, izquierda y derecha mueven el foco y abajo confirma. Arriba es el volver del tablero y el centro abre el control de medios
+00:00:50.933 --> 00:00:59.333
+En el control de medios: izquierda y derecha recorren los elementos, arriba abre el menú de apps, abajo llama a Gemini y el centro confirma
 
 10
-00:00:55.267 --> 00:01:04.333
-5. Llamadas: al sonar, la izquierda contesta y la derecha o el centro rechaza. Durante una llamada, el centro cuelga y arriba y abajo cambian el volumen
+00:00:59.333 --> 00:01:06.267
+Con Spotify en pantalla y sonando, izquierda y derecha cambian de canción y el centro reproduce o pausa
 
 11
-00:01:04.333 --> 00:01:10.600
-Con la pantalla del teléfono bloqueada, el tablero sigue normalmente; solo la vista previa dentro de la app se detiene
+00:01:06.267 --> 00:01:13.467
+5. Llamada sonando: izquierda contesta, derecha y centro rechazan. Arriba y abajo no hacen nada
 
 12
-00:01:10.600 --> 00:01:17.467
-6. Si se cae el Wi-Fi del tablero, REau pasa a Conectando y vuelve sola cuando la red reaparece
+00:01:13.467 --> 00:01:20.600
+En llamada: derecha sube el volumen, izquierda lo baja, arriba y abajo no hacen nada y el centro termina la llamada
 
 13
-00:01:17.467 --> 00:01:22.267
-7. Para terminar, toca Apagar en la app o en la notificación
+00:01:20.600 --> 00:01:29.333
+En lo alto de la imagen del tablero aparecen quién llama y el volumen. Con el volumen al máximo, el toque muestra otra vez: Llamada ocho de ocho
 
 14
-00:01:22.267 --> 00:01:29.200
-Para salir de nuevo, toca Encender. Si Android Auto aún está cerrando la sesión, espera hasta un minuto
+00:01:29.333 --> 00:01:35.867
+6. El anillo de información muestra, una a la vez, lluvia, viento, sol y la batería del teléfono
 
 15
-00:01:29.200 --> 00:01:32.867
-Buen viaje. En la carretera, la vista va en la carretera
+00:01:35.867 --> 00:01:41.133
+Cada información dura al menos siete segundos: el tiempo va de siete a treinta
+
+16
+00:01:41.133 --> 00:01:49.133
+O, con Información en el título, van en el título de la franja dorada. Con ruta: veinte segundos de calle y siete de información
+
+17
+00:01:49.133 --> 00:01:56.133
+Con la pantalla del teléfono bloqueada, el tablero sigue normal; solo se detiene la vista previa dentro de la app
+
+18
+00:01:56.133 --> 00:02:03.867
+7. Si el Wi-Fi del tablero se cae, REau avisa y vuelve solo cuando la red reaparece. Al apagar la moto, es normal
+
+19
+00:02:03.867 --> 00:02:08.467
+8. Para terminar, toca Apagar en la app o en la notificación
+
+20
+00:02:08.467 --> 00:02:12.000
+Buen viaje. En la ruta, los ojos van en la ruta
 

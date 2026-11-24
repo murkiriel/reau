@@ -1,0 +1,70 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:03.467
+Installing REau, step by step
+
+2
+00:00:03.467 --> 00:00:10.333
+1. Download the APK from the project’s Releases page and open the file to install it
+
+3
+00:00:10.333 --> 00:00:22.133
+Play Protect may block the installation. In the Play Store, tap your profile picture, Play Protect and the gear. Pause scanning, install the APK and turn Play Protect back on
+
+4
+00:00:22.133 --> 00:00:28.067
+2. Open REau and scroll the terms of use to the end, or tap Scroll to the end
+
+5
+00:00:28.067 --> 00:00:31.067
+Then tap I accept
+
+6
+00:00:31.067 --> 00:00:41.667
+3. Allow location while using the app: it is only used to find the dash’s Wi-Fi. If Android asks, also allow the suggested Wi-Fi networks
+
+7
+00:00:41.667 --> 00:00:45.200
+4. Tap Turn on and allow notifications
+
+8
+00:00:45.200 --> 00:00:51.867
+5. The Android Auto server is turned on by hand: tap Open Android Auto settings
+
+9
+00:00:51.867 --> 00:00:57.600
+The first time, scroll to the bottom and tap Version ten times. Confirm with OK
+
+10
+00:00:57.600 --> 00:01:03.800
+In the three-dot menu, tap Start head unit server. If it is already on, the item becomes Stop
+
+11
+00:01:03.800 --> 00:01:10.133
+Developer mode is only the first time. After that, each time, the three-dot menu is enough
+
+12
+00:01:10.133 --> 00:01:19.133
+6. Go back to REau. The first time, Android asks Connect to device: tap Connect so REau can join the dash’s Wi-Fi
+
+13
+00:01:19.133 --> 00:01:23.267
+With Android Auto Active and the dash Ready, REau is Streaming
+
+14
+00:01:23.267 --> 00:01:28.400
+7. In Permissions, tap Ask for the missing ones and allow everything
+
+15
+00:01:28.400 --> 00:01:34.667
+Also leave REau out of battery optimization, so Android doesn’t pause the app with the screen off
+
+16
+00:01:34.667 --> 00:01:42.667
+8. On the Android Auto screen, the Fit assistant checks that the maneuver arrow and the speed show whole on the dash
+
+17
+00:01:42.667 --> 00:01:48.000
+All set. Set the route in Waze and put the phone away. To stop, tap Turn off
+

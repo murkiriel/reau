@@ -1,0 +1,62 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:04.067
+Problemas de instalación y de Wi-Fi de REau, y cómo resolverlos
+
+2
+00:00:04.067 --> 00:00:12.667
+1. Play Protect bloqueó la instalación: pausa el análisis de apps en Play Store, instala el APK otra vez y reactiva Play Protect
+
+3
+00:00:12.667 --> 00:00:22.667
+2. Servidor de Android Auto apagado: abre los ajustes de Android Auto y, en el menú de tres puntos, toca Iniciar servidor de unidad principal
+
+4
+00:00:22.667 --> 00:00:29.333
+¿Reiniciaste el teléfono? El servidor se apaga: enciéndelo otra vez a mano. REau se conecta solo cuando responde
+
+5
+00:00:29.333 --> 00:00:39.000
+3. ¿El menú no muestra Iniciar servidor? El modo desarrollador de Android Auto no está activado: toca diez veces en Versión. El del teléfono no sirve
+
+6
+00:00:39.000 --> 00:00:47.533
+4. Después de Apagar, Android Auto tarda hasta un minuto en cerrar la sesión anterior. Espera, o detén e inicia el servidor
+
+7
+00:00:47.533 --> 00:00:56.667
+5. Android Auto sin respuesta o sin imagen: fuerza su detención, luego apaga y enciende REau. En Batería, ponle Sin restricciones
+
+8
+00:00:56.667 --> 00:01:06.267
+6. Si REau avisa que una VPN lo retiene: apaga la VPN o deja a REau fuera de ella, con túnel dividido, y reconecta la VPN
+
+9
+00:01:06.267 --> 00:01:15.933
+7. Wi-Fi del tablero no encontrado: revisa la llave de la moto, el Wi-Fi y la ubicación del teléfono y, en Datos de la moto, el nombre completo de la red
+
+10
+00:01:15.933 --> 00:01:21.733
+Si cambiaste de moto o hay más de un tablero cerca, toca Olvidar y busca de nuevo
+
+11
+00:01:21.733 --> 00:01:29.200
+8. Si aparece Otra app tiene el tablero, detén la transmisión de la otra app al tablero. REau reintenta solo
+
+12
+00:01:29.200 --> 00:01:35.400
+El tablero puede haberse trabado: apaga la moto con la llave, espera unos treinta segundos y enciéndela de nuevo
+
+13
+00:01:35.400 --> 00:01:45.133
+9. Si el tablero muestra IMAGEN CONGELADA o la app dice Sin imagen nueva, Android Auto dejó de mandar la imagen. Normalmente vuelve sola
+
+14
+00:01:45.133 --> 00:01:51.667
+10. Si encendiste el servidor de red, REau no busca el tablero: apaga ese interruptor para usar la moto
+
+15
+00:01:51.667 --> 00:01:55.467
+Hay más respuestas en las preguntas frecuentes de REau
+

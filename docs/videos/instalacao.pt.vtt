@@ -1,0 +1,70 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:03.467
+Instalação do REau, passo a passo
+
+2
+00:00:03.467 --> 00:00:09.067
+1. Baixe o APK na página de Releases do projeto e abra o arquivo para instalar
+
+3
+00:00:09.067 --> 00:00:20.200
+O Play Protect pode bloquear a instalação. Na Play Store, toque na foto do perfil, em Play Protect e na engrenagem. Pause a verificação, instale o APK e religue o Play Protect
+
+4
+00:00:20.200 --> 00:00:25.733
+2. Abra o REau e role os termos de uso até o fim, ou toque em Descer até o fim
+
+5
+00:00:25.733 --> 00:00:28.733
+Depois toque em Li e aceito
+
+6
+00:00:28.733 --> 00:00:39.000
+3. Permita a localização durante o uso do app: ela serve só para achar o Wi-Fi do painel. Se o Android perguntar, permita também as redes Wi-Fi sugeridas
+
+7
+00:00:39.000 --> 00:00:43.067
+4. Toque em Ligar e permita as notificações
+
+8
+00:00:43.067 --> 00:00:49.867
+5. O servidor do Android Auto se liga à mão: toque em Abrir as configurações do Android Auto
+
+9
+00:00:49.867 --> 00:00:55.200
+Na primeira vez, role até o fim e toque dez vezes em Versão. Confirme em OK
+
+10
+00:00:55.200 --> 00:01:02.667
+No menu de três pontos, toque em Iniciar servidor da unidade principal. Se ele já estiver ligado, o item vira Parar
+
+11
+00:01:02.667 --> 00:01:09.000
+O modo desenvolvedor é só da primeira vez. Depois, a cada uso, basta o menu de três pontos
+
+12
+00:01:09.000 --> 00:01:18.333
+6. Volte ao REau. Na primeira vez, o Android pergunta Conectar ao dispositivo: toque em Conectar para deixar o REau entrar no Wi-Fi do painel
+
+13
+00:01:18.333 --> 00:01:23.000
+Com o Android Auto Ativo e o painel Pronto, o REau está Transmitindo
+
+14
+00:01:23.000 --> 00:01:27.733
+7. Em Permissões, toque em Pedir as que faltam e permita tudo
+
+15
+00:01:27.733 --> 00:01:34.400
+Deixe também o REau fora da otimização de bateria, para o Android não pausar o app com a tela apagada
+
+16
+00:01:34.400 --> 00:01:43.000
+8. Na Tela do Android Auto, o Assistente de encaixe confere se a seta da manobra e a velocidade aparecem inteiras no painel
+
+17
+00:01:43.000 --> 00:01:48.333
+Pronto. Coloque a rota no Waze e guarde o celular. Para encerrar, toque em Desligar
+
