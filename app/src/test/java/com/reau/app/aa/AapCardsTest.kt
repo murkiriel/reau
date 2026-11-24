@@ -126,7 +126,15 @@ class AapCardsTest {
         cards.take(message(Channel.ID_PHONE, AapCards.PHONE_STATUS, phoneStatus(Triple(4, "+5511999990000", ""))))
         cards.take(message(Channel.ID_PHONE, AapCards.PHONE_STATUS, phoneStatus()))
         cards.take(message(Channel.ID_PHONE, AapCards.PHONE_STATUS, phoneStatus(Triple(4, "", ""))))
-        assertEquals(listOf(AaCaller("Mãe"), null, AaCaller("+5511999990000"), null, AaCaller("")), callers)
+        assertEquals(listOf(AaCaller("Mãe"), null, AaCaller("+5511999990000", numberOnly = true), null, AaCaller("")), callers)
+    }
+
+    @Test
+    fun `a call that has only the number comes first, and the name that follows is told as a new caller with the same call`() {
+        cards.take(message(Channel.ID_PHONE, AapCards.PHONE_STATUS, phoneStatus(Triple(1, "+5511999990000", ""))))
+        cards.take(message(Channel.ID_PHONE, AapCards.PHONE_STATUS, phoneStatus(Triple(1, "+5511999990000", ""))))
+        cards.take(message(Channel.ID_PHONE, AapCards.PHONE_STATUS, phoneStatus(Triple(1, "+5511999990000", "Ana"))))
+        assertEquals(listOf(AaCaller("+5511999990000", inCall = true, numberOnly = true), AaCaller("Ana", inCall = true)), callers)
     }
 
     @Test

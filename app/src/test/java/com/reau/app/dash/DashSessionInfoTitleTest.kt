@@ -195,6 +195,30 @@ class DashSessionInfoTitleTest {
         assertEquals("Chuva em 20 min", title())
     }
 
+    @Test
+    fun `an echo in the middle of a page leaves the page its 7 s on the whole, in the card and in the nav packet`() {
+        on()
+        guide(900)
+        title()
+        now += STREET_MS
+        assertEquals("Chuva em 20 min", title())
+        now += 3_000
+        assertEquals("Chuva em 20 min", title())
+        session.echoAction("Next song")
+        assertEquals("Next song", title())
+        assertEquals("Next song", navTitle())
+        now += 1_000
+        assertEquals("the echo is still there a second later: the card is sent each second", "Next song", title())
+        now += 500
+        assertEquals("the page is back, 3 s seen and 4 s to go", "Chuva em 20 min", title())
+        assertEquals("Chuva em 20 min", navTitle())
+        now += 3_999
+        assertEquals("Chuva em 20 min", title())
+        now += 1
+        assertEquals("7 s on the whole, the echo's 1.5 s not counted", STREET, title())
+        assertEquals(STREET, navTitle())
+    }
+
     /** The title at the first page's turn, the dash saying [value] [unit] to the maneuver (the first look is far, as on every new route). */
     private fun atTheTurn(value: Int, unit: Int): String {
         session.infoTitle = InfoTitle(nowMs = { now }, log = { logs += it })

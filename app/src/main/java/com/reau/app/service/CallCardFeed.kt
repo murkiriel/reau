@@ -29,7 +29,11 @@ internal class CallCardFeed(
 
     /** Android Auto's word of the calls changed ([caller]: the one that rings or goes on, null for none; [privateName] stands for a call with no name or number). */
     fun heard(caller: AaCaller?, privateName: String) {
-        val changed = if (caller == null) tracker.onNoCall() else tracker.onCall(caller.name.ifEmpty { privateName }, caller.inCall)
+        val changed = if (caller == null) {
+            tracker.onNoCall()
+        } else {
+            tracker.onCall(caller.name.ifEmpty { privateName }, caller.inCall, numberOnly = caller.numberOnly)
+        }
         if (changed && on) tracker.current()?.let { log(CallCards.logLine(it)) }
         refresh()
     }

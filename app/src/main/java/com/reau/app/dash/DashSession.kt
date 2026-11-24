@@ -664,7 +664,10 @@ class DashSession(
         val n = shownNav()
         // For a moment after a joystick tap the title is the short name of its action ([echo]), guiding or not. After it, with "Informações no
         // título", the info ring's page in its turn ([infoTitle], never near the maneuver); at the street's turn, or with the option off, the rest.
-        val echoed = echo.current() ?: infoTitle.page(n?.let { DashCommands.navMeters(it.primaryDist, it.primaryUnit) }, titlePagesShown)
+        // The info's clock waits while the echo is the title ([InfoTitle.hold]): the page that was showing is not cut short by it.
+        val echoNow = echo.current()
+        if (echoNow != null) infoTitle.hold()
+        val echoed = echoNow ?: infoTitle.page(n?.let { DashCommands.navMeters(it.primaryDist, it.primaryUnit) }, titlePagesShown)
         cardTitleOverride = echoed
         return if (n != null) DashCommands.routeCard(
             // The action's name or the page for a moment, else the street while guiding, else REau.

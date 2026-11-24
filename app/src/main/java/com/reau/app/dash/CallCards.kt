@@ -49,6 +49,12 @@ object CallCards {
     /** How long the card stays, grey, with "Missed call", after a call that rang and ended unanswered. */
     const val MISSED_SHOW_MS = 5_000L
 
+    /**
+     * How long the card waits for the contact's name when Android Auto has told only the number: the name field stays empty meanwhile (the number is not flashed
+     * for a moment before the name, as the ride of 23/11/2026 showed on a call the rider made), and when no name has come by then (a number that is not saved) the card says the number.
+     */
+    const val NAME_WAIT_MS = 2_000L
+
     private const val SECOND_MS = 1_000L
     private const val SECONDS_IN_HOUR = 3_600L
     private const val SECONDS_IN_MINUTE = 60L
@@ -113,12 +119,17 @@ object CallCards {
         private var endedSeconds = 0L
         private var declined = false
 
+        // The moment the number was first heard with no name to go with it (null: the name is known, or none is waited for). The card's name is empty until [NAME_WAIT_MS] later.
+        private var waitingSinceMs: Long? = null
+
         /**
          * A call rings ([inCall] false), is dialled by the rider ([dialing]) or goes on ([inCall]), under [name]. True when the phase changed (for the log); the same again, or a
          * new name only, is false. The time of a call counts from the moment it is first seen going on, and goes on across a second ringing call.
+         * [numberOnly]: [name] is only the call's number, Android Auto has not told the contact's name (yet): the card keeps the name field empty for [NAME_WAIT_MS] from
+         * the first time it hears that number, and says the number only if no name has come by then; a name that comes in the meantime is written at once.
          */
         @Synchronized
-        fun onCall(name: String, inCall: Boolean, dialing: Boolean = false): Boolean {
+        fun onCall(name: String, inCall: Boolean, dialing: Boolean = false, numberOnly: Boolean = false): Boolean {
             val now = nowMs()
             val next = when {
                 inCall -> CallPhase.IN_CALL
@@ -126,6 +137,13 @@ object CallCards {
                 else -> CallPhase.RINGING
             }
             if (next == CallPhase.IN_CALL && answeredAtMs == null) answeredAtMs = now
+            // A call that begins (no card, or the grey one of the call before) waits again for its name, even under the same number as the call before.
+            val begins = phase == null || phase == CallPhase.ENDED || phase == CallPhase.MISSED
+            if (!numberOnly) {
+                waitingSinceMs = null
+            } else if (begins || waitingSinceMs == null || name != this.name) {
+                waitingSinceMs = now
+            }
             this.name = name
             val changed = phase != next
             phase = next
@@ -163,6 +181,8 @@ object CallCards {
                 }
                 declined = false
             }
+            // The call is over: the grey card says the number if no name ever came.
+            waitingSinceMs = null
             return changed
         }
 
@@ -172,6 +192,7 @@ object CallCards {
             phase = null
             answeredAtMs = null
             declined = false
+            waitingSinceMs = null
         }
 
         /** What the card shows now, or null for none. */
@@ -182,21 +203,32 @@ object CallCards {
                 null -> null
                 CallPhase.ENDED -> if (now - endedAtMs < END_SHOW_MS) CallCard(CallPhase.ENDED, name, endedSeconds) else null
                 CallPhase.MISSED -> if (now - endedAtMs < MISSED_SHOW_MS) CallCard(CallPhase.MISSED, name) else null
-                CallPhase.IN_CALL -> CallCard(CallPhase.IN_CALL, name, (now - (answeredAtMs ?: now)).coerceAtLeast(0L) / SECOND_MS)
-                CallPhase.RINGING, CallPhase.DIALING -> CallCard(p, name)
+                CallPhase.IN_CALL -> CallCard(CallPhase.IN_CALL, nameNow(now), (now - (answeredAtMs ?: now)).coerceAtLeast(0L) / SECOND_MS)
+                CallPhase.RINGING, CallPhase.DIALING -> CallCard(p, nameNow(now))
             }
         }
 
-        /** In how long [current] changes by itself, or null when it does not (ringing, dialling, no card): the next whole second of a call on, the end of the grey card (2 s, or 5 s for a missed call). */
+        /** The name the card writes at [now]: empty while the number waits for its name, else [name]. */
+        private fun nameNow(now: Long): String = if (nameWaitLeftMs(now) > 0L) "" else name
+
+        /** How much of [NAME_WAIT_MS] is still to wait for the name at [now]; 0 when no name is waited for. */
+        private fun nameWaitLeftMs(now: Long): Long = waitingSinceMs?.let { (it + NAME_WAIT_MS - now).coerceAtLeast(0L) } ?: 0L
+
+        /**
+         * In how long [current] changes by itself, or null when it does not (ringing, dialling, no card): the next whole second of a call on, the end of the grey card (2 s, or 5 s for a
+         * missed call), the end of the wait for a name ([NAME_WAIT_MS]: the number is written then), whichever comes first.
+         */
         @Synchronized
         fun nextTickMs(): Long? {
             val now = nowMs()
-            return when (phase) {
+            val nameWait = nameWaitLeftMs(now).takeIf { it > 0L }
+            val own = when (phase) {
                 CallPhase.IN_CALL -> SECOND_MS - (now - (answeredAtMs ?: now)).coerceAtLeast(0L) % SECOND_MS
                 CallPhase.ENDED -> (endedAtMs + END_SHOW_MS - now).takeIf { it > 0L }
                 CallPhase.MISSED -> (endedAtMs + MISSED_SHOW_MS - now).takeIf { it > 0L }
                 else -> null
             }
+            return if (own == null) nameWait else if (nameWait == null) own else minOf(own, nameWait)
         }
     }
 }

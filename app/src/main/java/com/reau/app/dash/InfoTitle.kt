@@ -29,7 +29,9 @@ class TitleSource(val entries: List<TitleEntry>, val carousel: Boolean, val peri
  *    turns);
  *  - going from near to far again (the maneuver was passed, and the next one is already close), the street holds for [AFTER_MANEUVER_HOLD_MS]
  *    before the pages may come back, and the turns start over from the street ([ROUTE_STREET_MS] again): no quick swaps of 4 to 7 s.
- * The echo of a joystick tap ([ActionEcho]) is not decided here: [DashSession] puts it in front of all of this, and the base is its own.
+ * The echo of a joystick tap ([ActionEcho]) is not decided here: [DashSession] puts it in front of all of this, and the base is its own. But the clock waits for it
+ * ([hold]): while the echo is the title, the street and the page that were under it are not running, so the page that was showing comes back after the echo and
+ * stays the rest of its time (7 s with no route, the 20 s of street or the 7 s of page while guiding), and the 15 s of street after a maneuver are not eaten either.
  *
  * Off ([enabled] false) [page] says nothing and the title is the base, untouched. The log gets one line when the mode is switched and one when the title
  * goes to the street only near a maneuver and back; never a street name. The clock and the log are parameters so a test moves the first by hand.
@@ -43,7 +45,9 @@ class InfoTitle(
     // The turns' clock: from the moment the option came on, and again from the moment the set of pages changed or a route began or ended.
     // Kept here, not by when the title was first asked: near a maneuver, or under an echo, the title is not asked and the turns must not
     // slip for it. After a maneuver it is in the future (the end of the hold): until then the turns have not begun, which is the street.
+    // An echo does not make the turns slip either: [heldSinceMs] is the moment the echo took the title, and the next look moves the anchor by the time it was held.
     private var anchorMs = 0L
+    private var heldSinceMs: Long? = null
     private var guiding: Boolean? = null
     private var seenKinds: List<com.reau.app.weather.RingKind>? = null
     private var streetOnly = false
@@ -73,6 +77,23 @@ class InfoTitle(
         }
 
     /**
+     * The echo of a joystick tap is the title now ([DashSession] asks for the title and finds the echo): the turns' clock waits from this moment until the next look
+     * at [page], so the echo takes no time from the page that was showing, from the street under it or from the hold after a maneuver. Said at every title while the echo
+     * lasts; only the first counts. A turn already said stays said ([turnsSaid]): the echo moves the clock, it does not spend a turn.
+     */
+    @Synchronized
+    fun hold() {
+        if (enabled && heldSinceMs == null) heldSinceMs = nowMs()
+    }
+
+    /** The clock moves on by the time the echo held it (the anchor too when it is in the future: the hold after a maneuver is as long once the echo is gone). */
+    private fun release() {
+        val since = heldSinceMs ?: return
+        heldSinceMs = null
+        anchorMs += (nowMs() - since).coerceAtLeast(0L)
+    }
+
+    /**
      * The page the title says now, or null when it is the base's turn (the street, or "REau": the caller's own title). [metersToManeuver] is the
      * distance to the next maneuver while guiding, null with no route. [shown] is the rider's joystick switch for the info (the ring's button):
      * hidden, the pages are away. Off, always null: the title is exactly what it always was.
@@ -80,6 +101,7 @@ class InfoTitle(
     @Synchronized
     fun page(metersToManeuver: Int?, shown: Boolean = true): String? {
         if (!enabled) return null
+        release()
         val near = metersToManeuver != null && metersToManeuver < NEAR_METERS
         val route = metersToManeuver != null
         noteRoute(route)
@@ -120,6 +142,7 @@ class InfoTitle(
     /** The turns' clock starts again at [atMs]: its rounds are numbered anew, and the next page said takes the next turn of the cycle. */
     private fun restartClock(atMs: Long) {
         anchorMs = atMs
+        heldSinceMs = null
         lastRound = -1L
     }
 

@@ -53,6 +53,17 @@ class VolumeCardIsWiredTest {
     }
 
     @Test
+    fun `the call's volume tap at the end of its range shows the card again, from the step the phone says, with the log line`() {
+        val send = live.between("is AaCommand.CallVolume ->", "is AaCommand.PanelZoom ->")
+        assertTrue(send, "setup.calls.volume(command.step)" in send)
+        assertTrue(send, "?.let { com.reau.app.dash.VolumeCards.atTheEnd(it) }?.let { showVolumeCard(it, log = true) }" in send)
+        assertTrue(live, "val volume: (Int) -> com.reau.app.phone.VolumeChange? = { null }," in live)
+        val phone = File(main, "phone/PhoneCalls.kt").readText()
+        assertTrue(phone, "fun adjustCallVolume(step: Int): VolumeChange? = runCatching {" in phone)
+        assertTrue(phone, "VolumeChange(VolumeStream.CALL, before, after, max)" in phone)
+    }
+
+    @Test
     fun `the switch is taken when the projection starts and at each change of the settings`() {
         assertTrue(live, "volumeCard.enabled = setup.settings.volumeCard" in live)
         val retune = live.between("if (LiveTuning.Step.DASH_EXTRAS in steps) {", "if (LiveTuning.Step.DASH_EXTRAS in steps && settings.weatherWanted")

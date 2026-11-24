@@ -570,6 +570,173 @@ class InfoTitleTest {
         assertEquals(listOf("Trovoada", "Trovoada", "Trovoada", "Trovoada", "Chuva em 20 min", "Trovoada"), said)
     }
 
+    // The echo of a joystick tap holds the turns' clock: [echo] is a tap [atMs] after the first look that lasts [forMs] (the title is the echo, and says so with hold()); the title is then
+    // asked again at its end. The page that was showing stays its whole time over the echo, with a route and without one.
+
+    /** The title at [atMs] after the first look and every look until [forMs] later, as the card does second by second: the echo is the title, so only [InfoTitle.hold] is said. */
+    private fun echo(atMs: Long, forMs: Long = 1_500L) {
+        var t = atMs
+        while (t < atMs + forMs) {
+            now = START + t
+            title.hold()
+            t += 500
+        }
+    }
+
+    @Test
+    fun `with no route an echo in the middle of a page of 7 s leaves the page 7 s on the whole`() {
+        feed(rain)
+        assertEquals("REau", at(0, base = "REau", meters = null))
+        assertEquals("Chuva em 20 min", at(7_000, base = "REau", meters = null))
+        assertEquals("Chuva em 20 min", at(10_000, base = "REau", meters = null))
+        echo(10_000)
+        // 3 s of the page were seen; the echo's 1.5 s do not count, so 4 s more are left: until 15.5 s and not 14 s.
+        assertEquals("the page is back", "Chuva em 20 min", at(11_500, base = "REau", meters = null))
+        assertEquals("Chuva em 20 min", at(15_499, base = "REau", meters = null))
+        assertEquals("REau", at(15_500, base = "REau", meters = null))
+        assertEquals("and the next round is as long as always: REau 7 s", "REau", at(22_499, base = "REau", meters = null))
+        assertEquals("Chuva em 20 min", at(22_500, base = "REau", meters = null))
+    }
+
+    @Test
+    fun `with no route an echo over REau's turn lengthens that turn by the echo`() {
+        feed(rain)
+        assertEquals("REau", at(0, base = "REau", meters = null))
+        echo(3_000)
+        assertEquals("REau", at(4_500, base = "REau", meters = null))
+        assertEquals("REau", at(8_499, base = "REau", meters = null))
+        assertEquals("Chuva em 20 min", at(8_500, base = "REau", meters = null))
+        assertEquals("Chuva em 20 min", at(15_499, base = "REau", meters = null))
+        assertEquals("REau", at(15_500, base = "REau", meters = null))
+    }
+
+    @Test
+    fun `an echo that is looked at late holds the clock until the title is asked again, as the dash saw the echo till then`() {
+        feed(rain)
+        at(0, base = "REau", meters = null)
+        assertEquals("Chuva em 20 min", at(8_000, base = "REau", meters = null))
+        now = START + 9_000
+        title.hold()
+        now = START + 10_000
+        title.hold()
+        assertEquals("2 s of the page seen (7 to 9 s), 2.5 s under the echo (the first look after it is at 11.5 s)", "Chuva em 20 min", at(11_500, base = "REau", meters = null))
+        assertEquals("Chuva em 20 min", at(16_499, base = "REau", meters = null))
+        assertEquals("REau", at(16_500, base = "REau", meters = null))
+    }
+
+    @Test
+    fun `guiding, an echo in the street does not eat the 20 s, and one in the page does not eat the 7 s`() {
+        feed(rain)
+        assertEquals(STREET, at(0))
+        echo(10_000)
+        assertEquals(STREET, at(11_500))
+        assertEquals("the street's 20 s are 21.5 s on the clock", STREET, at(STREET_MS + 1_499))
+        assertEquals("Chuva em 20 min", at(STREET_MS + 1_500))
+        echo(STREET_MS + 4_000)
+        assertEquals("Chuva em 20 min", at(STREET_MS + 5_500))
+        assertEquals("the page's 7 s with its 1.5 s of echo", "Chuva em 20 min", at(STREET_MS + 1_500 + PAGE_MS + 1_499))
+        assertEquals(STREET, at(STREET_MS + 1_500 + PAGE_MS + 1_500))
+    }
+
+    @Test
+    fun `an echo that covers a whole page's turn does not use up a turn of the cycle`() {
+        feed(thunder, rain)
+        assertEquals("Trovoada", guidingTurn(0))
+        val start = ROUND + STREET_MS - 500
+        echo(start, forMs = 12_000)
+        assertEquals("the look after the echo is the street: the page's turn is still to come", STREET, at(start + 12_000))
+        // The echo that long moved the clock by 12 s: the second turn is as if nothing had happened, and so on to the sixth, which is the normal one.
+        val moved = 12_000L
+        for (n in 1L..4L) assertEquals("turn $n", "Trovoada", at(n * ROUND + STREET_MS + 1 + moved))
+        assertEquals("the sixth turn said is the normal one", "Chuva em 20 min", at(5 * ROUND + STREET_MS + 1 + moved))
+    }
+
+    @Test
+    fun `near the maneuver an echo changes nothing, the street only and the hold after it as long as ever`() {
+        feed(rain)
+        assertEquals(STREET, at(0, meters = 900))
+        assertEquals("a page, far", "Chuva em 20 min", at(STREET_MS, meters = 900))
+        assertEquals("near, the street", STREET, at(STREET_MS + 1_000, meters = 100))
+        echo(STREET_MS + 2_000)
+        assertEquals("the echo is gone, still near", STREET, at(STREET_MS + 3_500, meters = 100))
+        // The maneuver is passed: the 15 s of street, and the 20 s again, then the page.
+        val passed = STREET_MS + 4_000
+        assertEquals(STREET, at(passed, meters = 900))
+        assertEquals(STREET, at(passed + 14_999, meters = 900))
+        assertEquals(STREET, at(passed + 15_000 + STREET_MS - 1, meters = 900))
+        assertEquals("Chuva em 20 min", at(passed + 15_000 + STREET_MS, meters = 900))
+    }
+
+    @Test
+    fun `an echo in the 15 s of street after a maneuver is not eaten from them`() {
+        feed(rain)
+        assertEquals(STREET, at(0, meters = 900))
+        at(STREET_MS + 1_000, meters = 100)
+        val passed = STREET_MS + 2_000
+        assertEquals(STREET, at(passed, meters = 900))
+        echo(passed + 5_000)
+        assertEquals(STREET, at(passed + 6_500, meters = 900))
+        val firstPage = passed + 1_500 + 15_000 + STREET_MS
+        assertEquals("15 s and 20 s of street, the echo not counted", STREET, at(firstPage - 1, meters = 900))
+        assertEquals("Chuva em 20 min", at(firstPage, meters = 900))
+        assertEquals("Chuva em 20 min", at(firstPage + PAGE_MS - 1, meters = 900))
+        assertEquals(STREET, at(firstPage + PAGE_MS, meters = 900))
+    }
+
+    @Test
+    fun `an echo that sees the maneuver come near ends in the street only, and the 15 s start when the title is looked at again`() {
+        feed(rain)
+        assertEquals(STREET, at(0, meters = 900))
+        assertEquals("Chuva em 20 min", at(STREET_MS, meters = 900))
+        echo(STREET_MS + 1_000)
+        assertEquals("under 500 m at the first look after the echo", STREET, at(STREET_MS + 2_500, meters = 450))
+        assertEquals("far again", STREET, at(STREET_MS + 3_000, meters = 900))
+        assertEquals(STREET, at(STREET_MS + 3_000 + 15_000 + STREET_MS - 1, meters = 900))
+        assertEquals("Chuva em 20 min", at(STREET_MS + 3_000 + 15_000 + STREET_MS, meters = 900))
+    }
+
+    @Test
+    fun `with echoes all through, every page is on 7 s to the 100 ms, with a route and without, and the turns of the cycle go in their order`() {
+        for (meters in listOf(FAR, null)) {
+            fresh()
+            feed(thunder, strongWind, rain, wind)
+            val runs = mutableListOf<Pair<String, Long>>()
+            var current: String? = null
+            var seen = 0L
+            for (t in 0L..10 * 60_000L step 100L) {
+                now = START + t
+                // An echo of 1.5 s each 11.3 s, from the 5th second: it falls at every point of the base and of the page in turn.
+                if (t >= 5_000 && (t - 5_000) % 11_300 < 1_500) {
+                    title.hold()
+                    continue
+                }
+                val said = title.page(meters, true)
+                if (said != current) {
+                    current?.let { runs += it to seen }
+                    current = said
+                    seen = 0
+                }
+                seen += 100
+            }
+            val pages = runs.dropLast(1)
+            assertTrue("route=$meters: ${pages.size} runs", pages.size >= 15)
+            for ((text, ms) in pages) assertEquals("route=$meters: $text", 7_000L, ms)
+            assertEquals(
+                "route=$meters",
+                listOf("Trovoada", "Vento 75 km/h", "Trovoada", "Vento 75 km/h", "Trovoada", "Chuva em 20 min", "Vento 75 km/h", "Trovoada", "Vento 75 km/h", "Trovoada", "Vento 75 km/h", "Vento 45 km/h"),
+                pages.map { it.first }.take(12),
+            )
+        }
+    }
+
+    @Test
+    fun `off, an echo holds nothing and a switch on starts the clock clean`() {
+        title.hold()
+        feed(rain)
+        assertEquals("REau", at(0, base = "REau", meters = null))
+        assertEquals("Chuva em 20 min", at(7_000, base = "REau", meters = null))
+    }
+
     private companion object {
         const val STREET = "Rua das Flores"
         const val PERIOD = 7_000L

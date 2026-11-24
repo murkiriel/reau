@@ -136,8 +136,9 @@ class InfoTitleSettingsTest {
     @Test
     fun `the card's title asks the info title after the echo, with the distance to the maneuver while guiding and none without a route`() {
         val session = source("dash/DashSession.kt")
-        val asked = "val echoed = echo.current() ?: infoTitle.page(n?.let { DashCommands.navMeters(it.primaryDist, it.primaryUnit) }, titlePagesShown)"
+        val asked = "val echoed = echoNow ?: infoTitle.page(n?.let { DashCommands.navMeters(it.primaryDist, it.primaryUnit) }, titlePagesShown)"
         assertTrue(session, asked in session)
+        assertTrue("the echo's moment stops the info's clock", "val echoNow = echo.current()\n        if (echoNow != null) infoTitle.hold()\n" in session)
         assertTrue("the echo is asked first, and the street and REau stay behind it", "echoed ?: n.road.ifBlank { destinationName }" in session)
         assertTrue(session, "echoed ?: destinationName, projectionOn" in session)
     }

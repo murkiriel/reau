@@ -1,5 +1,7 @@
 package com.reau.app.dash
 
+import com.reau.app.phone.VolumeChange
+import com.reau.app.phone.VolumeStream
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -64,6 +66,22 @@ class VolumeCardsTest {
         assertEquals("volume card: music 7/15 (was 6)", VolumeCards.decide(3, 7, 6, 15)!!.logLine())
         assertEquals("volume card: call 4/7 (was 5)", VolumeCards.decide(0, 4, 5, 7)!!.logLine())
         assertEquals("volume card: call 4/7 (was 5, headset)", VolumeCards.decide(6, 4, 5, 7)!!.logLine())
+    }
+
+    @Test
+    fun `a call volume step that moved nothing is the card again, at the most and at the least`() {
+        val top = VolumeCards.atTheEnd(VolumeChange(VolumeStream.CALL, 8, 8, 8))!!
+        assertEquals(VolumeCard(VolumeKind.CALL, 8, 8), top.card)
+        assertEquals("volume card: call 8/8 (was 8)", top.logLine())
+        assertEquals("at the least the card says that level, not muted", VolumeCard(VolumeKind.CALL, 1, 8), VolumeCards.atTheEnd(VolumeChange(VolumeStream.CALL, 1, 1, 8))!!.card)
+        assertTrue("a call that the phone lets reach 0 says muted", VolumeCards.atTheEnd(VolumeChange(VolumeStream.CALL, 0, 0, 8))!!.card.muted)
+    }
+
+    @Test
+    fun `a step that moved is the broadcast's, and the music's end is no card again`() {
+        assertNull(VolumeCards.atTheEnd(VolumeChange(VolumeStream.CALL, 7, 8, 8)))
+        assertNull(VolumeCards.atTheEnd(VolumeChange(VolumeStream.CALL, 2, 1, 8)))
+        assertNull("only the call's: the music and the rest stay as they are", VolumeCards.atTheEnd(VolumeChange(VolumeStream.MUSIC, 15, 15, 15)))
     }
 
     @Test

@@ -82,6 +82,14 @@ object VolumeCards {
     )
 
     /**
+     * The card for a step of the call's volume that moved nothing ([change]: the level was at the end of its range, the most going up or the least going down): the
+     * system sends no broadcast for it, so the card would not show; the rider's tap is answered with the card again ("Call 8/8"). Null for a step that moved (the broadcast
+     * says it) and for the music's.
+     */
+    fun atTheEnd(change: VolumeChange): Step? =
+        if (change.stream == VolumeStream.CALL && change.before == change.after) stepOf(change) else null
+
+    /**
      * What the title of the dash's gold band says after a volume step of the joystick: [echo] (the level, "Volume 12/30") with the card off, nothing with
      * it on, as the card says the level instead.
      */

@@ -14,9 +14,11 @@ data class AaNowPlaying(val song: String, val artist: String, val album: String,
 /**
  * A call ringing, for the dash's own call card. [name] is what the card shows, empty when the call has neither a name
  * nor a number (the card then says the word for a private number, in the rider's language: the one who shows it
- * has the resources). [inCall]: the call was answered and goes on (the card says "in a call" with the same name).
+ * has the resources). [inCall]: the call was answered and goes on (the card says "in a call" with the same name). [numberOnly]: [name] is the call's number, as Android
+ * Auto has told no name for it (yet): on a call the rider makes the number comes first and the contact's name a moment later, and the card waits for it
+ * ([com.reau.app.dash.CallCards.NAME_WAIT_MS]) before it writes the number.
  */
-data class AaCaller(val name: String, val inCall: Boolean = false)
+data class AaCaller(val name: String, val inCall: Boolean = false, val numberOnly: Boolean = false)
 
 /**
  * The music and phone status channels, read only when announced
@@ -191,7 +193,7 @@ internal class AapCards(
             }
             val inCall = state in STATES_IN_CALL
             if (state != STATE_INCOMING && !inCall) return null
-            return AaCaller(id.trim().ifEmpty { number.trim() }, inCall)
+            return AaCaller(id.trim().ifEmpty { number.trim() }, inCall, numberOnly = id.isBlank() && number.isNotBlank())
         }
     }
 }

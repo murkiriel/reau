@@ -31,7 +31,7 @@ class CallCardIsWiredTest {
         assertTrue(caller, "session.showCallerCard(caller, context.getString(R.string.caller_private))" in caller)
         assertTrue(caller, "callCard.heard(caller, context.getString(R.string.caller_private))" in caller)
         val heard = feed.between("fun heard(", "/** The switch:")
-        assertTrue(heard, "tracker.onNoCall()" in heard && "tracker.onCall(caller.name.ifEmpty { privateName }, caller.inCall)" in heard)
+        assertTrue(heard, "tracker.onNoCall()" in heard && "tracker.onCall(caller.name.ifEmpty { privateName }, caller.inCall, numberOnly = caller.numberOnly)" in heard)
         assertTrue("the phase goes to the log only with the card on", "if (changed && on)" in heard)
         assertTrue(heard, "log(CallCards.logLine(it))" in heard)
     }

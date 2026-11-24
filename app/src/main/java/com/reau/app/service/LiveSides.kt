@@ -121,7 +121,7 @@ internal class LiveSides(
             val state: () -> CallState = { CallState.IDLE },
             val answer: () -> Unit = {},
             val end: () -> Unit = {},
-            val volume: (Int) -> Unit = {},
+            val volume: (Int) -> com.reau.app.phone.VolumeChange? = { null },
         )
 
         companion object {
@@ -720,7 +720,9 @@ internal class LiveSides(
                         if (command == AaCommand.EndCall) callCard.declinedByRider()
                         callByKeys(command, receiver, setup.calls)
                     }
+                    // A step at the end of the range moves nothing and the system tells nothing: the card is shown again from the step itself, with its log line.
                     is AaCommand.CallVolume -> setup.calls.volume(command.step)
+                        ?.let { com.reau.app.dash.VolumeCards.atTheEnd(it) }?.let { showVolumeCard(it, log = true) }
                     is AaCommand.PanelZoom -> panelZoom(command.step)
                     AaCommand.PanelZoomUndo -> panelZoomUndo()
                     is AaCommand.Volume -> volumeStep(command.step, context)

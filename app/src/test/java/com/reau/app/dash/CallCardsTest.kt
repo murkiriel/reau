@@ -330,6 +330,125 @@ class CallCardsTest {
         assertEquals(15L, tracker.current()!!.seconds)
     }
 
+    // The name that comes after the number (a call the rider makes): the card's name field waits for it and writes the number only when none comes.
+
+    @Test
+    fun `a number with no name yet is an empty name for half a second, and the name that comes then is the only one written`() {
+        assertTrue(tracker.onCall("5511999990000", inCall = true, numberOnly = true))
+        assertEquals("the number is not shown", CallCard(CallPhase.IN_CALL, "", 0), tracker.current())
+        now += 500
+        assertEquals(CallCard(CallPhase.IN_CALL, "", 0), tracker.current())
+        assertFalse("the name only: the phase did not change", tracker.onCall("Ana", inCall = true))
+        assertEquals("the name at once, with the time that runs", CallCard(CallPhase.IN_CALL, "Ana", 0), tracker.current())
+        now += 1_600
+        assertEquals("and the number does not come back after the 2 s", CallCard(CallPhase.IN_CALL, "Ana", 2), tracker.current())
+    }
+
+    @Test
+    fun `a name that never comes is the number after 2 s`() {
+        tracker.onCall("5511999990000", inCall = true, numberOnly = true)
+        now += CallCards.NAME_WAIT_MS - 1
+        assertEquals("", tracker.current()!!.name)
+        now += 1
+        assertEquals(CallCard(CallPhase.IN_CALL, "5511999990000", 2), tracker.current())
+        assertFalse("the same number again does not start the wait over", tracker.onCall("5511999990000", inCall = true, numberOnly = true))
+        assertEquals("5511999990000", tracker.current()!!.name)
+    }
+
+    @Test
+    fun `the number heard again while it waits does not push the 2 s back`() {
+        tracker.onCall("5511999990000", inCall = false, numberOnly = true)
+        now += 1_500
+        tracker.onCall("5511999990000", inCall = false, numberOnly = true)
+        now += 500
+        assertEquals("5511999990000", tracker.current()!!.name)
+    }
+
+    @Test
+    fun `a ringing call waits for the name the same way, and the wait is a tick of its own`() {
+        tracker.onCall("5511999990000", inCall = false, numberOnly = true)
+        assertEquals(CallCard(CallPhase.RINGING, ""), tracker.current())
+        assertEquals("the card is drawn again when the wait ends", 2_000L, tracker.nextTickMs())
+        now += 700
+        assertEquals(1_300L, tracker.nextTickMs())
+        now += 1_300
+        assertEquals(CallCard(CallPhase.RINGING, "5511999990000"), tracker.current())
+        assertNull("nothing more to wait for", tracker.nextTickMs())
+    }
+
+    @Test
+    fun `a dialled call waits for the name too`() {
+        tracker.onCall("5511999990000", inCall = false, dialing = true, numberOnly = true)
+        assertEquals(CallCard(CallPhase.DIALING, ""), tracker.current())
+        tracker.onCall("Ana", inCall = false, dialing = true)
+        assertEquals(CallCard(CallPhase.DIALING, "Ana"), tracker.current())
+    }
+
+    @Test
+    fun `on a call the next tick is the nearer of the second and the end of the wait`() {
+        tracker.onCall("5511999990000", inCall = true, numberOnly = true)
+        now += 400
+        assertEquals("the second", 600L, tracker.nextTickMs())
+        now += 600
+        assertEquals("a second again, the wait has 1 s to go", 1_000L, tracker.nextTickMs())
+        tracker.onCall("Ana", inCall = true)
+        assertEquals("with the name there is only the second", 1_000L, tracker.nextTickMs())
+    }
+
+    @Test
+    fun `a name that came is kept when the number is told again with it`() {
+        tracker.onCall("Ana", inCall = true)
+        assertEquals("Ana", tracker.current()!!.name)
+        now += 5_000
+        tracker.onCall("Ana", inCall = true)
+        assertEquals("Ana", tracker.current()!!.name)
+    }
+
+    @Test
+    fun `a call that ends before the name came leaves the number on its grey card, answered or missed`() {
+        tracker.onCall("5511999990000", inCall = false, numberOnly = true)
+        now += 300
+        tracker.onNoCall()
+        assertEquals(CallCard(CallPhase.MISSED, "5511999990000"), tracker.current())
+        now += 5_000
+        tracker.onCall("5511999990001", inCall = true, numberOnly = true)
+        now += 700
+        tracker.onNoCall()
+        assertEquals(CallCard(CallPhase.ENDED, "5511999990001", 0), tracker.current())
+    }
+
+    @Test
+    fun `a new call under the same number waits for its name again, and so does the second call that rings during a call`() {
+        tracker.onCall("5511999990000", inCall = true, numberOnly = true)
+        now += 3_000
+        tracker.onNoCall()
+        now += 100
+        tracker.onCall("5511999990000", inCall = false, numberOnly = true)
+        assertEquals("", tracker.current()!!.name)
+        tracker.reset()
+        tracker.onCall("Ana", inCall = true)
+        now += 10_000
+        tracker.onCall("5511999990002", inCall = false, numberOnly = true)
+        assertEquals(CallCard(CallPhase.RINGING, ""), tracker.current())
+        tracker.onCall("Bia", inCall = false)
+        assertEquals("Bia", tracker.current()!!.name)
+    }
+
+    @Test
+    fun `the private call has no number to wait with, so the word for it is the name at once`() {
+        tracker.onCall("Número privado", inCall = false)
+        assertEquals("Número privado", tracker.current()!!.name)
+        assertNull(tracker.nextTickMs())
+    }
+
+    @Test
+    fun `reset forgets the wait`() {
+        tracker.onCall("5511999990000", inCall = true, numberOnly = true)
+        tracker.reset()
+        tracker.onCall("5511999990000", inCall = true)
+        assertEquals("5511999990000", tracker.current()!!.name)
+    }
+
     @Test
     fun `reset takes the card away`() {
         tracker.onCall("Ana", inCall = true)

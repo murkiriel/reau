@@ -70,7 +70,7 @@ class EchoAndLegendAreWiredTest {
     @Test
     fun `the title of the card is the echo first, in the route and in the idle card`() {
         val card = session.between("private fun liveRouteCard(projectionOn: Boolean): ByteArray {", "@Volatile internal var echo")
-        assertTrue(card, "val echoed = echo.current()" in card)
+        assertTrue(card, "val echoNow = echo.current()" in card && "val echoed = echoNow ?: infoTitle.page(" in card)
         assertTrue(card, "echoed ?: n.road.ifBlank { destinationName }" in card)
         assertTrue(card, "echoed ?: destinationName" in card)
     }

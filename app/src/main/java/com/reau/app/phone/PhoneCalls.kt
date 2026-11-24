@@ -60,20 +60,22 @@ class PhoneCalls(context: Context) {
 
     /**
      * The dash's volume codes while a call goes on (`adjustStreamVolume(STREAM_VOICE_CALL, ±1)` with the click): one [step] up or down on the call's own volume, which a Bluetooth headset follows. No permission. The line says the
-     * level before and after, so a change made by anyone else in between shows in the next one.
+     * level before and after, so a change made by anyone else in between shows in the next one. Gives back what the step did (the level before and after it), or null when the phone refused;
+     * a step at the end of the range moves nothing and the system says nothing of it, so the caller shows the volume card from this ([com.reau.app.dash.VolumeCards.atTheEnd]).
      */
-    fun adjustCallVolume(step: Int): Boolean = runCatching {
+    fun adjustCallVolume(step: Int): VolumeChange? = runCatching {
         val audio = app.getSystemService(AudioManager::class.java)
         val before = audio.getStreamVolume(AudioManager.STREAM_VOICE_CALL)
         audio.adjustStreamVolume(
             AudioManager.STREAM_VOICE_CALL, if (step > 0) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER, AudioManager.FLAG_PLAY_SOUND,
         )
         val after = audio.getStreamVolume(AudioManager.STREAM_VOICE_CALL)
-        RideDiagnostics.log("call", "volume of the call: $before -> $after of ${audio.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)}")
-        true
+        val max = audio.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)
+        RideDiagnostics.log("call", "volume of the call: $before -> $after of $max")
+        VolumeChange(VolumeStream.CALL, before, after, max)
     }.getOrElse {
         RideDiagnostics.log("call", "volume of the call failed: ${it.javaClass.simpleName}")
-        false
+        null
     }
 
     private fun act(what: String, line: (Boolean) -> String, block: () -> Boolean): Boolean {
