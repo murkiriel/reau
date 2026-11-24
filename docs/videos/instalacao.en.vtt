@@ -5,66 +5,110 @@ WEBVTT
 Installing REau, step by step
 
 2
-00:00:03.467 --> 00:00:10.333
+00:00:03.467 --> 00:00:10.667
 1. Download the APK from the project’s Releases page and open the file to install it
 
 3
-00:00:10.333 --> 00:00:22.133
-Play Protect may block the installation. In the Play Store, tap your profile picture, Play Protect and the gear. Pause scanning, install the APK and turn Play Protect back on
+00:00:10.667 --> 00:00:16.267
+If Play Protect warns that it blocked the app, tap the button at the bottom, Got it
 
 4
-00:00:22.133 --> 00:00:28.067
-2. Open REau and scroll the terms of use to the end, or tap Scroll to the end
+00:00:16.267 --> 00:00:26.933
+To install anyway, in the Play Store tap your profile picture, Play Protect and the gear. Pause scanning, install the APK and turn Play Protect back on
 
 5
-00:00:28.067 --> 00:00:31.067
-Then tap I accept
+00:00:26.933 --> 00:00:33.200
+2. Open REau and scroll the terms of use to the end, or tap Scroll to the end
 
 6
-00:00:31.067 --> 00:00:41.667
-3. Allow location while using the app: it is only used to find the dash’s Wi-Fi. If Android asks, also allow the suggested Wi-Fi networks
+00:00:33.200 --> 00:00:35.800
+Then tap I accept
 
 7
-00:00:41.667 --> 00:00:45.200
-4. Tap Turn on and allow notifications
+00:00:35.800 --> 00:00:42.333
+3. Allow location while using the app. It is only used to find the dash’s Wi-Fi
 
 8
-00:00:45.200 --> 00:00:51.867
-5. The Android Auto server is turned on by hand: tap Open Android Auto settings
+00:00:42.333 --> 00:00:47.267
+If Android asks, also allow the suggested Wi-Fi networks
 
 9
-00:00:51.867 --> 00:00:57.600
-The first time, scroll to the bottom and tap Version ten times. Confirm with OK
+00:00:47.267 --> 00:00:50.000
+4. Tap Turn on
 
 10
-00:00:57.600 --> 00:01:03.800
-In the three-dot menu, tap Start head unit server. If it is already on, the item becomes Stop
+00:00:50.000 --> 00:00:53.200
+Allow notifications: tap Allow
 
 11
-00:01:03.800 --> 00:01:10.133
-Developer mode is only the first time. After that, each time, the three-dot menu is enough
+00:00:53.200 --> 00:01:00.267
+5. The Android Auto server is turned on by hand: tap Open Android Auto settings
 
 12
-00:01:10.133 --> 00:01:19.133
-6. Go back to REau. The first time, Android asks Connect to device: tap Connect so REau can join the dash’s Wi-Fi
+00:01:00.267 --> 00:01:04.933
+The first time, scroll to the bottom and tap Version ten times
 
 13
-00:01:19.133 --> 00:01:23.267
-With Android Auto Active and the dash Ready, REau is Streaming
+00:01:04.933 --> 00:01:08.867
+Enable development settings appears. Tap OK
 
 14
-00:01:23.267 --> 00:01:28.400
-7. In Permissions, tap Ask for the missing ones and allow everything
+00:01:08.867 --> 00:01:12.333
+Now tap the three dots at the top of the screen
 
 15
-00:01:28.400 --> 00:01:34.667
-Also leave REau out of battery optimization, so Android doesn’t pause the app with the screen off
+00:01:12.333 --> 00:01:14.933
+Tap Start head unit server
 
 16
-00:01:34.667 --> 00:01:42.667
-8. On the Android Auto screen, the Fit assistant checks that the maneuver arrow and the speed show whole on the dash
+00:01:14.933 --> 00:01:21.600
+Developer mode is only the first time. After that, each time, the three-dot menu is enough
 
 17
-00:01:42.667 --> 00:01:48.000
+00:01:21.600 --> 00:01:28.133
+6. Go back to REau. The first time, Android asks Connect to device: tap Connect
+
+18
+00:01:28.133 --> 00:01:32.267
+REau joins the dash’s Wi-Fi and shows Connecting
+
+19
+00:01:32.267 --> 00:01:36.733
+With Android Auto Active and the dash Ready, REau is Streaming
+
+20
+00:01:36.733 --> 00:01:40.600
+7. On the home screen, tap Permissions
+
+21
+00:01:40.600 --> 00:01:43.200
+Tap Ask for the missing ones
+
+22
+00:01:43.200 --> 00:01:47.600
+Android asks about the microphone: tap While using the app
+
+23
+00:01:47.600 --> 00:01:50.333
+And about calls: tap Allow
+
+24
+00:01:50.333 --> 00:01:57.467
+8. So Android doesn’t pause the app with the screen off, tap Exclude REau from optimization
+
+25
+00:01:57.467 --> 00:02:00.467
+In Android’s prompt, tap Allow
+
+26
+00:02:00.467 --> 00:02:05.000
+9. On the home screen, tap Android Auto screen
+
+27
+00:02:05.000 --> 00:02:11.400
+The Fit assistant checks that the maneuver arrow and the speed show whole on the dash. Tap Start
+
+28
+00:02:11.400 --> 00:02:17.067
 All set. Set the route in Waze and put the phone away. To stop, tap Turn off
 

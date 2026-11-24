@@ -1,82 +1,130 @@
 WEBVTT
 
 1
-00:00:00.000 --> 00:00:03.533
+00:00:00.000 --> 00:00:03.933
 Using REau every day, with the bike and the dash
 
 2
-00:00:03.533 --> 00:00:07.400
+00:00:03.933 --> 00:00:08.133
 1. Turn the bike on, open REau and tap Turn on
 
 3
-00:00:07.400 --> 00:00:14.733
-REau takes you to Android Auto: in the three-dot menu, tap Start head unit server and go back to REau
+00:00:08.133 --> 00:00:14.067
+If REau warns that Android Auto didn’t start, tap Open Android Auto settings
 
 4
-00:00:14.733 --> 00:00:22.533
-With Android Auto Active and the dash Ready, REau shows Streaming. Put the phone away, even with the screen off
+00:00:14.067 --> 00:00:19.867
+In the three-dot menu, tap Start head unit server and go back to REau
 
 5
-00:00:22.533 --> 00:00:28.867
-2. With the bike stopped, set the destination in the Waze app, by voice or on the Android Auto screen
+00:00:19.867 --> 00:00:25.133
+With the server on, REau shows Connecting and then Streaming
 
 6
-00:00:28.867 --> 00:00:35.600
-3. On the Android Auto screen, tap and drag the picture to use Android Auto as in a car
+00:00:25.133 --> 00:00:31.533
+With Android Auto Active and the dash Ready, put the phone away, even with the screen off
 
 7
-00:00:35.600 --> 00:00:42.267
-If Google Maps or the app menu opens, pick Waze. After using it once, it tends to open straight away
+00:00:31.533 --> 00:00:37.333
+2. With the bike stopped, set the destination in Waze, by voice or in the phone’s app
 
 8
-00:00:42.267 --> 00:00:50.933
-4. Joystick, map mode: left zooms out, right zooms in, up is the dash’s back and center opens media control
+00:00:37.333 --> 00:00:43.067
+3. To use Android Auto from the phone, tap Android Auto screen
 
 9
-00:00:50.933 --> 00:00:59.333
-In media control: left and right move through the items, up opens the app menu, down calls Gemini and center confirms
+00:00:43.067 --> 00:00:47.667
+Tap and drag the picture to use Android Auto as in a car
 
 10
-00:00:59.333 --> 00:01:06.267
-With Spotify on screen and playing, left and right change the song and center plays or pauses
+00:00:47.667 --> 00:00:54.667
+If Google Maps or the app menu opens, pick Waze. After using it once, it tends to open straight away
 
 11
-00:01:06.267 --> 00:01:13.467
-5. Call ringing: left answers, right and center decline. Up and down do nothing
+00:00:54.667 --> 00:01:00.333
+4. Joystick, map mode: left zooms out and right zooms in
 
 12
-00:01:13.467 --> 00:01:20.600
-On a call: right raises the volume, left lowers it, up and down do nothing and center ends the call
+00:01:00.333 --> 00:01:05.133
+Up is the dash’s back and center opens media control
 
 13
-00:01:20.600 --> 00:01:29.333
-At the top of the dash’s picture you see who is calling and the volume. At the loudest level, a tap shows Call eight of eight again
+00:01:05.133 --> 00:01:09.933
+In media control, left and right move through the items
 
 14
-00:01:29.333 --> 00:01:35.867
-6. The info ring shows, one at a time, rain, wind, sun and the phone’s battery
+00:01:09.933 --> 00:01:13.733
+Up opens the app menu and down calls Gemini
 
 15
-00:01:35.867 --> 00:01:41.133
-Each piece of information stays at least seven seconds: the time goes from seven to thirty
+00:01:13.733 --> 00:01:16.333
+And center confirms
 
 16
-00:01:41.133 --> 00:01:49.133
-Or, with Info in the title, they go in the gold band’s title. With a route: twenty seconds of street and seven of information
+00:01:16.333 --> 00:01:23.600
+With Spotify on screen and playing, left and right change the song and center plays or pauses
 
 17
-00:01:49.133 --> 00:01:56.133
-With the phone’s screen locked, the dash carries on as usual; only the preview inside the app stops
+00:01:23.600 --> 00:01:27.533
+5. Call ringing: left answers
 
 18
-00:01:56.133 --> 00:02:03.867
-7. If the dash’s Wi-Fi drops, REau warns you and comes back by itself when the network returns. When you switch the bike off, that is normal
+00:01:27.533 --> 00:01:30.400
+Right and center decline
 
 19
-00:02:03.867 --> 00:02:08.467
-8. To stop, tap Turn off in the app or in the notification
+00:01:30.400 --> 00:01:33.267
+Up and down do nothing
 
 20
-00:02:08.467 --> 00:02:12.000
+00:01:33.267 --> 00:01:37.467
+On a call: right raises the volume and left lowers it
+
+21
+00:01:37.467 --> 00:01:40.333
+Center ends the call
+
+22
+00:01:40.333 --> 00:01:43.400
+Up and down still do nothing
+
+23
+00:01:43.400 --> 00:01:52.467
+At the top of the dash’s picture you see who is calling and the volume. At the loudest level, a tap shows Call eight of eight again
+
+24
+00:01:52.467 --> 00:01:59.333
+6. The info ring shows, one at a time, rain, wind, sun and the phone’s battery
+
+25
+00:01:59.333 --> 00:02:04.933
+Each piece of information stays at least seven seconds: the time goes from seven to thirty
+
+26
+00:02:04.933 --> 00:02:09.867
+Or, with Info in the title, they go in the gold band’s title
+
+27
+00:02:09.867 --> 00:02:15.133
+With a route, the title shows twenty seconds of street and seven of information
+
+28
+00:02:15.133 --> 00:02:22.467
+With the phone’s screen locked, the dash carries on as usual; only the preview inside the app stops
+
+29
+00:02:22.467 --> 00:02:30.533
+7. If the dash’s Wi-Fi drops, REau warns you and comes back by itself when the network returns. When you switch the bike off, that is normal
+
+30
+00:02:30.533 --> 00:02:34.267
+8. To stop, tap Turn off in the app
+
+31
+00:02:34.267 --> 00:02:37.333
+Or tap Turn off in the notification
+
+32
+00:02:37.333 --> 00:02:41.200
 Ride safe. On the road, eyes stay on the road
 
