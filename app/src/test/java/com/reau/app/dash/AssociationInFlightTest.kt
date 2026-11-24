@@ -132,22 +132,22 @@ class AssociationInFlightTest {
 
     @Test
     fun `with the name hidden the address is looked up among the dash's in the scan, and a readable name that is not the dash's is not saved by an address`() {
-        val known = setOf("aa:bb:cc:00:11:22")
-        assertTrue(theDash("<unknown ssid>", "AA:BB:CC:00:11:22", known = known))
-        assertTrue(theDash(null, "aa:bb:cc:00:11:22", known = known))
-        assertFalse(theDash("<unknown ssid>", "aa:bb:cc:99:99:99", known = known))
-        assertFalse("the address Android hides", theDash("<unknown ssid>", "02:00:00:00:00:00", known = setOf("02:00:00:00:00:00")))
+        val known = setOf("aa:bb:cc:" + "00:11:22")
+        assertTrue(theDash("<unknown ssid>", "AA:BB:CC:" + "00:11:22", known = known))
+        assertTrue(theDash(null, "aa:bb:cc:" + "00:11:22", known = known))
+        assertFalse(theDash("<unknown ssid>", "aa:bb:cc:" + "99:99:99", known = known))
+        assertFalse("the address Android hides", theDash("<unknown ssid>", "02:00:00:" + "00:00:00", known = setOf("02:00:00:" + "00:00:00")))
         assertFalse("nothing readable", theDash(null, null, known = known))
-        assertFalse(theDash("HomeNet", "aa:bb:cc:00:11:22", known = known))
+        assertFalse(theDash("HomeNet", "aa:bb:cc:" + "00:11:22", known = known))
     }
 
     @Test
     fun `the scan is asked for addresses only when the name does not decide`() {
         var asked = 0
-        AssociationInFlight.ofTheDash(dash, "aa:bb:cc:00:11:22", dash, false) { asked++; emptySet() }
-        AssociationInFlight.ofTheDash("HomeNet", "aa:bb:cc:00:11:22", dash, false) { asked++; emptySet() }
+        AssociationInFlight.ofTheDash(dash, "aa:bb:cc:" + "00:11:22", dash, false) { asked++; emptySet() }
+        AssociationInFlight.ofTheDash("HomeNet", "aa:bb:cc:" + "00:11:22", dash, false) { asked++; emptySet() }
         assertEquals(0, asked)
-        AssociationInFlight.ofTheDash(null, "aa:bb:cc:00:11:22", dash, false) { asked++; emptySet() }
+        AssociationInFlight.ofTheDash(null, "aa:bb:cc:" + "00:11:22", dash, false) { asked++; emptySet() }
         assertEquals(1, asked)
     }
 

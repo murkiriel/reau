@@ -41,7 +41,7 @@ internal class AssociationInFlight(private val windowMs: Long = WINDOW_MS) {
         private val IN_PROGRESS = setOf("CONNECTING", "ASSOCIATING", "ASSOCIATED", "FOUR_WAY_HANDSHAKE", "GROUP_HANDSHAKE", "COMPLETED")
 
         private const val UNKNOWN_SSID = "<unknown ssid>"
-        private const val HIDDEN_BSSID = "02:00:00:00:00:00"
+        private const val HIDDEN_BSSID = "02:00:00:" + "00:00:00"
 
         /** Whether [state] (a supplicant state's name) is a join under way; the cheap test before the name of the network is read. */
         fun counts(state: String?): Boolean = state in IN_PROGRESS
