@@ -28,17 +28,23 @@ internal class LinkNotice {
  *
  * **The counter wraps at 256.** It is sent in two bytes, but the high one stays 0 (a log of 20/10/2026: `…E9`, then `…07` thirty seconds later,
  * and `0xD5` → `0x11` in 60 s), so it measures the dash's age only up to 255 s. A dash that has been on for 256 s or more is read as a
- * young one when REau first sees it; it costs greetings every 2 s and a longer wait (a dash that takes badly to repeated greetings would not be told from a young one), and nothing here can tell the two apart.
+ * young one when REau first sees it; it costs greetings every 1 s and a longer wait (a dash that takes badly to repeated greetings would not be told from a young one), and nothing here can tell the two apart.
  */
 internal object DashReadiness {
     /** The counter from which the dash was seen to accept the greeting. */
     const val READY_COUNT = 26
 
-    /** How often the greeting goes again while the dash is not ready. */
-    const val WAIT_RESEND_MS = 2_000L
+    /**
+     * How often the greeting goes again while the dash is not ready: 1 s (it was 2 s until 25/11/2026). In the two entries since 21/11 that sent again, the dash answered 0.05 to 0.09 s after the resent
+     * burst, already ready, having waited up to 2 s for it. Kept at 1 s rather than closer together, to stay gentle with a dash that is still starting. The loop of DashSession looks every 100 ms, so the real pace is 1.0 to 1.1 s.
+     */
+    const val WAIT_RESEND_MS = 1_000L
 
-    /** The most greetings sent again while waiting for it (CAP_MS / WAIT_RESEND_MS, less the first). */
-    const val MAX_WAIT_RESENDS = 14
+    /** The window of the greetings while waiting: the same 28 s as before the pace went from 2 s to 1 s (14 greetings every 2 s). */
+    private const val WAIT_WINDOW_MS = 28_000L
+
+    /** The most greetings sent again while waiting for it: [WAIT_WINDOW_MS] / [WAIT_RESEND_MS] (28; a dash first seen at 0 s is ready at 26 s, so 25 of them at most go). */
+    const val MAX_WAIT_RESENDS = (WAIT_WINDOW_MS / WAIT_RESEND_MS).toInt()
 
     /** The time to authenticate, counted from the entry or from the dash being ready, the later. */
     const val AUTH_WINDOW_MS = 15_000L
@@ -71,7 +77,7 @@ internal object DashReadiness {
 
     /**
      * When the greeting goes (again) during one entry, for a dash whose first heartbeat counter is [first] seen at [firstAtMs]. While the
-     * dash is not ready: every [WAIT_RESEND_MS], and **once at the moment it becomes ready** (the greeting of 2 s before went to a dash that was
+     * dash is not ready: every [WAIT_RESEND_MS], and **once at the moment it becomes ready** (the greeting of a moment before went to a dash that was
      * not listening; the first live test of this rule ran out of greetings exactly then). Once it is ready: the old pace, a greeting after
      * [DashSession.KEY_PATIENCE_MS] up to [DashSession.MAX_BURST_RESENDS] times, counted from the moment it became ready. The caller tells
      * [sent] each greeting that goes. Not thread-safe: one coroutine drives it.

@@ -1069,7 +1069,7 @@ class DashSession(
         while (!authConfirmed && MonotonicClock.nowMs() < authDeadline(burstStartMs)) {
             delay(100)
             val now = MonotonicClock.nowMs()
-            // The dash's heartbeat counter says how long it has been on: until it is ready the greeting goes every 2 s, and again when
+            // The dash's heartbeat counter says how long it has been on: until it is ready the greeting goes every 1 s ([DashReadiness.WAIT_RESEND_MS]), and again when
             // it becomes ready ([DashReadiness.Greeting]).
             val first = firstHeartbeat.takeIf { it >= 0 }
             val notReady = greeting.notReady(first, firstHeartbeatAtMs, now)

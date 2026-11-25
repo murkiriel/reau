@@ -47,9 +47,9 @@ class TimingConstantsTest {
     }
 
     @Test
-    fun `a dash that is not ready yet is greeted again every two seconds, up to fourteen times`() {
-        assertEquals(false, DashReadiness.resendDue(1_999, keySeen = false, resends = 0))
-        assertEquals(true, DashReadiness.resendDue(2_000, keySeen = false, resends = 13))
-        assertEquals(false, DashReadiness.resendDue(2_000, keySeen = false, resends = 14))
+    fun `a dash that is not ready yet is greeted again every second, up to twenty-eight times`() {
+        assertEquals(false, DashReadiness.resendDue(999, keySeen = false, resends = 0))
+        assertEquals(true, DashReadiness.resendDue(1_000, keySeen = false, resends = 27))
+        assertEquals(false, DashReadiness.resendDue(1_000, keySeen = false, resends = 28))
     }
 }
