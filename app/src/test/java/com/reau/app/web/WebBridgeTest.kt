@@ -67,20 +67,35 @@ class WebBridgeTest {
 
     private val draws = ArrayDeque(listOf(4821, 1234, 5678, 9012))
 
+    /** Every bridge a test made, released in [tearDown] so none outlives its test (nothing else holds on to them). */
+    private val bridges = mutableListOf<WebBridge>()
+    private val loopbackViewers = mutableListOf<WebViewer>()
+
+    /** The generation the bridge had at the moment the server said it listens: a browser can come in from that moment on. */
+    private val liveWhenListening = CopyOnWriteArrayList<Long>()
+
     private fun bridge(ports: IntRange = freePorts(), limits: WebGuard.Limits = WebGuard.Limits()) = WebBridge(
         WebBridge.Env(
             page = { page },
             video = { out -> pushOutput = out; source },
             sendTouch = { touches += it },
             delayer = delayer,
-            log = { logs += it },
+            log = { line ->
+                logs += line
+                if (line.startsWith("web: server on port")) liveWhenListening += bridges.last().liveGeneration
+            },
             network = WebBridge.Network(ports, allowed = { true }, limits = limits, draw = { draws.removeFirst() }, thePhone = { false }),
         ),
-    )
+    ).also { bridges += it }
 
     @After
     fun tearDown() {
         clients.forEach { runCatching { it.socket.close() } }
+        loopbackViewers.forEach { runCatching { it.close() } }
+        bridges.forEach { runCatching { it.release() } }
+        // The count of the viewers goes to the events on a thread of its own: it must have ended before the next test, or it could
+        // write on what that test's screen shows.
+        eventually("every telling of the viewers' count ended") { WebViewers.tellingsInFlight.get() == 0 }
         WebAccess.clear()
     }
 
@@ -480,7 +495,7 @@ class WebBridgeTest {
                 log = { logs += it },
                 network = WebBridge.Network(freePorts(), allowed = { true }, draw = { draws.removeFirst() }, thePhone = { false }),
             ),
-        )
+        ).also { bridges += it }
         val applying = Thread { slow.apply(webView = true, webTouch = false, webAudio = WebAudioMode.BROWSER) }.apply { start() }
         try {
             assertTrue("the server never began to start", starting.await(5, TimeUnit.SECONDS))
@@ -493,6 +508,132 @@ class WebBridgeTest {
             applying.join(10_000)
             slow.release()
         }
+    }
+
+    private fun down(x: Int, y: Int) = "{\"a\":\"d\",\"x\":$x,\"y\":$y}"
+
+    /** The events of the server that is up now, and then of the one that replaces it after a stop: [old] is the one a late call comes from. */
+    private class Generations(val old: WebServer.Events, val oldGeneration: Long)
+
+    /** A server up and stopped, a second one up (touch on, one browser in, a stroke open); what the first one's events were is returned. */
+    private fun replacedServer(b: WebBridge): Generations {
+        running(b)
+        val oldGeneration = b.liveGeneration
+        assertNotEquals(0L, oldGeneration)
+        val old = b.eventsFor(oldGeneration) { null }
+        b.apply(webView = false, webTouch = false)
+        val c = join(running(b, touch = true))
+        c.text()
+        eventually("the new server counts its viewer") { WebAccess.state.value?.viewers == 1 }
+        c.sendText(down(10, 20))
+        eventually("the stroke of the new server") { touches.size == 1 }
+        assertNotEquals(oldGeneration, b.liveGeneration)
+        return Generations(old, oldGeneration)
+    }
+
+    @Test
+    fun `a late call of a server that was stopped does not reach the screen's count nor the stroke of the new one`() {
+        val b = bridge()
+        val g = replacedServer(b)
+        g.old.onViewers(0)
+        assertEquals("the old count must not replace the new one", 1, WebAccess.state.value?.viewers)
+        assertEquals("the old zero must not cancel the new server's stroke", 1, touches.size)
+        g.old.onViewers(7)
+        assertEquals(1, WebAccess.state.value?.viewers)
+        g.old.onText(down(1, 2))
+        g.old.onText("{\"a\":\"m\",\"x\":30,\"y\":40}")
+        assertEquals("the old server's text is not a touch", 1, touches.size)
+    }
+
+    @Test
+    fun `a late join of a server that was stopped is not told the state`() {
+        val b = bridge()
+        val g = replacedServer(b)
+        val (viewer, theirs) = loopbackViewer()
+        g.old.onJoin(viewer)
+        viewer.sendText("marker")
+        viewer.startWriter()
+        assertEquals("nothing came before the marker", "marker", theirs.text())
+    }
+
+    @Test
+    fun `the events of the server that is up are heard`() {
+        val b = bridge()
+        val g = replacedServer(b)
+        val now = b.eventsFor(b.liveGeneration) { null }
+        now.onViewers(5)
+        assertEquals(5, WebAccess.state.value?.viewers)
+        now.onViewers(0)
+        assertEquals("the zero of the server that is up cancels the open stroke", 2, touches.size)
+        assertEquals(PhoneTouch.Action.CANCEL, touches[1].action)
+        now.onText(down(3, 4))
+        assertEquals(3, touches.size)
+        val (viewer, theirs) = loopbackViewer()
+        now.onJoin(viewer)
+        viewer.startWriter()
+        assertEquals("{\"state\":\"off\",\"touch\":true}", theirs.text())
+        assertNotEquals(g.oldGeneration, b.liveGeneration)
+    }
+
+    @Test
+    fun `the pin of a server that was stopped does not change the pin the screen shows`() {
+        val b = bridge()
+        val g = replacedServer(b)
+        val shown = WebAccess.state.value!!.pin
+        b.pinChanged(g.oldGeneration, "9999")
+        assertEquals(shown, WebAccess.state.value!!.pin)
+        b.pinChanged(b.liveGeneration, "9998")
+        assertEquals("9998", WebAccess.state.value!!.pin)
+    }
+
+    @Test
+    fun `the server is the live one from the moment it listens, so a browser that comes in at once is heard`() {
+        val b = bridge()
+        running(b)
+        assertEquals(listOf(b.liveGeneration), liveWhenListening.toList())
+        assertNotEquals(0L, b.liveGeneration)
+    }
+
+    @Test
+    fun `a server that is released is not heard, and one that found no port is not either`() {
+        val b = bridge()
+        running(b)
+        val generation = b.liveGeneration
+        b.release()
+        assertEquals(0L, b.liveGeneration)
+        b.pinChanged(generation, "9999")
+        assertNull(WebAccess.state.value)
+        ServerSocket(0).use {
+            val none = bridge(ports = it.localPort..it.localPort)
+            none.apply(webView = true, webTouch = false)
+            assertEquals(0L, none.liveGeneration)
+        }
+    }
+
+    @Test
+    fun `Android Auto going and coming back leaves the count of the browsers right`() {
+        val b = bridge()
+        repeat(10) { draws.addLast(2000 + it) }
+        for (round in 1..5) {
+            val c = join(running(b))
+            c.text()
+            // The server goes down and up again (what the service does when Android Auto's session ends and returns): the tellings of
+            // the first one are still on their way when the second one is up.
+            b.androidAutoChanged(active = round % 2 == 1)
+            b.apply(webView = false, webTouch = false)
+            val d = join(running(b))
+            d.text()
+            eventually("every telling ended") { WebViewers.tellingsInFlight.get() == 0 }
+            eventually("the new browser counted: ${WebAccess.state.value}") { WebAccess.state.value?.viewers == 1 }
+        }
+    }
+
+    /** A viewer on one end of a loopback connection and a browser's side on the other; nothing of the server is in between. */
+    private fun loopbackViewer(): Pair<WebViewer, WsTestClient> = ServerSocket(0).use { listener ->
+        val theirs = WsTestClient(listener.localPort).also { clients += it }
+        val viewer = WebViewer(listener.accept(), queueFrames = 10, onGone = {})
+        loopbackViewers += viewer
+        viewer to theirs
     }
 
     private fun measureNanos(block: () -> Unit): Long {

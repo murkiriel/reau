@@ -20,6 +20,7 @@ English: [CHANGELOG.md](CHANGELOG.md) · Português (pt-BR): [CHANGELOG.pt-br.md
 
 ### Corregido
 - **El tiempo restante y la hora de llegada en el panel ya no parpadean 1 min arriba y abajo** (**aún sin probar en la moto**): en la corrida del 25/11 el panel mostraba el tiempo restante pasando de 7 min a 8 min por un segundo y volviendo a 7 min, y la hora de llegada pasando de 06:59 a 07:00 y volviendo a 06:59, cada 10 a 15 s. Android Auto redondea las dos medidas al minuto por su cuenta, y las dos redondeaban en momentos distintos, así que cada una subía y bajaba 1 cerca del borde del minuto. El tiempo restante ahora baja en el acto, como antes, pero solo sube 1 minuto después de quedarse ahí 30 s, y la hora de llegada solo cambia 1 minuto después de 75 s; un cambio de 2 minutos o más (ruta recalculada) sigue apareciendo en el acto. El registro de la corrida ahora también dice los segundos y la hora de llegada que manda Android Auto, para confirmar la causa en la próxima corrida.
+- **El contador de navegadores conectados en los ajustes podía quedar mal después de que Android Auto se cayera y volviera**: cuando el servidor web se paraba y se encendía de nuevo, una cuenta tardía del servidor viejo aún podía llegar al nuevo y cambiar el número de navegadores que muestran los ajustes (y, por el mismo camino, cancelar un trazo de toque o cambiar el PIN mostrado). Cada servidor ahora lleva su generación, y lo que un servidor viejo dice después de parado se ignora.
 
 ## [0.3.1] - 2026-11-25
 

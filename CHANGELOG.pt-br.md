@@ -21,6 +21,7 @@ aparecem).
 
 ### Corrigido
 - **O tempo restante e a hora de chegada no painel não piscam mais 1 min para cima e para baixo** (**ainda não testado na moto**): na corrida de 25/11 o painel mostrava o tempo restante indo de 7 min a 8 min por um segundo e voltando a 7 min, e a hora de chegada indo de 06:59 a 07:00 e voltando a 06:59, a cada 10 a 15 s. O Android Auto arredonda as duas medidas para o minuto por conta própria, e as duas arredondavam em momentos diferentes, então cada uma subia e descia 1 perto da fronteira do minuto. O tempo restante agora desce na hora, como antes, mas só sobe 1 minuto depois de ficar ali por 30 s, e a hora de chegada só muda 1 minuto depois de 75 s; uma mudança de 2 minutos ou mais (rota recalculada) continua aparecendo na hora. O registro da corrida agora também diz os segundos e a hora de chegada que o Android Auto manda, para confirmar a causa na próxima corrida.
+- **O contador de navegadores conectados nas configurações podia ficar errado depois de o Android Auto cair e voltar**: quando o servidor web era parado e ligado de novo, uma contagem atrasada do servidor antigo ainda podia chegar ao novo e trocar o número de navegadores que as configurações mostram (e, pelo mesmo caminho, cancelar um traço de toque ou trocar o PIN mostrado). Cada servidor agora carrega a sua geração, e o que um servidor antigo diz depois de parado é ignorado.
 
 ## [0.3.1] - 2026-11-25
 
