@@ -76,6 +76,10 @@ class DashSession(
     private val silentDash: SilentDash = SilentDash.shared,
     /** The speed the navigation gives now (km/h), null with none: written beside the changes of the dash's `09 08`, in the ride log only. */
     private val speedProvider: () -> Double? = { null },
+    /** What the phone knows of the network that refused a bind (EPERM), for the one try through the local address ([LocalAddressRetry]); the default knows nothing, so it never tries. */
+    private val networkFacts: (android.net.Network?) -> LocalAddressRetry.Facts = { LocalAddressRetry.NONE },
+    /** The sockets bound to the phone's own address on the dash's network, for that one try; a test passes one that points at its fake dash. */
+    private val localSocketFactory: (java.net.InetAddress) -> DashSocket = { DashSocket(null, localAddress = it) },
 ) {
     /**
      * The waits of a session: [keyPatienceMs] for the dash's key before the greeting goes again, [rxWatchdogMs] of silence before the
@@ -87,6 +91,8 @@ class DashSession(
         val watchdogTickMs: Long = WATCHDOG_TICK_MS,
         /** The video failing at every send for longer than this is a loss of the link ([RtpStall]). */
         val rtpStallMs: Long = RtpStall.LIMIT_MS,
+        /** How long the dash has to answer through the local address ([LocalAddressRetry.PROOF_MS]) before the refusal stands. */
+        val localProofMs: Long = LocalAddressRetry.PROOF_MS,
     )
 
     /** What this session and the dash exchanged. */
@@ -158,6 +164,10 @@ class DashSession(
     @Volatile private var linkNetwork: android.net.Network? = null
     private val linkHistory = LinkHistory()
     @Volatile private var linkBaselineLogged = false
+    // The one try through the local address after an EPERM ([LocalAddressRetry]): made in this session, the dash answered through it, and the refusal's own description (what fail() says if it ends up standing).
+    @Volatile private var localTried = false
+    @Volatile private var localProven = false
+    @Volatile private var localCause = ""
     // The channel line ([ChannelCrowd]): the name of the dash (to leave it out of the count; never written), whether the line has gone and whether the "nothing cached" one has.
     @Volatile private var linkSsid = ""
     @Volatile private var channelLogged = false
@@ -1003,12 +1013,18 @@ class DashSession(
      * after a failure already said through [fail] (the ports in use), or for a session connect() has replaced
      * meanwhile, whose sockets are closed again at once.
      */
+    @Suppress("TooGenericExceptionCaught") // any failure to open the sockets but a port in use goes to the one try through the local address, or on as it was
     private suspend fun openSockets(mine: Int, ssid: String, network: android.net.Network?): DashSocket? {
+        localTried = false
+        localProven = false
         val sock = try {
             socketFactory(network)
         } catch (e: java.net.BindException) {
             fail("Port ${DashSocket.RX_PORT}/${DashSocket.CTRL_PORT} in use (${e.message})", mine)
             null
+        } catch (e: Exception) {
+            // Android refused to bind to the dash's network: the one try through the local address, and if there is none the refusal goes on as it always did.
+            openThroughLocalAddress(e, network) ?: throw e
         }
         return when {
             sock == null -> null
@@ -1024,7 +1040,8 @@ class DashSession(
                 socketsOpenedMs = MonotonicClock.nowMs()
                 DashHeard.trail = stats.trail
                 DashHeard.tail = stats.sendTail
-                onBindResult?.invoke(network, false)
+                // The refusal that the local address went around is not a bind that worked: the count of refusals is not started over.
+                if (!localTried) onBindResult?.invoke(network, false)
                 linkNetwork = network
                 linkHistory.clear()
                 linkBaselineLogged = false
@@ -1061,6 +1078,76 @@ class DashSession(
         noteSilentEnd((now - burstStartMs) / MS_PER_SECOND_SILENT, dashSpoke = DashHeard.agoMs(now) != null, mine)
     }
 
+    /**
+     * The sockets on the phone's own address on [network], when [refusal] is Android refusing to bind to it and [LocalAddressRetry.shouldTry] says so; null
+     * otherwise (the caller goes on with the refusal). Once per session; the route is proved in [authenticate], never assumed.
+     */
+    @Suppress("TooGenericExceptionCaught") // a socket that cannot be opened is the refusal standing, said in the log
+    private fun openThroughLocalAddress(refusal: Exception, network: android.net.Network?): DashSocket? {
+        val facts = runCatching { networkFacts(network) }.getOrDefault(LocalAddressRetry.NONE)
+        if (!LocalAddressRetry.shouldTry(NetworkBlock.isBindRefusal(refusal), facts.alive, facts.ipv4 != null, localTried)) return null
+        localTried = true
+        localCause = NetworkBlock.describe(refusal)
+        com.reau.app.data.RideDiagnostics.warn("session", LocalAddressRetry.TRYING_LINE)
+        return try {
+            localSocketFactory(checkNotNull(facts.ipv4))
+        } catch (e: Exception) {
+            com.reau.app.data.RideDiagnostics.warn("session", LocalAddressRetry.couldNotOpenLine(e.javaClass.simpleName))
+            null
+        }
+    }
+
+    /** The line of the log for a greeting sent again, by what made it go: the dash's 10 s mark, the dash becoming ready, its age while not ready, or the patient pace. */
+    private fun resendLine(onNotice: Boolean, greeting: DashReadiness.Greeting, first: Int?, now: Long, resends: Int): String = when {
+        onNotice -> "the dash's 10 s mark came with no RSA pubkey — burst sent again now ($resends)"
+        greeting.readyMoment -> "the dash is ready now (heartbeat ${DashReadiness.READY_COUNT}): burst sent again ($resends)"
+        greeting.notReady(first, firstHeartbeatAtMs, now) -> {
+            val age = DashReadiness.counterAt(checkNotNull(first), firstHeartbeatAtMs, now)
+            "the dash is only $age s old (ready from ${DashReadiness.READY_COUNT}): burst sent again ($resends)"
+        }
+        else -> "no RSA pubkey ${timing.keyPatienceMs}ms after the last burst — burst sent again (${greeting.patientSent}/$MAX_BURST_RESENDS)"
+    }
+
+    /** The route through the local address is proved (once): a line of the log. */
+    private fun noteLocalRouteWorks() {
+        if (localProven) return
+        localProven = true
+        com.reau.app.data.RideDiagnostics.log("session", LocalAddressRetry.WORKED_LINE)
+    }
+
+    /**
+     * The wait for the key ended in a session through the local address. Authenticated: the route works (the key can come before the loop's first look).
+     * Not: the refusal stands, the network is dropped as if the bind had been refused, before the failure is told.
+     */
+    private fun endLocalTry(mine: Int) {
+        if (authConfirmed) return noteLocalRouteWorks()
+        if (!isCurrent(mine)) return
+        com.reau.app.data.RideDiagnostics.warn("session", LocalAddressRetry.failedLine(MonotonicClock.nowMs() - burstStartMs))
+        onBindResult?.invoke(linkNetwork, true)
+    }
+
+    /** One look of the wait at the route through the local address, at [now]: true when it did not answer in time and the refusal stands (already failed through [fail]). */
+    private fun localRouteGaveUp(mine: Int, now: Long): Boolean {
+        if (localProven) return false
+        val from = LocalAddressRetry.proofStartMs(burstStartMs, firstHeartbeat.takeIf { it >= 0 }, firstHeartbeatAtMs)
+        when (LocalAddressRetry.proof(auth?.keySeen == true || authConfirmed, now - from, timing.localProofMs)) {
+            LocalAddressRetry.Proof.WORKED -> noteLocalRouteWorks()
+            LocalAddressRetry.Proof.DID_NOT_ANSWER -> {
+                refusalStands(LocalAddressRetry.silentLine(now - from), mine)
+                return true
+            }
+            LocalAddressRetry.Proof.WAIT -> Unit
+        }
+        return false
+    }
+
+    /** The try through the local address ended without a session: the refusal stands, as if the bind had been refused (the network is dropped before the failure is told). */
+    private fun refusalStands(line: String, mine: Int, reason: String = localCause) {
+        com.reau.app.data.RideDiagnostics.warn("session", line)
+        if (isCurrent(mine)) onBindResult?.invoke(linkNetwork, true)
+        fail(reason, mine)
+    }
+
     /** The initial burst and the wait for the dash's 07 01 01; false after a timeout, already said through [fail]. */
     private suspend fun authenticate(sock: DashSocket, mine: Int, ssid: String): Boolean {
         _state.value = DashState.AUTHENTICATING
@@ -1078,10 +1165,11 @@ class DashSession(
         while (!authConfirmed && MonotonicClock.nowMs() < authDeadline(burstStartMs)) {
             delay(100)
             val now = MonotonicClock.nowMs()
+            // A line of the log must never end the wait: what fails here counts as "not given up".
+            if (localTried && runCatching { localRouteGaveUp(mine, now) }.getOrDefault(false)) return false
             // The dash's heartbeat counter says how long it has been on: until it is ready the greeting goes every 1 s ([DashReadiness.WAIT_RESEND_MS]), and again when
             // it becomes ready ([DashReadiness.Greeting]).
             val first = firstHeartbeat.takeIf { it >= 0 }
-            val notReady = greeting.notReady(first, firstHeartbeatAtMs, now)
             // Seen at 20:24:02 on 19/10/2026 and 12:00:34 on 20/10/2026: the dash answered with its telemetry but never sent its key,
             // and the key came only with a new attempt (50 ms, 17 s after the first burst). So the burst is sent again every 3 s up to the
             // deadline, and at once when the dash's own 10 s mark comes with no key (the dash has just turned its clock).
@@ -1091,22 +1179,12 @@ class DashSession(
             if (!authConfirmed && (onNotice || due)) {
                 resends++
                 lastBurstMs = now
-                com.reau.app.data.RideDiagnostics.log(
-                    "auth", if (onNotice) {
-                        "the dash's 10 s mark came with no RSA pubkey — burst sent again now ($resends)"
-                    } else if (greeting.readyMoment) {
-                        "the dash is ready now (heartbeat ${DashReadiness.READY_COUNT}): burst sent again ($resends)"
-                    } else if (notReady) {
-                        val age = DashReadiness.counterAt(checkNotNull(first), firstHeartbeatAtMs, now)
-                        "the dash is only $age s old (ready from ${DashReadiness.READY_COUNT}): burst sent again ($resends)"
-                    } else {
-                        "no RSA pubkey ${timing.keyPatienceMs}ms after the last burst — burst sent again (${greeting.patientSent}/$MAX_BURST_RESENDS)"
-                    },
-                )
+                com.reau.app.data.RideDiagnostics.log("auth", resendLine(onNotice, greeting, first, now, resends))
                 sendInitialBurst(sock)
             }
         }
 
+        if (localTried) endLocalTry(mine)
         if (!authConfirmed) {
             noteSilentAuthEnd(mine)
             fail(

@@ -68,6 +68,9 @@ internal object DashReadiness {
     /** Whether the dash is ready at [nowMs]; one whose counter was not seen ([first] null) counts as ready (the old rules). */
     fun ready(first: Int?, firstAtMs: Long, nowMs: Long): Boolean = first == null || counterAt(first, firstAtMs, nowMs) >= READY_COUNT
 
+    /** When the dash is ready (its heartbeat counter reaches [READY_COUNT]), from the [first] counter seen at [firstAtMs]; null when no counter was seen. */
+    fun readyAtMs(first: Int?, firstAtMs: Long): Long? = first?.let { firstAtMs + (READY_COUNT - it).coerceAtLeast(0) * MS_PER_S }
+
     /** When the time to authenticate ends: [AUTH_WINDOW_MS] from the later of the entry ([burstStartMs]) and the dash being ready. */
     fun deadlineMs(burstStartMs: Long, first: Int?, firstAtMs: Long): Long {
         if (first == null) return burstStartMs + AUTH_WINDOW_MS

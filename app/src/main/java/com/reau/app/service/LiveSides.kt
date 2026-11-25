@@ -325,6 +325,7 @@ internal class LiveSides(
     private val session = DashSession(
         scope, socketFactory = setup.dashSocket, linkProbe = com.reau.app.dash.PhoneLinkProbe(context)::read,
         channelScan = com.reau.app.dash.PhoneLinkProbe(context)::readScan,
+        networkFacts = com.reau.app.dash.PhoneLinkProbe(context)::localFacts,
         phoneStatusProvider = {
             if (tuned?.dashPhoneStatus == true) setup.phoneStatus()?.let { PhoneStatusReader.withLocationRule(it, tuned?.useLocation == true) } else null
         },

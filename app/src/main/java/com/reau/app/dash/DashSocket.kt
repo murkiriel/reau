@@ -39,6 +39,9 @@ class DashSocket(
     // passes these two) is byte-for-byte unaffected; see DashSocketTest's golden checks.
     private val ctrlDest: InetSocketAddress = InetSocketAddress(InetAddress.getByName(BROADCAST), CTRL_PORT),
     private val rtpDest: InetSocketAddress = InetSocketAddress(InetAddress.getByName(DASH_IP), RTP_PORT),
+    // The phone's own address on the dash's network, for the one try REau makes when Android refuses to bind a socket to that network
+    // ([LocalAddressRetry]): the three sockets are bound to it, not to the network. Null (every other caller): the sockets are exactly what they were.
+    private val localAddress: InetAddress? = null,
 ) : AutoCloseable {
     companion object {
         const val DASH_IP    = "192.168.1.1"
@@ -116,16 +119,16 @@ class DashSocket(
             tx = DatagramSocket(null).also {
                 it.reuseAddress = true
                 it.broadcast = true
-                it.bind(InetSocketAddress(CTRL_PORT))
+                it.bind(localAddress?.let { ip -> InetSocketAddress(ip, CTRL_PORT) } ?: InetSocketAddress(CTRL_PORT))
                 network?.bindSocket(it)
             }
             rx = DatagramSocket(null).also {
                 it.reuseAddress = true
                 it.soTimeout = RECV_TIMEOUT_MS
-                it.bind(InetSocketAddress(RX_PORT))
+                it.bind(localAddress?.let { ip -> InetSocketAddress(ip, RX_PORT) } ?: InetSocketAddress(RX_PORT))
                 network?.bindSocket(it)
             }
-            rtp = DatagramSocket().also { network?.bindSocket(it) }
+            rtp = (localAddress?.let { ip -> DatagramSocket(InetSocketAddress(ip, 0)) } ?: DatagramSocket()).also { network?.bindSocket(it) }
             val marked = "control CS6=${mark(tx, TOS_CONTROL)} video AF41=${mark(rtp, TOS_VIDEO)}"
             Log.i(TAG, "Sockets open — TX :$CTRL_PORT→${ctrlDest.address.hostAddress}:${ctrlDest.port}, " +
                 "RX :$RX_PORT, RTP→${rtpDest.address.hostAddress}:${rtpDest.port}, DSCP $marked")
@@ -354,6 +357,7 @@ class DashSocket(
     /** Test-only: a video send that failed with [e] at [nowMs], as the socket's own failure is handled by [sendRtp]. */
     internal fun testOnlyRtpSendFailed(e: Exception, nowMs: Long = MonotonicClock.nowMs()) = rtpSendFailed(e, nowMs)
     internal fun testOnlyCtrlDest(): InetSocketAddress = ctrlDest
+    internal fun testOnlyBoundTo(): List<InetAddress> = listOf(txSocket, rxSocket, rtpSocket).map { it.localAddress }
     internal fun testOnlyRtpDest(): InetSocketAddress = rtpDest
 
     override fun close() {
