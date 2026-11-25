@@ -21,6 +21,7 @@ import com.reau.app.phone.CallState
 import com.reau.app.aa.AaCommand
 import com.reau.app.aa.NavGuidance
 import com.reau.app.card.CardPainter
+import com.reau.app.dash.ActionEchoText
 import com.reau.app.dash.DashPairing
 import com.reau.app.dash.DashPorts
 import com.reau.app.dash.DashReadings
@@ -28,6 +29,7 @@ import com.reau.app.dash.DashSession
 import com.reau.app.dash.DashSocket
 import com.reau.app.dash.DashWifiManager
 import com.reau.app.dash.DashWifiSuggestions
+import com.reau.app.dash.ProtocolText
 import com.reau.app.dash.nav.AaManeuvers
 import com.reau.app.dash.nav.DrivingSide
 import com.reau.app.dash.nav.DrivingSideSource
@@ -568,7 +570,7 @@ internal class LiveSides(
             // for testing a helmet communicator.
             if (setup.aaConfig.phone) {
                 options = options.copy(onCaller = { caller ->
-                    session.showCallerCard(caller, context.getString(R.string.caller_private))
+                    session.showCallerCard(caller, ProtocolText.context(context).getString(R.string.caller_private))
                     callCard.heard(caller, context.getString(R.string.caller_private))
                     RideDiagnostics.log("call", com.reau.app.phone.CallAudioRoute.describe(context))
                 })
@@ -805,7 +807,7 @@ internal class LiveSides(
         press.echo?.let { named ->
             // The swap's title is the destination ("Music" or "Map"), known only now that the tap chose it ([swapMapMusic]).
             val label = com.reau.app.aa.SwapMapMusic.echoFor(named, swapMapMusic.lastTarget)
-            val text = volumeText ?: com.reau.app.dash.ActionEchoText.text(words, label)
+            val text = volumeText ?: com.reau.app.dash.ActionEchoText.text(ProtocolText.context(words), label)
             // A song change keeps its name in the title until the new song's name comes (up to the end of the wait).
             val taken = if (label.changesSong) session.echoSongAction(text) else session.echoAction(text)
             if (taken) RideDiagnostics.log("dash", "action echo: ${label.name}")
@@ -839,7 +841,7 @@ internal class LiveSides(
         // range moves nothing and sends none, yet the lock was renewed and the card must last as long as it. The broadcast logs the step; this one only when it moved nothing.
         showVolumeCard(com.reau.app.dash.VolumeCards.stepOf(change), log = change.before == change.after)
         // With the volume card on, the card says the level and the title does not.
-        volumeEcho = com.reau.app.dash.VolumeCards.titleEcho(volumeCard.enabled) { com.reau.app.dash.ActionEchoText.volume(words, change) }
+        volumeEcho = com.reau.app.dash.VolumeCards.titleEcho(volumeCard.enabled) { ActionEchoText.volume(ProtocolText.context(words), change) }
         session.sendStatusNow()
     }
 

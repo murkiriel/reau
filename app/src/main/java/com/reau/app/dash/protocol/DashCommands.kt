@@ -579,6 +579,8 @@ object DashCommands {
      * reaches the log.
      */
     fun latin1(text: String, max: Int): ByteArray {
+        // A debug build's street-name test sends its one name as it is (UTF-8); a release answers null and this line is never taken.
+        com.reau.app.devtools.ArrowTrial.streetBytes(text, max)?.let { return it }
         val chars = legible(text).take(max)
         return ByteArray(chars.length) { i -> chars[i].code.toByte() }
     }

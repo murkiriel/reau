@@ -821,11 +821,20 @@ class DashSession(
      * ([com.reau.app.devtools.ArrowTrial], which a release does not have: it answers none there), a card with that arrow alone and no distance, even with no
      * guidance. Nothing else reads this: the ring's own logic goes on with [nav].
      */
-    private fun shownNav(): NavFigures? = com.reau.app.devtools.ArrowTrial.byte()?.let { trial ->
-        nav ?: NavFigures(
-            trial, 0, DashCommands.NAV_UNIT_METERS, 0, DashCommands.NAV_UNIT_METERS, null, "", DashCommands.REMAINING_OMIT, DashCommands.NEXT_MANEUVER_NONE,
+    private fun shownNav(): NavFigures? {
+        val arrow = com.reau.app.devtools.ArrowTrial.byte()?.let { trial ->
+            nav ?: NavFigures(
+                trial, 0, DashCommands.NAV_UNIT_METERS, 0, DashCommands.NAV_UNIT_METERS, null, "", DashCommands.REMAINING_OMIT, DashCommands.NEXT_MANEUVER_NONE,
+            )
+        } ?: nav
+        // A debug build's street-name test puts its name where the real street goes (a release has none: it answers null).
+        val street = com.reau.app.devtools.ArrowTrial.street() ?: return arrow
+        val base = arrow ?: NavFigures(
+            DashCommands.NAV_MANEUVER_NONE, 0, DashCommands.NAV_UNIT_METERS, 0, DashCommands.NAV_UNIT_METERS, null, "",
+            DashCommands.REMAINING_OMIT, DashCommands.NEXT_MANEUVER_NONE,
         )
-    } ?: nav
+        return base.copy(road = street)
+    }
 
     /** The phone's clock as 4 digits, the ETA of the idle card's arrival pin. */
     private fun clockHHMM(): String = java.text.SimpleDateFormat("HHmm", java.util.Locale.US).format(java.util.Date())

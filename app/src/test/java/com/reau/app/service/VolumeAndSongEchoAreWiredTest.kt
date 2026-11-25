@@ -34,7 +34,7 @@ class VolumeAndSongEchoAreWiredTest {
         val step = live.between("private fun volumeStep(", "/** What the maneuver ring last did")
         assertTrue(step, "setup.volume?.step(step, setup.calls.state())" in step)
         assertTrue(step, "RideDiagnostics.log(\"projection\", change.logLine(step))" in step)
-        assertTrue(step, "volumeEcho = com.reau.app.dash.VolumeCards.titleEcho(volumeCard.enabled) { com.reau.app.dash.ActionEchoText.volume(words, change) }" in step)
+        assertTrue(step, "volumeEcho = com.reau.app.dash.VolumeCards.titleEcho(volumeCard.enabled) { ActionEchoText.volume(ProtocolText.context(words), change) }" in step)
         assertTrue(step, "session.sendStatusNow()" in step)
     }
 

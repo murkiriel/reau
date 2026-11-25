@@ -22,4 +22,10 @@
     <string name="debug_arrow_stop">Parar</string>
     <string name="debug_arrow_unnamed">sin nombre todavía: anota lo que dibuja el tablero</string>
     <string name="debug_arrow_hidden">oculta la burbuja</string>
+    <string name="debug_street_title">Probar un nombre de calle en devanagari</string>
+    <string name="debug_street_sub_off">Solo con el tablero conectado. Enciende la proyección y espera el tablero. Enviar pone el nombre de una calle en devanagari, en UTF-8, en el título y la calle del tablero; mira si el tablero lo dibuja.</string>
+    <string name="debug_street_sub_idle">Solo con el tablero conectado. Enviar pone el nombre de una calle en devanagari, en UTF-8, en el título y la calle del tablero (el campo guarda 19 bytes, así que solo cabe la primera palabra); Parar devuelve la calle real.</string>
+    <string name="debug_street_sub_sending">Enviando la calle en devanagari. Mira el tablero y luego pulsa Parar.</string>
+    <string name="debug_street_send">Enviar</string>
+    <string name="debug_street_stop">Parar</string>
 </resources>

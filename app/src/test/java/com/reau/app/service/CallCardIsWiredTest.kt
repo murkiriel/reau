@@ -28,7 +28,7 @@ class CallCardIsWiredTest {
     @Test
     fun `Android Auto's word of the call feeds the dash session as before and the card too, with the private-number word for a call with no name`() {
         val caller = live.between("options = options.copy(onCaller = { caller ->", "RideDiagnostics.log(\"call\"")
-        assertTrue(caller, "session.showCallerCard(caller, context.getString(R.string.caller_private))" in caller)
+        assertTrue(caller, "session.showCallerCard(caller, ProtocolText.context(context).getString(R.string.caller_private))" in caller)
         assertTrue(caller, "callCard.heard(caller, context.getString(R.string.caller_private))" in caller)
         val heard = feed.between("fun heard(", "/** The switch:")
         assertTrue(heard, "tracker.onNoCall()" in heard && "tracker.onCall(caller.name.ifEmpty { privateName }, caller.inCall, numberOnly = caller.numberOnly)" in heard)

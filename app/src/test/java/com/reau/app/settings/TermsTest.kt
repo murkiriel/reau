@@ -45,6 +45,8 @@ class TermsTest {
         assertEquals(Terms.TAB_ES, Terms.tabOf("ES-mx"))
         assertEquals(Terms.TAB_EN, Terms.tabOf("en"))
         assertEquals("any other language reads English", Terms.TAB_EN, Terms.tabOf("fr"))
+        assertEquals("the app in Hindi shows the terms in English: the terms are in no Hindi until a native speaker reads one", Terms.TAB_EN, Terms.tabOf("hi"))
+        assertEquals(Terms.TAB_EN, Terms.tabOf("hi-IN"))
     }
 
     @Test

@@ -22,4 +22,10 @@
     <string name="debug_arrow_stop">Parar</string>
     <string name="debug_arrow_unnamed">sem nome ainda: anote o que o painel desenha</string>
     <string name="debug_arrow_hidden">esconde a bolha</string>
+    <string name="debug_street_title">Testar um nome de rua em devanágari</string>
+    <string name="debug_street_sub_off">Só com o painel conectado. Ligue a projeção e espere o painel. Enviar põe o nome de uma rua em devanágari, em UTF-8, no título e na rua do painel; veja se o painel desenha.</string>
+    <string name="debug_street_sub_idle">Só com o painel conectado. Enviar põe o nome de uma rua em devanágari, em UTF-8, no título e na rua do painel (o campo guarda 19 bytes, então só cabe a primeira palavra); Parar devolve a rua real.</string>
+    <string name="debug_street_sub_sending">Enviando a rua em devanágari. Olhe o painel e depois aperte Parar.</string>
+    <string name="debug_street_send">Enviar</string>
+    <string name="debug_street_stop">Parar</string>
 </resources>

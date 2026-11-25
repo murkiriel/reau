@@ -17,13 +17,19 @@ class ArrowTrialAbsenceInReleaseTest {
         val stub = code("release/java/com/reau/app/devtools/ArrowTrial.kt")
         assertTrue(stub, "fun byte(): Int? = null" in stub)
         assertFalse(stub, "next" in stub || "previous" in stub || "stop" in stub || "StateFlow" in stub || "var " in stub || "RideDiagnostics" in stub)
-        assertEquals("the only function", 1, Regex("""\bfun\b""").findAll(stub).count())
+        assertEquals("the arrow's function and the street-name test's two, each answering none", 3, Regex("""\bfun\b""").findAll(stub).count())
+        assertTrue(stub, "fun street(): String? = null" in stub)
+        assertTrue(stub, "fun streetBytes(text: String, max: Int): ByteArray? = null" in stub)
     }
 
     @Test
-    fun `the main source reads the byte and nothing else of the arrow test`() {
+    fun `the main source reads the byte, the street and the street's bytes, and nothing else of the arrow test`() {
         val uses = mainSources().flatMap { f -> Regex("""ArrowTrial\.(\w+)""").findAll(f.readText()).map { it.groupValues[1] to f.name }.toList() }
-        assertEquals(uses.toString(), listOf("byte" to "DashSession.kt", "byte" to "DashSession.kt"), uses)
+        assertEquals(
+            uses.toString(),
+            listOf("byte" to "DashSession.kt", "byte" to "DashSession.kt", "street" to "DashSession.kt", "streetBytes" to "DashCommands.kt"),
+            uses.sortedBy { listOf("byte", "street", "streetBytes").indexOf(it.first) },
+        )
     }
 
     @Test

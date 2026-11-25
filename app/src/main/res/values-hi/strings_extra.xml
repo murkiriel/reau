@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tradução sem revisão de falante nativo (25/11/2026). -->
+<resources>
+    <string name="caller_private">निजी</string>
+    <string name="problem_compositor">वीडियो कंपोज़िटर (OpenGL) शुरू नहीं हुआ: डैश के लिए कोई तस्वीर नहीं</string>
+    <string name="notif_mark_done">%2$s पर सहेजा गया, निशान %1$d के रूप में</string>
+    <string name="card_legibility_sample">सड़क 300 m</string>
+    <string name="weather_air_pm25">PM2.5 %1$d</string>
+    <string name="stats_dash">डैश</string>
+    <string name="stats_default_mode">डिफ़ॉल्ट</string>
+    <string name="stats_frame_unit">KB/फ़्रेम</string>
+    <string name="stats_keyframe">KF</string>
+    <string name="credit_role_opencfmoto">Android Auto रिसीवर, डिकोडर और तस्वीर कंपोज़िटर</string>
+    <string name="credit_role_headunit_revived">Android Auto प्रोटोकॉल (OpenCfMoto के ज़रिए)</string>
+    <string name="credit_role_open_headunit">फ़्रेम जोड़ना और वीडियो की बहाली</string>
+    <string name="credit_role_headunit">पूरी कड़ी की शुरुआत</string>
+    <string name="credit_role_moto_hub">Android Auto नेविगेशन चैनल</string>
+    <string name="credit_role_headqlink">सर्वर दोबारा शुरू होने पर 1.5 s का ठहराव (एक मान, कोई कोड नहीं)</string>
+    <string name="credit_role_aa_proxy_rs">प्रोटोकॉल की जानकारी: फ़ोन की स्थिति और मीडिया संदेश (कोई कोड नहीं)</string>
+    <string name="credit_role_northstar">डैश प्रोटोकॉल का एक कार्यान्वयन (EstrelaAustral के ज़रिए)</string>
+    <string name="credit_role_estrelaaustral">शुरुआती आधार: डैश वाला हिस्सा, मौसम, टेस्ट और संगठन</string>
+    <string name="credit_role_better_dash">K1G प्रोटोकॉल का संदर्भ; कुछ हिस्से वहीं से लिए गए</string>
+    <string name="credit_role_recon_dash">नेटवर्क छूटने पर भेजना रोकने का विचार और टेलीमेट्री रिकॉर्ड का ढाँचा (कोई फ़ाइल कॉपी नहीं की)</string>
+    <string name="credit_role_open_dash">सिस्टम पहले से जिस डैश नेटवर्क से जुड़ा हो उसे खोजना, और डैश से बाहर निकलने का क्रम (प्रोजेक्ट की 21 सितंबर 2026 की सफ़ाई से पहले के संस्करण से)</string>
+    <string name="credit_role_fraunces">शीर्षक</string>
+    <string name="credit_role_androidx">स्क्रीन और ऐप का आधार</string>
+    <string name="credit_role_conscrypt">Android Auto की बातचीत का एन्क्रिप्शन (BoringSSL के साथ)</string>
+    <string name="credit_role_material_symbols">आइकन</string>
+    <string name="credit_role_protobuf">Android Auto के संदेश</string>
+    <string name="credit_role_hanken">इंटरफ़ेस का टेक्स्ट</string>
+    <string name="credit_role_kotlin">ऐप की भाषा और कोरूटीन</string>
+    <string name="credit_role_jetbrains_mono">मान, लेबल और लॉग</string>
+    <string name="credit_licence_public_domain">सार्वजनिक डोमेन</string>
+    <string name="credit_role_noaa">सूरज की स्थिति के समीकरण (सूरज के हिसाब से थीम)</string>
+    <string name="credit_role_open_meteo">मौसम और हवा की गुणवत्ता का डेटा</string>
+    <string name="credit_role_jmuxer">ब्राउज़र में वीडियो चलाता है (वेब सर्वर पेज)</string>
+    <string name="credit_holder_opencfmoto">© 2026 Alexandru and contributors</string>
+    <string name="credit_holder_headunit_revived">© andreknieriem and the headunit lineage</string>
+    <string name="credit_holder_moto_hub">© 2026 Vincenzo Buonomano and contributors</string>
+    <string name="credit_holder_headqlink">© Michael A. Reid and the open-headunit authors</string>
+    <string name="credit_holder_open_dash">© 2026 Subtle Sayak and contributors</string>
+    <string name="credit_holder_kotlin">© JetBrains and Kotlin contributors</string>
+    <string name="credit_name_androidx">AndroidX and Jetpack Compose</string>
+    <string name="credit_name_kotlin">Kotlin and kotlinx-coroutines</string>
+    <!-- The sixteen points of the compass, as in English: drawn small on the dash ring. -->
+    <string-array name="wind_points">
+        <item>N</item>
+        <item>NNE</item>
+        <item>NE</item>
+        <item>ENE</item>
+        <item>E</item>
+        <item>ESE</item>
+        <item>SE</item>
+        <item>SSE</item>
+        <item>S</item>
+        <item>SSW</item>
+        <item>SW</item>
+        <item>WSW</item>
+        <item>W</item>
+        <item>WNW</item>
+        <item>NW</item>
+        <item>NNW</item>
+    </string-array>
+</resources>

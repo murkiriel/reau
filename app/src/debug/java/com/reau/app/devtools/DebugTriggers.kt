@@ -24,8 +24,8 @@ import com.reau.app.ui.components.RowAction
 /**
  * Debug builds only: the rows at the end of Ajustes → Depuração that fire each warning of the app, to check its sound, its vibration and its
  * channel on the phone, and that arm the faults of [FaultInjection]. The release build has a [DebugTriggers] with no row (`src/release`), and
- * nothing here is in it. The texts are in `src/debug/res` (pt, en, es), so a release does not carry them; the rows are in three groups: test the
- * warnings, simulate failures, test the dash arrows.
+ * nothing here is in it. The texts are in `src/debug/res` (pt, en, es, hi), so a release does not carry them; the rows are in four groups: test the
+ * warnings, simulate failures, test the dash arrows, test a street name in Devanagari.
  */
 object DebugTriggers {
     /** The temperature the "phone hot" notice is fired with: above the 44 degrees that sets it off by itself. */
@@ -64,6 +64,7 @@ object DebugTriggers {
                 )
             },
             { ArrowTestRow() },
+            { StreetTestRow() },
         )
     }
 
@@ -105,6 +106,36 @@ object DebugTriggers {
         )
     }
 
+    /**
+     * The street-name test: with the dash connected, Send puts the Devanagari name "चाँदनी चौक" where the real street goes (the title of the gold band and the
+     * maneuver bubble's street, as UTF-8) so whoever tests sees whether the dash draws it; Stop (or leaving this screen, or the dash going) gives the real
+     * street back. Without the dash connected the row is a line of text and nothing to press. The name is [ArrowTrial.DEVANAGARI_STREET].
+     */
+    @Composable
+    private fun StreetTestRow() {
+        val projection by ProjectionService.projection.collectAsState()
+        val sent by ArrowTrial.streetSent.collectAsState()
+        val context = LocalContext.current
+        val available = arrowTestAvailable(projection.phase, projection.dash)
+        DisposableEffect(Unit) { onDispose { ArrowTrial.stopStreet() } }
+        LaunchedEffect(available) { if (!available) ArrowTrial.stopStreet() }
+        if (!available) {
+            ActionsRow(stringResource(R.string.debug_street_title), emptyList(), sub = stringResource(R.string.debug_street_sub_off), tag = "debug_street_off")
+            return
+        }
+        ActionsRow(
+            stringResource(R.string.debug_street_title), listOf(
+                button(R.string.debug_street_send, "debug_street_send") { fire(context, STREET_TEST) },
+                button(R.string.debug_street_stop, "debug_street_stop") { ArrowTrial.stopStreet() },
+            ),
+            sub = stringResource(if (sent == null) R.string.debug_street_sub_idle else R.string.debug_street_sub_sending),
+            tag = "debug_street",
+        )
+    }
+
+    /** The name of the street-name test in [fire] and in the log's line. */
+    internal const val STREET_TEST = "street in Devanagari"
+
     private fun arm(fault: Fault) = FaultInjection.arm(fault)
 
     /** Posts the notice named [what]; false for a name that is none of them. */
@@ -113,6 +144,7 @@ object DebugTriggers {
             "dash stuck" -> ProjectionNotification.showDashStuck(context)
             "phone hot" -> ProjectionNotification.showPhoneHot(context, HOT_TEMP_C)
             "no dash stop" -> ProjectionNotification.showStoppedNoDash(context, 1)
+            STREET_TEST -> ArrowTrial.sendStreet()
             else -> return false
         }
         RideDiagnostics.log("debug", firedLine(what))
