@@ -170,7 +170,7 @@ Registros, gravações e fotos podem conter lugares por onde você passou, nomes
 contatos. Leia-os e corte o que for privado antes de anexá-los a qualquer lugar, e nunca ponha dado pessoal num teste, num
 trecho de registro ou numa captura de tela que você vá enviar. Na dúvida, descreva com palavras.
 
-Um problema de segurança não se relata numa issue pública: siga o [SECURITY.md](SECURITY.md).
+Um problema de segurança não se relata numa issue pública: siga o [SECURITY.pt-br.md](SECURITY.pt-br.md).
 
 ## Relatar um erro
 

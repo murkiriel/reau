@@ -171,7 +171,7 @@ Los registros, las grabaciones y las fotos pueden contener lugares a los que fui
 y recorta todo lo privado antes de adjuntarlos en cualquier parte, y nunca pongas datos personales en una prueba, en una muestra de registro ni en una
 captura de pantalla que subas al repositorio. Si tienes dudas, descríbelo con palabras.
 
-Un problema de seguridad no se informa en un issue público: sigue [SECURITY.md](SECURITY.md).
+Un problema de seguridad no se informa en un issue público: sigue [SECURITY.es.md](SECURITY.es.md).
 
 ## Informar un error
 

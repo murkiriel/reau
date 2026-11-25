@@ -1,5 +1,7 @@
 # Security policy
 
+Português (pt-BR): [SECURITY.pt-br.md](SECURITY.pt-br.md) · Español: [SECURITY.es.md](SECURITY.es.md)
+
 ## Reporting a vulnerability
 
 Please **do not open a public issue** for a security problem. Use GitHub's private vulnerability reporting: on this

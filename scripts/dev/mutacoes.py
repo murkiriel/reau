@@ -1547,9 +1547,9 @@ MUTATIONS = [
     # Dia e noite com memória (chave experimental, desligada por padrão).
     # O site nas três línguas (SiteIntegrityTest).
     ("Site: a página de privacidade em espanhol some do sitemap", "docs/sitemap.xml",
-     "<url><loc>https://murkiriel.github.io/reau/es/privacy.html</loc><lastmod>2026-11-20</lastmod></url>", "", ["SiteIntegrityTest"]),
+     "<url><loc>https://murkiriel.github.io/reau/es/privacy.html</loc><lastmod>2026-11-24</lastmod></url>", "", ["SiteIntegrityTest"]),
     ("Site: a data da FAQ em inglês fica para trás", "docs/en/faq.html",
-     "Guide of 28 Oct 2026, updated on 22 Nov 2026 for REau 0.3.0.</p>", "Guide of 28 Oct 2026, updated on 3 Nov 2026 for REau 0.3.0.</p>", ["SiteIntegrityTest"]),
+     "Guide of 28 Oct 2026, updated on 25 Nov 2026 for REau 0.3.0.</p>", "Guide of 28 Oct 2026, updated on 3 Nov 2026 for REau 0.3.0.</p>", ["SiteIntegrityTest"]),
     # O site descreve o app único, com aviso nas imagens e nos vídeos antigos e legendas em três línguas (SiteSingleAppTest, 15/11/2026).
     ("Site: o teste do app único aceita a Lite fora da lista", "app/src/test/java/com/reau/app/SiteSingleAppTest.kt",
      '"pt" to listOf("antiga REau Lite",', '"pt" to listOf("Lite", "antiga REau Lite",', ["SiteSingleAppTest"]),
@@ -1557,7 +1557,7 @@ MUTATIONS = [
      'Regex("""\\bLite\\b"""), Regex("""\\bCompleta\\b"""), Regex("""acessibilidade"""',
      'Regex("""\\bLitx\\b"""), Regex("""\\bCompleta\\b"""), Regex("""acessibilidade"""', ["SiteSingleAppTest"]),
     ("Site: a página de instalação em português volta a oferecer a Lite", "docs/pt/install.html",
-     "<h1>Instalação em vídeo</h1>", "<h1>Instalação em vídeo: escolha a Lite ou a Completa</h1>", ["SiteSingleAppTest"]),
+     "<h1>Instalação</h1>", "<h1>Instalação: escolha a Lite ou a Completa</h1>", ["SiteSingleAppTest"]),
     ("Site: o site.js oferece a faixa em português à página em espanhol", "docs/assets/site.js",
      "function tracks(l){[].forEach", "function tracks(l){if(l==='es')l='pt';[].forEach", ["SiteSingleAppTest"]),
     ("Site: a página de instalação em espanhol não deixa a faixa em espanhol como a escolhida", "docs/es/install.html",
