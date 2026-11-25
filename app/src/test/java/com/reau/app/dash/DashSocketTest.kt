@@ -166,6 +166,45 @@ class DashSocketTest {
         assertEquals("held back = calls - probes: $calls calls", calls - calls / 20, s.testOnlyTxSuppressedTotal())
     }
 
+    /**
+     * Holds the counters' lock from one thread and runs [action] on another; the caller must end up BLOCKED on the monitor (a thread state, so no sleep and no race: with the
+     * lock taken nothing else can move it) and finish only after the holder lets go. Without the lock the caller never blocks and is already done when looked at.
+     */
+    private fun assertWaitsForTheLock(s: DashSocket, what: String, action: () -> Unit) {
+        val inside = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val done = java.util.concurrent.CountDownLatch(1)
+        val holder = Thread { s.testOnlyUnderTxLock { inside.countDown(); release.await() } }.apply { start() }
+        try {
+            org.junit.Assert.assertTrue("the holder took the lock", inside.await(5, java.util.concurrent.TimeUnit.SECONDS))
+            val caller = Thread { action(); done.countDown() }.apply { start() }
+            val deadline = System.nanoTime() + 5_000_000_000L
+            while (caller.state != Thread.State.BLOCKED && caller.state != Thread.State.TERMINATED && System.nanoTime() < deadline) Thread.yield()
+            assertEquals("$what waits for the lock the holder has", Thread.State.BLOCKED, caller.state)
+            assertEquals("$what has not finished while the lock is held", 1L, done.count)
+            release.countDown()
+            org.junit.Assert.assertTrue("$what finishes once the lock is free", done.await(5, java.util.concurrent.TimeUnit.SECONDS))
+            caller.join()
+        } finally {
+            release.countDown()
+            holder.join()
+        }
+    }
+
+    @Test
+    fun `the suppression counters are moved under the lock, a held lock makes the other thread wait`() {
+        val packet = byteArrayOf(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        val held = DashSocket().apply { close() }
+        repeat(5) { held.send(packet) } // the fifth failure suppresses it: from now on every send goes through the held-back check
+        assertWaitsForTheLock(held, "a send on a suppressed link") { held.send(packet) }
+        assertEquals("the waiting send was counted once, after the wait", 1, held.testOnlyTxProbeCounter())
+        assertEquals(1, held.testOnlyTxSuppressedTotal())
+
+        val failing = DashSocket().apply { close() }
+        assertWaitsForTheLock(failing, "a failed send") { failing.testOnlySendFailed(java.io.IOException("down")) }
+        assertEquals(1, failing.testOnlyTxFailStreak())
+    }
+
     @Test
     fun `suppressed send still never throws, including on its periodic probe attempts`() {
         val s = DashSocket()

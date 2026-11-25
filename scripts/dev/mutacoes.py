@@ -595,6 +595,8 @@ MUTATIONS = [
      "internal const val MIN_HEARTBEATS_BEFORE_SILENT = 4", "internal const val MIN_HEARTBEATS_BEFORE_SILENT = 2", ["TimingConstantsTest"]),
     ("P11f DashSocket: os contadores da supressão sem trava", MAIN + "dash/DashSocket.kt",
      "    private fun heldBack(): Boolean = synchronized(txLock) {", "    private fun heldBack(): Boolean = synchronized(Any()) {", ["DashSocketTest"]),
+    ("p33/DashSocket: a falha de envio mexe nos contadores sem a trava", MAIN + "dash/DashSocket.kt",
+     "        synchronized(txLock) {\n            first = txFailStreak == 0", "        synchronized(Any()) {\n            first = txFailStreak == 0", ["DashSocketTest"]),
     ("P11f CappedRead: um byte além do teto não é dito", MAIN + "util/CappedRead.kt",
      "truncated = input.read() >= 0)", "truncated = false)", ["CappedReadTest"]),
     ("P11f CappedRead: o teto lê um byte a menos", MAIN + "util/CappedRead.kt",

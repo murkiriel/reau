@@ -342,6 +342,8 @@ class DashSocket(
     internal fun testOnlyTxFailStreak(): Int = synchronized(txLock) { txFailStreak }
     internal fun testOnlyTxSuppressedTotal(): Int = synchronized(txLock) { txSuppressedTotal }
     internal fun testOnlyTxProbeCounter(): Int = synchronized(txLock) { txProbeCounter }
+    /** Test-only: runs [block] holding the control channel's bookkeeping lock, to see which paths wait for it. */
+    internal fun <T> testOnlyUnderTxLock(block: () -> T): T = synchronized(txLock) { block() }
     internal fun testOnlyRtpSuppressedTotal(): Int = rtpSuppressedTotal
 
     /** Test-only: the RTP channel as after [SUPPRESS_AFTER_STREAK] failures, on a socket that can send (to see it come back). */
