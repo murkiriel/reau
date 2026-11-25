@@ -69,6 +69,11 @@ jobs:
       - name: Compilar os testes instrumentados
         run: ./gradlew --console=plain --max-workers=2 :app:assembleAndroidTest
 
+      # O módulo de benchmark (macrobenchmark/) só roda num aparelho, mas tem de compilar: nenhuma outra tarefa do CI o monta, e ele
+      # quebraria sem ninguém ver (revisão de 25/11/2026). Compilar não pede aparelho nem a chave de release.
+      - name: Compilar o benchmark
+        run: ./gradlew --console=plain --max-workers=2 :macrobenchmark:assemble
+
       - name: Guardar os relatórios se algo falhou
         if: failure()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -86,12 +91,11 @@ jobs:
     name: Auditoria dos APKs
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    # Só este job pede mais do que ler o código: id-token e attestations são o que a atestação de proveniência exige (a ação pede um
-    # token OIDC ao GitHub e grava a atestação no repositório). Um job que declara permissões não herda as do topo, daí o contents: read.
+    # Este job, como o resto do workflow, só lê o código. A atestação que vale é a da Release: com as releases imutáveis ligadas
+    # (25/11/2026), o próprio GitHub atesta o APK e o SHA256SUMS publicados (confira com o verify-asset do gh). O APK deste job é
+    # assinado com a chave de debug e nunca é publicado, então não é atestado.
     permissions:
       contents: read
-      id-token: write
-      attestations: write
     steps:
       - name: Baixar o código
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -121,7 +125,7 @@ jobs:
       - name: Auditar o APK
         run: python3 -B scripts/apk_audit.py app/build/outputs/apk/release/app-release.apk
 
-      # A verificação de dependências do Gradle às vezes recusa o .pom do plugin kover baixado do Maven (22/11/2026, quatro vezes num dia,
+      # A verificação de dependências do Gradle às vezes recusa um .pom baixado do Maven (22/11/2026, quatro vezes num dia, o do plugin de cobertura que saiu depois,
       # e repetir o job passa); o relatório diz qual arquivo chegou e de onde, para decidir com calma.
       - name: Guardar o relatório da verificação de dependências se algo falhou
         if: failure()
@@ -131,16 +135,6 @@ jobs:
           path: build/reports/dependency-verification/
           if-no-files-found: ignore
           retention-days: 14
-
-      # Atestação de proveniência (SLSA) do APK que acabou de ser montado e auditado: o GitHub assina que aquele arquivo, com aquele SHA-256, saiu
-      # deste commit e deste workflow. Só no push na main: num pull request o código ainda não foi aceito (e o de um fork nem recebe o token).
-      # A atestação cobre o arquivo que o CI monta (assinado com a chave de debug, não guardado nem publicado) e não diz nada sobre as Releases,
-      # que são assinadas fora do GitHub, com a chave do projeto.
-      - name: Atestar a proveniência do APK
-        if: github.event_name == 'push'
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
-        with:
-          subject-path: app/build/outputs/apk/release/app-release.apk
 
   python:
     name: Testes do Python
@@ -217,7 +211,7 @@ jobs:
 
       - name: Baixar o gitleaks (conferindo o SHA-256)
         run: |
-          curl -sSfL -o "$RUNNER_TEMP/gitleaks.tar.gz" \
+          curl -sSfL --retry 3 --retry-delay 5 -o "$RUNNER_TEMP/gitleaks.tar.gz" \
             "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
           echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum --check --strict
           mkdir "$RUNNER_TEMP/gitleaks"

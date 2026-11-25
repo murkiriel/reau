@@ -4,7 +4,6 @@ import java.time.format.DateTimeFormatter
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.kover)
     jacoco
 }
 
@@ -232,20 +231,6 @@ tasks.register<JacocoReport>("jacocoTestReport") {
         xml.required.set(true)
         html.outputLocation.set(layout.buildDirectory.dir("reports/jacoco/html"))
         xml.outputLocation.set(layout.buildDirectory.file("reports/jacoco/jacoco.xml"))
-    }
-}
-
-// Coverage of the JVM unit tests with Kover, in the debug variant: `./gradlew :app:koverHtmlReportDebug` (or `koverXmlReportDebug`) runs them and writes the
-// report to build/reports/kover/. It is not part of `check`, `assemble` or CI, and it does not touch the APK. What is left out has no logic of the app's:
-// the generated R and BuildConfig classes, the classes the Compose compiler makes for the lambdas of @Composable functions and the Android Auto
-// messages that protoc generates (com.reau.app.aa.proto: about two thirds of the lines of the app, which no test is meant to cover one by one).
-kover {
-    reports {
-        filters {
-            excludes {
-                classes("*.R", "*.R\$*", "*.BuildConfig", "*ComposableSingletons*", "com.reau.app.aa.proto.*")
-            }
-        }
     }
 }
 

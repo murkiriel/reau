@@ -100,7 +100,7 @@ La app te pide aceptar los [términos de uso](TERMS_OF_USE.es.md) la primera vez
 
 ## Contribuir y seguridad
 
-REau es un proyecto de tiempo libre, con un único mantenedor. Cómo informar un error, ejecutar las pruebas y enviar un cambio está en [CONTRIBUTING.es.md](CONTRIBUTING.es.md) (en inglés: [CONTRIBUTING.md](CONTRIBUTING.md); en portugués: [CONTRIBUTING.pt-br.md](CONTRIBUTING.pt-br.md)). Un problema de seguridad no se informa en un issue público: mira [SECURITY.md](SECURITY.md) (solo en inglés).
+REau es un proyecto de tiempo libre, con un único mantenedor. Cómo informar un error, ejecutar las pruebas y enviar un cambio está en [CONTRIBUTING.es.md](CONTRIBUTING.es.md) (en inglés: [CONTRIBUTING.md](CONTRIBUTING.md); en portugués: [CONTRIBUTING.pt-br.md](CONTRIBUTING.pt-br.md)). Un problema de seguridad no se informa en un issue público: mira [SECURITY.es.md](SECURITY.es.md).
 
 ## Licencia y créditos
 

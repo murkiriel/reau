@@ -74,11 +74,7 @@ The unit tests run on the JUnit Platform for this (the vintage engine runs the J
 `--lista` counts the mutations and `--fatia I/N` runs one slice of them (the weekly workflow runs twenty-four, and `mutacao-mensal.yml` runs one of twelve each month, the month's number); a mutation that survives means a test that
 does not hold that decision.
 
-## Coverage, benchmark, managed devices and the dependency check
-
-**Coverage of the unit tests (Kover).** `./gradlew :app:koverHtmlReportDebug` runs the JVM unit tests of the debug variant and writes the HTML report to
-`app/build/reports/kover/htmlDebug/` (`:app:koverXmlReportDebug` writes the XML one). It is not part of `check`, `assemble` or the continuous integration, and the APK
-is not touched. The generated `R` and `BuildConfig` classes, the Compose compiler's `ComposableSingletons` and the Android Auto messages that protoc generates (`com.reau.app.aa.proto`) are left out of the count.
+## Benchmark, managed devices and the dependency check
 
 **Startup benchmark and baseline profile (`macrobenchmark/`).** This module builds without a device (`./gradlew :macrobenchmark:assemble`) but only RUNS on a phone with USB debugging
 or on an emulator, and it measures the `benchmark` build type of the app (the release code, signed with the debug key, so it needs no release key). With a device connected:
@@ -156,6 +152,31 @@ that access point without taking the computer off its own Wi-Fi:
 folder. The panel is written from the app's own code and answers only what that code shows the dash answering; anything else the phone sends
 is only logged. It proves the phone's side of the link, not that a dash takes it: for that, see the next section. `test_sincronia.py` reads
 the ports, the button codes, the packets and the exit sequence from the Kotlin sources, so a change in the app fails there until the panel follows.
+
+## Publishing a version
+
+Only the maintainer publishes a version, and one rule rules it: **the code of the tag is the code of the APK**. A Release APK is built from a
+clean tree, at the commit that the tag `v<version>` points to, and nothing changes after the tag: a fix means a new version and a new tag.
+
+1. Raise `appVersionName` and `releaseVersionCode` in `app/build.gradle.kts` (the comment there explains the numbering, and `VersionCodeSchemeTest` checks it).
+2. Write the version's section, `## [0.3.1] - YYYY-MM-DD`, at the top of the three changelogs (`CHANGELOG.md`, `CHANGELOG.pt-br.md` and `CHANGELOG.es.md`), with
+   the same entries in each: what changed for whoever uses the app, grouped as Added, Changed and Fixed, and with "not yet tried on the bike" on what was not.
+3. Commit, then make the tag on that commit: `git tag -a v0.3.1 -m "REau 0.3.1"`. The script never makes the tag.
+4. Set the four variables of the release key (the key is never in the repository): `REAU_KEYSTORE` (the absolute path of the file), `REAU_KEY_ALIAS`,
+   `REAU_KEYSTORE_PASSWORD` and `REAU_KEY_PASSWORD`. Write the text of the Release (what the changelog section says, for someone who does not know the project) in a file.
+5. Run `scripts/release.sh 0.3.1 --publicar --notas NOTES.md`. It stops at the first problem; it does these steps, in this order:
+
+- it checks that the tree is clean and that the tag exists and points to the HEAD;
+- it checks that the build's `versionName` is that version and that the section is in the three changelogs, and that the four key variables are set (it names the ones that are missing, never their values);
+- it builds with `./gradlew :app:assembleRelease`, runs `apksigner verify` (the v2 signature must verify, and the certificate's SHA-256 must be `63f5c3ba687699b0b4288a878bd8372bed2c9632222d7f673ea71073aa208970`, the one every Release has had, which `ApkAttestationTest` and the install page also hold) and `scripts/apk_audit.py` (nothing new against the baseline);
+- it copies the APK as `REau-0.3.1.apk`, with a `SHA256SUMS`, to `build/release-0.3.1/` (`--saida` changes the folder);
+- with `--publicar` it creates the Release on GitHub as a DRAFT (`gh release create v0.3.1 --draft --verify-tag`), with those two files; without it, it only prints the command it would run, and `--so-conferir --apk FILE` only runs the checks on an APK that is already built.
+
+What stays with the maintainer, since the script publishes nothing and pushes nothing:
+
+- read the draft on GitHub (title, text and the two files) and publish it;
+- download what was published (`gh release download v0.3.1`) and check it: `sha256sum -c SHA256SUMS`, and the certificate with `apksigner verify --print-certs`;
+- move `main` forward to the tag (`git merge --ff-only v0.3.1`) and push it, so the default branch shows the code that was released.
 
 ## What not to change without a test on the bike
 

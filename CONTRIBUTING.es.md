@@ -73,11 +73,7 @@ propias (nunca capturas reales: mira "Datos personales"). Para esto las pruebas 
 `--lista` cuenta las mutaciones y `--fatia I/N` ejecuta una porción (el workflow semanal ejecuta veinticuatro, y `mutacao-mensal.yml` ejecuta una de doce cada mes, la del número del mes); una mutación que sobrevive es una prueba
 que no guarda esa decisión.
 
-## Cobertura, benchmark, dispositivos gestionados y la verificación de dependencias
-
-**Cobertura de las pruebas unitarias (Kover).** `./gradlew :app:koverHtmlReportDebug` ejecuta las pruebas de JVM de la variante debug y escribe el informe HTML en
-`app/build/reports/kover/htmlDebug/` (`:app:koverXmlReportDebug` escribe el XML). No forma parte de `check`, de `assemble` ni de la integración continua, y el APK
-no se toca. Las clases generadas `R` y `BuildConfig`, las `ComposableSingletons` del compilador de Compose y los mensajes de Android Auto que genera protoc (`com.reau.app.aa.proto`) quedan fuera de la cuenta.
+## Benchmark, dispositivos gestionados y la verificación de dependencias
 
 **Benchmark de arranque y perfil base (`macrobenchmark/`).** El módulo compila sin dispositivo (`./gradlew :macrobenchmark:assemble`) pero solo SE EJECUTA en un teléfono con depuración USB
 o en un emulador, y mide el tipo de build `benchmark` de la app (el código de la release, firmado con la clave de debug, y por eso sin necesitar la clave de release). Con un dispositivo conectado:
@@ -158,6 +154,31 @@ responde; lo demás que envía el teléfono solo se registra. Prueba el lado del
 siguiente. `test_sincronia.py` lee los puertos, los códigos de los botones, los paquetes y la secuencia de salida del código Kotlin, así que
 un cambio en la app falla ahí hasta que el tablero falso lo siga.
 
+## Publicar una versión
+
+Solo el mantenedor publica una versión, y una regla manda sobre todo: **el código de la etiqueta es el código del APK**. El APK de un Release sale de un árbol
+limpio, en el commit al que apunta la etiqueta `v<versión>`, y nada cambia después de la etiqueta: una corrección es una versión nueva con una etiqueta nueva.
+
+1. Suba `appVersionName` y `releaseVersionCode` en `app/build.gradle.kts` (el comentario de allí explica la numeración, y `VersionCodeSchemeTest` la comprueba).
+2. Escriba la sección de la versión, `## [0.3.1] - AAAA-MM-DD`, al principio de los tres changelogs (`CHANGELOG.md`, `CHANGELOG.pt-br.md` y `CHANGELOG.es.md`), con
+   las mismas entradas en cada uno: lo que cambió para quien usa la app, agrupado en Añadido, Cambiado y Corregido, y con "aún no probado en la moto" en lo que no lo fue.
+3. Haga el commit y luego la etiqueta en él: `git tag -a v0.3.1 -m "REau 0.3.1"`. El script nunca crea la etiqueta.
+4. Defina las cuatro variables de la clave de release (la clave nunca está en el repositorio): `REAU_KEYSTORE` (la ruta absoluta del archivo), `REAU_KEY_ALIAS`,
+   `REAU_KEYSTORE_PASSWORD` y `REAU_KEY_PASSWORD`. Escriba el texto del Release (lo que dice la sección del changelog, para quien no conoce el proyecto) en un archivo.
+5. Ejecute `scripts/release.sh 0.3.1 --publicar --notas NOTAS.md`. Se detiene en el primer problema; hace estos pasos, en este orden:
+
+- comprueba que el árbol está limpio y que la etiqueta existe y apunta al HEAD;
+- comprueba que el `versionName` del build es esa versión y que la sección está en los tres changelogs, y que las cuatro variables de la clave están definidas (dice el nombre de las que faltan, nunca los valores);
+- compila con `./gradlew :app:assembleRelease`, ejecuta `apksigner verify` (la firma v2 debe verificarse, y el SHA-256 del certificado debe ser `63f5c3ba687699b0b4288a878bd8372bed2c9632222d7f673ea71073aa208970`, el de todos los Releases hasta hoy, que `ApkAttestationTest` y la página de instalación también guardan) y `scripts/apk_audit.py` (nada nuevo respecto de la línea base);
+- copia el APK como `REau-0.3.1.apk`, con un `SHA256SUMS`, a `build/release-0.3.1/` (`--saida` cambia la carpeta);
+- con `--publicar` crea el Release en GitHub como BORRADOR (`gh release create v0.3.1 --draft --verify-tag`), con esos dos archivos; sin él, solo imprime el comando que ejecutaría, y `--so-conferir --apk ARCHIVO` solo ejecuta las comprobaciones en un APK ya montado.
+
+Lo que queda con el mantenedor, ya que el script no publica ni hace push:
+
+- leer el borrador en GitHub (título, texto y los dos archivos) y publicarlo;
+- descargar lo publicado (`gh release download v0.3.1`) y comprobarlo: `sha256sum -c SHA256SUMS`, y el certificado con `apksigner verify --print-certs`;
+- adelantar `main` hasta la etiqueta (`git merge --ff-only v0.3.1`) y hacer el push, para que la rama principal muestre el código que se publicó.
+
 ## Qué no cambiar sin una prueba en la moto
 
 El protocolo de Android Auto y el protocolo del tablero (`aa/` y `dash/protocol/`), el handshake con el tablero y la ruta del video (el
@@ -171,7 +192,7 @@ Los registros, las grabaciones y las fotos pueden contener lugares a los que fui
 y recorta todo lo privado antes de adjuntarlos en cualquier parte, y nunca pongas datos personales en una prueba, en una muestra de registro ni en una
 captura de pantalla que subas al repositorio. Si tienes dudas, descríbelo con palabras.
 
-Un problema de seguridad no se informa en un issue público: sigue [SECURITY.md](SECURITY.md).
+Un problema de seguridad no se informa en un issue público: sigue [SECURITY.es.md](SECURITY.es.md).
 
 ## Informar un error
 

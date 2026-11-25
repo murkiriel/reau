@@ -22,8 +22,6 @@ detekt = "1.23.8"
 # unit tests run on the JUnit Platform with the vintage engine for the JUnit 4 ones.
 jazzer = "0.30.0"
 junitBom = "5.11.4"
-# Coverage of the JVM unit tests (`./gradlew :app:koverHtmlReportDebug`, see CONTRIBUTING); a Gradle plugin of the build, never in an APK.
-kover = "0.9.11"
 # The macrobenchmark module (`:macrobenchmark`: the startup time and the baseline profile generator); it runs on a device and is never in an APK.
 macrobenchmark = "1.5.0"
 
@@ -62,4 +60,3 @@ androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-co
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 android-test = { id = "com.android.test", version.ref = "agp" }
-kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }

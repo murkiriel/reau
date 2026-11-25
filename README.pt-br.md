@@ -100,7 +100,7 @@ O app pede o aceite dos [termos de uso](TERMS_OF_USE.pt-br.md) na primeira abert
 
 ## Contribuir e segurança
 
-O REau é um projeto de horas vagas, com um só mantenedor. Como relatar um erro, rodar os testes e enviar uma mudança está em [CONTRIBUTING.pt-br.md](CONTRIBUTING.pt-br.md) (em inglês: [CONTRIBUTING.md](CONTRIBUTING.md); em espanhol: [CONTRIBUTING.es.md](CONTRIBUTING.es.md)). Um problema de segurança não se relata numa issue pública: veja o [SECURITY.md](SECURITY.md) (só em inglês).
+O REau é um projeto de horas vagas, com um só mantenedor. Como relatar um erro, rodar os testes e enviar uma mudança está em [CONTRIBUTING.pt-br.md](CONTRIBUTING.pt-br.md) (em inglês: [CONTRIBUTING.md](CONTRIBUTING.md); em espanhol: [CONTRIBUTING.es.md](CONTRIBUTING.es.md)). Um problema de segurança não se relata numa issue pública: veja o [SECURITY.pt-br.md](SECURITY.pt-br.md).
 
 ## Licença e créditos
 
