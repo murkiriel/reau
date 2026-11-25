@@ -46,12 +46,15 @@ object NavUnits {
         return regionOf((0 until system.size()).map { system[it] })
     }
 
-    /** What the ride log says when the choice changes: the unit and why. */
+    /**
+     * What the ride log says when the choice changes: the unit and why. The country itself never goes to the log (a rule of the project: the log
+     * may be shared); only whether the phone had one to go by.
+     */
     fun line(imperial: Boolean, panel: DashReport.DistanceUnit?, region: String?): String {
-        val why = if (panel != null) {
-            "the dash says ${panel.name.lowercase()}"
-        } else {
-            "the dash has not said yet, the phone's region is ${region?.ifBlank { "unknown" } ?: "unknown"}"
+        val why = when {
+            panel != null -> "the dash says ${panel.name.lowercase()}"
+            region.isNullOrBlank() -> "the dash has not said yet, the phone's region is unknown"
+            else -> "the dash has not said yet, by the phone's region"
         }
         return "nav distances in ${if (imperial) "feet and tenths of a mile" else "metres and tenths of a kilometre"} ($why)"
     }

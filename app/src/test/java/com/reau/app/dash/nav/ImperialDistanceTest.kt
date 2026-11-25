@@ -216,8 +216,24 @@ class ImperialDistanceTest {
             NavUnits.line(true, DashReport.DistanceUnit.MILES, "BR"),
         )
         assertEquals(
-            "nav distances in metres and tenths of a kilometre (the dash has not said yet, the phone's region is BR)",
+            "nav distances in metres and tenths of a kilometre (the dash has not said yet, by the phone's region)",
             NavUnits.line(false, null, "BR"),
         )
+        assertEquals(
+            "nav distances in metres and tenths of a kilometre (the dash has not said yet, the phone's region is unknown)",
+            NavUnits.line(false, null, ""),
+        )
+    }
+
+    @Test
+    fun `the country never goes to the ride log`() {
+        for (region in listOf("BR", "GB", "IN", "US", "AU")) {
+            for (imperial in listOf(false, true)) {
+                for (panel in listOf(null, DashReport.DistanceUnit.KM, DashReport.DistanceUnit.MILES)) {
+                    val line = NavUnits.line(imperial, panel, region)
+                    assertFalse("$region in: $line", Regex("\\b$region\\b").containsMatchIn(line))
+                }
+            }
+        }
     }
 }

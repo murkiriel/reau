@@ -9,6 +9,11 @@ sin cambios visibles para quien usa la app no se listan).
 
 English: [CHANGELOG.md](CHANGELOG.md) · Português (pt-BR): [CHANGELOG.pt-br.md](CHANGELOG.pt-br.md)
 
+## [Unreleased]
+
+### Corregido
+- **El registro del viaje ya no escribe el país del teléfono**: la línea de las unidades de distancia de la navegación decía "the phone's region is BR"; ahora dice solo si el teléfono tenía una región que seguir. La regla del proyecto es que el registro, que se puede compartir, nunca lleve el país.
+
 ## [0.3.0] - 2026-11-25
 
 > **Si usabas la edición Lite**, lee la primera entrada de "Cambiado": esta versión es una app nueva para ti.

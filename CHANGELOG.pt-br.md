@@ -10,6 +10,11 @@ de debug acrescentam a data e a hora da compilação depois de `-dev+` (`0.3.0-d
 dela como histórico do projeto, cada um reunindo o que mudou naquele dia (dias sem mudança visível para quem usa o app não
 aparecem).
 
+## [Unreleased]
+
+### Corrigido
+- **O registro da corrida não escreve mais o país do celular**: a linha das unidades de distância da navegação dizia "the phone's region is BR"; agora diz só se o celular tinha uma região para seguir. A regra do projeto é que o registro, que pode ser compartilhado, nunca leve o país.
+
 ## [0.3.0] - 2026-11-25
 
 > **Se você usava a edição Lite**, leia a primeira entrada de "Alterado": esta versão é um app novo para você.

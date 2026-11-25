@@ -9,6 +9,11 @@ with no change visible to people who use the app are not listed).
 
 Português (pt-BR): [CHANGELOG.pt-br.md](CHANGELOG.pt-br.md) · Español: [CHANGELOG.es.md](CHANGELOG.es.md)
 
+## [Unreleased]
+
+### Fixed
+- **The ride log no longer writes the phone's country**: the line about the nav distance units said "the phone's region is BR"; it now says only whether the phone had a region to go by. The project's rule is that the log, which can be shared, never carries the country.
+
 ## [0.3.0] - 2026-11-25
 
 > **If you used the Lite edition**, read the first entry of "Changed": this version is a new app for you.

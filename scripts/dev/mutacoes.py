@@ -1795,6 +1795,8 @@ MUTATIONS = [
      "taken && !told -> Edge.SHOW.also { told = true }", "taken -> Edge.SHOW", ["SilentDashTest"]),
     ("Conexão 24/11: uma falha que não é de silêncio não encerra a série de sessões mudas", MAIN + "dash/DashSession.kt",
      "if (silentEndOf != generation) silentDash.reset()", "", ["SilentDashTest"]),
+    ("Privacidade 25/11: o país do celular volta ao registro", MAIN + "dash/nav/NavUnits.kt",
+     'else -> "the dash has not said yet, by the phone\'s region"', 'else -> "the dash has not said yet, the phone\'s region is $region"', ["ImperialDistanceTest"]),
     ("Conexão 24/11: a rede que o celular uniu sozinho não avisa a projeção", MAIN + "dash/DashWifiManager.kt",
      "        com.reau.app.service.SystemEvents.log(com.reau.app.service.SystemEvents.bikeNetwork(true))\n        onNetworkAvailable?.invoke()\n        verifyJoinedLater(activeNetwork)",
      "        com.reau.app.service.SystemEvents.log(com.reau.app.service.SystemEvents.bikeNetwork(true))\n        verifyJoinedLater(activeNetwork)", ["AdoptedNetworkWakesProjectionTest"]),
