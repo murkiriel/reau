@@ -9,7 +9,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The FPS test card's two settings (plan 32, 20/11/2026): a switch and a pace, both a debug build's: off and 6 by default, the pace brought to the nearest of 4, 6, 8, 10 and 12,
+ * The FPS test card's two settings (plan 32, 20/11/2026): a switch and a pace, both a debug build's: off and 6 by default, the pace brought to the nearest of 2, 3, 4 and 6 (4 to 12 until 25/11/2026),
  * forced off by a release, kept when saved, taken at once with the projection running, on its own section of the screen "Tela do Android Auto" inside the debug check, and
  * free to be on together with the two texts over the video.
  */
@@ -20,20 +20,21 @@ class FpsTestCardSettingsTest {
         assertFalse(s.fpsTestCard)
         assertEquals(6, s.fpsTestCardFps)
         assertEquals(null, s.fpsTestRate)
-        assertEquals(listOf(4, 6, 8, 10, 12), REauSettings.FPS_TEST_CARD_RATES)
+        assertEquals(listOf(2, 3, 4, 6), REauSettings.FPS_TEST_CARD_RATES)
+        assertTrue("never above 6 fps", REauSettings.FPS_TEST_CARD_RATES.all { it <= 6 })
     }
 
     @Test
     fun `the pace is brought to the nearest of the list, the lower on a tie`() {
         val brought = listOf(3, 5, 7, 13, 0, -4, 4, 6, 8, 9, 10, 11, 12, 99).map { REauSettings(fpsTestCardFps = it).sanitized(debugBuild = true).fpsTestCardFps }
-        assertEquals(listOf(4, 4, 6, 12, 4, 4, 4, 6, 8, 8, 10, 10, 12, 12), brought)
+        assertEquals(listOf(3, 4, 6, 6, 2, 2, 4, 6, 6, 6, 6, 6, 6, 6), brought)
         assertEquals("a release keeps the pace in the list too", 6, REauSettings(fpsTestCardFps = 7).sanitized(debugBuild = false).fpsTestCardFps)
     }
 
     @Test
     fun `a release forces the card off and a debug build keeps it`() {
-        val on = REauSettings(fpsTestCard = true, fpsTestCardFps = 10)
-        assertEquals(true to 10, on.sanitized(debugBuild = true).let { it.fpsTestCard to it.fpsTestCardFps })
+        val on = REauSettings(fpsTestCard = true, fpsTestCardFps = 3)
+        assertEquals(true to 3, on.sanitized(debugBuild = true).let { it.fpsTestCard to it.fpsTestCardFps })
         assertEquals(false, on.sanitized(debugBuild = false).fpsTestCard)
         // Stored on by a debug build, still forced off when a release reads it.
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
@@ -43,25 +44,25 @@ class FpsTestCardSettingsTest {
 
     @Test
     fun `the video takes the card only in a debug build, at the pace chosen`() {
-        assertEquals(if (com.reau.app.BuildConfig.DEBUG) 8 else null, REauSettings(fpsTestCard = true, fpsTestCardFps = 8).fpsTestRate)
-        assertEquals(null, REauSettings(fpsTestCard = false, fpsTestCardFps = 8).fpsTestRate)
+        assertEquals(if (com.reau.app.BuildConfig.DEBUG) 3 else null, REauSettings(fpsTestCard = true, fpsTestCardFps = 3).fpsTestRate)
+        assertEquals(null, REauSettings(fpsTestCard = false, fpsTestCardFps = 3).fpsTestRate)
         assertTrue("the gate is in the getter", File("src/main/java/com/reau/app/settings/REauSettings.kt").readText().contains("if (fpsTestCard && com.reau.app.BuildConfig.DEBUG)"))
     }
 
     @Test
     fun `the switch and the pace are kept when saved`() {
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
-        SettingsStore(prefs).save(REauSettings(fpsTestCard = true, fpsTestCardFps = 12))
+        SettingsStore(prefs).save(REauSettings(fpsTestCard = true, fpsTestCardFps = 4))
         val back = SettingsStore(prefs).load()
         assertEquals(true, back.fpsTestCard)
-        assertEquals(12, back.fpsTestCardFps)
+        assertEquals(4, back.fpsTestCardFps)
         assertEquals(false, SettingsStore(KeystoreBackedPrefsTest.FakePrefs()).load().fpsTestCard)
         assertEquals(6, SettingsStore(KeystoreBackedPrefsTest.FakePrefs()).load().fpsTestCardFps)
     }
 
     @Test
     fun `the three switches over the video can be on together, none turns another off`() {
-        val all = REauSettings(statsOverlay = true, buttonOverlay = true, fpsTestCard = true, fpsTestCardFps = 12)
+        val all = REauSettings(statsOverlay = true, buttonOverlay = true, fpsTestCard = true, fpsTestCardFps = 4)
         val kept = all.sanitized(debugBuild = true)
         assertEquals(listOf(true, true, true), listOf(kept.statsOverlay, kept.buttonOverlay, kept.fpsTestCard))
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
@@ -78,7 +79,7 @@ class FpsTestCardSettingsTest {
         assertEquals(kept.buttonLook, kept.copy(fpsTestCard = false).buttonLook)
         // The settings in use say all three.
         val line = SettingsInUse.line(all)
-        for (part in listOf("statsOverlay=true", "buttonOverlay=true", "fpsTestCard=true", "fpsTestCardFps=12")) assertTrue("$part in $line", part in line)
+        for (part in listOf("statsOverlay=true", "buttonOverlay=true", "fpsTestCard=true", "fpsTestCardFps=4")) assertTrue("$part in $line", part in line)
     }
 
     @Test
@@ -93,19 +94,19 @@ class FpsTestCardSettingsTest {
         if (com.reau.app.BuildConfig.DEBUG) {
             assertEquals(setOf(LiveTuning.Step.FPS_TEST), LiveTuning.steps(before, before.copy(fpsTestCard = true)))
             val on = before.copy(fpsTestCard = true)
-            assertEquals(setOf(LiveTuning.Step.FPS_TEST), LiveTuning.steps(on, on.copy(fpsTestCardFps = 12)))
+            assertEquals(setOf(LiveTuning.Step.FPS_TEST), LiveTuning.steps(on, on.copy(fpsTestCardFps = 3)))
             assertEquals(setOf(LiveTuning.Step.FPS_TEST), LiveTuning.steps(on, on.copy(fpsTestCard = false)))
         }
-        assertEquals("the pace of a card that is off changes nothing", emptySet<LiveTuning.Step>(), LiveTuning.steps(before, before.copy(fpsTestCardFps = 12)))
+        assertEquals("the pace of a card that is off changes nothing", emptySet<LiveTuning.Step>(), LiveTuning.steps(before, before.copy(fpsTestCardFps = 3)))
         // It is not a new stream, nor a new Android Auto session, nor a fit: the stream's own settings do not carry it.
-        val steps = LiveTuning.steps(before, before.copy(fpsTestCard = true, fpsTestCardFps = 10))
+        val steps = LiveTuning.steps(before, before.copy(fpsTestCard = true, fpsTestCardFps = 4))
         assertTrue(steps.toString(), steps.none { it == LiveTuning.Step.NEW_STREAM || it == LiveTuning.Step.NEW_ANDROID_AUTO_SESSION || it == LiveTuning.Step.REFIT })
     }
 
     private val panel = File("src/main/java/com/reau/app/ui/FitPanel.kt").readText()
 
     @Test
-    fun `the section is inside the debug check, after the stats and the button sections, with the switch and the five rates`() {
+    fun `the section is inside the debug check, after the stats and the button sections, with the switch and the four rates`() {
         val debug = panel.substringAfter("if (com.reau.app.BuildConfig.DEBUG) {").substringBefore("\n        }\n")
         val order = listOf("StatsSection(s, change)", "ButtonSection(s, change)", "FpsTestCardSection(s, change)").map { debug.indexOf(it) }
         assertTrue("the three sections in this order inside the check: $order", order.all { it >= 0 } && order == order.sorted())

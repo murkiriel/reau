@@ -52,13 +52,14 @@ class FpsTestCardScreenTest {
     }
 
     @Test
-    fun switchedOnTheFiveRatesAppearAndATapPicksOne() {
+    fun switchedOnTheFourRatesAppearAndATapPicksOne() {
         compose.onNodeWithTag("fps_test_card").performScrollTo().tapSwitch()
         assertEquals(true, settings.fpsTestCard)
         assertEquals(6, settings.fpsTestCardFps)
-        for (rate in listOf(4, 6, 8, 10, 12)) compose.onNodeWithTag("fps_test_card_rate_$rate").performScrollTo()
-        compose.onNodeWithTag("fps_test_card_rate_12").performScrollTo().performClick()
-        assertEquals(12, settings.fpsTestCardFps)
+        for (rate in listOf(2, 3, 4, 6)) compose.onNodeWithTag("fps_test_card_rate_$rate").performScrollTo()
+        compose.onNodeWithTag("fps_test_card_rate_8").assertDoesNotExist()
+        compose.onNodeWithTag("fps_test_card_rate_3").performScrollTo().performClick()
+        assertEquals(3, settings.fpsTestCardFps)
         compose.onNodeWithTag("fps_test_card_rate_4").performScrollTo().performClick()
         assertEquals(4, settings.fpsTestCardFps)
         compose.onNodeWithTag("fps_test_card").performScrollTo().tapSwitch()

@@ -11,6 +11,9 @@ Português (pt-BR): [CHANGELOG.pt-br.md](CHANGELOG.pt-br.md) · Español: [CHANG
 
 ## [Unreleased]
 
+### Changed
+- **Debug builds only: the FPS test card runs at 2, 3, 4 or 6 fps** (it offered 4 to 12): the paces the video really runs at, and never above 6, the project's rule since the dash failed above it on the bike.
+
 ### Fixed
 - **The ride log no longer writes the phone's country**: the line about the nav distance units said "the phone's region is BR"; it now says only whether the phone had a region to go by. The project's rule is that the log, which can be shared, never carries the country.
 

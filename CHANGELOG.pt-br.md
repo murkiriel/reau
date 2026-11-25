@@ -12,6 +12,9 @@ aparecem).
 
 ## [Unreleased]
 
+### Alterado
+- **Só nas builds de depuração: o quadro de teste de FPS roda a 2, 3, 4 ou 6 fps** (eram de 4 a 12): os ritmos em que o vídeo de fato roda, e nunca acima de 6, a regra do projeto desde que o painel falhou acima disso na moto.
+
 ### Corrigido
 - **O registro da corrida não escreve mais o país do celular**: a linha das unidades de distância da navegação dizia "the phone's region is BR"; agora diz só se o celular tinha uma região para seguir. A regra do projeto é que o registro, que pode ser compartilhado, nunca leve o país.
 

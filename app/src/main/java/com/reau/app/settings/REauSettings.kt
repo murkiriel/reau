@@ -500,10 +500,13 @@ data class REauSettings(
         /** [value] when it is one of [DENSITIES]; anything else goes back to the default, 180 (it is not rounded to a neighbour). */
         fun allowedDensity(value: Int): Int = if (value in DENSITIES) value else DEFAULT_DENSITY
 
-        /** The paces the FPS test card is offered at. */
-        val FPS_TEST_CARD_RATES = listOf(4, 6, 8, 10, 12)
+        /**
+         * The paces the FPS test card is offered at: the four the video really runs at (Original 4 and 2 fps, REau 6 and 3 fps), never above 6
+         * (the project's rule since 20/11/2026: the dash failed above it on the bike; the 8, 10 and 12 of the first card went on 25/11/2026).
+         */
+        val FPS_TEST_CARD_RATES = listOf(2, 3, 4, 6)
 
-        /** The offered pace nearest to [value]; the lower one on a tie (5 gives 4, 7 gives 6, 0 gives 4, 13 gives 12). */
+        /** The offered pace nearest to [value]; the lower one on a tie (5 gives 4, 7 gives 6, 0 gives 2, 13 gives 6). */
         fun nearestFpsTestRate(value: Int): Int = FPS_TEST_CARD_RATES.minBy { kotlin.math.abs(it.toLong() - value) }
 
         const val DEFAULT_FPS_TEST_CARD_FPS = 6
