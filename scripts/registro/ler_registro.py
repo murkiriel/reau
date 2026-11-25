@@ -105,6 +105,11 @@ Desde 15/11/2026: a chave «velocidade do GPS» liga o GPS durante a rota (antes
 speed profile (route ended | key off | …)`, e `speed profile: GPS key on, no GPS fix yet; route speed used` quando a chave pede o GPS e ele ainda não tem fix; a linha do tempo traduz as três
 e diz, ao fim de cada projeção, o tempo com o GPS ligado por causa da chave e quantos pedidos (`gps_chave.py`: um pedido sem a linha de fim é contado até o fim da projeção, e o texto diz isso).
 
+Desde 25/11/2026 (0.4.0): o app vigia a thread principal enquanto a projeção roda e escreve `[mainthread] main thread not answering for N s, at: <pilha>` (a 1 s, 3 s e 5 s de atraso) e
+`main thread answered again after N s` (quando ela volta). A linha do tempo diz «o app travou a thread principal por N s» e, enquanto presa, onde estava parada; PROBLEMAS traz os travamentos
+de 3 s ou mais, com a pilha, e diz quando a volta não foi registrada (o app fechado, p. ex. pelo Android por ANR). As linhas `device …` trazem também `lowat=<N>MB` (o limite de memória baixa do
+Android) e, quando o app pode ler `/proc/loadavg`, `load=<1 min>/<5 min>/<15 min>` (`thread_principal.py`; registro de antes não traz nada disso).
+
 Em registros de versões até a 0.2.0 (o serviço que ligava o servidor sozinho não existe mais), por Ligar, o bloco `servidor do AA:` conta a caminhada que liga o servidor do Android Auto (toque, início
 da caminhada, clique em Iniciar, Voltar, fim, primeira conexão, em ms) e acusa a causa: porta fechada 5 s depois do clique, servidor
 que só atendeu quando a tela do Android Auto abriu, menu lido pela metade (Android Auto frio?). Sem linhas `aa-server` (o serviço desligado, o caso comum) não diz nada.
@@ -126,6 +131,7 @@ import logcat_sistema  # noqa: E402
 import olhadas  # noqa: E402
 import quedas  # noqa: E402
 import tempo  # noqa: E402
+import thread_principal  # noqa: E402
 import varredura  # noqa: E402
 import wifi_sistema  # noqa: E402
 
@@ -1670,7 +1676,7 @@ def problemas(linhas):
         saida += _laco_de_reconexao(bloco)
         saida += _sem_imagem(bloco) + _buracos(bloco) + _quedas(bloco) + _temperatura(bloco) + _sem_resposta(bloco)
         saida += _painel_travado(bloco) + _eperm_repetido(bloco) + _eperm_espera(bloco)
-        saida += _envio_por_politica(bloco)
+        saida += _envio_por_politica(bloco) + thread_principal.problemas(bloco)
         saida += _apps_sem_tecla(bloco) + _quadros_chave_altos(bloco) + _painel_visto_tarde(bloco) + _apps_recorte_errado_problemas(bloco)
         saida += [f"projeção de {inicio}: servidor do AA — {causa}" for causa in _servidor_aa(bloco)[1]]
     # The test of item 1a (the Wi-Fi list with the app behind) fails here, with the reasons; its whole account is in `teste_1a`.
@@ -2596,6 +2602,8 @@ def _eventos_novos(x, bloco):
         return []
     if x.etiqueta == "audio":
         return _eventos_do_bluetooth(t)
+    if x.etiqueta == thread_principal.ETIQUETA:
+        return thread_principal.eventos(t)
     if x.etiqueta == "dash":
         return _eventos_do_painel(t) or _eventos_da_leva5(x.etiqueta, t)
     if x.etiqueta in ("stream", "aa"):

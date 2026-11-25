@@ -39,6 +39,10 @@ data class DeviceState(
     val chargeMah: Int? = null,
     /** REau's CPU use since the look before, in percent of ONE core (it can pass 100); null on the first look. */
     val cpuPct: Int? = null,
+    /** The free memory below which Android calls the phone low on memory (`ActivityManager.MemoryInfo.threshold`), in MB; null when it could not be read. */
+    val lowMemoryAtMb: Int? = null,
+    /** The phone's load average, `1.20/0.80/0.50` ([LoadAverage]); null when the app may not read it. */
+    val loadAverage: String? = null,
 ) {
     data class BikeWifi(val dbm: Int, val mhz: Int, val mbps: Int)
 
@@ -63,10 +67,13 @@ data class DeviceState(
         "cpu=" + (cpuPct?.let { "$it%" } ?: "-"),
     )
 
-    private fun phoneParts() = listOf(
+    private fun phoneParts() = listOfNotNull(
         "mem=$appUsedMb/${appMaxMb}MB",
         "phone=" + (phoneAvailMb?.let { "${it}MB" } ?: "?"),
         "low=" + yesNo(lowMemory),
+        // What says whether the whole phone was under load; left out (like the headroom) when the phone does not give it.
+        lowMemoryAtMb?.let { "lowat=${it}MB" },
+        loadAverage?.let { "load=$it" },
         "screen=" + onOff(screenOn),
         "interactive=" + yesNo(interactive),
         "doze=" + yesNo(dozing),

@@ -5546,6 +5546,21 @@ MUTATIONS += [
 ]
 
 
+# Plano 34, item 10 (25/11/2026): o vigia da thread principal (`[mainthread]`), a carga do sistema na linha `device` e o leitor de registros.
+MUTATIONS += [
+    ("p34/10 Vigia da thread principal: o mesmo nível de atraso é escrito de novo", MAIN + "util/MainStallLog.kt",
+     "if (reached <= told) return null", "if (reached < told) return null", ["MainStallLogTest", "MainThreadWatchTest"]),
+    ("p34/10 Vigia da thread principal: a linha do registro sai fora do runCatching", MAIN + "service/MainThreadWatch.kt",
+     "if (line != null) runCatching { write(line) }", "if (line != null) write(line)", ["MainThreadWatchTest", "MainThreadWatchIsWiredTest"]),
+    ("p34/10 Vigia da thread principal: a thread não é daemon", MAIN + "service/MainThreadWatch.kt",
+     "isDaemon = true", "isDaemon = false", ["MainThreadWatchTest", "MainThreadWatchIsWiredTest"]),
+    ("p34/10 Carga do sistema: o /proc/loadavg que falhou é tentado de novo", MAIN + "data/LoadAverage.kt",
+     "            unreadable = true\n", "            unreadable = false\n", ["LoadAverageTest"]),
+    ("p34/10 Leitor de registros: a thread principal presa por 3 s só é problema a partir de 4 s", "scripts/registro/thread_principal.py",
+     "LIMITE_S = 3.0", "LIMITE_S = 4.0", ["registro/test_thread_principal.py"]),
+]
+
+
 def command_for(classes):
     """The command that runs a mutation's tests: Python test files (`test_*.py`) with unittest, JVM unit test classes with Gradle. A bare name (`test_apk_audit.py`) is found
     in scripts/; one with a folder (`registro/test_chaves.py`, `dev/test_teste_cego.py`) in that folder of scripts/ (the folders are not packages, so discover does not go

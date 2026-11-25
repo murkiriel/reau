@@ -16,6 +16,7 @@ class ThreadCensusTest {
 
     private val approved = listOf(
         Entry("ScreenTheme.kt", "sun-place", "learns the sun's place off the main thread"),
+        Entry("service/MainThreadWatch.kt", "reau-main-watch", "watches the main thread while a projection runs: it must keep looking when the main thread and the service's worker are stuck"),
         Entry("REauApp.kt", "folders", "creates the app's folders at start"),
         Entry("REauApp.kt", "dash-readings", "loads the saved dash readings at start"),
         Entry("REauApp.kt", "dash-pairing", "warms the pairing key at start"),

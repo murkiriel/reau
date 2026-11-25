@@ -634,6 +634,7 @@ internal class LiveSides(
             if (setup.settings != null && !volumeWatch.start()) RideDiagnostics.warn("projection", "the volume card cannot listen to the phone's volume")
             // The Bluetooth sound is told to the ride log while this projection runs, in the real app only: it only watches, it changes no route.
             if (setup.settings != null) audioDeviceWatch.start()
+            if (setup.settings != null) MainThreadWatch.begin()
         }
         scope.launch { ProjectionMachine.dashLinks(session.state).collect { report(ProjectionEvent.DashChanged(it)) } }
         // The weather for the dash: looked at every minute, fetched at most every quarter of an hour, and after a failure with a growing wait (WeatherBackoff).
@@ -1071,6 +1072,7 @@ internal class LiveSides(
                 "link up" to { linkUp.stop() },
                 "volume watch" to { volumeWatch.stop() },
                 "audio devices watch" to { audioDeviceWatch.stop() },
+                "main thread watch" to { MainThreadWatch.end() },
                 "sighting" to { com.reau.app.dash.DashSighting.release(sightingListener) },
                 "wifi radio" to { WifiRadio.release(radioListener) },
                 "image gap" to { com.reau.app.dash.ImageGap.clock.forget() },
