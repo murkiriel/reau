@@ -556,7 +556,9 @@
     <string name="ring_no_gps">no GPS</string>
     <string name="section_web">Browser</string>
     <string name="web_view_title">Turn on the network server</string>
-    <string name="web_view_sub">Another device opens the address in a browser</string>
+    <string name="web_view_sub">On, the dash is not used: browser only</string>
+    <string name="web_on_dialog_title">The dash will stop being used</string>
+    <string name="web_on_dialog_text">With the network server on, REau stops using the dash and shows the picture only in the browser. Turn it on anyway?</string>
     <string name="web_view_long">With the projection running, REau opens a server on the local network: a computer or car display with a browser, on the same network, opens the address, enters the 4-digit PIN and sees Android Auto. When on, REau doesn’t look for the dash; the PIN changes every time, and after 5 wrong attempts the device waits 5 minutes. The picture is sent unencrypted, to two browsers at most, and the server turns itself off when the projection ends.</string>
     <string name="web_touch_title">Allow touch from the browser</string>
     <string name="web_touch_sub">Without this, the browser can only watch</string>

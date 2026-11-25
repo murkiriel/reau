@@ -9,6 +9,14 @@ import com.reau.app.settings.SettingsStore
  * The touch switch is the rider's and stays as it is (it is only offered, and only used, while the other is on).
  */
 object WebSwitch {
+    /**
+     * Whether turning the switch must be confirmed first: only turning it **on**, and only when the projection runs or the dash is in use
+     * ([dashInUse]: connected, being joined or being tried again), since the switch then stops the dash and the picture goes to the browser alone
+     * (the rule of [com.reau.app.service.ProjectionNetworkRule]). With the projection off nothing is in use and the text under the switch says it.
+     * Only the question: what the switch does does not change.
+     */
+    fun needsConfirmation(turningOn: Boolean, projectionOn: Boolean, dashInUse: Boolean): Boolean = turningOn && (projectionOn || dashInUse)
+
     fun projectionEnded(settings: REauSettings): REauSettings = if (settings.webView) settings.copy(webView = false) else settings
 
     /**

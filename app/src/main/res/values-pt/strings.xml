@@ -544,7 +544,9 @@
     <string name="ring_no_gps">sem GPS</string>
     <string name="section_web">Navegador</string>
     <string name="web_view_title">Ligar o servidor de rede</string>
-    <string name="web_view_sub">Outro aparelho abre o endereço no navegador</string>
+    <string name="web_view_sub">Ligado, o painel não é usado: só no navegador</string>
+    <string name="web_on_dialog_title">O painel deixa de ser usado</string>
+    <string name="web_on_dialog_text">Com o servidor de rede ligado, o REau para de usar o painel e mostra a imagem só no navegador. Ligar mesmo assim?</string>
     <string name="web_view_long">Com a projeção rodando, o REau abre um servidor na rede local: um computador ou uma multimídia com navegador, na mesma rede, abre o endereço, digita o PIN de 4 dígitos e vê o Android Auto. Ligado, o REau não procura o painel; o PIN muda a cada vez, e depois de 5 erros o aparelho espera 5 minutos. A imagem vai sem criptografia, a no máximo dois navegadores, e o servidor desliga sozinho quando a projeção termina.</string>
     <string name="web_touch_title">Deixar tocar pelo navegador</string>
     <string name="web_touch_sub">Sem isso, o navegador só olha</string>

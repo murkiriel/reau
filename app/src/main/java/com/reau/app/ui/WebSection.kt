@@ -19,6 +19,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
@@ -47,6 +48,7 @@ import com.reau.app.ui.components.hairline
 import com.reau.app.ui.theme.REauMono
 import com.reau.app.web.WebAccess
 import com.reau.app.web.WebAddress
+import com.reau.app.web.WebSwitch
 import java.net.InetAddress
 
 /** The phone's own addresses, read each time the section draws; a test gives a fixed list. */
@@ -55,17 +57,29 @@ internal val LocalWebAddresses = staticCompositionLocalOf<() -> List<InetAddress
 /**
  * The browser section, on the network server's screen: the switch that makes REau serve Android Auto on the local
  * network, the one that lets the browser touch, and, with the server up, the address, the PIN, how many browsers are
- * in and the way to drop them. Spaced as the fit's and the stats' cards (the screen's own constants).
+ * in and the way to drop them. Spaced as the fit's and the stats' cards (the screen's own constants). Turning the server on while the projection
+ * runs or the dash is in use asks first ([WebOnDialog]), since it stops the dash.
  */
 @Composable
-internal fun WebSection(s: REauSettings, projectionOn: Boolean = true, change: (REauSettings) -> Unit) {
+internal fun WebSection(s: REauSettings, projectionOn: Boolean = true, dashInUse: Boolean = false, change: (REauSettings) -> Unit) {
+    // Turning the server on stops the dash: with the projection running (or the dash in use) the rider is asked first, and Cancelar leaves it off.
+    var asking by rememberSaveable { mutableStateOf(false) }
     val shape = MaterialTheme.shapes.large
     Column(verticalArrangement = Arrangement.spacedBy(LABEL_GAP)) {
         GroupLabel(null, stringResource(R.string.section_web))
+        if (asking) {
+            WebOnDialog(
+                onCancel = { asking = false },
+                onTurnOn = {
+                    asking = false
+                    change(s.copy(webView = true))
+                },
+            )
+        }
         Column(Modifier.fillMaxWidth().clip(shape).background(MaterialTheme.colorScheme.surfaceContainer).border(1.dp, hairline(0.18f), shape)) {
             if (projectionOn) {
                 SettingSwitch(R.string.web_view_title, R.string.web_view_sub, R.string.web_view_long, s.webView, "web_view") {
-                    change(s.copy(webView = it))
+                    if (WebSwitch.needsConfirmation(it, projectionOn, dashInUse)) asking = true else change(s.copy(webView = it))
                 }
             } else {
                 // The server is switched on after Ligar, never before (the switch is off at each start).

@@ -527,7 +527,9 @@
     <string name="ring_no_gps">GPS नहीं</string>
     <string name="section_web">ब्राउज़र</string>
     <string name="web_view_title">नेटवर्क सर्वर चालू करें</string>
-    <string name="web_view_sub">दूसरा डिवाइस ब्राउज़र में पता खोलता है</string>
+    <string name="web_view_sub">चालू होने पर डैश इस्तेमाल नहीं होता: सिर्फ़ ब्राउज़र</string>
+    <string name="web_on_dialog_title">डैश का इस्तेमाल बंद हो जाएगा</string>
+    <string name="web_on_dialog_text">नेटवर्क सर्वर चालू होने पर REau डैश का इस्तेमाल बंद कर देता है और तस्वीर सिर्फ़ ब्राउज़र में दिखाता है। फिर भी चालू करें?</string>
     <string name="web_view_long">प्रोजेक्शन चलते समय REau लोकल नेटवर्क पर एक सर्वर खोलता है: उसी नेटवर्क पर ब्राउज़र वाला कंप्यूटर या कार डिस्प्ले पता खोलता है, 4 अंकों का PIN डालता है और Android Auto देखता है। चालू होने पर REau डैश को नहीं खोजता; PIN हर बार बदलता है, और 5 गलत कोशिशों के बाद डिवाइस 5 मिनट इंतज़ार करता है। तस्वीर बिना एन्क्रिप्शन के, ज़्यादा से ज़्यादा दो ब्राउज़र को भेजी जाती है, और प्रोजेक्शन खत्म होने पर सर्वर अपने-आप बंद हो जाता है।</string>
     <string name="web_touch_title">ब्राउज़र से टच की अनुमति दें</string>
     <string name="web_touch_sub">इसके बिना ब्राउज़र सिर्फ़ देख सकता है</string>

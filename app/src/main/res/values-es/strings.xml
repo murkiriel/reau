@@ -545,7 +545,9 @@
     <string name="ring_no_gps">sin GPS</string>
     <string name="section_web">Navegador</string>
     <string name="web_view_title">Encender el servidor de red</string>
-    <string name="web_view_sub">Otro dispositivo abre la dirección en un navegador</string>
+    <string name="web_view_sub">Encendido, el tablero no se usa: solo navegador</string>
+    <string name="web_on_dialog_title">El tablero dejará de usarse</string>
+    <string name="web_on_dialog_text">Con el servidor de red encendido, REau deja de usar el tablero y muestra la imagen solo en el navegador. ¿Encender de todos modos?</string>
     <string name="web_view_long">Con la proyección en marcha, REau abre un servidor en la red local: un computador o una pantalla de carro con navegador, en la misma red, abre la dirección, ingresa el PIN de 4 dígitos y ve Android Auto. Cuando está activado, REau no busca el tablero; el PIN cambia cada vez, y tras 5 intentos fallidos el dispositivo espera 5 minutos. La imagen se envía sin cifrar, a dos navegadores como máximo, y el servidor se apaga solo cuando termina la proyección.</string>
     <string name="web_touch_title">Permitir el toque desde el navegador</string>
     <string name="web_touch_sub">Sin esto, el navegador solo puede mirar</string>

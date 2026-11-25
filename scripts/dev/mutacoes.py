@@ -5536,6 +5536,16 @@ MUTATIONS += [
 ]
 
 
+MUTATIONS += [
+    ("p34/9 Servidor de rede: ligar com o painel em uso e a projeção parada deixa de perguntar", MAIN + "web/WebSwitch.kt",
+     "turningOn && (projectionOn || dashInUse)", "turningOn && projectionOn", ["WebSwitchConfirmTest"]),
+    ("p34/9 Servidor de rede: desligar também pergunta", MAIN + "web/WebSwitch.kt",
+     "turningOn && (projectionOn || dashInUse)", "(projectionOn || dashInUse)", ["WebSwitchConfirmTest"]),
+    ("p34/9 Servidor de rede: Cancelar liga o servidor do mesmo jeito", MAIN + "ui/WebSection.kt",
+     "onCancel = { asking = false },", "onCancel = { change(s.copy(webView = true)) },", ["WebOnDialogIsWiredTest"]),
+]
+
+
 def command_for(classes):
     """The command that runs a mutation's tests: Python test files (`test_*.py`) with unittest, JVM unit test classes with Gradle. A bare name (`test_apk_audit.py`) is found
     in scripts/; one with a folder (`registro/test_chaves.py`, `dev/test_teste_cego.py`) in that folder of scripts/ (the folders are not packages, so discover does not go
