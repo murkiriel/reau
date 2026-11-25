@@ -606,6 +606,22 @@ class Informes(unittest.TestCase):
                          "encerrada pelo joystick 5,0 s depois", "decidido em 08/11/2026: deixar como está"):
             self.assertIn(esperado, a[0])
 
+    def test_o_cartao_do_reau_na_linha_de_hoje_conta_como_mostrado(self):
+        # 24/11 20:43:32: o app escreve `[dash] call card: ringing`; o leitor dizia "sem o cartão do REau no painel".
+        a = [x for x in self.avisos(projecao(
+            linha("10:01:00.000", "aa", "[AA] AapCards: call card ringing"), linha("10:01:00.008", "dash", "call card: ringing"),
+            linha("10:01:10.000", "aa", "[AA] AapCards: call card cleared"))) if "cartão de chamada" in x and "tocando" in x]
+        self.assertEqual(1, len(a), a)
+        self.assertIn("cartão do REau mostrado no painel", a[0])
+
+    def test_sem_a_linha_do_painel_o_cartao_do_reau_nao_conta(self):
+        # Outra linha da etiqueta dash não é o cartão, e o texto do Android Auto sobre o cartão dele também não.
+        a = [x for x in self.avisos(projecao(
+            linha("10:01:00.000", "aa", "[AA] AapCards: call card ringing"), linha("10:01:00.500", "dash", "action echo: ANSWER_CALL"),
+            linha("10:01:10.000", "aa", "[AA] AapCards: call card cleared"))) if "cartão de chamada" in x and "tocando" in x]
+        self.assertEqual(1, len(a), a)
+        self.assertIn("sem o cartão do REau no painel", a[0])
+
     def test_a_chamada_em_curso_com_o_painel_fora_diz_isso(self):
         a = [x for x in self.avisos(projecao(
             linha("10:01:00.000", "session", "→ STREAMING"),

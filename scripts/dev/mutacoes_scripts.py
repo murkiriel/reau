@@ -441,4 +441,10 @@ MUTATIONS_SCRIPTS = [
     ("Conexão 24/11/tipo: a queda só do Android Auto também recebe tipo", REG + "ler_registro.py",
      "            if inicio is None or fim is None or not any(s in x.texto for x in g for s in SINAIS_DO_WIFI):\n                continue\n            tipo = logcat_sistema",
      "            if inicio is None or fim is None:\n                continue\n            tipo = logcat_sistema", ["registro/test_tipo_da_perda.py"]),
+    # Leitor 24/11: o cartão de chamada do REau na linha de hoje (`[dash] call card: …`).
+    ("Leitor 24/11/cartão: a linha de hoje do cartão do REau não conta", REG + "ler_registro.py",
+     'return (x.etiqueta == "dash" and x.texto.startswith("call card")) or "call card shown" in x.texto',
+     'return "call card shown" in x.texto', ["registro/test_ler_registro_17a.py"]),
+    ("Leitor 24/11/cartão: qualquer linha da etiqueta dash conta como o cartão", REG + "ler_registro.py",
+     'x.etiqueta == "dash" and x.texto.startswith("call card")', 'x.etiqueta == "dash"', ["registro/test_ler_registro_17a.py"]),
 ]

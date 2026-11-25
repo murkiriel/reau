@@ -311,6 +311,10 @@ class DashWifiManager(
         noteNetwork(caps)
         onSsidResolved?.invoke(activeSsid)
         _state.value = WifiState(status = WifiConnStatus.CONNECTED, ssid = activeSsid)
+        // As for a network the request got: a dash dropped and waiting out its retry is tried now (ride of 24/11/2026, 21:01: the network the
+        // phone joined by itself was taken and the projection, never told, sat out its minute; the image came back 102.9 s after the dash was on).
+        com.reau.app.service.SystemEvents.log(com.reau.app.service.SystemEvents.bikeNetwork(true))
+        onNetworkAvailable?.invoke()
         verifyJoinedLater(activeNetwork)
         return true
     }

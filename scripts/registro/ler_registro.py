@@ -2235,6 +2235,11 @@ def _menu_sem_tecla(bloco):
     return saida
 
 
+def _cartao_do_reau(x):
+    """A linha do app que diz que o cartão de chamada do REau foi ao painel: `[dash] call card: …` (hoje) ou `call card shown` (antes)."""
+    return (x.etiqueta == "dash" and x.texto.startswith("call card")) or "call card shown" in x.texto
+
+
 def _cartoes_de_chamada(bloco):
     """O cartão de chamada do Android Auto: tocando (`AapCards: call card ringing` até `cleared`), sobre o mapa ou não, a velocidade estimada, se o REau mostrou o dele
     (`[dash] call card shown`), se o dono encerrou pelo joystick (`[call] end:`) e se foi com o painel fora; e a chamada em curso (`in a call`). Decidido em 08/11/2026: deixar
@@ -2257,7 +2262,9 @@ def _cartoes_de_chamada(bloco):
             partes.append(f"velocidade estimada {min(vel)} a {max(vel)} km/h")
         meio = bloco[k:bloco.index(fim) + 1]
         if tipo == "tocando":
-            partes.append("cartão do REau mostrado no painel" if any("[dash]" in y.texto or "call card shown" in y.texto for y in meio) else "sem o cartão do REau no painel")
+            # O app de hoje escreve `[dash] call card: ringing` (a etiqueta não faz parte do texto: até 24/11/2026 a busca por "[dash]" no texto
+            # nunca achava, e a chamada saía "sem o cartão do REau"); o de antes, `call card shown`.
+            partes.append("cartão do REau mostrado no painel" if any(_cartao_do_reau(y) for y in meio) else "sem o cartão do REau no painel")
         fim_joystick = next((y for y in meio if y.etiqueta == "call" and y.texto.startswith("end: ")), None)
         if fim_joystick is not None:
             partes.append(f"encerrada pelo joystick {tempo.dec(tempo.dif(fim_joystick.segundos, x.segundos))} s depois")
