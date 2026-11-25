@@ -11,6 +11,9 @@ Português (pt-BR): [CHANGELOG.pt-br.md](CHANGELOG.pt-br.md) · Español: [CHANG
 
 ## [Unreleased]
 
+### Added
+- **The music goes on after the phone's USB ends the Android Auto session** (**not yet tried on the bike**): when Android Auto closes its session because the phone's USB changed (mostly taking the charger out) and the music was playing, REau presses the media key PLAY once, a few seconds after the new session opens, so the music does not stay paused. It does not press it if the music was already stopped, if a call is on, if the session ended for any other reason, or if the music already plays again by itself; the ride log says either way. The line of the USB change in the log also says `host_connected`, to see whether the phone was the USB host.
+
 ### Changed
 - **Debug builds only: the FPS test card runs at 2, 3, 4 or 6 fps** (it offered 4 to 12): the paces the video really runs at, and never above 6, the project's rule since the dash failed above it on the bike.
 

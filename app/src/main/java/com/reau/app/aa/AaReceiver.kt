@@ -148,6 +148,7 @@ internal class AaReceiver(
     private val callIn = options.callIn
     private val downstreamBusyMs = options.downstreamBusyMs
     private val usb = options.usb
+    private val musicResume = MusicResume({ SystemClock.elapsedRealtime() })
     private val wake = options.wake ?: ::openAndroidAutoSettings
 
     @Volatile var state: AaLinkState = AaLinkState.IDLE
@@ -177,6 +178,9 @@ internal class AaReceiver(
     private var dialled: Socket? = null
     @Volatile private var listener: ServerSocket? = null
     @Volatile private var session: AapTransport? = null
+
+    // Whether the music played when the last session ended (read before the media watch is cleared), for [MusicResume].
+    private var playingAtEnd = false
 
     // The recording of the session in use, to keep what REau sent to Android Auto (keys, wheel, touch) along with what it got.
     @Volatile private var sentRecorder: SessionRecorder? = null
@@ -501,6 +505,7 @@ internal class AaReceiver(
         if (!isCurrent(mine)) return
         // Android Auto closes its sessions at every change of the USB: said, and (when the handshake had been answered) dialled again at once.
         val ending = usb.noteEnd { AaLog.i(it) }
+        if (handshook) musicResume.sessionEnded(ending.sinceMs != null, playingAtEnd)
         if (!unanswered.after(handshook)) {
             report(mine, AaLinkState.DROPPED)
             ending.pauseAfterDrop(timing.afterDropMs) { Thread.sleep(it) }
@@ -616,6 +621,8 @@ internal class AaReceiver(
             // change made meanwhile is not missed.
             if (transport.nightMode != night) transport.sendNightMode(night)
             report(mine, AaLinkState.ACTIVE)
+            // After a USB end, the music that played goes on once the new session is settled.
+            if (musicResume.waiting()) statsLine.schedule({ resumeMusic() }, MusicResume.AFTER_OPEN_MS, TimeUnit.MILLISECONDS)
             onVideoSilent?.let { tell ->
                 statsLine.scheduleWithFixedDelay({
                     silence.check(SystemClock.elapsedRealtime(), stats.totals().units)?.let { silent ->
@@ -643,6 +650,7 @@ internal class AaReceiver(
             // Nor a song or a call card.
             onNowPlaying?.invoke(null)
             onCaller?.invoke(null)
+            playingAtEnd = AaMedia.watch.now.value.playing
             AaMedia.watch.reset()
             recorder?.close()
             // The socket first: a decoder that hangs in its release (the codec's driver, not REau) must not leave it open, with Android Auto
@@ -656,6 +664,13 @@ internal class AaReceiver(
             keepEnd(answered)
         }
         return Handshake.DONE
+    }
+
+    /** The new session after a USB end is settled: the music is resumed (PLAY once) or the reason it is not is said. */
+    private fun resumeMusic() {
+        val verdict = musicResume.decide(MusicKey.inCall(context), AaMedia.watch.now.value.playing) ?: return
+        AaLog.i("AaReceiver: " + verdict.line)
+        if (verdict == MusicResume.Verdict.RESUME && !MusicKey.play(context)) AaLog.w("AaReceiver: the phone refused the PLAY key")
     }
 
     /** The end of a session that was answered is kept ([AaRestartGap.sessionEnded]); a session that was never answered ended nothing Android Auto had to close. */

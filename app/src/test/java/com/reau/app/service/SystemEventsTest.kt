@@ -121,6 +121,24 @@ class SystemEventsTest {
     }
 
     @Test
+    fun `the USB line says whether the phone is the host, when the broadcast has the extra`() {
+        assertEquals(
+            "usb disconnected, host_connected=false",
+            SystemEvents.usbLine(mapOf("connected" to false, "configured" to false, "host_connected" to false)),
+        )
+        assertEquals(
+            "usb connected, configured, adb, host_connected=false",
+            SystemEvents.usbLine(mapOf("connected" to true, "configured" to true, "adb" to true, "host_connected" to false)),
+        )
+        assertEquals(
+            "the host flag is not a function even when on",
+            "usb connected, not configured, host_connected=true",
+            SystemEvents.usbLine(mapOf("connected" to true, "configured" to false, "host_connected" to true)),
+        )
+        assertEquals("no extra, nothing said", "usb connected, configured", SystemEvents.usbLine(mapOf("connected" to true, "configured" to true)))
+    }
+
+    @Test
     fun `the USB data link says connected, configured and which functions`() {
         assertEquals("usb connected, configured, adb", SystemEvents.usbLine(mapOf("connected" to true, "configured" to true, "adb" to true)))
         assertEquals("usb connected, configured, adb+mtp", SystemEvents.usbLine(mapOf("mtp" to true, "adb" to true, "connected" to true, "configured" to true)))
