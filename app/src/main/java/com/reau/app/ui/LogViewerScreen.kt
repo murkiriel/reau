@@ -11,10 +11,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
@@ -136,23 +140,28 @@ private fun FileList(dir: File?, onOpen: (File) -> Unit) {
 private sealed interface TailState {
     data object Reading : TailState
     data object Unreadable : TailState
-    data class Ready(val tail: LogFiles.Tail) : TailState
+    data class Ready(val tail: LogFiles.Tail, val items: List<String>) : TailState
 }
 
 /**
  * The end of [file]: what was left out of its start, in blue, then the text in mono, scrolled to its end, never wrapped. The file
- * (up to [TAIL_BYTES]) is read once, off the main thread; until then only its name shows.
+ * (up to [TAIL_BYTES]) is read once, off the main thread, and cut into the items of a lazy list ([LogLines]): only the items on the screen are
+ * measured and drawn, not the 256 KB at once. The text is not selectable (it never was); the top bar shares the files. Until it is read only
+ * the file's name shows.
  */
 @Composable
 private fun FileEnd(file: File) {
     val state by produceState<TailState>(TailState.Reading, file) {
         value = withContext(Dispatchers.IO) {
-            runCatching { LogFiles.tail(file, TAIL_BYTES) }.fold({ TailState.Ready(it) }, { TailState.Unreadable })
+            // The cut into the list's items is as heavy as the read: it is done here, not while composing.
+            runCatching { LogFiles.tail(file, TAIL_BYTES) }.fold({ TailState.Ready(it, LogLines.items(it.text)) }, { TailState.Unreadable })
         }
     }
     val tail = (state as? TailState.Ready)?.tail
-    val down = rememberScrollState()
-    LaunchedEffect(tail) { down.scrollTo(down.maxValue) }
+    val items = (state as? TailState.Ready)?.items.orEmpty()
+    val down = rememberLazyListState()
+    // Opens on the newest: the last item goes to the top of the list, which cannot scroll past its end, so the screen is filled with the end.
+    LaunchedEffect(items) { if (items.isNotEmpty()) down.scrollToItem(items.lastIndex) }
     Column(Modifier.fillMaxSize().navigationBarsPadding().padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(file.name, style = REauMono, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (tail == null) {
@@ -162,14 +171,16 @@ private fun FileEnd(file: File) {
             return@Column
         }
         if (tail.skippedBytes > 0) Skipped(tail.skippedBytes)
+        // The sideways scroll holds the whole list: the lines are never wrapped, and the list is as wide as the widest item on the screen.
         Box(
             Modifier.fillMaxWidth().weight(1f).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceContainerLowest)
-                .border(1.dp, hairline(0.14f), MaterialTheme.shapes.small).verticalScroll(down).horizontalScroll(rememberScrollState()).padding(12.dp),
+                .border(1.dp, hairline(0.14f), MaterialTheme.shapes.small).horizontalScroll(rememberScrollState()),
         ) {
-            Text(
-                tail.text, softWrap = false, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.testTag("log_text"),
-                style = REauMono,
-            )
+            LazyColumn(state = down, contentPadding = PaddingValues(12.dp), modifier = Modifier.testTag("log_text")) {
+                itemsIndexed(items, key = { index, _ -> index }) { _, block ->
+                    Text(block, softWrap = false, color = MaterialTheme.colorScheme.onSurface, style = REauMono)
+                }
+            }
         }
     }
 }
