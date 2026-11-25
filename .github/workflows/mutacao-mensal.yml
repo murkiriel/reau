@@ -38,14 +38,14 @@ jobs:
     timeout-minutes: 120
     steps:
       - name: Baixar o código
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Como no qualidade.yml: o campo do rodar à mão, senão a variável do repositório, senão o ref da execução (o agendamento sempre usa o arquivo da branch padrão).
           ref: ${{ inputs.ref || vars.QUALIDADE_REF || github.sha }}
           persist-credentials: false
 
       - name: JDK 21 (Temurin) com cache do Gradle
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: "21"
@@ -73,7 +73,7 @@ jobs:
 
       - name: Guardar o log
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: mutacoes-mensal-${{ env.FATIA }}
           path: mutacoes.log

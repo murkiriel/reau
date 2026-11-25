@@ -35,12 +35,12 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Baixar o código
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: JDK 21 (Temurin) com cache do Gradle
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: "21"
@@ -71,7 +71,7 @@ jobs:
 
       - name: Guardar os relatórios se algo falhou
         if: failure()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: relatorios-verificacao
           path: |
@@ -94,12 +94,12 @@ jobs:
       attestations: write
     steps:
       - name: Baixar o código
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: JDK 21 (Temurin) com cache do Gradle
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: "21"
@@ -125,7 +125,7 @@ jobs:
       # e repetir o job passa); o relatório diz qual arquivo chegou e de onde, para decidir com calma.
       - name: Guardar o relatório da verificação de dependências se algo falhou
         if: failure()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: verificacao-dependencias-apk
           path: build/reports/dependency-verification/
@@ -148,7 +148,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Baixar o código
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -175,7 +175,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Baixar o código
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -210,7 +210,7 @@ jobs:
       # Só neste job o checkout traz o histórico inteiro (fetch-depth: 0): um segredo que já foi apagado do código continua
       # nos commits antigos. Os outros jobs seguem com o clone raso, que é mais rápido.
       - name: Baixar o código (com o histórico inteiro)
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
