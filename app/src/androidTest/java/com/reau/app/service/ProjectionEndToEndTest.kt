@@ -78,14 +78,14 @@ class ProjectionEndToEndTest {
                 ctx, report,
                 LiveSides.Setup(
                     aaConfig = com.reau.app.aa.AaConfig(touch = touch),
-                    aaOptions = AaReceiver.Options(aaPort, AaReceiver.Timing(redialMs = 300, afterDropMs = 200)),
+                    aaOptions = AaReceiver.Options(aaPort, AaReceiver.Timing(redialMs = 300, afterDropMs = 200), wake = {}),
                     // Read when each connection is made: a test may put a new fake dash in place of the old.
                     dashSocket = { DashSocket(null, ctrlDest = dash.ctrlDest, rtpDest = dash.rtpDest) },
                     linkUp = { _, _ -> if (noDash) noDashLinkUp else loopbackLinkUp },
                     // Not the compositor's own default, so the test below can see the setting reach the picture.
                     mapping = FIT,
                     // What a change while running is told apart from, as on the phone. The stream's pace is no longer a
-                    // choice (the store always gives the fixed 4 fps), so the one test about a stream change starts the
+                    // choice (the store always gives the fixed 6 fps), so the one test about a stream change starts the
                     // running stream at the old, higher ceiling: the store's value then differs from it.
                     settings = SettingsStore.open(ctx).load().let { if (oldCeiling) it.copy(fpsCeiling = OLD_CEILING_FPS) else it },
                 ),
@@ -366,17 +366,8 @@ class ProjectionEndToEndTest {
         }
     }
 
-    /**
-     * Google Maps in front, as the accessibility service would read it: the joystick's zoom is only for the navigation
-     * apps, and the emulator has no service to say so. Held past the screen's wait, so the reading is taken.
-     */
-    private fun onTheMap() {
-        val maps = listOf(com.reau.app.aa.AaScreenRule.Display(9, "GhostActivityDisplay:ComponentInfo{x/GmmCarProjectionService}", true))
-        com.reau.app.aa.AaScreens.watch.update(maps, SystemClock.elapsedRealtime())
-        Thread.sleep(com.reau.app.aa.AaScreens.HOLD_MS + 100)
-        com.reau.app.aa.AaScreens.watch.update(maps, SystemClock.elapsedRealtime())
-        assertEquals("the screen", com.reau.app.aa.AaScreen.NAV, com.reau.app.aa.AaScreens.watch.screen.value)
-    }
+    /** Google Maps in front, as the picture would say it: the joystick's zoom is only for the navigation apps, and the emulator's Android Auto has no picture. */
+    private fun onTheMap() = com.reau.app.aa.ScreenShown.put(com.reau.app.aa.AaScreen.NAV)
 
     /** Reads [peer]'s messages until one of [type] comes, for up to [timeoutMs]; null if none did. */
     private fun awaitMessage(peer: FakeAndroidAutoPeer, type: Int, timeoutMs: Long = 10_000): FakeAndroidAutoPeer.Received? {
@@ -514,7 +505,7 @@ class ProjectionEndToEndTest {
     @Test
     fun aFrameRateCeilingChangedWhileRunningTakesEffectAtOnce() {
         // The stream runs at the old ceiling (setUp); the fake Android Auto's picture changes every 66 ms, so the dash gets
-        // the stream's own rate. The store holds the fixed 4 fps (sanitized), which differs from what runs: a new stream.
+        // the stream's own rate. The store holds the fixed 6 fps (sanitized), which differs from what runs: a new stream.
         val start = SystemClock.elapsedRealtime()
         Thread.sleep(PACE_WINDOW_MS)
         val fast = framesBetween(dash, start, SystemClock.elapsedRealtime())
@@ -525,7 +516,7 @@ class ProjectionEndToEndTest {
             val from = SystemClock.elapsedRealtime()
             Thread.sleep(PACE_WINDOW_MS)
             val slow = framesBetween(dash, from, SystemClock.elapsedRealtime())
-            assertTrue("about 4 frames a second now: $slow in ${PACE_WINDOW_MS / 1000} s (before: $fast)", slow <= 6 * PACE_WINDOW_MS / 1000 && slow < fast)
+            assertTrue("about 6 frames a second now: $slow in ${PACE_WINDOW_MS / 1000} s (before: $fast)", slow <= 8 * PACE_WINDOW_MS / 1000 && slow < fast)
             assertTrue(ProjectionService.projection.value.streaming)
             assertEquals("Android Auto untouched", AaLinkState.ACTIVE, ProjectionService.projection.value.androidAuto)
         }
@@ -616,7 +607,7 @@ class ProjectionEndToEndTest {
         const val MAX_GAP_MS = 1_000L
         const val PACE_WINDOW_MS = 3_000L
 
-        /** The frame-rate ceiling the stream ran at before the pace became fixed at 4 fps. */
+        /** The frame-rate ceiling the stream ran at before the pace became fixed (at 6 fps since 20/11/2026). */
         const val OLD_CEILING_FPS = 16
         const val SCREEN_OFF_MS = 5 * 60 * 1000L
         const val NAL_IDR = 5

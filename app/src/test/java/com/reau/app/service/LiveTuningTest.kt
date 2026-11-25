@@ -42,6 +42,18 @@ class LiveTuningTest {
     }
 
     @Test
+    fun `the video pace takes a new stream, with the projection on and no new Android Auto session`() {
+        val reau = LiveTuning.steps(before, before.copy(videoPace = com.reau.app.settings.VideoPace.REAU))
+        assertEquals(setOf(Step.NEW_STREAM), reau)
+        assertEquals(setOf(Step.NEW_STREAM), LiveTuning.steps(before.copy(videoPace = com.reau.app.settings.VideoPace.REAU), before))
+        assertEquals("the same pace is no change", emptySet<Step>(), LiveTuning.steps(before, before.copy()))
+        // as the settings screen hands it over (sanitized), the pace of A moves with it and it is still one step
+        val picked = before.copy(videoPace = com.reau.app.settings.VideoPace.REAU).sanitized()
+        assertEquals(6, picked.fpsCeiling)
+        assertEquals(setOf(Step.NEW_STREAM), LiveTuning.steps(before.sanitized(), picked))
+    }
+
+    @Test
     fun `the map theme is asked again at once`() {
         assertEquals(setOf(Step.NIGHT_NOW), LiveTuning.steps(before, before.copy(mapTheme = MapTheme.NIGHT)))
     }
@@ -65,10 +77,11 @@ class LiveTuningTest {
         assertEquals(setOf(Step.DASH_EXTRAS), LiveTuning.steps(before, before.copy(dashWeather = !before.dashWeather)))
         assertEquals("the ring too", setOf(Step.DASH_EXTRAS), LiveTuning.steps(before, before.copy(maneuverRing = !before.maneuverRing)))
         assertEquals("and the info ring", setOf(Step.DASH_EXTRAS), LiveTuning.steps(before, before.copy(infoRing = !before.infoRing)))
-        assertEquals("what it says", setOf(Step.DASH_EXTRAS), LiveTuning.steps(before, before.copy(infoRingData = 3)))
+        assertEquals("what it says", setOf(Step.DASH_EXTRAS), LiveTuning.steps(before, before.copy(infoRingData = before.infoRingData xor 4)))
         assertEquals("the carousel", setOf(Step.DASH_EXTRAS), LiveTuning.steps(before, before.copy(infoRingCarousel = !before.infoRingCarousel)))
         assertEquals("its time", setOf(Step.DASH_EXTRAS), LiveTuning.steps(before, before.copy(infoRingSeconds = 12)))
         assertEquals("its place", setOf(Step.DASH_EXTRAS), LiveTuning.steps(before, before.copy(infoRingInPlace = !before.infoRingInPlace)))
+        assertEquals("the info in the title instead of the ring", setOf(Step.DASH_EXTRAS), LiveTuning.steps(before, before.copy(infoTitle = !before.infoTitle)))
         // the two that Android Auto is told only when a session begins are not live
         assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(dashCaller = !before.dashCaller, dashMusic = !before.dashMusic)))
     }
@@ -92,5 +105,17 @@ class LiveTuningTest {
             LiveTuning.steps(before, before.copy(moveX = 5, fpsCeiling = before.fpsCeiling + 1, mapTheme = MapTheme.DAY)),
         )
         assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(detailedLog = true, answerCalls = !before.answerCalls)))
+    }
+
+    @Test
+    fun `the driving side restarts nothing, the next guidance update reads it`() {
+        for (mode in com.reau.app.settings.DrivingSideMode.entries) {
+            assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(drivingSideMode = mode)))
+        }
+    }
+
+    @Test
+    fun `Anunciar como moto restarts nothing, it counts from the next Android Auto session`() {
+        assertEquals(emptySet<Step>(), LiveTuning.steps(before, before.copy(announceMotorcycle = !before.announceMotorcycle)))
     }
 }

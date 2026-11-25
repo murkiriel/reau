@@ -46,13 +46,13 @@ class LogKeepTextTest {
         }
     }
 
-    /** The "Verificar atualização" block (28/10/2026): the state line is the version alone and the note is two short sentences at most. */
+    /** The "Verificar atualização" block (28/10/2026): the state line is the version alone; the note of the daily notice (P32A) is two short sentences at most. */
     @Test
-    fun `the update note has at most 2 sentences and 40 words in the three languages, and the line before the tap is only the version`() {
+    fun `the update notice's note has at most 2 sentences and 40 words in the three languages, and the line before the tap is only the version`() {
         fun words(s: String) = Regex("""\S+""").findAll(s).count()
         fun sentences(s: String) = s.trim().split(Regex("""(?<=[.!?])["”’)]?\s+""")).count { it.isNotBlank() }
         for (folder in listOf("values", "values-pt", "values-es")) {
-            val note = string(folder, "update_info")
+            val note = string(folder, "update_notice_sub")
             assertTrue("$folder: ${sentences(note)} sentences: $note", sentences(note) <= 2)
             assertTrue("$folder: ${words(note)} words: $note", words(note) <= 40)
             assertTrue("$folder: it keeps what GitHub sees and that nothing is installed", "api.github.com" in note)

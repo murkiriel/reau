@@ -14,6 +14,6 @@ enum class DashIdleCard {
 
     /** The bubble hidden (0xFF): the dash does not pass the joystick on in its map mode. */
     HIDDEN,
-    // FLAGS (only the projection flags, another project's keep-alive) was removed, never tried on the bike; one stored
+    // FLAGS (only the projection flags, as a keep-alive) was removed, never tried on the bike; one stored
     // reads as PIN.
 }

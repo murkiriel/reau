@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only (src/debug): the texts of the tools at the end of Ajustes > Depuração. A release never carries them. -->
+<resources>
+    <string name="debug_warn_title">Probar los avisos</string>
+    <string name="debug_warn_sub">Cada botón dispara la notificación real. Comprueba el sonido, la vibración con la pantalla apagada y en el bolsillo, y el canal.</string>
+    <string name="debug_warn_dash_stuck">Tablero bloqueado</string>
+    <string name="debug_warn_phone_hot">Teléfono caliente</string>
+    <string name="debug_warn_no_dash">Tablero perdido, proyección detenida</string>
+    <string name="debug_warn_channel">Abrir el canal de alertas</string>
+    <string name="debug_fault_title">Simular fallos</string>
+    <string name="debug_fault_sub">Con la proyección en marcha. REau debe recuperarse solo.</string>
+    <string name="debug_fault_decoder">Bloquear el decodificador</string>
+    <string name="debug_fault_keyframe">Pedir un cuadro completo</string>
+    <string name="debug_fault_decoder_what">Bloquear el decodificador: el vigilante lo reinicia en 3 s.</string>
+    <string name="debug_fault_keyframe_what">Pedir un cuadro completo: pide un cuadro clave a Android Auto.</string>
+    <string name="debug_arrow_title">Probar las flechas del tablero</string>
+    <string name="debug_arrow_sub_off">Solo con el tablero conectado. Inicia la proyección y espera al tablero. Recorre las flechas de maniobra y fotografía el tablero con la moto parada; Parar devuelve la flecha real.</string>
+    <string name="debug_arrow_sub_idle">Solo con el tablero conectado. Recorre las flechas de maniobra y fotografía el tablero con la moto parada; Parar devuelve la flecha real.</string>
+    <string name="debug_arrow_sending">Enviando %1$s</string>
+    <string name="debug_arrow_previous">Anterior</string>
+    <string name="debug_arrow_next">Siguiente</string>
+    <string name="debug_arrow_stop">Parar</string>
+    <string name="debug_arrow_unnamed">sin nombre todavía: anota lo que dibuja el tablero</string>
+    <string name="debug_arrow_hidden">oculta la burbuja</string>
+</resources>

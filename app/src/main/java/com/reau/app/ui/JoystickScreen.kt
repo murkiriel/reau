@@ -30,8 +30,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.reau.app.R
+import com.reau.app.aa.GhostSideWarning
 import com.reau.app.aa.JoystickBindings
 import com.reau.app.aa.JoystickBindings.Action
 import com.reau.app.aa.JoystickBindings.Control
@@ -89,7 +89,7 @@ fun JoystickScreen(settings: REauSettings, onSettings: (REauSettings) -> Unit, o
                     },
                 )
                 if (onCallTab) {
-                    CallTab(moment, { moment = it }, selected) { selected = it }
+                    CallTab(moment, settings.callCard, { moment = it }, selected) { selected = it }
                 } else {
                     Text(
                         stringResource(R.string.joystick_intro),
@@ -156,16 +156,20 @@ private fun SelectedCard(slot: Slot, action: Action, locked: Boolean, onPick: ()
         slot.control == Control.CENTER -> stringResource(R.string.joystick_locked_center) to stringResource(R.string.joystick_locked_center_note)
         else -> stringResource(R.string.joystick_locked_up) to stringResource(R.string.joystick_locked_up_note)
     }
+    // The dash's right side sometimes comes just before the centre: the actions that cost something say so under the action (the pick is not stopped).
+    val warning = if (!locked && GhostSideWarning.warns(slot, action)) stringResource(R.string.joystick_ghost_side) else null
     ControlCard(
         stringResource(CONTROLS.getValue(slot.control)),
         stringResource(if (slot.mode == Mode.MAP) R.string.joystick_mode_map else R.string.joystick_mode_media),
-        stringResource(R.string.joystick_one_tap), what, note, locked, onPick,
+        stringResource(R.string.joystick_one_tap), what, note, locked, onPick, warning,
     )
 }
 
 /** The card of a control: its name and where it is, then the caption with what it does (and why it cannot change). */
 @Composable
-private fun ControlCard(title: String, badge: String, caption: String, what: String, note: String?, locked: Boolean, onPick: () -> Unit) {
+private fun ControlCard(
+    title: String, badge: String, caption: String, what: String, note: String?, locked: Boolean, onPick: () -> Unit, warning: String? = null,
+) {
     val colors = MaterialTheme.colorScheme
     val shape = MaterialTheme.shapes.large
     Column(
@@ -176,7 +180,7 @@ private fun ControlCard(title: String, badge: String, caption: String, what: Str
             Text(title, style = MaterialTheme.typography.titleLarge, color = colors.onSurface, modifier = Modifier.weight(1f))
             Text(
                 badge.uppercase(),
-                style = REauMono.copy(fontSize = 10.sp, fontWeight = FontWeight.Medium), color = colors.onSurfaceVariant,
+                style = REauMono.copy(fontWeight = FontWeight.Medium), color = colors.onSurfaceVariant,
             )
         }
         HorizontalDivider(thickness = 1.dp, color = hairline(0.14f, 0.6f))
@@ -195,6 +199,12 @@ private fun ControlCard(title: String, badge: String, caption: String, what: Str
                 Text(caption, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                 Text(what, style = MaterialTheme.typography.titleMedium, color = colors.onSurface)
                 note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = colors.onSurface.copy(alpha = 0.74f)) }
+                warning?.let {
+                    Text(
+                        it, style = MaterialTheme.typography.bodySmall, color = colors.onSurface.copy(alpha = 0.74f),
+                        modifier = Modifier.testTag("joystick_ghost_warning"),
+                    )
+                }
             }
             if (!locked) MsIcon(R.drawable.ic_ms_expand_more, 22.dp, colors.onSurfaceVariant)
         }
@@ -207,7 +217,7 @@ private fun ControlCard(title: String, badge: String, caption: String, what: Str
  * [CallPage]'s, which JoystickMap's tests hold to.
  */
 @Composable
-private fun CallTab(moment: CallMoment, onMoment: (CallMoment) -> Unit, selected: Control, onSelect: (Control) -> Unit) {
+private fun CallTab(moment: CallMoment, callCard: Boolean, onMoment: (CallMoment) -> Unit, selected: Control, onSelect: (Control) -> Unit) {
     TabRail(
         listOf(
             TabOption(stringResource(R.string.joystick_call_ringing), null, "joystick_call_ringing"),
@@ -216,11 +226,11 @@ private fun CallTab(moment: CallMoment, onMoment: (CallMoment) -> Unit, selected
         moment.ordinal, { onMoment(CallMoment.entries[it]) },
     )
     Text(stringResource(R.string.joystick_call_intro), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    val labels = Control.entries.associateWith { stringResource(CallPage.effect(moment, it).short) }
+    val labels = Control.entries.associateWith { stringResource(CallPage.effect(moment, it, callCard).short) }
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         DPadMap(labels, Control.entries.toSet(), selected, onSelect, tag = "call_dpad")
     }
-    val effect = CallPage.effect(moment, selected)
+    val effect = CallPage.effect(moment, selected, callCard)
     val momentName = stringResource(if (moment == CallMoment.RINGING) R.string.joystick_call_ringing else R.string.joystick_call_in_call)
     ControlCard(
         stringResource(CONTROLS.getValue(selected)), "${stringResource(R.string.joystick_mode_call)} · $momentName",
@@ -246,8 +256,13 @@ private val ACTIONS = mapOf(
     Action.PLAY_PAUSE to R.string.joystick_action_play_pause,
     Action.NEXT_SONG to R.string.joystick_action_next_song,
     Action.PREVIOUS_SONG to R.string.joystick_action_previous_song,
+    Action.VOLUME_UP to R.string.joystick_action_volume_up,
+    Action.VOLUME_DOWN to R.string.joystick_action_volume_down,
     Action.ASSISTANT to R.string.joystick_action_assistant,
     Action.ZOOM_IN to R.string.joystick_action_zoom_in,
     Action.ZOOM_OUT to R.string.joystick_action_zoom_out,
+    Action.SWAP_MAP_MUSIC to R.string.joystick_action_swap_map_music,
+    Action.OPEN_NAVIGATION to R.string.joystick_action_open_map,
+    Action.OPEN_MUSIC to R.string.joystick_action_open_music,
     Action.INFO_RING to R.string.joystick_action_info_ring,
 )

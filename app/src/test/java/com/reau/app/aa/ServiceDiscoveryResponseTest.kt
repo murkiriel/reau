@@ -82,7 +82,9 @@ class ServiceDiscoveryResponseTest {
         // for the joystick's double tap. Changed on purpose.
         // Play/pause (85), for the double tap down. Changed on purpose.
         // Call (5) and end call (6), the car's phone keys for the joystick's answer and end. Changed on purpose.
-        assertEquals(listOf(65536, 19, 20, 21, 22, 23, 4, 3, 84, 87, 88, 85, 5, 6), input.keycodesSupportedList)
+        // Android Auto's own navigation button (65538), for the joystick's "open the navigation". Changed on purpose (only it: not media or phone).
+        // Android Auto's own media (65537) and phone (65540) buttons, for the joystick's "open the music app" and "open the phone". Changed on purpose.
+        assertEquals(listOf(65536, 19, 20, 21, 22, 23, 4, 3, 84, 87, 88, 85, 5, 6, 65538, 65537, 65540), input.keycodesSupportedList)
         assertFalse("a dash with no touch must not advertise one", input.hasTouchscreen())
     }
 

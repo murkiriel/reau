@@ -5,7 +5,7 @@ Uso: avaliar_noite.py PASTA_DECODIFICADOS PASTA_RELATORIOS CALIBRAR_TAG TESTAR_T
 Os relatórios são os `runs/seed-*/relatorio.json` do roteirista (ferramenta de fora do repositório; hora de cada toque e o que ele abriu). Regra do REau (PictureLook):
 numa cópia 64x40, "acesa" = luma >= L (30); mapa se a parte acesa >= M (0,75), escuro se <= D (0,55), senão incerto (sem voto).
 Cada sessão é uma leitura a cada 0,5 s, só dentro das janelas em que a tela estava estável (2 s depois do toque até o próximo toque)."""
-import csv, glob, itertools, json, struct, sys, collections
+import csv, glob, json, struct, sys, collections
 
 W, S, CAL, TEST = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 LIM = [15, 20, 25, 30, 35, 40, 45, 50, 55, 60]

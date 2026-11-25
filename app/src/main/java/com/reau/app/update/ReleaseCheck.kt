@@ -7,7 +7,7 @@ import java.net.URL
 import javax.net.ssl.HttpsURLConnection
 
 /**
- * Asks GitHub which release of REau is the latest, only when the rider taps "Check for updates" (never by itself): one `GET` of
+ * Asks GitHub which release of REau is the latest, when the rider taps "Check now" and, once a day by itself while the switch "Notify when there is an update" is on ([UpdateNotice]): one `GET` of
  * [URL], with no account, no key and nothing about the rider in it (GitHub sees the phone's address, as any site does). It only
  * says whether a newer version is published; it downloads and installs nothing, and the page of the release opens in the browser.
  * Pure but for [fetch], so the JVM tests cover the reading of the answer and the comparison of the versions.

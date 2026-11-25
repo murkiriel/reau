@@ -61,11 +61,39 @@ internal object LinkLoss {
         return "link lost — reconnecting in ${reconnectInMs}ms (after $after on $channel; $rest)"
     }
 
-    /** `the dash's Wi-Fi is back on another channel (2447 → 2427 MHz): its access point restarted`; null on the projection's first connection. */
-    fun backLine(before: Int?, now: Int): String? = when (channel(before, now)) {
+    /** One network the phone had up at the loss: what it is (`wifi`, `cell`, `vpn`, `other`) and whether Android had validated it. */
+    data class PhoneNet(val kind: String, val validated: Boolean)
+
+    /**
+     * The phone's own side of a loss, from what an ordinary app may ask Android at that moment (no `READ_LOGS`, so not the system's log): `phone side of
+     * the loss: Wi-Fi radio enabled, main Wi-Fi DISCONNECTED, networks up: cell(validated) + wifi, default cell`. [radio] is the Wi-Fi radio's state
+     * and [supplicant] that of the phone's MAIN Wi-Fi connection (the dash's own network, joined by a specifier, may be a second one: it says what the main
+     * one was doing, e.g. DISCONNECTED/SCANNING, not why the dash's went); [nets] the networks Android still had up (the lost one is not among them),
+     * [default] the one the phone's traffic uses. No name, no address. What is not known says `unknown`.
+     */
+    fun phoneSideLine(radio: String?, supplicant: String?, nets: List<PhoneNet>, default: PhoneNet?): String {
+        fun net(n: PhoneNet) = n.kind + if (n.validated) "(validated)" else ""
+        val up = if (nets.isEmpty()) "none" else nets.joinToString(" + ") { net(it) }
+        val usual = default?.let { net(it) } ?: "none"
+        return "phone side of the loss: Wi-Fi radio ${radio ?: UNKNOWN}, main Wi-Fi ${supplicant ?: UNKNOWN}, networks up: $up, default $usual"
+    }
+
+    /**
+     * `the dash's Wi-Fi is back on another channel (2447 → 2427 MHz): its access point restarted`; null on the projection's first connection.
+     * [sameAp] says whether the access point is the one that was lost, compared in memory only (the address is never written, see [NetNotes.apFingerprint]):
+     * true keeps the restart reading, false says it is another access point with the same name (a phone that jumps between two, as on the ride of
+     * 19/11/2026), null (Android did not give the address) says both hypotheses.
+     */
+    fun backLine(before: Int?, now: Int, sameAp: Boolean? = null): String? = when (channel(before, now)) {
         Channel.FIRST -> null
-        Channel.SAME -> "the dash's Wi-Fi is back on the same channel ($now MHz)"
-        Channel.OTHER -> "the dash's Wi-Fi is back on another channel ($before → $now MHz): its access point restarted"
+        Channel.SAME ->
+            "the dash's Wi-Fi is back on the same channel ($now MHz)" +
+                if (sameAp == false) ": but another access point with the same name, not the one that was lost" else ""
+        Channel.OTHER -> "the dash's Wi-Fi is back on another channel ($before → $now MHz): " + when (sameAp) {
+            true -> "its access point restarted"
+            false -> "another access point with the same name, not a restart"
+            null -> "its access point restarted, or the phone joined another one with the same name"
+        }
     }
 
     /** The line for Android's warning that a network is about to go. */
@@ -86,6 +114,9 @@ internal object LinkLoss {
  */
 internal object DashHeard {
     @Volatile var trail: PacketTrail? = null
+
+    /** What the session sent in its last seconds ([SendTail]), written next to the trail when the Wi-Fi is lost. */
+    @Volatile var tail: SendTail? = null
 
     @Volatile var atMs = 0L
         private set

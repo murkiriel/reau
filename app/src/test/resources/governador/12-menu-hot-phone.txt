@@ -1,0 +1,69 @@
+# Golden trace of the stream governor (plan 27, GovernadorOuroTest). Recorded from the code, never edited by hand.
+# Case 12-menu-hot-phone: from 'moderate' on the menu stays at the profile's pace.
+# A line is a poll that had an action (the time in ms, then one action per line); `reads:` are the values the video loop reads, when one changed.
+
+== 400 kbps ==
+      0  start
+         pace=334/334
+         bitrate=400000
+         sync=stream start
+         reads: fps=6 profileFps=6 encoderFps=6 gopFps=6 encoderKeyframeSec=1 keyframeSec=1 activeBitrateBps=400000 rebuildAction=rebuild(fps=6 keyframeSec=1 bitrateBps=400000 encoderKeyframeSec=1)
+# the app menu, phone cool (status 0)
+    250  log: light screen: pace up to 6 fps (the app menu or an app of Android Auto)
+         pace=167/334
+   1250  stats=7.0fps/360kbps
+   2250  stats=6.0fps/320kbps
+# status 2 (moderate)
+   3250  log: light screen: pace back to the profile's 6 fps
+         stats=6.0fps/320kbps
+   4250  stats=6.0fps/320kbps
+   5250  stats=6.0fps/320kbps
+   5500  log: video fps target=6 sent=6.0 (30frames/5.0s) composed=6.0 kbps=320 set=400k frame=6666B source=30 drawn=30 repeated=0 compose=2.0ms encode=8.0ms late=0 tickwait=- full=true thermal=HOT speed=? wifi=-58dBm/72Mbps(worst) kf=1s idr=5(max 15000B/11pkt) sync=1[stream start:1] auto=6fps [*] compose_max=- compose_p95=- encode_max=- encode_p95=- look=0 latch=0 wake=30(6.0/s)
+# status 3 (severe)
+   6250  stats=6.0fps/320kbps
+   7250  stats=6.0fps/320kbps
+   8250  stats=6.0fps/320kbps
+# status 4 (critical)
+   9250  stats=6.0fps/320kbps
+  10250  stats=6.0fps/320kbps
+  10500  log: video fps target=6 sent=6.0 (30frames/5.0s) composed=6.0 kbps=320 set=400k frame=6666B source=30 drawn=30 repeated=0 compose=2.0ms encode=8.0ms late=0 tickwait=- full=true thermal=HOT speed=? wifi=-58dBm/72Mbps(worst) kf=1s idr=5(max 15000B/11pkt) sync=0 auto=6fps [*] compose_max=- compose_p95=- encode_max=- encode_p95=- look=0 latch=0 wake=30(6.0/s)
+  11250  stats=6.0fps/320kbps
+# status 1 (light)
+  12250  log: light screen: pace up to 6 fps (the app menu or an app of Android Auto)
+         stats=6.0fps/320kbps
+  13250  stats=6.0fps/320kbps
+  14250  stats=6.0fps/320kbps
+  15000  end, 60 polls
+
+== 200 kbps ==
+      0  start
+         pace=334/334
+         bitrate=300000
+         sync=stream start
+         reads: fps=6 profileFps=6 encoderFps=6 gopFps=6 encoderKeyframeSec=1 keyframeSec=1 activeBitrateBps=300000 rebuildAction=rebuild(fps=6 keyframeSec=1 bitrateBps=300000 encoderKeyframeSec=1)
+# the app menu, phone cool (status 0)
+    250  log: light screen: pace up to 6 fps (the app menu or an app of Android Auto)
+         pace=167/334
+   1250  stats=7.0fps/360kbps
+   2250  stats=6.0fps/320kbps
+# status 2 (moderate)
+   3250  log: light screen: pace back to the profile's 6 fps
+         stats=6.0fps/320kbps
+   4250  stats=6.0fps/320kbps
+   5250  stats=6.0fps/320kbps
+   5500  log: video fps target=6 sent=6.0 (30frames/5.0s) composed=6.0 kbps=320 set=300k frame=6666B source=30 drawn=30 repeated=0 compose=2.0ms encode=8.0ms late=0 tickwait=- full=true thermal=HOT speed=? wifi=-58dBm/72Mbps(worst) kf=1s idr=5(max 15000B/11pkt) sync=1[stream start:1] auto=6fps [*] compose_max=- compose_p95=- encode_max=- encode_p95=- look=0 latch=0 wake=30(6.0/s)
+# status 3 (severe)
+   6250  stats=6.0fps/320kbps
+   7250  stats=6.0fps/320kbps
+   8250  stats=6.0fps/320kbps
+# status 4 (critical)
+   9250  stats=6.0fps/320kbps
+  10250  stats=6.0fps/320kbps
+  10500  log: video fps target=6 sent=6.0 (30frames/5.0s) composed=6.0 kbps=320 set=300k frame=6666B source=30 drawn=30 repeated=0 compose=2.0ms encode=8.0ms late=0 tickwait=- full=true thermal=HOT speed=? wifi=-58dBm/72Mbps(worst) kf=1s idr=5(max 15000B/11pkt) sync=0 auto=6fps [*] compose_max=- compose_p95=- encode_max=- encode_p95=- look=0 latch=0 wake=30(6.0/s)
+  11250  stats=6.0fps/320kbps
+# status 1 (light)
+  12250  log: light screen: pace up to 6 fps (the app menu or an app of Android Auto)
+         stats=6.0fps/320kbps
+  13250  stats=6.0fps/320kbps
+  14250  stats=6.0fps/320kbps
+  15000  end, 60 polls

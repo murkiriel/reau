@@ -16,6 +16,7 @@ enum class TickAction {
  * The compositor's arithmetic, kept away from OpenGL so it runs in a plain JVM test: what to do at a tick, which
  * part of the source texture to sample, where on the encoder's frame to draw, and the time on each frame.
  */
+@Suppress("TooManyFunctions") // one small pure function per sum the compositor makes, each with its own test
 object CompositorMath {
 
     /**
@@ -59,16 +60,28 @@ object CompositorMath {
     fun lookPollMs(listening: Boolean, hasImage: Boolean): Long = if (listening && hasImage) LOOK_POLL_MS else LOOK_IDLE_POLL_MS
 
     /**
-     * The black bands of [cover] as rectangles of the dash's frame in GL pixels (the origin at the bottom left), empty bands left out.
+     * The black bands of [cover] as rectangles of the [w]×[h] composition area in GL pixels (the origin at the bottom left), empty bands left out.
      */
-    fun coverRects(cover: FrameFit.Cover): List<RectPx> = buildList {
-        val w = DashGlass.FRAME_W
-        val h = DashGlass.FRAME_H
+    fun coverRects(cover: FrameFit.Cover, w: Int = DashGlass.FRAME_W, h: Int = DashGlass.FRAME_H): List<RectPx> = buildList {
         if (cover.top > 0) add(RectPx(0, h - cover.top, w, cover.top))
         if (cover.bottom > 0) add(RectPx(0, 0, w, cover.bottom))
         if (cover.left > 0) add(RectPx(0, 0, cover.left, h))
         if (cover.right > 0) add(RectPx(w - cover.right, 0, cover.right, h))
     }
+
+    /** The edges of an overlay on a [areaW]×[areaH] output in OpenGL's -1..1 coordinates (y up). */
+    data class Quad(val left: Float, val right: Float, val top: Float, val bottom: Float)
+
+    /**
+     * An overlay [box] (pixels from the top left of the output, its size the overlay's) on a [areaW]×[areaH] output (1:1: the pixel is the output's own, so a
+     * 528×304 keeps every overlay at the pixel it has in the dash's 526×300 frame).
+     */
+    fun overlayQuad(box: RectPx, areaW: Int, areaH: Int): Quad = Quad(
+        left = box.x.toFloat() / areaW * 2f - 1f,
+        right = box.right.toFloat() / areaW * 2f - 1f,
+        top = 1f - box.y.toFloat() / areaH * 2f,
+        bottom = 1f - box.bottom.toFloat() / areaH * 2f,
+    )
 
     /**
      * A rectangle of the source picture in texture coordinates: `u = offsetU + s × scaleU`, `v = offsetV + t ×

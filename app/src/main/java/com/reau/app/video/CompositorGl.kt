@@ -22,6 +22,7 @@ import android.opengl.GLUtils
 import android.opengl.Matrix
 import android.os.Handler
 import android.view.Surface
+import com.reau.app.dash.DashConfig
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
@@ -74,15 +75,42 @@ internal class CompositorGl {
     private var badgeW = 0
     private var badgeH = 0
 
+    // The joystick's legend (LegendInk): the same program, a texture of its own.
+    private var legendTexture = 0
+    private var legendW = 0
+    private var legendH = 0
+
+    // The volume card (VolumeCardInk): the same program, a texture of its own.
+    private var volumeTexture = 0
+    private var volumeW = 0
+    private var volumeH = 0
+
+    // The call card (CallCardInk): the same program, a texture of its own.
+    private var callTexture = 0
+    private var callW = 0
+    private var callH = 0
+
     // The info ring (InfoRingInk): the same program, a texture of its own.
     private var ringTexture = 0
     private var ringW = 0
     private var ringH = 0
+
+    // The FPS test card (FpsTestCardInk): the same program, a texture of its own that is written again for every frame, from one bitmap that is kept.
+    private var testTexture = 0
+    private var testW = 0
+    private var testH = 0
     private val overlayQuad: FloatBuffer = ByteBuffer.allocateDirect(4 * 4 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
     private var inputSurface: Surface? = null
     private val texMatrix = FloatArray(16)
 
     val hasOutput: Boolean get() = windowSurface != EGL14.EGL_NO_SURFACE
+
+    // The size of the output surface (the encoder's), which is also the area everything is composed in, 1:1: the picture's rectangle, the black bands and the
+    // overlays are all in its pixels, the overlays at the same pixels from the top left as in the dash's own 526x300 frame (nothing is scaled; the
+    // 528x304 only has 2 columns and 4 rows more, to the right and below). Only the dash's output has it: the preview, the web viewers' output and the
+    // small copies of the picture are drawn at their own sizes.
+    private var outputW = DashGlass.FRAME_W
+    private var outputH = DashGlass.FRAME_H
 
     // Full-screen quad (triangle strip): pos.xy + tex.uv interleaved.
     private val quad: FloatBuffer = ByteBuffer
@@ -245,6 +273,48 @@ internal class CompositorGl {
         badgeH = bitmap.height
     }
 
+    /** The picture of the joystick's legend ([LegendInk.render]), or null for none; copied at once, as [setOverlay] does. Drawn by [drawLegend]. */
+    fun setLegend(bitmap: Bitmap?) {
+        if (bitmap == null) {
+            legendW = 0
+            legendH = 0
+            return
+        }
+        if (overlayProgram == 0) initOverlay()
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, legendTexture)
+        GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0)
+        legendW = bitmap.width
+        legendH = bitmap.height
+    }
+
+    /** The picture of the volume card ([VolumeCardInk.render]), or null for none; copied at once, as [setOverlay] does. Drawn by [drawVolumeCard]. */
+    fun setVolumeCard(bitmap: Bitmap?) {
+        if (bitmap == null) {
+            volumeW = 0
+            volumeH = 0
+            return
+        }
+        if (overlayProgram == 0) initOverlay()
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, volumeTexture)
+        GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0)
+        volumeW = bitmap.width
+        volumeH = bitmap.height
+    }
+
+    /** The picture of the call card ([CallCardInk.render]), or null for none; copied at once, as [setOverlay] does. Drawn by [drawCallCard]. */
+    fun setCallCard(bitmap: Bitmap?) {
+        if (bitmap == null) {
+            callW = 0
+            callH = 0
+            return
+        }
+        if (overlayProgram == 0) initOverlay()
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, callTexture)
+        GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0)
+        callW = bitmap.width
+        callH = bitmap.height
+    }
+
     /** The picture of the info ring ([InfoRingInk.render]), or null for none; copied at once, as [setOverlay] does. */
     fun setRing(bitmap: Bitmap?) {
         if (bitmap == null) {
@@ -257,6 +327,27 @@ internal class CompositorGl {
         GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0)
         ringW = bitmap.width
         ringH = bitmap.height
+    }
+
+    /**
+     * The picture of the FPS test card ([FpsTestCardInk.draw]), whole frame, or null for none. Written into the texture at once, so the caller keeps its bitmap and draws on it again for the
+     * next frame: a texture of the same size is written over ([GLUtils.texSubImage2D]), not made again. Drawn by [drawTestCard].
+     */
+    fun setTestCard(bitmap: Bitmap?) {
+        if (bitmap == null) {
+            testW = 0
+            testH = 0
+            return
+        }
+        if (overlayProgram == 0) initOverlay()
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, testTexture)
+        if (testW == bitmap.width && testH == bitmap.height) {
+            GLUtils.texSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0, bitmap)
+        } else {
+            GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0)
+            testW = bitmap.width
+            testH = bitmap.height
+        }
     }
 
     private fun initOverlay() {
@@ -280,12 +371,16 @@ internal class CompositorGl {
         overlayProgram = buildProgram(vs, fs)
         overlayPosition = GLES20.glGetAttribLocation(overlayProgram, "aPosition")
         overlayTexCoord = GLES20.glGetAttribLocation(overlayProgram, "aTexCoord")
-        val ids = IntArray(4)
-        GLES20.glGenTextures(4, ids, 0)
+        val ids = IntArray(8)
+        GLES20.glGenTextures(8, ids, 0)
         overlayTexture = ids[0]
         badgeTexture = ids[1]
         ringTexture = ids[2]
         buttonTexture = ids[3]
+        legendTexture = ids[4]
+        testTexture = ids[5]
+        volumeTexture = ids[6]
+        callTexture = ids[7]
         for (texture in ids) {
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texture)
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
@@ -302,6 +397,9 @@ internal class CompositorGl {
      */
     fun drawOverlay(x: Int, y: Int) = drawQuad(overlayTexture, overlayW, overlayH, x, y)
 
+    /** Lays the FPS test card over the whole output, the picture of Android Auto not drawn under it. Nothing without a picture from [setTestCard]. */
+    fun drawTestCard() = drawQuad(testTexture, testW, testH, 0, 0)
+
     /** Lays the last-button text with its box's top-left corner at ([x], [y]), as [drawOverlay] does. Nothing without a picture from [setButton]. */
     fun drawButton(x: Int, y: Int) = drawQuad(buttonTexture, buttonW, buttonH, x, y)
 
@@ -311,6 +409,18 @@ internal class CompositorGl {
         drawQuad(badgeTexture, badgeW, badgeH, x, y)
     }
 
+    /** Lays the joystick's legend in the middle of the frame, over what [draw] drew. Nothing without a picture from [setLegend]. */
+    fun drawLegend() {
+        val (x, y) = LegendLayout.corner(legendW, legendH)
+        drawQuad(legendTexture, legendW, legendH, x, y)
+    }
+
+    /** Lays the volume card at the top of the frame, over what [draw] drew. Nothing without a picture from [setVolumeCard]. */
+    fun drawVolumeCard() = drawQuad(volumeTexture, volumeW, volumeH, VolumeCardLayout.X, VolumeCardLayout.Y)
+
+    /** Lays the call card at the top of the frame, over what [draw] drew. Nothing without a picture from [setCallCard]. */
+    fun drawCallCard() = drawQuad(callTexture, callW, callH, CallCardLayout.X, CallCardLayout.Y)
+
     /** Lays the info ring on the right of the frame, over what [draw] drew. Nothing without a picture from [setRing]. */
     fun drawRing() = drawQuad(ringTexture, ringW, ringH, if (ringInPlace) InfoRingSpot.PLACE_X else InfoRingSpot.X, InfoRingSpot.Y)
 
@@ -319,15 +429,10 @@ internal class CompositorGl {
 
     private fun drawQuad(texture: Int, width: Int, height: Int, x: Int, y: Int) {
         if (width == 0 || height == 0) return
-        val w = DashGlass.FRAME_W.toFloat()
-        val h = DashGlass.FRAME_H.toFloat()
-        val left = x / w * 2f - 1f
-        val right = (x + width) / w * 2f - 1f
-        val top = 1f - y / h * 2f
-        val bottom = 1f - (y + height) / h * 2f
+        val q = CompositorMath.overlayQuad(RectPx(x, y, width, height), outputW, outputH)
         overlayQuad.clear()
-        overlayQuad.put(floatArrayOf(left, bottom, 0f, 1f, right, bottom, 1f, 1f, left, top, 0f, 0f, right, top, 1f, 0f))
-        GLES20.glViewport(0, 0, DashGlass.FRAME_W, DashGlass.FRAME_H)
+        overlayQuad.put(floatArrayOf(q.left, q.bottom, 0f, 1f, q.right, q.bottom, 1f, 1f, q.left, q.top, 0f, 0f, q.right, q.top, 1f, 0f))
+        GLES20.glViewport(0, 0, outputW, outputH)
         GLES20.glUseProgram(overlayProgram)
         overlayQuad.position(0)
         GLES20.glVertexAttribPointer(overlayPosition, 2, GLES20.GL_FLOAT, false, QUAD_STRIDE, overlayQuad)
@@ -392,9 +497,11 @@ internal class CompositorGl {
     /** Takes the newest picture into the texture. False if there was none to take or the surface is gone. */
     fun latch(): Boolean = runCatching { checkNotNull(surfaceTexture).updateTexImage() }.isSuccess
 
-    /** Makes [encoderSurface] the output, letting go of the previous one first. */
-    fun attachOutput(encoderSurface: Surface) {
+    /** Makes [encoderSurface], whose buffers are [size] (the encoder's), the output, letting go of the previous one first. */
+    fun attachOutput(encoderSurface: Surface, size: DashConfig.FrameSize = DashConfig.FULL_FRAME) {
         detachOutput()
+        outputW = size.width
+        outputH = size.height
         windowSurface = EGL14.eglCreateWindowSurface(eglDisplay, eglConfig, encoderSurface, intArrayOf(EGL14.EGL_NONE), 0)
         check(hasOutput) { "eglCreateWindowSurface failed: 0x${Integer.toHexString(EGL14.eglGetError())}" }
     }
@@ -472,7 +579,7 @@ internal class CompositorGl {
      * Clears the output to black and, with a [window], draws that part of the latched picture into [viewport]
      * (OpenGL coordinates). Nothing is shown until [post].
      */
-    /** Paints [rects] (GL pixels of the dash's frame) black, over what is drawn: the rider's cover. */
+    /** Paints [rects] (GL pixels of the output) black, over what is drawn: the rider's cover. */
     fun fillBlack(rects: List<RectPx>) {
         if (rects.isEmpty()) return
         GLES20.glEnable(GLES20.GL_SCISSOR_TEST)
@@ -486,7 +593,7 @@ internal class CompositorGl {
 
     fun draw(window: CompositorMath.TexWindow?, viewport: RectPx) {
         EGL14.eglMakeCurrent(eglDisplay, windowSurface, windowSurface, eglContext)
-        GLES20.glViewport(0, 0, DashGlass.FRAME_W, DashGlass.FRAME_H)
+        GLES20.glViewport(0, 0, outputW, outputH)
         GLES20.glClearColor(0f, 0f, 0f, 1f)
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
         if (window == null) return

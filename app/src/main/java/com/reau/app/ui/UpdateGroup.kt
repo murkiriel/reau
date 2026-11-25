@@ -15,25 +15,33 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.reau.app.BuildConfig
 import com.reau.app.R
+import com.reau.app.settings.REauSettings
 import com.reau.app.ui.components.CardAction
 import com.reau.app.ui.components.SettingsGroup
 import com.reau.app.ui.components.SupportButton
+import com.reau.app.ui.components.SwitchRow
 import com.reau.app.update.ReleaseCheck
+import com.reau.app.update.UpdateNoticeAndroid
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** The last group of the settings: "Check for updates", with what GitHub answered. */
+/**
+ * The last group of the settings: "Check for updates" (the version, the "Check now" button and what GitHub answered) and the switch of the daily notice. Nothing
+ * is downloaded or installed; the check asks only when the rider taps, and, with the switch on, once a day by itself ([com.reau.app.update.UpdateNotice]).
+ */
 @Composable
-internal fun UpdateGroup() {
+internal fun UpdateGroup(settings: REauSettings, change: (REauSettings) -> Unit) {
     val scope = rememberCoroutineScope()
     val uri = LocalUriHandler.current
+    val context = LocalContext.current
     var state by remember { mutableStateOf<UpdateState>(UpdateState.Idle) }
     val check = {
         if (state != UpdateState.Checking) {
@@ -46,7 +54,20 @@ internal fun UpdateGroup() {
     }
     SettingsGroup(
         R.drawable.ic_ms_sync, stringResource(R.string.group_update),
-        listOf { UpdateRow(state, check) { url -> runCatching { uri.openUri(url) } } },
+        listOf(
+            { UpdateRow(state, check) { url -> runCatching { uri.openUri(url) } } },
+            {
+                SwitchRow(
+                    stringResource(R.string.update_notice_title), settings.updateNotice,
+                    {
+                        change(settings.copy(updateNotice = it))
+                        // The daily job follows the switch at once: scheduled when on, cancelled when off.
+                        UpdateNoticeAndroid.sync(context, it)
+                    },
+                    "update_notice", sub = stringResource(R.string.update_notice_sub),
+                )
+            },
+        ),
         tag = "group_update",
     )
 }
@@ -69,10 +90,6 @@ internal fun UpdateRow(state: UpdateState, onCheck: () -> Unit, onOpen: (String)
                 SupportButton(CardAction(stringResource(R.string.update_button_open), "update_open") { onOpen(latest.pageUrl) })
             }
         }
-        Text(
-            stringResource(R.string.update_info), Modifier.testTag("update_note"),
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 

@@ -19,6 +19,10 @@ import com.reau.app.dash.video.RtpPacketizer
  */
 internal class RtpOutput(
     private val tap: ((ByteArray, Boolean, Long) -> Unit)? = null,
+    /** Told after each keyframe went out: its bytes and how many RTP packets it took (for the line written when the dash goes quiet). */
+    private val onKeyframe: ((bytes: Int, packets: Int) -> Unit)? = null,
+    /** Told just before a keyframe's packets go out (the dash session keeps its routine sends away from the burst). */
+    private val onKeyframeStart: (() -> Unit)? = null,
     private val sendRtp: (ByteArray) -> Unit,
 ) {
 
@@ -59,12 +63,22 @@ internal class RtpOutput(
     /** Keyframes not sent because no SPS/PPS had come before them. */
     val idrWithheld: Int @Synchronized get() = nalProcessor.withheldIdr
 
+    // Set when a keyframe was withheld: what follows it has nothing to refer to, and waiting for the encoder's next keyframe
+    // would leave the dash without a picture for its whole interval. It is a flag read by the video loop's poll, not a callback,
+    // so the encoder's output thread never takes the loop's lock while it holds this one.
+    private var keyframeWanted = false
+
     /** From now on only [encoder]'s buffers are heard, starting at its next keyframe. */
     @Synchronized
     fun switchTo(encoder: Any) {
         this.encoder = encoder
+        keyframeWanted = false
         gate.close()
     }
+
+    /** Whether a keyframe was withheld since the previous call, which asks for a new one; the answer starts again. */
+    @Synchronized
+    fun takeKeyframeWanted(): Boolean = keyframeWanted.also { keyframeWanted = false }
 
     /** The dash is at the start of a stream again: nothing more goes out until a keyframe. */
     @Synchronized
@@ -79,10 +93,12 @@ internal class RtpOutput(
         framePtsMs = ptsMs
         val withheldBefore = nalProcessor.withheldIdr
         val packetsBefore = packetsMade
+        if (isKey && !KeyframeGate.isParameterSetsOnly(annexB, isKey)) onKeyframeStart?.invoke()
         nalProcessor.process(annexB)
         if (nalProcessor.withheldIdr != withheldBefore) {
             // The keyframe stayed back, so what follows it has nothing to refer to: wait for the next one.
             gate.close()
+            keyframeWanted = true
             return
         }
         if (!KeyframeGate.isParameterSetsOnly(annexB, isKey)) {
@@ -92,6 +108,7 @@ internal class RtpOutput(
                 keyframes++
                 keyBytesMax = maxOf(keyBytesMax, annexB.size)
                 keyPacketsMax = maxOf(keyPacketsMax, packetsMade - packetsBefore)
+                onKeyframe?.invoke(annexB.size, packetsMade - packetsBefore)
             }
         }
     }

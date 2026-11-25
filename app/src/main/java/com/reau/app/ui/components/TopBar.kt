@@ -32,6 +32,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -51,7 +53,7 @@ val TopBarHeight = 56.dp
 
 /**
  * The fixed top bar (only the content under it scrolls). Without [title], the main screen's: "REau" centred (with the
- * launcher mark beside it when [markBesideName], and a back button at the start when [onBack] is given). With it,
+ * launcher mark beside it when [markBesideName], a back button at the start when [onBack] is given and [actions] at the end). With it,
  * an inner screen's: back ([onBack], tag [backTag]) and the title in Fraunces ([titleTag], [titleStyle]), then [actions]. Dark, it sits
  * on Grafite over a thin Ouro suave line; light, on the Carvão chrome with Marfim text.
  */
@@ -85,6 +87,10 @@ fun REauTopBar(
                         MsIcon(R.drawable.ic_ms_arrow_back, 26.dp, ink, description = stringResource(R.string.action_back))
                     }
                 }
+                // The main screen's bar takes [actions] at its end too (the tips button); the name stays centred.
+                Row(Modifier.align(Alignment.CenterEnd).padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    CompositionLocalProvider(LocalContentColor provides ink) { actions() }
+                }
             }
         } else {
             Row(
@@ -97,7 +103,7 @@ fun REauTopBar(
                         MsIcon(R.drawable.ic_ms_arrow_back, 26.dp, ink, description = stringResource(R.string.action_back))
                     }
                 }
-                Text(brandTitle(title, brandGold()), style = titleStyle, color = ink, modifier = Modifier.weight(1f).testTag(titleTag))
+                Text(brandTitle(title, brandGold()), style = titleStyle, color = ink, modifier = Modifier.weight(1f).semantics { heading() }.testTag(titleTag))
                 // The actions take the bar's ink: Marfim on the Carvão chrome of the light theme too.
                 CompositionLocalProvider(LocalContentColor provides ink) { actions() }
             }

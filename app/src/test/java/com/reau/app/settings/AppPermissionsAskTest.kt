@@ -8,8 +8,7 @@ import org.junit.Test
 /**
  * On the permissions page, a button to ask for what is not granted. Each row knows how:
  * a runtime permission by Android's dialog (the two phone ones together, the two location ones together, and location
- * only when the rider allowed REau to use it), the accessibility by its settings page, the battery by Android's own
- * request; the ones granted at install, a library's, or one already granted ask nothing.
+ * only when the rider allowed REau to use it), the battery by Android's own request; the ones granted at install, a library's, or one already granted ask nothing.
  */
 class AppPermissionsAskTest {
     private val sdk = 34
@@ -35,8 +34,7 @@ class AppPermissionsAskTest {
     }
 
     @Test
-    fun `the special accesses go to their own places`() {
-        assertEquals(Ask.Accessibility, AppPermissions.ask(row(AppPermissions.ACCESSIBILITY), sdk, false))
+    fun `the special access goes to its own place`() {
         assertEquals(Ask.Battery, AppPermissions.ask(row(AppPermissions.BATTERY), sdk, false))
     }
 
@@ -51,7 +49,7 @@ class AppPermissionsAskTest {
     @Test
     fun `asking for all that is missing joins the runtime ones in one dialog, each once`() {
         val rows = listOf(
-            row(AppPermissions.ACCESSIBILITY), row("android.permission.ANSWER_PHONE_CALLS"), row("android.permission.READ_PHONE_STATE"),
+            row(AppPermissions.BATTERY), row("android.permission.ANSWER_PHONE_CALLS"), row("android.permission.READ_PHONE_STATE"),
             row("android.permission.RECORD_AUDIO", granted = true), row("android.permission.POST_NOTIFICATIONS"), row("android.permission.INTERNET"),
         )
         assertEquals(
@@ -91,14 +89,19 @@ class AppPermissionsAskTest {
     }
 
     @Test
-    fun `the missing count equals what the page can ask, the special accesses included`() {
-        val rows = all + row(AppPermissions.ACCESSIBILITY)
+    fun `the missing count equals what the page can ask, the battery exemption included`() {
+        val rows = all.filter { it.explained.permission != AppPermissions.BATTERY } + row(AppPermissions.BATTERY)
         assertEquals(4, AppPermissions.missing(rows, sdk, false))
-        assertEquals("only the accessibility, a special row with its own button", 1, AppPermissions.missing(rows, sdk, false, AppPermissions.Functions(false, false)))
-        // Location: not allowed by the rider, not missing; allowed, both rows count.
-        val location = listOf(row("android.permission.ACCESS_FINE_LOCATION"), row("android.permission.ACCESS_COARSE_LOCATION"))
+        assertEquals("only the battery exemption, a special row with its own button", 1, AppPermissions.missing(rows, sdk, false, AppPermissions.Functions(false, false)))
+        // Location: not allowed by the rider, not missing; allowed, its one row (the two permissions are one row) counts once.
+        val location = listOf(row("android.permission.ACCESS_FINE_LOCATION"))
         assertEquals(0, AppPermissions.missing(location, sdk, locationAllowed = false))
-        assertEquals(2, AppPermissions.missing(location, sdk, locationAllowed = true))
+        assertEquals(1, AppPermissions.missing(location, sdk, locationAllowed = true))
+        assertEquals(
+            "asking from that one row still asks for both permissions, once each",
+            listOf("android.permission.ACCESS_FINE_LOCATION", "android.permission.ACCESS_COARSE_LOCATION"),
+            AppPermissions.askAll(location, sdk, locationAllowed = true),
+        )
         // Android 12 has no notification permission to miss.
         assertEquals(0, AppPermissions.missing(listOf(row("android.permission.POST_NOTIFICATIONS")), 32, false))
     }
@@ -111,8 +114,8 @@ class AppPermissionsAskTest {
     fun `a new install counts the location, phone and microphone permissions as missing, and a granted one stops counting`() {
         val s = REauSettings()
         val functions = AppPermissions.functionsOf(s)
-        val location = listOf(row("android.permission.ACCESS_FINE_LOCATION"), row("android.permission.ACCESS_COARSE_LOCATION"))
-        assertEquals(5, AppPermissions.missing(all + location, sdk, s.useLocation, functions))
+        val location = listOf(row("android.permission.ACCESS_FINE_LOCATION"))
+        assertEquals(4, AppPermissions.missing(all + location, sdk, s.useLocation, functions))
         assertEquals(
             setOf(
                 "android.permission.ANSWER_PHONE_CALLS", "android.permission.READ_PHONE_STATE", "android.permission.RECORD_AUDIO",
@@ -120,7 +123,7 @@ class AppPermissionsAskTest {
             ),
             AppPermissions.askAll(all + location, sdk, s.useLocation, functions).toSet(),
         )
-        val grantedLater = listOf(row("android.permission.ACCESS_FINE_LOCATION", true), row("android.permission.ACCESS_COARSE_LOCATION", true))
+        val grantedLater = listOf(row("android.permission.ACCESS_FINE_LOCATION", true))
         assertEquals(3, AppPermissions.missing(all + grantedLater, sdk, s.useLocation, functions))
     }
 

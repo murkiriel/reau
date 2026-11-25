@@ -20,9 +20,9 @@ class GpsStopsWithTheProjectionTest {
     }
 
     @Test
-    fun `the ring's loop stops the GPS when the ring is not on the video`() {
-        val loop = source.substringAfter("val on = started && InfoRingFeed.shown(").substringBefore("delay(InfoRingFeed.pollMs")
-        val off = loop.substringAfter("if (!on) {").substringBefore("} else if")
-        assertTrue("the branch of a ring that is off must stop the GPS: $off", off.contains("GpsWatch.stop()"))
+    fun `the ring's loop is handed the GPS's stop`() {
+        // That the loop calls it when the ring is off the video runs in InfoRingLoopTest; here only what it is handed, which needs the service.
+        // the ring lets go only its own ask (the speed profile was a second owner until 20/11/2026); the end of the projection (above) lets go all
+        assertTrue(source.contains("InfoRingFeed.Loop(RING_TICKS_PER_LOOK, stopGps = { GpsWatch.stop(GpsOwner.RING) },"))
     }
 }

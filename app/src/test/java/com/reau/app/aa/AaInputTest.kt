@@ -14,7 +14,7 @@ import org.junit.Test
  */
 class AaInputTest {
     private val sent = mutableListOf<AapMessage>()
-    private val input = AaInput(send = { sent += it }, clockUs = { 1_000L }, log = {})
+    private val input = AaInput(send = { sent += it }, clockUs = { 1_000L }, log = {}, touchClockUs = { WALL_US })
 
     private fun report(m: AapMessage): Input.InputReport {
         assertEquals("the input channel", Channel.ID_INP, m.channel)
@@ -68,10 +68,55 @@ class AaInputTest {
         )
     }
 
+    /** The touches carry wall-clock microseconds, which the navigation apps inside Android Auto expect; the boot clock is not theirs. */
+    @Test
+    fun `a touch is stamped with the wall clock and not the time since boot`() {
+        input.sendTouch(PhoneTouch.Action.DOWN, 10, 20)
+        input.sendTouch(PhoneTouch.Action.UP, 10, 20)
+        assertEquals(listOf(WALL_US, WALL_US), sent.map { report(it).timestamp })
+    }
+
+    /** The keys and the wheel work as they always did: they keep the time since boot. */
+    @Test
+    fun `a key and a wheel step keep the time since boot`() {
+        input.sendKey(ServiceDiscoveryResponse.KEY_ENTER)
+        input.sendScroll(1)
+        assertEquals(listOf(1_000L, 1_000L, 1_000L), sent.map { report(it).timestamp })
+    }
+
+    @Test
+    fun `a touch down, move and up carry stamps from one clock that never go back`() {
+        val wall = ArrayDeque(listOf(WALL_US, WALL_US + 8_000L, WALL_US + 16_000L))
+        val boot = ArrayDeque(listOf(5L, 4L, 3L)) // would go back: proves the touches do not read this clock
+        val touches = mutableListOf<AapMessage>()
+        val own = AaInput(send = { touches += it }, clockUs = { boot.removeFirst() }, log = {}, touchClockUs = { wall.removeFirst() })
+        own.sendTouch(PhoneTouch.Action.DOWN, 1, 2)
+        own.sendTouch(PhoneTouch.Action.MOVE, 3, 4)
+        own.sendTouch(PhoneTouch.Action.UP, 5, 6)
+        val stamps = touches.map { report(it).timestamp }
+        assertEquals(listOf(WALL_US, WALL_US + 8_000L, WALL_US + 16_000L), stamps)
+        assertTrue("never goes back", stamps.zipWithNext().all { (a, b) -> b >= a })
+        assertEquals(3, boot.size)
+    }
+
+    @Test
+    fun `the default touch clock is the wall clock in microseconds`() {
+        val real = AaInput(send = { sent += it }, log = {})
+        val before = System.currentTimeMillis() * 1000
+        real.sendTouch(PhoneTouch.Action.DOWN, 1, 2)
+        val after = System.currentTimeMillis() * 1000
+        val stamp = report(sent.single()).timestamp
+        assertTrue("$stamp is not within [$before, $after]", stamp in before..after)
+    }
+
     @Test
     fun `Android Auto is told of the home and assistant keys too`() {
         assertTrue(ServiceDiscoveryResponse.KEY_HOME in ServiceDiscoveryResponse.SUPPORTED_KEYCODES)
         assertTrue(ServiceDiscoveryResponse.KEY_ASSISTANT in ServiceDiscoveryResponse.SUPPORTED_KEYCODES)
+    }
+
+    private companion object {
+        const val WALL_US = 1_790_000_000_000_000L // a wall-clock time in microseconds (year 2026)
     }
 
     // The dash's buttons moved to JoystickGesturesTest and JoystickBindingsTest with the joystick page: the rules

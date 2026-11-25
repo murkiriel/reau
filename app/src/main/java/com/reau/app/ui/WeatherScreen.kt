@@ -2,7 +2,18 @@
 package com.reau.app.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import com.reau.app.ui.components.WeatherGlyphLayer
+import com.reau.app.ui.components.weatherGlyphColor
+import com.reau.app.ui.theme.LocalREauStatus
+import com.reau.app.weather.RainAmount
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,7 +30,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,8 +44,9 @@ import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.reau.app.R
 import com.reau.app.dash.DashReadings
 import com.reau.app.service.SunPlace
@@ -67,7 +78,7 @@ import java.time.format.TextStyle
  * The weather on a screen of its own (not loose on the main screen), from a shortcut of the main screen: the switch
  * "Clima no painel", and, with it on: now, the next 8 hours and the next 8 days (one under another, with the coloured
  * icons), the 14-day chart, the wind, the UV index, the air quality, and the sun and the moon. Off, nothing of it
- * shows, and nothing is fetched or kept unless the info ring (also on by default) needs it.
+ * shows, and nothing is fetched or kept unless the info ring (on by default since 21/11/2026) needs it.
  *
  * [enabled] is the switch as the settings say it; [onToggle] saves it; [onBack] leaves the screen. The keeper fetches when the
  * screen is shown with the switch on (and when REau is opened, and while the projection runs).
@@ -79,7 +90,7 @@ fun WeatherScreen(enabled: Boolean, onToggle: (Boolean) -> Unit, onBack: () -> U
             REauTopBar(stringResource(R.string.tile_weather), onBack, titleTag = "weather_title")
             Column(
                 Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding()
-                    .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp),
+                    .padding(start = ForecastLayout.SCREEN_PADDING.dp, end = ForecastLayout.SCREEN_PADDING.dp, top = 16.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
                 WeatherContent(enabled, onToggle)
@@ -91,10 +102,10 @@ fun WeatherScreen(enabled: Boolean, onToggle: (Boolean) -> Unit, onBack: () -> U
 @Composable
 private fun WeatherContent(enabled: Boolean, onToggle: (Boolean) -> Unit) {
     val context = LocalContext.current
-    val kept by WeatherKeeper.snapshot.collectAsState()
-    val why by WeatherKeeper.why.collectAsState()
+    val kept by WeatherKeeper.snapshot.collectAsStateWithLifecycle()
+    val why by WeatherKeeper.why.collectAsStateWithLifecycle()
     // The units the dash itself says it uses (03 03: Celsius or Fahrenheit; 03 04: kilometres or miles).
-    val dashSettings by DashReadings.settings.collectAsState()
+    val dashSettings by DashReadings.settings.collectAsStateWithLifecycle()
     val u = WeatherUnits.of(dashSettings)
     // Showing the screen, or switching the weather on, looks at once (the keeper waits between fetches by itself).
     LaunchedEffect(enabled) {
@@ -234,37 +245,69 @@ private fun NowGroup(now: CurrentWeather, u: WeatherUnits) {
     ), tag = "group_weather_now")
 }
 
-/** One line of the hours and of the days: [label] at the left, the icon, the chance of rain, the temperature(s). */
+/**
+ * One line of the hours and of the days (the columns and their widths: [ForecastLayout]): [label] at the left, then, with rain in the
+ * forecast ([rainMm] at least [RainAmount.MIN_MM]), the pill with the amount just before the icon, the icon, the chance of rain and the
+ * temperature(s). A line with no rain has no pill, and its icon is in the same place. The screen reader says the line with the amount in
+ * words ("2,4 milímetros de chuva"), from the pill.
+ */
 @Composable
-private fun ForecastLine(label: String, code: Int?, rain: Int?, first: String, second: String?, tag: String) {
+private fun ForecastLine(label: String, code: Int?, rain: Int?, first: String, second: String?, tag: String, rainMm: Double? = null) {
+    val pill = RainAmount.pill(rainMm, displayLocale())
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).semantics(mergeDescendants = true) {}.testTag(tag),
+        Modifier.fillMaxWidth().padding(horizontal = ForecastLayout.LINE_PADDING.dp, vertical = 12.dp).semantics(mergeDescendants = true) {}.testTag(tag),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
-        )
-        WeatherGlyph(WeatherCondition.forCode(code), conditionName(code), 28.dp)
-        Spacer(Modifier.width(10.dp))
-        Text(
-            rain?.let { stringResource(R.string.weather_rain_chance, it) } ?: "",
-            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1, softWrap = false, modifier = Modifier.widthIn(min = 56.dp),
-        )
-        Text(
-            first,
-            style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.width(64.dp),
-        )
-        if (second != null) {
-            Text(
+        for (column in ForecastLayout.columns(pill != null, second != null)) when (column) {
+            ForecastLayout.Column.LABEL -> Text(
+                label,
+                style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(end = ForecastLayout.LABEL_GAP.dp),
+            )
+            ForecastLayout.Column.PILL -> if (pill != null) {
+                RainPill(pill, "${tag}_rain")
+                Spacer(Modifier.width(ForecastLayout.PILL_TO_ICON.dp))
+            }
+            ForecastLayout.Column.ICON -> {
+                WeatherGlyph(WeatherCondition.forCode(code), conditionName(code), ForecastLayout.ICON.dp)
+                Spacer(Modifier.width(ForecastLayout.ICON_TO_CHANCE.dp))
+            }
+            ForecastLayout.Column.CHANCE -> Text(
+                rain?.let { stringResource(R.string.weather_rain_chance, it) } ?: "",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1, softWrap = false, modifier = Modifier.widthIn(min = ForecastLayout.CHANCE_MIN.dp),
+            )
+            ForecastLayout.Column.FIRST -> Text(
+                first,
+                style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.End, maxLines = 1, softWrap = false,
+                modifier = Modifier.padding(start = ForecastLayout.FIRST_GAP.dp).widthIn(min = ForecastLayout.TEMP_MIN.dp),
+            )
+            ForecastLayout.Column.SECOND -> if (second != null) Text(
                 second,
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.width(64.dp),
+                textAlign = TextAlign.End, maxLines = 1, softWrap = false,
+                modifier = Modifier.padding(start = ForecastLayout.SECOND_GAP.dp).widthIn(min = ForecastLayout.TEMP_MIN.dp),
             )
         }
+    }
+}
+
+/**
+ * The rain of a line as a pill: the amount ("2,4 mm") in small blue text, on a faint blue fill with a thin border of the rain blue of
+ * the icons, fully rounded (the colours are the theme's: [com.reau.app.ui.theme.REauStatusColors.rainText] and `rainChip`). Never
+ * breaks onto a second line. A screen reader says the amount in words ("2,4 milímetros de chuva") instead of the written one.
+ */
+@Composable
+private fun RainPill(pill: RainAmount.Pill, tag: String) {
+    val described = stringResource(R.string.weather_rain_amount_cd, pill.number)
+    val status = LocalREauStatus.current
+    Box(
+        Modifier.clearAndSetSemantics { contentDescription = described }.testTag(tag)
+            .background(status.rainChip, CircleShape).border(ForecastLayout.PILL_BORDER.dp, Color(weatherGlyphColor(WeatherGlyphLayer.RAIN)), CircleShape)
+            .padding(horizontal = ForecastLayout.PILL_PADDING.dp, vertical = 2.dp),
+    ) {
+        Text(pill.written, style = MaterialTheme.typography.labelSmall, color = status.rainText, maxLines = 1, softWrap = false)
     }
 }
 
@@ -278,7 +321,7 @@ private fun HoursGroup(hourly: List<HourlyWeather>, u: WeatherUnits) {
         val row: @Composable () -> Unit = {
             ForecastLine(
                 h.timeIso.substringAfter('T').take(5), h.weatherCode, h.precipitationProbabilityPercent, u.temp(h.temperatureC), null,
-                "weather_hour_$i",
+                "weather_hour_$i", h.precipitationMm,
             )
         }
         row
@@ -298,7 +341,10 @@ private fun DaysGroup(daily: List<DailyWeather>, u: WeatherUnits) {
                 val weekday = it.dayOfWeek.getDisplayName(TextStyle.SHORT, locale).replaceFirstChar { c -> c.uppercase(locale) }
                 "%s %02d/%02d".format(weekday, it.dayOfMonth, it.monthValue)
             } ?: d.dateIso
-            ForecastLine(head, d.weatherCode, d.precipitationProbabilityMaxPercent, u.temp(d.tempMaxC), u.temp(d.tempMinC), "weather_day_$i")
+            ForecastLine(
+                head, d.weatherCode, d.precipitationProbabilityMaxPercent, u.temp(d.tempMaxC), u.temp(d.tempMinC), "weather_day_$i",
+                d.precipitationSumMm,
+            )
         }
         row
     }, tag = "group_weather_days")
@@ -335,7 +381,7 @@ private fun ChartGroup(daily: List<DailyWeather>, u: WeatherUnits) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 daily.forEachIndexed { i, d ->
                     // The day of the month (the date's last two characters), every other one when crowded.
-                    if (daily.size <= 8 || i % 2 == 0) Text(d.dateIso.takeLast(2), style = REauMono.copy(fontSize = 10.sp), color = low)
+                    if (daily.size <= 8 || i % 2 == 0) Text(d.dateIso.takeLast(2), style = REauMono, color = low)
                 }
             }
         }

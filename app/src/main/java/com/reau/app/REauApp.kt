@@ -11,15 +11,20 @@ import com.reau.app.settings.SettingsStore
 
 /** The app's process: the ride log's folder and the crash handler are set before anything else runs. */
 class REauApp : Application() {
-    override fun onCreate() {
+    override fun onCreate() = com.reau.app.util.StartupTiming.timed("Application.onCreate") {
         super.onCreate()
+        create()
+    }
+
+    private fun create() {
         // Privacy: the logs and recordings in internal storage; an older version's are moved there,
         // off the main thread (recordings may be large). Before init, so the folder the log opens is the new one.
         kotlin.concurrent.thread(name = "folders") {
             val moved = com.reau.app.data.AppFolders.migrate(this)
             if (moved > 0) RideDiagnostics.log("diag", "moved $moved files from the old external folder to the app's own")
             // The recordings under their own ceiling when the app opens (the recorders do it again at each file).
-            com.reau.app.data.RecordingsSpace.makeRoom(com.reau.app.data.AppFolders.recordings(this, "video"))?.let { RideDiagnostics.log("diag", it) }
+            val room = com.reau.app.data.RecordingsSpace.makeRoom(com.reau.app.data.AppFolders.recordings(this, "video"))
+            room?.lines()?.forEach { RideDiagnostics.log("diag", it) }
         }
         RideDiagnostics.init(this)
         val settings = SettingsStore.open(this).load()
@@ -53,8 +58,18 @@ class REauApp : Application() {
         }
         // The dash's name and password decrypted here, so the main screen finds them ready (its first reads were on the main thread).
         kotlin.concurrent.thread(name = "dash-pairing") { runCatching { com.reau.app.dash.DashPairing.open(this).warm() } }
+        // How the process before this one ended (`exit` line): at every opening of the app, not only when a projection starts. Off the main thread
+        // (it asks Android for the exit history and may keep a trace); the main process only (the debug build's test processes are not the app's).
+        // The projection's start asks again and tells only what came after: the book of what was told is on disk (ExitHistory).
+        if (Application.getProcessName() == packageName) {
+            kotlin.concurrent.thread(name = "exit-history") { runCatching { com.reau.app.data.ExitHistory.reportPrevious(this) } }
+        }
         // The bike Wi-Fi suggestion, in step with the switch and the dash's name (Android keeps it otherwise).
         // (off the main thread: binder calls to the Wi-Fi service)
         DashWifiSuggestions.syncSoon(this)
+        // The daily check for a newer version, in step with its switch (scheduled once, cancelled when off); the job is not kept across a reboot, so every start puts it back.
+        kotlin.concurrent.thread(name = "update-job") {
+            runCatching { com.reau.app.update.UpdateNoticeAndroid.sync(this, settings.updateNotice) }
+        }
     }
 }

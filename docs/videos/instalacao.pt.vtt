@@ -1,0 +1,114 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:03.467
+Instalação do REau, passo a passo
+
+2
+00:00:03.467 --> 00:00:09.400
+1. Baixe o APK na página de Releases do projeto e abra o arquivo para instalar
+
+3
+00:00:09.400 --> 00:00:13.800
+Se o Play Protect avisar que bloqueou o app, toque em Entendi
+
+4
+00:00:13.800 --> 00:00:24.067
+Para instalar mesmo assim, na Play Store toque na foto do perfil, em Play Protect e na engrenagem. Pause a verificação, instale o APK e religue o Play Protect
+
+5
+00:00:24.067 --> 00:00:29.933
+2. Abra o REau e role os termos de uso até o fim, ou toque em Descer até o fim
+
+6
+00:00:29.933 --> 00:00:32.667
+Depois, toque em Li e aceito
+
+7
+00:00:32.667 --> 00:00:39.200
+3. Permita a localização durante o uso do app. Ela serve só para achar o Wi-Fi do painel
+
+8
+00:00:39.200 --> 00:00:44.267
+Se o Android perguntar, permita também as redes Wi-Fi sugeridas
+
+9
+00:00:44.267 --> 00:00:47.133
+4. Toque em Ligar
+
+10
+00:00:47.133 --> 00:00:50.933
+Permita as notificações: toque em Permitir
+
+11
+00:00:50.933 --> 00:00:58.133
+5. O servidor do Android Auto se liga à mão: toque em Abrir as configurações do Android Auto
+
+12
+00:00:58.133 --> 00:01:02.667
+Na primeira vez, role até o fim e toque dez vezes em Versão
+
+13
+00:01:02.667 --> 00:01:07.800
+Aparece Ativar as configurações de desenvolvimento. Toque em OK
+
+14
+00:01:07.800 --> 00:01:11.333
+Agora toque nos três pontos, no alto da tela
+
+15
+00:01:11.333 --> 00:01:15.200
+Toque em Iniciar servidor da unidade principal
+
+16
+00:01:15.200 --> 00:01:21.867
+O modo desenvolvedor é só da primeira vez. Depois, a cada uso, basta o menu de três pontos
+
+17
+00:01:21.867 --> 00:01:29.133
+6. Volte ao REau. Na primeira vez, o Android pergunta Conectar ao dispositivo: toque em Conectar
+
+18
+00:01:29.133 --> 00:01:33.133
+O REau entra no Wi-Fi do painel e mostra Conectando
+
+19
+00:01:33.133 --> 00:01:38.133
+Com o Android Auto Ativo e o painel Pronto, o REau está Transmitindo
+
+20
+00:01:38.133 --> 00:01:42.133
+7. Na tela inicial, toque em Permissões
+
+21
+00:01:42.133 --> 00:01:44.867
+Toque em Pedir as que faltam
+
+22
+00:01:44.867 --> 00:01:49.733
+O Android pergunta pelo microfone: toque em Durante o uso do app
+
+23
+00:01:49.733 --> 00:01:52.867
+E pelas chamadas: toque em Permitir
+
+24
+00:01:52.867 --> 00:02:00.000
+8. Para o Android não pausar o app com a tela apagada, toque em Deixar o REau fora da otimização
+
+25
+00:02:00.000 --> 00:02:03.467
+No aviso do Android, toque em Permitir
+
+26
+00:02:03.467 --> 00:02:07.867
+9. Na tela inicial, toque em Tela do Android Auto
+
+27
+00:02:07.867 --> 00:02:15.533
+O Assistente de encaixe confere se a seta da manobra e a velocidade aparecem inteiras no painel. Toque em Começar
+
+28
+00:02:15.533 --> 00:02:21.267
+Pronto. Coloque a rota no Waze e guarde o celular. Para encerrar, toque em Desligar
+

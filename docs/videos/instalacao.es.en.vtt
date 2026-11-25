@@ -1,0 +1,114 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:03.467
+Installing REau, step by step
+
+2
+00:00:03.467 --> 00:00:10.467
+1. Download the APK from the project’s Releases page and open the file to install it
+
+3
+00:00:10.467 --> 00:00:15.467
+If Play Protect warns that it blocked the app, tap the button at the bottom, Got it
+
+4
+00:00:15.467 --> 00:00:25.400
+To install anyway, in the Play Store tap your profile picture, Play Protect and the gear. Pause scanning, install the APK and turn Play Protect back on
+
+5
+00:00:25.400 --> 00:00:31.400
+2. Open REau and scroll the terms of use to the end, or tap Scroll to the end
+
+6
+00:00:31.400 --> 00:00:34.333
+Then tap I accept
+
+7
+00:00:34.333 --> 00:00:41.000
+3. Allow location while using the app. It is only used to find the dash’s Wi-Fi
+
+8
+00:00:41.000 --> 00:00:45.667
+If Android asks, also allow the suggested Wi-Fi networks
+
+9
+00:00:45.667 --> 00:00:48.467
+4. Tap Turn on
+
+10
+00:00:48.467 --> 00:00:52.067
+Allow notifications: tap Allow
+
+11
+00:00:52.067 --> 00:00:58.667
+5. The Android Auto server is turned on by hand: tap Open Android Auto settings
+
+12
+00:00:58.667 --> 00:01:03.333
+The first time, scroll to the bottom and tap Version ten times
+
+13
+00:01:03.333 --> 00:01:07.533
+Enable development settings appears. Tap OK
+
+14
+00:01:07.533 --> 00:01:11.200
+Now tap the three dots at the top of the screen
+
+15
+00:01:11.200 --> 00:01:14.800
+Tap Start head unit server
+
+16
+00:01:14.800 --> 00:01:21.067
+Developer mode is only the first time. After that, each time, the three-dot menu is enough
+
+17
+00:01:21.067 --> 00:01:27.667
+6. Go back to REau. The first time, Android asks Connect to device: tap Connect
+
+18
+00:01:27.667 --> 00:01:31.733
+REau joins the dash’s Wi-Fi and shows Connecting
+
+19
+00:01:31.733 --> 00:01:36.533
+With Android Auto Active and the dash Ready, REau is Streaming
+
+20
+00:01:36.533 --> 00:01:40.533
+7. On the home screen, tap Permissions
+
+21
+00:01:40.533 --> 00:01:43.200
+Tap Ask for the missing ones
+
+22
+00:01:43.200 --> 00:01:48.267
+Android asks about the microphone: tap While using the app
+
+23
+00:01:48.267 --> 00:01:51.333
+And about calls: tap Allow
+
+24
+00:01:51.333 --> 00:01:58.533
+8. So Android doesn’t pause the app with the screen off, tap Exclude REau from optimization
+
+25
+00:01:58.533 --> 00:02:01.867
+In Android’s prompt, tap Allow
+
+26
+00:02:01.867 --> 00:02:06.667
+9. On the home screen, tap Android Auto screen
+
+27
+00:02:06.667 --> 00:02:14.400
+The Fit assistant checks that the maneuver arrow and the speed show whole on the dash. Tap Start
+
+28
+00:02:14.400 --> 00:02:19.667
+All set. Set the route in Waze and put the phone away. To stop, tap Turn off
+

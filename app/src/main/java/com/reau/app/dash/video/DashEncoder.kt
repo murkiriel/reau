@@ -8,17 +8,20 @@ import android.util.Log
 import android.view.Surface
 import com.reau.app.dash.BitrateMode
 import com.reau.app.dash.DashConfig
+import com.reau.app.util.CodecErrors
+import com.reau.app.util.CodecMetrics
 import com.reau.app.util.CodecNames
+import com.reau.app.util.CodecReport
 
 /**
  * MediaCodec H.264 encoder for the dash stream:
- *   526 × 300, Baseline L4.1, 1-second IDR interval.
+ *   528 × 304 ([DashConfig.VIDEO_FRAME]; the dash's own 526 × 300 when no encoder takes it), Baseline L4.1, 1-second IDR interval.
  *
  * Cadence/bitrate are DRIVEN BY THE FRAME LOOP, not fixed here (the stream package's pacing). The
- * dash shows a map well at only **2–4 fps / 200–400 kbps** (the two profiles of [DashConfig]). A map doesn't need video frame rates, and
+ * dash shows a map well at only **3–6 fps / 400 kbps** (the two profiles of [DashConfig]). A map doesn't need video frame rates, and
  * crucially a few fps NEVER overruns the dash decoder — which is the real cause of the blink/stutter seen
- * at 24 fps. So the encoder is configured at the active rate (4 fps hint, 400 kbps, profile 1) and the bitrate is
- * dropped live via [requestBitrate] to the reduced profile's 200 kbps when the stream goes to profile 2. ([FPS] here is
+ * at 24 fps. So the encoder is configured at the active rate (6 fps hint, 400 kbps, profile A) and the bitrate stays
+ * at that ceiling whatever the profile, the picture or the start ramp ([requestBitrate] only sets it once). ([FPS] here is
  * only the encoder's frame-rate HINT; the real rate is the surface feed rate.)
  *
  * History (kept so we don't re-walk it): we'd climbed 4 → 12 → 24 fps and 0.8 → 1.2 Mbps chasing
@@ -33,26 +36,31 @@ import com.reau.app.util.CodecNames
  * frame, and in use the phone topped out near 15.5 fps that way. Whenever the codec happened to fall one frame
  * behind, the wait vanished and the same run reached 22 fps, so the loop's capacity depended on chance.
  *
+ * [frame] is the size the encoder is built for, fixed for its whole life: the dash is told a size by the SPS of a stream, so a stream with another
+ * size is another encoder (and a clean keyframe), never a change in the middle of one. The compositor composes in that same size, 1:1.
+ *
  * @param onFrame  called on the output thread with (annexBBytes, isKeyFrame, ptsMs) for each output buffer, ptsMs
  *   being the presentation time the frame was posted to [inputSurface] with.
  */
 class DashEncoder(
+    private val frame: DashConfig.FrameSize = DashConfig.FULL_FRAME,
     private val onFrame: (ByteArray, Boolean, Long) -> Unit,
 ) {
     companion object {
-        const val WIDTH   = 526
-        const val HEIGHT  = 300
         // Encoder frame-rate HINT only (actual rate = how fast the loop feeds the surface); the full profile's, from DashConfig.
         const val FPS     = DashConfig.PROFILE_FULL_FPS
         // What prepare() uses when the caller gives no bitrate (the stream always gives the profile's own, and changes it with
-        // requestBitrate()): the reduced profile's, from DashConfig. Far under the old 1.2 Mbps that risked overrunning the dash decoder.
-        const val BITRATE = DashConfig.PROFILE_REDUCED_BPS
+        // requestBitrate()): the profile's own, from DashConfig. Far under the old 1.2 Mbps that risked overrunning the dash decoder.
+        const val BITRATE = DashConfig.PROFILE_FULL_BPS
         /** Safety net for a compositor that stops: with nothing posted to the input surface for this long, the
          *  codec encodes the last frame again by itself. OpenCfMoto uses the same 900 ms. What keeps the dash fed
          *  when Android Auto pauses is the compositor's own clock, not this. */
         const val REPEAT_AFTER_US = 900_000L
         private const val MIME = MediaFormat.MIMETYPE_VIDEO_AVC
         private const val TAG = "DashEncoder"
+
+        /** The phone's AVC encoders as the one look at the codec list of the process saw them ([CodecReport.candidates]), for the `codecs:` line of each stream. */
+        @Volatile private var candidateReport: String? = null
 
         /** Realtime encoding at exactly the stream's own rate: priority 0 (realtime), the operating
          *  rate pinned to [fps] so the chip isn't clocked above it, and — Android 11+ — latency 1 so
@@ -92,6 +100,53 @@ class DashEncoder(
         /** Whether the codec says an output buffer is a sync (IDR) frame. */
         internal fun isKeyFrame(flags: Int): Boolean = (flags and MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0
 
+        /**
+         * [sec] for the log line: `2 (every 8 frames at the hint)`. The encoder counts the interval in frames at the rate hint
+         * ([fpsHint] × [sec]), so what it is asked for says, with the pace the stream runs at, how long a keyframe interval really is.
+         */
+        internal fun iFrameIntervalText(sec: Int, fpsHint: Int): String = "$sec (every ${fpsHint * sec} frames at the hint)"
+
+        /** What [prepare] was asked for, which the format is made from. */
+        internal class Ask(
+            val fpsHint: Int, val bitrateBps: Int, val iFrameIntervalSec: Int,
+            /** The size of the picture the encoder is built for. */
+            val frame: DashConfig.FrameSize = DashConfig.FULL_FRAME,
+        )
+
+        /** One format of the ladder of [startNamed], before it is made: [buildFormat] makes it, and a test can read it without Android. */
+        internal class FormatSpec(val lowLatency: Boolean, val bitrateMode: Int?)
+
+        internal fun buildFormat(ask: Ask, spec: FormatSpec): MediaFormat = buildFormat(ask, spec.lowLatency, spec.bitrateMode)
+
+        internal fun buildFormat(ask: Ask, lowLatency: Boolean, rate: Int? = null): MediaFormat =
+            MediaFormat.createVideoFormat(MIME, ask.frame.width, ask.frame.height).apply {
+                setInteger(MediaFormat.KEY_COLOR_FORMAT,
+                    MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
+                setInteger(MediaFormat.KEY_BIT_RATE, ask.bitrateBps)
+                setInteger(MediaFormat.KEY_FRAME_RATE, ask.fpsHint)
+                setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, ask.iFrameIntervalSec)
+                setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline)
+                setInteger(MediaFormat.KEY_LEVEL,
+                    MediaCodecInfo.CodecProfileLevel.AVCLevel41)
+                setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, REPEAT_AFTER_US)
+                if (lowLatency) lowLatencyKeys(android.os.Build.VERSION.SDK_INT, ask.fpsHint).forEach { (k, v) -> setInteger(k, v) }
+                if (rate != null) setInteger(MediaFormat.KEY_BITRATE_MODE, rate)
+            }
+
+        /**
+         * One encoder [name] started with the realtime keys; a vendor encoder that rejects those outright must not cost the rider the stream: retry once
+         * without them, then once more without the bitrate mode. [start] gets each format as a [FormatSpec] and the line of the log that says what it is.
+         */
+        internal fun <T> startNamed(
+            name: String?, rate: RateMode, detail: String, start: (String?, FormatSpec, String) -> T,
+        ): Result<T> = runCatching { start(name, FormatSpec(lowLatency = true, rate.constant), "$detail lowLatency=on") }
+            .recoverCatching { e ->
+                start(name, FormatSpec(lowLatency = false, rate.constant), "$detail lowLatency=fallback (${e.javaClass.simpleName})")
+            }.recoverCatching { e ->
+                if (rate.constant == null) throw e
+                start(name, FormatSpec(lowLatency = false, null), "$detail lowLatency=fallback bitrateMode=fallback (${e.javaClass.simpleName})")
+            }
+
         private fun constantOf(mode: BitrateMode): Int = when (mode) {
             BitrateMode.CBR -> MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR
             BitrateMode.VBR -> MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR
@@ -108,6 +163,14 @@ class DashEncoder(
     @Volatile private var lastPtsMs = 0L
     private val pending = PendingFrames()
     private var outputPump: EncoderOutputPump? = null
+    private var codecName: String? = null
+
+    /**
+     * Whether this encoder tells the ride log what the phone offers and what the codec accepted (`codecs: encoder …`, `encoder accepted: …`,
+     * `encoder output format: …`): once for a stream, so the video loop leaves it on for the encoder it starts with and turns it off for the
+     * ones it rebuilds. Set before [prepare]. Diagnostics only.
+     */
+    var reportCodecs = true
 
     /** Set on a failed [prepare] — the caller logs this to RideDiagnostics (the on-disk ride log
      * pulled after the fact) since a live logcat isn't available once a rider is out on the road. */
@@ -133,7 +196,8 @@ class DashEncoder(
      *
      * The profile is always Baseline: the dash's decoder rejects Main/High (seen on a real dash;
      * better-dash documents the same), so it isn't a parameter.
-     * [iFrameIntervalSec] defaults to `1`. [bitrateMode] null leaves `KEY_BITRATE_MODE` unset (the
+     * [iFrameIntervalSec] defaults to `1`; the stream asks for more than the rider's interval when it can run faster than
+     * [fpsHint] ([com.reau.app.stream.DashLogic.encoderKeyframeSec]), and the line `encoder:` of the ride log says what was asked. [bitrateMode] null leaves `KEY_BITRATE_MODE` unset (the
      * codec's own default); otherwise [rateMode] sets it, and if the codec refuses to be
      * configured with it, it is tried once more without it (`bitrateMode=fallback` in the log).
      *
@@ -145,42 +209,23 @@ class DashEncoder(
         iFrameIntervalSec: Int = 1,
         bitrateMode: BitrateMode? = null,
     ): Boolean {
-        fun buildFormat(lowLatency: Boolean, rate: Int? = null) = MediaFormat.createVideoFormat(MIME, WIDTH, HEIGHT).apply {
-            setInteger(MediaFormat.KEY_COLOR_FORMAT,
-                MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
-            setInteger(MediaFormat.KEY_BIT_RATE, bitrateBps)
-            setInteger(MediaFormat.KEY_FRAME_RATE, fpsHint)
-            setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, iFrameIntervalSec)
-            setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline)
-            setInteger(MediaFormat.KEY_LEVEL,
-                MediaCodecInfo.CodecProfileLevel.AVCLevel41)
-            setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, REPEAT_AFTER_US)
-            if (lowLatency) lowLatencyKeys(android.os.Build.VERSION.SDK_INT, fpsHint).forEach { (k, v) -> setInteger(k, v) }
-            if (rate != null) setInteger(MediaFormat.KEY_BITRATE_MODE, rate)
-        }
+        val ask = Ask(fpsHint, bitrateBps, iFrameIntervalSec, frame)
         // Every AVC encoder that can take the size and Baseline, hardware first (a software fallback runs the CPU hot, which
         // is exactly what this whole project exists to avoid); the system's own pick is the last try.
         val names: List<String?> = encoderNames() + null
         val failures = mutableListOf<String>()
         for (name in names) {
             val rate = rateMode(bitrateMode) { mode -> modeOffered(name, mode) }
-            val detail = "fpsHint=$fpsHint bitrateBps=$bitrateBps profile=baseline " +
-                "iFrameIntervalSec=$iFrameIntervalSec repeatAfterUs=$REPEAT_AFTER_US bitrateMode=${rate.label}"
-            // A vendor encoder that rejects the realtime keys outright must not cost the rider the
-            // stream: retry once without them, then once more without the bitrate mode.
-            val started = runCatching { startCodec(name, buildFormat(lowLatency = true, rate.constant), "$detail lowLatency=on") }
-                .recoverCatching { e ->
-                    startCodec(name, buildFormat(lowLatency = false, rate.constant), "$detail lowLatency=fallback (${e.javaClass.simpleName})")
-                }.recoverCatching { e ->
-                    if (rate.constant == null) throw e
-                    startCodec(name, buildFormat(lowLatency = false), "$detail lowLatency=fallback bitrateMode=fallback (${e.javaClass.simpleName})")
-                }
+            val detail = "size=${frame.width}x${frame.height} fpsHint=$fpsHint bitrateBps=$bitrateBps profile=baseline " +
+                "iFrameIntervalSec=${iFrameIntervalText(iFrameIntervalSec, fpsHint)} repeatAfterUs=$REPEAT_AFTER_US bitrateMode=${rate.label}"
+            val started = startNamed(name, rate, detail) { n, spec, d -> startCodec(n, buildFormat(ask, spec), d) }
             started.onSuccess { c ->
                 lastPrepareError = null
                 codec = c
+                if (reportCodecs) EncoderReport.choice(c, candidateReport, frame)
                 return true
             }
-            val why = started.exceptionOrNull()?.let { "${it.javaClass.simpleName}: ${it.message}" }
+            val why = started.exceptionOrNull()?.let { CodecErrors.describe(it, name) }
             failures += "${name ?: "OS-default encoder"}: $why"
             if (name != null && name != names.last()) {
                 com.reau.app.data.RideDiagnostics.warn("stream", "encoder $name failed ($why), trying the next one")
@@ -196,7 +241,7 @@ class DashEncoder(
      * stream's size and Baseline. Looked up once per process ([CodecNames]); the names are joined, since it keeps one string.
      */
     private fun encoderNames(): List<String> {
-        val joined = CodecNames.pick("dash encoders ${WIDTH}x$HEIGHT baseline") {
+        val joined = CodecNames.pick("dash encoders ${frame.width}x${frame.height} baseline") {
             val candidates = runCatching {
                 MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
                     .filter { info -> info.isEncoder && info.supportedTypes.any { it.equals(MIME, true) } }
@@ -205,11 +250,12 @@ class DashEncoder(
                         EncoderOrder.Candidate(
                             name = info.name,
                             hardware = info.isHardwareAccelerated && !info.isSoftwareOnly,
-                            sizeSupported = caps?.videoCapabilities?.isSizeSupported(WIDTH, HEIGHT),
+                            sizeSupported = caps?.videoCapabilities?.isSizeSupported(frame.width, frame.height),
                             baselineSupported = caps?.profileLevels?.any { it.profile == MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline },
                         )
                     }
             }.getOrDefault(emptyList())
+            candidateReport = CodecReport.candidates(candidates.map { CodecReport.Candidate(it.name, it.hardware, it.sizeSupported, it.baselineSupported) })
             EncoderOrder.names(candidates).joinToString("|")
         }
         return joined.orEmpty().split('|').filter { it.isNotEmpty() }
@@ -219,12 +265,16 @@ class DashEncoder(
     private fun startCodec(name: String?, format: MediaFormat, detail: String): MediaCodec {
         val c = if (name != null) MediaCodec.createByCodecName(name) else MediaCodec.createEncoderByType(MIME)
         return runCatching {
+            codecName = c.name
             Log.i(TAG, "Encoder: ${c.name} $detail")
             com.reau.app.data.RideDiagnostics.log("stream", "encoder: ${c.name} $detail")
             c.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
             inputSurface = c.createInputSurface()
             c.start()
-            outputPump = EncoderOutputPump(c) { idx, info -> emitOutput(c, idx, info) }.also { it.start() }
+            val inputFormat = if (reportCodecs) EncoderReport.inputFormat(c) else null
+            outputPump = EncoderOutputPump(c, onFormat = { f -> if (reportCodecs) EncoderReport.outputAnnounced(format, inputFormat, f) }) { idx, info ->
+                emitOutput(c, idx, info)
+            }.also { it.start() }
             c
         }.onFailure {
             runCatching { c.release() }
@@ -322,10 +372,13 @@ class DashEncoder(
         val c = codec
         val surface = inputSurface
         val ending = outputPump
+        val label = codecName
         codec = null
         inputSurface = null
         outputPump = null
         EncoderOutputPump.releaseThrough(ending) {
+            // Once, before the codec goes: the framework's own count of this encoder's life (bounded: a driver that hangs costs 300 ms, not the release).
+            if (c != null) CodecMetrics.logBounded("encoder", label, c) { com.reau.app.data.RideDiagnostics.log("stream", it) }
             runCatching { c?.stop() }
             runCatching { c?.release() }
             surface?.release()

@@ -1,0 +1,91 @@
+# Golden trace of the stream governor (plan 27, GovernadorOuroTest). Recorded from the code, never edited by hand.
+# Case 13-dash-acks: no dash= while the dash acknowledges nothing, dash= once it does, the pace the same.
+# A line is a poll that had an action (the time in ms, then one action per line); `reads:` are the values the video loop reads, when one changed.
+
+== 400 kbps ==
+      0  start
+         pace=334/334
+         bitrate=400000
+         sync=stream start
+         reads: fps=6 profileFps=6 encoderFps=6 gopFps=6 encoderKeyframeSec=1 keyframeSec=1 activeBitrateBps=400000 rebuildAction=rebuild(fps=6 keyframeSec=1 bitrateBps=400000 encoderKeyframeSec=1)
+# the dash acknowledges no frame
+    250  pace=167/334
+   1250  stats=7.0fps/360kbps
+   2250  stats=6.0fps/320kbps
+   3250  stats=6.0fps/320kbps
+   4250  stats=6.0fps/320kbps
+   5250  stats=6.0fps/320kbps
+   5500  log: video fps target=6 sent=6.0 (30frames/5.0s) composed=6.0 kbps=320 set=400k frame=6666B source=30 drawn=30 repeated=0 compose=2.0ms encode=8.0ms late=0 tickwait=- full=true thermal=OK speed=? wifi=-58dBm/72Mbps(worst) kf=1s idr=5(max 15000B/11pkt) sync=1[stream start:1] auto=6fps [*] compose_max=- compose_p95=- encode_max=- encode_p95=- look=0 latch=0 wake=30(6.0/s)
+   6250  stats=6.0fps/320kbps
+   7250  stats=6.0fps/320kbps
+   8250  stats=6.0fps/320kbps
+   9250  stats=6.0fps/320kbps
+  10250  stats=6.0fps/320kbps
+  10500  log: video fps target=6 sent=6.0 (30frames/5.0s) composed=6.0 kbps=320 set=400k frame=6666B source=30 drawn=30 repeated=0 compose=2.0ms encode=8.0ms late=0 tickwait=- full=true thermal=OK speed=? wifi=-58dBm/72Mbps(worst) kf=1s idr=5(max 15000B/11pkt) sync=0 auto=6fps [*] compose_max=- compose_p95=- encode_max=- encode_p95=- look=0 latch=0 wake=30(6.0/s)
+# the dash acknowledges the keyframes only
+  11250  stats=6.0fps/320kbps
+  12250  stats=6.0fps/320kbps
+  13250  stats=6.0fps/320kbps
+  14250  stats=6.0fps/320kbps
+  15250  stats=6.0fps/320kbps
+  15500  log: video fps target=6 sent=6.0 (30frames/5.0s) composed=6.0 dash=1.0 kbps=320 set=400k frame=6666B source=30 drawn=30 repeated=0 compose=2.0ms encode=8.0ms late=0 tickwait=- full=true thermal=OK speed=? wifi=-58dBm/72Mbps(worst) kf=1s idr=5(max 15000B/11pkt) sync=0 auto=6fps [*] compose_max=- compose_p95=- encode_max=- encode_p95=- look=0 latch=0 wake=30(6.0/s)
+  16250  stats=6.0fps/320kbps
+  17250  stats=6.0fps/320kbps
+  18250  stats=6.0fps/320kbps
+  19250  stats=6.0fps/320kbps
+  20250  stats=6.0fps/320kbps
+  20500  log: video fps target=6 sent=6.0 (30frames/5.0s) composed=6.0 dash=1.0 kbps=320 set=400k frame=6666B source=30 drawn=30 repeated=0 compose=2.0ms encode=8.0ms late=0 tickwait=- full=true thermal=OK speed=? wifi=-58dBm/72Mbps(worst) kf=1s idr=5(max 15000B/11pkt) sync=0 auto=6fps [*] compose_max=- compose_p95=- encode_max=- encode_p95=- look=0 latch=0 wake=30(6.0/s)
+  21250  stats=6.0fps/320kbps
+# the dash acknowledges every frame
+  22250  stats=6.0fps/320kbps
+  23250  stats=6.0fps/320kbps
+  24250  stats=6.0fps/320kbps
+  25250  stats=6.0fps/320kbps
+  25500  log: video fps target=6 sent=6.0 (30frames/5.0s) composed=6.0 dash=4.4 kbps=320 set=400k frame=6666B source=30 drawn=30 repeated=0 compose=2.0ms encode=8.0ms late=0 tickwait=- full=true thermal=OK speed=? wifi=-58dBm/72Mbps(worst) kf=1s idr=5(max 15000B/11pkt) sync=0 auto=6fps [*] compose_max=- compose_p95=- encode_max=- encode_p95=- look=0 latch=0 wake=30(6.0/s)
+  26250  stats=6.0fps/320kbps
+  27250  stats=6.0fps/320kbps
+  28000  end, 112 polls
+
+== 200 kbps ==
+      0  start
+         pace=334/334
+         bitrate=300000
+         sync=stream start
+         reads: fps=6 profileFps=6 encoderFps=6 gopFps=6 encoderKeyframeSec=1 keyframeSec=1 activeBitrateBps=300000 rebuildAction=rebuild(fps=6 keyframeSec=1 bitrateBps=300000 encoderKeyframeSec=1)
+# the dash acknowledges no frame
+    250  pace=167/334
+   1250  stats=7.0fps/360kbps
+   2250  stats=6.0fps/320kbps
+   3250  stats=6.0fps/320kbps
+   4250  stats=6.0fps/320kbps
+   5250  stats=6.0fps/320kbps
+   5500  log: video fps target=6 sent=6.0 (30frames/5.0s) composed=6.0 kbps=320 set=300k frame=6666B source=30 drawn=30 repeated=0 compose=2.0ms encode=8.0ms late=0 tickwait=- full=true thermal=OK speed=? wifi=-58dBm/72Mbps(worst) kf=1s idr=5(max 15000B/11pkt) sync=1[stream start:1] auto=6fps [*] compose_max=- compose_p95=- encode_max=- encode_p95=- look=0 latch=0 wake=30(6.0/s)
+   6250  stats=6.0fps/320kbps
+   7250  stats=6.0fps/320kbps
+   8250  stats=6.0fps/320kbps
+   9250  stats=6.0fps/320kbps
+  10250  stats=6.0fps/320kbps
+  10500  log: video fps target=6 sent=6.0 (30frames/5.0s) composed=6.0 kbps=320 set=300k frame=6666B source=30 drawn=30 repeated=0 compose=2.0ms encode=8.0ms late=0 tickwait=- full=true thermal=OK speed=? wifi=-58dBm/72Mbps(worst) kf=1s idr=5(max 15000B/11pkt) sync=0 auto=6fps [*] compose_max=- compose_p95=- encode_max=- encode_p95=- look=0 latch=0 wake=30(6.0/s)
+# the dash acknowledges the keyframes only
+  11250  stats=6.0fps/320kbps
+  12250  stats=6.0fps/320kbps
+  13250  stats=6.0fps/320kbps
+  14250  stats=6.0fps/320kbps
+  15250  stats=6.0fps/320kbps
+  15500  log: video fps target=6 sent=6.0 (30frames/5.0s) composed=6.0 dash=1.0 kbps=320 set=300k frame=6666B source=30 drawn=30 repeated=0 compose=2.0ms encode=8.0ms late=0 tickwait=- full=true thermal=OK speed=? wifi=-58dBm/72Mbps(worst) kf=1s idr=5(max 15000B/11pkt) sync=0 auto=6fps [*] compose_max=- compose_p95=- encode_max=- encode_p95=- look=0 latch=0 wake=30(6.0/s)
+  16250  stats=6.0fps/320kbps
+  17250  stats=6.0fps/320kbps
+  18250  stats=6.0fps/320kbps
+  19250  stats=6.0fps/320kbps
+  20250  stats=6.0fps/320kbps
+  20500  log: video fps target=6 sent=6.0 (30frames/5.0s) composed=6.0 dash=1.0 kbps=320 set=300k frame=6666B source=30 drawn=30 repeated=0 compose=2.0ms encode=8.0ms late=0 tickwait=- full=true thermal=OK speed=? wifi=-58dBm/72Mbps(worst) kf=1s idr=5(max 15000B/11pkt) sync=0 auto=6fps [*] compose_max=- compose_p95=- encode_max=- encode_p95=- look=0 latch=0 wake=30(6.0/s)
+  21250  stats=6.0fps/320kbps
+# the dash acknowledges every frame
+  22250  stats=6.0fps/320kbps
+  23250  stats=6.0fps/320kbps
+  24250  stats=6.0fps/320kbps
+  25250  stats=6.0fps/320kbps
+  25500  log: video fps target=6 sent=6.0 (30frames/5.0s) composed=6.0 dash=4.4 kbps=320 set=300k frame=6666B source=30 drawn=30 repeated=0 compose=2.0ms encode=8.0ms late=0 tickwait=- full=true thermal=OK speed=? wifi=-58dBm/72Mbps(worst) kf=1s idr=5(max 15000B/11pkt) sync=0 auto=6fps [*] compose_max=- compose_p95=- encode_max=- encode_p95=- look=0 latch=0 wake=30(6.0/s)
+  26250  stats=6.0fps/320kbps
+  27250  stats=6.0fps/320kbps
+  28000  end, 112 polls

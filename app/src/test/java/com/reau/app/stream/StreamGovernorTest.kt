@@ -18,8 +18,8 @@ class StreamGovernorTest {
     private var nowMs = 0L
     private var acks = 0L
 
-    private fun governor(startFps: Int = 16, ceiling: Int = 16, clockSlowPercent: Int = 0, bitrateCeilingBps: Int = DashConfig.MAX_STREAM_BITRATE_BPS) =
-        StreamGovernor(AutoFpsController.Plan(startFps, ceiling), clockSlowPercent, bitrateCeilingBps = bitrateCeilingBps)
+    private fun governor(fullFps: Int = 16, clockSlowPercent: Int = 0, bitrateCeilingBps: Int = DashConfig.MAX_STREAM_BITRATE_BPS) =
+        StreamGovernor(fullFps, clockSlowPercent, bitrateCeilingBps = bitrateCeilingBps)
 
     /** One poll, 250 ms after the one before. */
     private fun StreamGovernor.poll(
@@ -34,6 +34,7 @@ class StreamGovernorTest {
         keyBytesMax: Int = 0,
         keyPacketsMax: Int = 0,
         tickWaitsMs: List<Double> = emptyList(),
+        lightScreen: Boolean = false,
     ): List<Action> {
         nowMs += POLL_MS
         return onPoll(
@@ -42,7 +43,7 @@ class StreamGovernorTest {
                 compositor = DashCompositor.Stats(sourceFrames = drawn * 2, drawn = drawn, repeated = repeated, composeNs = (drawn + repeated) * 2_000_000L, tickWaitsMs = tickWaitsMs),
                 framesOut = framesOut, bytesOut = bytesOut, lateFrames = 0, encodeNs = framesOut * 8_000_000L,
                 dashAcks = acks, firstFrameConfirmed = confirmed, thermalOk = thermalOk, navSample = navSample,
-                keyframes = keyframes, keyBytesMax = keyBytesMax, keyPacketsMax = keyPacketsMax,
+                keyframes = keyframes, keyBytesMax = keyBytesMax, keyPacketsMax = keyPacketsMax, lightScreen = lightScreen,
             ),
             // The stats text's own second (StreamGovernorStatsTest) is not what these tests are about.
         ).filterNot { it is Action.Stats }
@@ -76,8 +77,8 @@ class StreamGovernorTest {
     }
 
     /** A started governor with its first window open (the window opens with the first frames that come out). */
-    private fun started(startFps: Int = 16, ceiling: Int = 16, bitrateCeilingBps: Int = DashConfig.MAX_STREAM_BITRATE_BPS): StreamGovernor =
-        governor(startFps, ceiling, bitrateCeilingBps = bitrateCeilingBps).also {
+    private fun started(fullFps: Int = 16, bitrateCeilingBps: Int = DashConfig.MAX_STREAM_BITRATE_BPS): StreamGovernor =
+        governor(fullFps, bitrateCeilingBps = bitrateCeilingBps).also {
             it.start(nowMs)
             it.poll(drawn = 1)
         }
@@ -85,10 +86,10 @@ class StreamGovernorTest {
     // ── how a stream starts ────────────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `a stream starts at the still pace, at the still bitrate, asking for a keyframe`() {
+    fun `a stream starts at the still pace, at the ceiling bitrate, asking for a keyframe`() {
         val g = governor()
         assertEquals(
-            listOf(Action.SetPace(DashCompositor.Pace(250, 250, 0)), Action.SetBitrate(512_000), Action.RequestSync("stream start")),
+            listOf(Action.SetPace(DashCompositor.Pace(250, 250, 0)), Action.SetBitrate(1_024_000), Action.RequestSync("stream start")),
             g.start(nowMs),
         )
         assertEquals(16, g.fps)
@@ -120,13 +121,12 @@ class StreamGovernorTest {
     // ── bitrate ────────────────────────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `the bitrate goes up while pictures keep coming and back down 1500 ms after the last one`() {
+    fun `the bitrate is the ceiling from the start and nothing moves it, pictures coming or not`() {
         val g = governor().also { it.start(nowMs) }
         g.poll(confirmed = true) // pace change, nothing drawn yet
-        assertEquals(listOf(Action.SetBitrate(1_024_000)), g.poll(drawn = 4)) // t = 500
-        val quiet = (1..5).map { g.poll() } // t = 750 .. 1750: up to 1250 ms after the last picture
-        assertTrue("still within the hold, got $quiet", quiet.all { it.isEmpty() })
-        assertEquals(listOf(Action.SetBitrate(512_000)), g.poll()) // t = 2000: 1500 ms after
+        val all = g.poll(drawn = 4) + (1..12).flatMap { g.poll() } + (1..4).flatMap { g.poll(drawn = 4) } + (1..12).flatMap { g.poll() }
+        assertTrue("a still picture no longer halves the bitrate, got $all", all.none { it is Action.SetBitrate })
+        assertEquals(1_024_000, g.activeBitrateBps)
     }
 
     // ── keyframes while still ──────────────────────────────────────────────────────────────────────────────
@@ -154,7 +154,7 @@ class StreamGovernorTest {
 
     @Test
     fun `at 4 frames a second the encoder already places a keyframe every second`() {
-        val g = governor(startFps = 4, ceiling = 4).also { it.start(nowMs) }
+        val g = governor(fullFps = 4).also { it.start(nowMs) }
         assertTrue((1..24).flatMap { g.poll() }.none { it is Action.RequestSync })
     }
 
@@ -216,26 +216,12 @@ class StreamGovernorTest {
         assertTrue(second, "sent=8.0 (40frames/5.0s)" in second && "sync=0" in second)
     }
 
-    // ── the rate ───────────────────────────────────────────────────────────────────────────────────────────
+    // ── what a window showed: full=, and the text in brackets after auto= ──────────────────────────────────
+
+    private fun List<Action>.windowLines() = filterIsInstance<Action.Log>().map { it.line }.filter { it.startsWith("video fps target=") }
 
     @Test
-    fun `three healthy windows climb one step, and the climb stops at the ceiling`() {
-        val g = started(startFps = 8, ceiling = 12)
-        assertTrue("settling", g.window(composed = 40).none { it is Action.Rebuild })
-        assertTrue(g.window(composed = 40).none { it is Action.Rebuild })
-        assertTrue(g.window(composed = 40).none { it is Action.Rebuild })
-        val up = g.window(composed = 40)
-        assertTrue("got $up", Action.Rebuild(fps = 10, keyframeSec = 1, bitrateBps = 1_024_000) in up)
-        assertTrue("the clock must follow the new rate, got $up", Action.SetPace(DashCompositor.Pace(100, 250, 0)) in up)
-        assertTrue("the rebuild comes before the pace", up.indexOfFirst { it is Action.Rebuild } < up.indexOfFirst { it is Action.SetPace })
-        assertEquals(10, g.fps)
-
-        val rebuilds = (1..12).flatMap { g.window(composed = if (g.fps == 10) 50 else 60) }.filterIsInstance<Action.Rebuild>()
-        assertEquals("one more step, then the ceiling holds", listOf(Action.Rebuild(12, 1, 1_024_000)), rebuilds)
-    }
-
-    @Test
-    fun `a source slower than the rate says nothing about what the phone can do`() {
+    fun `a source slower than the rate is not a full window, and is not judged`() {
         val g = started()
         val actions = (1..8).flatMap { g.window(composed = 50, sent = 50) } // 10 a second, asked 16
         assertTrue("got ${actions.filterIsInstance<Action.Rebuild>()}", actions.none { it is Action.Rebuild })
@@ -243,12 +229,13 @@ class StreamGovernorTest {
         val lines = actions.filterIsInstance<Action.Log>().map { it.line }
         assertEquals(8, lines.size)
         assertTrue("got $lines", lines.all { "full=false" in it && "composed=10.0" in it })
+        assertTrue("got $lines", lines.all { "auto=16fps [not judged]" in it })
     }
 
     /** At 4 a second the still pace IS the stream's rate, so every tick has a frame; it is still not a full window. */
     @Test
-    fun `a stream the dash has not confirmed is not judged, whatever it delivers`() {
-        val g = governor(startFps = 4, ceiling = 8).also {
+    fun `a stream the dash has not confirmed is not a full window and is not judged, whatever it delivers`() {
+        val g = governor(fullFps = 4).also {
             it.start(nowMs)
             it.poll(drawn = 1, confirmed = false)
         }
@@ -260,50 +247,167 @@ class StreamGovernorTest {
         val lines = actions.filterIsInstance<Action.Log>().map { it.line }
         assertEquals(6, lines.size)
         assertTrue("got $lines", lines.all { "full=false" in it && "composed=4.0" in it })
+        assertTrue("got $lines", lines.all { "auto=4fps [not judged]" in it })
     }
 
     @Test
-    fun `an encoder that falls behind for two windows brings the rate down to what it delivered`() {
-        val g = started()
-        g.window(composed = 80) // settling
-        assertTrue(g.window(composed = 80, sent = 52).none { it is Action.Rebuild })
-        val down = g.window(composed = 80, sent = 52) // 10.4 a second
-        assertTrue("got $down", Action.Rebuild(fps = 10, keyframeSec = 1, bitrateBps = 1_024_000) in down)
-        assertTrue(Action.SetPace(DashCompositor.Pace(100, 250, 0)) in down)
+    fun `a full window where the frames went out says ok, and one where they did not says short and how many went out`() {
+        val g = started(fullFps = 4, bitrateCeilingBps = 400_000)
+        val ok = g.window(composed = 20).windowLines().single()
+        assertTrue(ok, "target=4 sent=4.0 " in ok && "full=true" in ok && "auto=4fps [ok]" in ok)
+        val short = g.window(composed = 20, sent = 15).windowLines().single()
+        assertTrue(short, "target=4 sent=3.0 " in short && "full=true" in short && "auto=4fps [short: sent 3.0]" in short)
     }
 
     @Test
-    fun `a hot phone counts as not keeping up`() {
-        val g = started()
-        g.window(composed = 80)
-        (0 until POLLS_PER_WINDOW).forEach { _ -> g.poll(drawn = 4, thermalOk = false) }
-        val down = (0 until POLLS_PER_WINDOW).flatMap { g.poll(drawn = 4, thermalOk = false) }
-        assertTrue("got $down", down.any { it is Action.Rebuild && it.fps == 14 })
-        assertTrue(down.filterIsInstance<Action.Log>().single().line.contains("thermal=HOT"))
+    fun `95 percent of the pace is enough, to be a full window and not to be short, and less is not`() {
+        val g = started(fullFps = 4, bitrateCeilingBps = 400_000)
+        val atTheLine = g.window(composed = 19).windowLines().single() // 3.8 of 4
+        assertTrue(atTheLine, "composed=3.8" in atTheLine && "full=true" in atTheLine && "[ok]" in atTheLine)
+        val under = g.window(composed = 18).windowLines().single() // 3.6 of 4: over 90 %, under 95 %
+        assertTrue(under, "composed=3.6" in under && "full=false" in under && "[not judged]" in under)
+        val sentAtTheLine = g.window(composed = 20, sent = 19).windowLines().single()
+        assertTrue(sentAtTheLine, "sent=3.8 " in sentAtTheLine && "[ok]" in sentAtTheLine)
+        val sentUnder = g.window(composed = 20, sent = 18).windowLines().single()
+        assertTrue(sentUnder, "full=true" in sentUnder && "[short: sent 3.6]" in sentUnder)
     }
 
     @Test
-    fun `a minute of tight bit budget moves the keyframe interval to 2 s`() {
+    fun `a hot phone and an encoder over the bitrate ceiling are said in the bracket too`() {
         val g = started()
-        // 0.8 of 1024 kbps: 512 000 bytes in 5 s.
-        val rebuilds = (1..13).flatMap { g.window(composed = 80, bytes = 512_000) }.filterIsInstance<Action.Rebuild>()
-        assertEquals(listOf(Action.Rebuild(fps = 16, keyframeSec = 2, bitrateBps = 1_024_000)), rebuilds)
-        assertEquals(2, g.keyframeSec)
+        val hot = (0 until POLLS_PER_WINDOW).flatMap { g.poll(drawn = 4, thermalOk = false) }.windowLines().single()
+        assertTrue(hot, "thermal=HOT" in hot && "auto=16fps [short: thermal]" in hot)
+        val over = g.window(composed = 80, bytes = 750_000).windowLines().single() // 1200 kbps, the ceiling is 1024
+        assertTrue(over, "kbps=1200" in over && "auto=16fps [short: kbps 1200]" in over)
+        val within = g.window(composed = 80, bytes = 700_000).windowLines().single() // 1120 kbps: inside the 10 % of headroom
+        assertTrue(within, "auto=16fps [ok]" in within)
+        assertEquals("short: sent 3.1, kbps 1200, thermal", StreamGovernor.windowVerdict(judged = true, target = 4, sentFps = 3.1, kbps = 1200.0, thermalOk = false, ceilingBps = 1_024_000))
+        assertEquals("a window that is not full is not judged, whatever else it shows", "not judged", StreamGovernor.windowVerdict(false, 4, 0.0, 9_999.0, thermalOk = false, ceilingBps = 400_000))
+    }
+
+    @Test
+    fun `the verdict reads the bitrate against the ceiling in force, 400 kbps in the app, not against 1024`() {
+        fun verdict(kbps: Double, ceilingBps: Int) = StreamGovernor.windowVerdict(judged = true, target = 6, sentFps = 6.0, kbps = kbps, thermalOk = true, ceilingBps = ceilingBps)
+        assertEquals("600 kbps over a 400 ceiling is 50 % over", "short: kbps 600", verdict(600.0, 400_000))
+        assertEquals("the 10 % of headroom: 440 is still ok", "ok", verdict(440.0, 400_000))
+        assertEquals("a hair over it is not", "short: kbps 441", verdict(441.0, 400_000))
+        assertEquals("the same 600 kbps under a 1024 ceiling is ok", "ok", verdict(600.0, 1_024_000))
+        // The line of a window of the governor itself says it too: the ceiling is the one the governor runs at.
+        val g = started(fullFps = 6, bitrateCeilingBps = 400_000)
+        val over = g.window(composed = 30, bytes = 375_000).windowLines().single() // 600 kbps in a 5 s window
+        assertTrue(over, "kbps=600" in over && "[short: kbps 600]" in over.substringAfter("auto=6fps "))
+    }
+
+    /**
+     * `target=` is the pace when the window closes, not the pace it ran at (found recording the golden traces). The bracket is read against that
+     * same target: a window that ends at a slower pace than it ran at sent more than asked (ok), one that ends at a faster pace composed less
+     * than the new pace (not judged), and neither is ever called short.
+     */
+    @Test
+    fun `a window the pace changed in is judged against the pace it ended at, and is never short for it`() {
+        val g = started(fullFps = 4, bitrateCeilingBps = 400_000)
+        g.keptAt(1200, drawn = 1) // FULL kept 10 s; two windows closed, the third opened at 10.25 s
+        val down = (1..17).flatMap { g.poll(drawn = 1, navSample = maneuverSample(distance = 1200)) } +
+            g.poll(drawn = 1, navSample = maneuverSample(distance = 1450)) + // REDUCED in the last half second of the window
+            g.poll(drawn = 1, navSample = maneuverSample(distance = 1450))
+        val ranAt4 = down.windowLines().single()
+        assertTrue(ranAt4, "target=2 sent=4.0 " in ranAt4 && "full=true" in ranAt4 && "auto=4fps [ok]" in ranAt4)
+
+        // Two windows at 2 fps (the 10 s the tier is kept), then all but the last second of a third; FULL again in that last second.
+        val reduced = (1..56).flatMap { g.poll(drawn = it % 2, navSample = maneuverSample(distance = 1450)) }
+        assertTrue("got ${reduced.windowLines()}", reduced.windowLines().let { it.size == 2 && it.all { l -> "target=2 sent=2.0 " in l && "[ok]" in l } })
+        val up = (1..4).flatMap { g.poll(drawn = 1, navSample = maneuverSample(distance = 400)) }
+        assertEquals(4, g.fps)
+        val ranAt2 = up.windowLines().single()
+        assertTrue(ranAt2, "target=4 sent=2.4 " in ranAt2 && "full=false" in ranAt2 && "auto=4fps [not judged]" in ranAt2)
+    }
+
+    // ── the pace is fixed: nothing a window measured moves it, and no poll asks for a new encoder ──────────
+
+    @Test
+    fun `whatever the windows show, the pace stays the full one and the encoder is never replaced`() {
+        val g = started(fullFps = 8)
+        val healthy = (1..6).flatMap { g.window(composed = 40) }
+        val short = (1..4).flatMap { g.window(composed = 40, sent = 20) }
+        val hot = (1..2 * POLLS_PER_WINDOW).flatMap { g.poll(drawn = 2, thermalOk = false) }
+        val all = healthy + short + hot
+        assertTrue("got ${all.filter { it is Action.Rebuild || it is Action.SetPace }}", all.none { it is Action.Rebuild || it is Action.SetPace })
+        assertEquals(8, g.fps)
+        assertEquals(8, g.encoderFps)
+        assertTrue("got ${all.windowLines()}", all.windowLines().let { it.size == 12 && it.all { l -> "target=8 " in l && "auto=8fps [" in l } })
+    }
+
+    @Test
+    fun `no poll ever asks for a new encoder, whatever changes around the stream`() {
+        val g = StreamGovernor(4, bitrateCeilingBps = 400_000, keyframeSec = 1, lightScreenFps = 6).also { it.start(nowMs) }
+        val both = { meters: Int?, kmh: Double? -> StreamGovernor.NavSample(true, true, meters, kmh, NavProfileMode.PESSIMISTA) }
+        val samples = listOf(
+            null, both(500, 40.0), both(1200, 40.0), both(1450, 40.0), both(500, 70.0), both(null, null),
+            both(500, 40.0).copy(maneuverProfileEnabled = false, speedProfileEnabled = false), maneuverSample(1450), speedSample(72.0), null,
+        )
+        val seen = HashSet<Int>()
+        // 15 s of each surrounding, by turns: moving and still, short and whole, confirmed or not, cool or hot, the map or the app menu.
+        val all = samples.flatMapIndexed { round, sample ->
+            (1..60).flatMap { i ->
+                g.poll(
+                    drawn = if (round % 3 == 2) 0 else 1, framesOut = if (round % 4 == 3) i % 2 else 1, confirmed = round != 1 || i > 8,
+                    thermalOk = round % 5 != 4, navSample = sample, lightScreen = i in 20..40,
+                ).also {
+                    seen += g.fps
+                    assertEquals(4, g.encoderFps)
+                }
+            }
+        }
+        assertTrue("got ${all.filterIsInstance<Action.Rebuild>()}", all.none { it is Action.Rebuild })
+        assertEquals("the stream did go through its three paces", setOf(2, 4, 6), seen)
+        assertTrue("and closed windows of the three kinds: ${all.windowLines().map { it.substringAfter("auto=").substringBefore(']') }.toSet()}",
+            listOf("[ok]", "[not judged]", "[short: ").all { text -> all.windowLines().any { text in it } })
+    }
+
+    // ── the keyframe interval is fixed: no window moves it, and a window only writes its line ────────────
+
+    @Test
+    fun `a window that closes gives its line and nothing else, never a new encoder, for the 1 s, the 2 s and the stored 0`() {
+        for (sec in listOf(1, 2, DashConfig.KEYFRAME_INTERVAL_AUTO)) {
+            val g = StreamGovernor(16, keyframeSec = sec).also { it.start(nowMs); it.poll(drawn = 1) }
+            val interval = g.keyframeSec
+            // Two minutes of a tight bit budget (0.8 of 1024 kbps: 512 000 bytes in 5 s), then of a dash that acknowledges half of what was sent:
+            // each used to move the interval that chose itself, with a new encoder.
+            val tight = (1..24).map { g.window(composed = 80, bytes = 512_000) }
+            val lossy = (1..24).map {
+                (0 until POLLS_PER_WINDOW).flatMap {
+                    acks += 2
+                    g.poll(drawn = 4)
+                }
+            }
+            for (window in tight + lossy) {
+                assertEquals("keyframe $sec: got $window", 1, window.size)
+                assertTrue("keyframe $sec: got $window", window.single() is Action.Log)
+            }
+            assertEquals(interval, g.keyframeSec)
+            assertTrue((tight + lossy).flatten().windowLines().all { " kf=${interval}s " in it })
+        }
+    }
+
+    @Test
+    fun `a keyframe interval of 0, the automatic one a stored setting may still say, is read as 1 s`() {
+        val stored = StreamGovernor(4, keyframeSec = DashConfig.KEYFRAME_INTERVAL_AUTO, lightScreenFps = 6).also { it.start(nowMs) }
+        val one = StreamGovernor(4, keyframeSec = 1, lightScreenFps = 6)
+        assertEquals(1, stored.keyframeSec)
+        assertEquals(one.encoderKeyframeSec, stored.encoderKeyframeSec)
+        assertEquals(1, stored.rebuildAction().keyframeSec)
+        assertEquals("and so does a governor made with no interval at all", 1, StreamGovernor(4).keyframeSec)
+        assertEquals("a negative one too", 1, StreamGovernor(4, keyframeSec = -1).keyframeSec)
+        assertEquals("the 2 s stay 2 s", 2, StreamGovernor(4, keyframeSec = 2).keyframeSec)
+        val line = (1..2).flatMap { stored.window(composed = 20) }.windowLines().last()
+        assertTrue(line, " kf=1s " in line)
     }
 
     // ── the navigation-driven quality profile ────────────────────────────────────────────────────────
 
     @Test
-    fun `the maneuver override jumps straight to the ceiling, skipping the climb`() {
-        val g = started(startFps = 8, ceiling = 16)
-        val actions = g.poll(navSample = maneuverSample(distance = 500))
-        assertTrue("got $actions", Action.Rebuild(fps = 16, keyframeSec = 1, bitrateBps = 1_024_000) in actions)
-        assertEquals(16, g.fps)
-    }
-
-    @Test
     fun `the reduced tier halves the pace only, after the hysteresis, with no new encoder`() {
-        val g = started(startFps = 16, ceiling = 16)
+        val g = started(fullFps = 16)
         g.keptAt(1200)
         val firstFar = g.poll(navSample = maneuverSample(distance = 1200)) // first far sample: sets the baseline, stays FULL
         assertTrue("got $firstFar", firstFar.none { it is Action.Rebuild }) // the encoder already is the full rate's
@@ -317,7 +421,7 @@ class StreamGovernorTest {
 
     @Test
     fun `a tier change is only a pace change, however many times it flips`() {
-        val g = started(startFps = 16, ceiling = 16)
+        val g = started(fullFps = 16)
         g.poll(navSample = maneuverSample(distance = 1200))
         // each tier is kept at least NAV_DWELL_MS (10 s, 40 polls), so a flip waits for it
         val flips = listOf(1450, 400, 1500, 1750, 300).flatMap { d -> (1..41).flatMap { g.poll(navSample = maneuverSample(distance = d)) } }
@@ -337,7 +441,7 @@ class StreamGovernorTest {
 
     @Test
     fun `a tier, once changed to, is kept for 10 s before it can change again`() {
-        val g = started(startFps = 16, ceiling = 16)
+        val g = started(fullFps = 16)
         g.keptAt(1200) // the first verdict, FULL, kept 10 s: a change may come at once now
         g.poll(navSample = maneuverSample(distance = 1450)) // REDUCED, at once: the first change has nothing before it
         assertEquals(8, g.fps)
@@ -352,7 +456,7 @@ class StreamGovernorTest {
 
     @Test
     fun `a blip back to the other tier inside the 10 s is never seen`() {
-        val g = started(startFps = 16, ceiling = 16)
+        val g = started(fullFps = 16)
         g.keptAt(1200) // the first verdict, FULL, kept 10 s: a change may come at once now
         g.poll(navSample = maneuverSample(distance = 1450)) // REDUCED
         val blip = (1..8).flatMap { g.poll(navSample = maneuverSample(distance = 400)) } + // 2 s wanting FULL
@@ -363,7 +467,7 @@ class StreamGovernorTest {
 
     @Test
     fun `a speed that wobbles across its band every 3 s changes the tier once in 10 s, not every time`() {
-        val g = started(startFps = 16, ceiling = 16)
+        val g = started(fullFps = 16)
         val changes = (0 until 10).flatMap { i ->
             (1..12).flatMap { g.poll(navSample = speedSample(if (i % 2 == 0) 72.0 else 47.0)) } // 3 s of each
         }.count { it.isProfileLog() }
@@ -373,7 +477,7 @@ class StreamGovernorTest {
 
     @Test
     fun `the first verdict is taken at once and starts the wait, and coming back from no data is taken at once`() {
-        val g = started(startFps = 16, ceiling = 16)
+        val g = started(fullFps = 16)
         g.poll(navSample = maneuverSample(distance = 500)) // FULL, the first verdict: at once
         assertEquals(16, g.fps)
         g.poll(navSample = maneuverSample(distance = 1200))
@@ -381,8 +485,8 @@ class StreamGovernorTest {
         assertEquals("REDUCED waits: FULL was taken 0.5 s ago", 16, g.fps)
         (1..38).forEach { g.poll(navSample = maneuverSample(distance = 1450)) }
         assertEquals("10 s after the first verdict: REDUCED", 8, g.fps)
-        (1..28).forEach { g.poll(navSample = maneuverSample(distance = null)) } // 7 s with no data: the automatic rate
-        assertTrue("the hold ended inside the 10 s: the wait never delays the automatic rate", g.fps == 16)
+        (1..28).forEach { g.poll(navSample = maneuverSample(distance = null)) } // 7 s with no data: no tier, the full pace
+        assertTrue("the hold ended inside the 10 s: the wait never delays the fall to no tier", g.fps == 16)
         g.poll(navSample = maneuverSample(distance = 1500))
         g.poll(navSample = maneuverSample(distance = 1750))
         assertEquals("a tier taken after no data is taken at once", 8, g.fps)
@@ -395,7 +499,7 @@ class StreamGovernorTest {
      */
     @Test
     fun `a long road to a far maneuver goes REDUCED once and stays so, not a swap every 10 s`() {
-        val g = started(startFps = 4, ceiling = 4, bitrateCeilingBps = 400_000)
+        val g = started(fullFps = 4, bitrateCeilingBps = 400_000)
         val speed = NavSpeed()
         val t0 = nowMs
         val steps = buildList {
@@ -433,15 +537,15 @@ class StreamGovernorTest {
 
     @Test
     fun `the tier change goes to the log, with what the encoder stays at`() {
-        val g = started(startFps = 4, ceiling = 4, bitrateCeilingBps = 200_000)
+        val g = started(fullFps = 4, bitrateCeilingBps = 200_000)
         g.keptAt(1200) // the first verdict, FULL, kept 10 s: a change may come at once now
         val line = g.poll(navSample = maneuverSample(distance = 1450)).filterIsInstance<Action.Log>().single().line
         assertEquals("nav profile: FULL -> REDUCED (data), pace 2 fps, encoder 4 fps", line)
     }
 
     @Test
-    fun `with no data the last tier is held for 7 s, then the automatic rate comes back`() {
-        val g = started(startFps = 8, ceiling = 24)
+    fun `with no data the last tier is held for 7 s, then the full pace comes back`() {
+        val g = started(fullFps = 24)
         g.keptAt(1200) // the first verdict, FULL, kept 10 s: a change may come at once now
         g.poll(navSample = maneuverSample(distance = 1450)) // REDUCED: 12 fps
         assertEquals(12, g.fps)
@@ -449,13 +553,14 @@ class StreamGovernorTest {
         assertEquals("held", 12, g.fps)
         assertTrue("nothing changes while it holds, got $gap", gap.none { it is Action.SetPace || it is Action.Rebuild })
         val back = g.poll(navSample = maneuverSample(distance = null)) // 7 s
-        assertEquals("the automatic rate (8), not the ceiling", 8, g.fps)
+        assertEquals("the full pace", 24, g.fps)
         assertTrue("got $back", back.none { it is Action.Rebuild })
+        assertTrue("got $back", Action.SetPace(DashCompositor.Pace(42, 250)) in back)
     }
 
     @Test
     fun `a gap shorter than the hold, then data again, never leaves the tier`() {
-        val g = started(startFps = 16, ceiling = 16)
+        val g = started(fullFps = 16)
         g.keptAt(1200) // the first verdict, FULL, kept 10 s: a change may come at once now
         g.poll(navSample = maneuverSample(distance = 1450)) // REDUCED
         val actions = (1..20).flatMap { g.poll(navSample = maneuverSample(distance = null)) } + // 5 s with no data
@@ -466,16 +571,16 @@ class StreamGovernorTest {
 
     @Test
     fun `switching the profiles off ends the hold at once`() {
-        val g = started(startFps = 16, ceiling = 16)
+        val g = started(fullFps = 16)
         g.keptAt(1200) // the first verdict, FULL, kept 10 s: a change may come at once now
         g.poll(navSample = maneuverSample(distance = 1450)) // REDUCED
         g.poll(navSample = maneuverSample(distance = 1450).copy(maneuverProfileEnabled = false))
-        assertEquals("the automatic rate again, now", 16, g.fps)
+        assertEquals("the full pace again, now", 16, g.fps)
     }
 
     @Test
     fun `at a pace below the encoder's rate a keyframe is asked for at the rider's interval`() {
-        val g = started(startFps = 4, ceiling = 4, bitrateCeilingBps = 200_000)
+        val g = started(fullFps = 4, bitrateCeilingBps = 200_000)
         g.keptAt(1200) // the first verdict, FULL, kept 10 s: a change may come at once now
         g.poll(navSample = maneuverSample(distance = 1450)) // REDUCED: 2 fps on a 4 fps encoder
         val syncs = (1..40).flatMap { g.poll(drawn = 1, navSample = maneuverSample(distance = 1450)) }.filterIsInstance<Action.RequestSync>()
@@ -485,31 +590,22 @@ class StreamGovernorTest {
 
     @Test
     fun `at the full pace no keyframe is asked for, the encoder places its own`() {
-        val g = started(startFps = 4, ceiling = 4, bitrateCeilingBps = 200_000)
+        val g = started(fullFps = 4, bitrateCeilingBps = 200_000)
         val syncs = (1..40).flatMap { g.poll(drawn = 1, navSample = maneuverSample(distance = 500)) }.filterIsInstance<Action.RequestSync>()
         assertTrue("got $syncs", syncs.isEmpty())
     }
 
     @Test
-    fun `a profile switched on or off while running does replace the encoder`() {
-        val g = started(startFps = 8, ceiling = 16)
-        val on = g.poll(navSample = maneuverSample(distance = 500))
-        assertTrue("got $on", Action.Rebuild(fps = 16, keyframeSec = 1, bitrateBps = 1_024_000) in on)
-        val off = g.poll(navSample = maneuverSample(distance = 500).copy(maneuverProfileEnabled = false))
-        assertTrue("got $off", Action.Rebuild(fps = 8, keyframeSec = 1, bitrateBps = 1_024_000) in off)
-    }
-
-    @Test
     fun `a tier that does not change asks for no rebuild`() {
-        val g = started(startFps = 8, ceiling = 16)
+        val g = started(fullFps = 16)
         g.poll(navSample = maneuverSample(distance = 500))
         val actions = g.poll(navSample = maneuverSample(distance = 400)) // still under 1000 m: still FULL
         assertTrue("got $actions", actions.none { it is Action.Rebuild })
     }
 
     @Test
-    fun `at the conservative 4 fps 200 kbps ceiling, REDUCED still feeds 2 fps, past the app's general floor, on the same encoder`() {
-        val g = started(startFps = 4, ceiling = 4, bitrateCeilingBps = 200_000) // the conservative default
+    fun `at the 4 fps of a hot phone with a 200 kbps ceiling, REDUCED still feeds 2 fps, past the app's general floor, on the same encoder`() {
+        val g = started(fullFps = 4, bitrateCeilingBps = 200_000) // the conservative default
         g.keptAt(1200) // the first verdict, FULL, kept 10 s: a change may come at once now
         val reduced = g.poll(navSample = maneuverSample(distance = 1450))
         assertTrue("got $reduced", reduced.none { it is Action.Rebuild })
@@ -521,7 +617,7 @@ class StreamGovernorTest {
 
     @Test
     fun `Otimista (the default) takes the most generous of the two switches`() {
-        val g = started(startFps = 8, ceiling = 16)
+        val g = started(fullFps = 16)
         g.keptAt(1200) // the first verdict, FULL, kept 10 s: a change may come at once now
         val actions = g.poll(
             navSample = StreamGovernor.NavSample(
@@ -536,7 +632,7 @@ class StreamGovernorTest {
 
     @Test
     fun `Pessimista takes the least generous of the two switches`() {
-        val g = started(startFps = 8, ceiling = 16)
+        val g = started(fullFps = 16)
         g.keptAt(500) // near: alone FULL, kept 10 s
         val actions = g.poll(
             navSample = StreamGovernor.NavSample(
@@ -552,86 +648,69 @@ class StreamGovernorTest {
 
     @Test
     fun `either switch alone is unaffected by Otimista vs Pessimista`() {
-        val otimista = started(startFps = 8, ceiling = 16)
+        val otimista = started(fullFps = 16)
         otimista.poll(navSample = maneuverSample(distance = 500).copy(mode = NavProfileMode.OTIMISTA))
-        val pessimista = started(startFps = 8, ceiling = 16)
+        val pessimista = started(fullFps = 16)
         pessimista.poll(navSample = maneuverSample(distance = 500).copy(mode = NavProfileMode.PESSIMISTA))
         assertEquals(otimista.fps, pessimista.fps)
         assertEquals(16, otimista.fps)
     }
 
-    @Test
-    fun `autoFps freezes without error while the override differs from it, and resumes where it froze once the override clears`() {
-        val g = started(startFps = 8, ceiling = 24) // autoFps.currentFps starts, and stays, at 8 unless judged
-        g.keptAt(1200) // the first verdict, FULL, kept 10 s: a change may come at once now
-        g.poll(navSample = maneuverSample(distance = 1450)) // REDUCED: snapStreamFps(24 / 2) = 12, unlike autoFps's 8
-        assertEquals(12, g.fps)
-        val duringOverride = (1..4).flatMap { g.window(composed = 48, navSample = maneuverSample(distance = 1450)) }
-        assertTrue(
-            "autoFps's own climb must not fire while frozen, got ${duringOverride.filterIsInstance<Action.Rebuild>()}",
-            duringOverride.none { it is Action.Rebuild },
-        )
-        assertEquals(12, g.fps)
-        (1..28).forEach { g.poll(navSample = maneuverSample(distance = null)) } // the route ends: 7 s held, then no override
-        assertEquals("back to autoFps, frozen at 8 the whole time — not reset, not the ceiling", 8, g.fps)
-    }
-
     // ── the two profiles: 4 fps / 400 kbps and 2 fps / 200 kbps ───────────────────────────────────────────
 
     private fun reducedGovernor(): StreamGovernor {
-        val g = started(startFps = 4, ceiling = 4, bitrateCeilingBps = 400_000)
+        val g = started(fullFps = 6, bitrateCeilingBps = 400_000)
         g.keptAt(1200, drawn = 1) // the first verdict, FULL, kept 10 s: a change may come at once now
         return g
     }
 
     /**
-     * A ride log: `nav profile: FULL -> REDUCED (data), pace 2 fps, encoder 4 fps` with the bitrate still
-     * `set=400k`. Profile 2 is 2 fps at 200 kbps ([DashConfig.PROFILE_REDUCED_BPS]), profile 1 4 fps at 400 kbps.
+     * Profile B is 3 fps at the SAME 400 kbps as profile A (6 fps): going to it and coming back change the pace only, never the bitrate or the encoder.
      */
     @Test
-    fun `going to profile 2 sets its bitrate with its pace, with no new encoder, and coming back to profile 1 sets profile 1's`() {
+    fun `going to profile B changes its pace and not its bitrate, with no new encoder, and coming back to profile A the same`() {
         val g = reducedGovernor()
         val reduced = g.poll(drawn = 1, navSample = maneuverSample(distance = 1450))
-        assertEquals(2, g.fps)
-        assertTrue("got $reduced", Action.SetBitrate(DashConfig.PROFILE_REDUCED_BPS) in reduced)
-        assertEquals(200_000, DashConfig.PROFILE_REDUCED_BPS)
-        assertTrue("never a new encoder for it, got $reduced", reduced.none { it is Action.Rebuild })
+        assertEquals(3, g.fps)
+        assertTrue("got $reduced", reduced.none { it is Action.SetBitrate || it is Action.Rebuild })
+        assertTrue("got $reduced", Action.SetPace(DashCompositor.Pace(333, 666, 0)) in reduced)
 
-        // Profile 2 is held 10 s (40 polls) before the other may be taken: nothing is set meanwhile.
+        // Profile B is held 10 s (40 polls) before the other may be taken: nothing is set meanwhile.
         val held = (1..39).flatMap { g.poll(drawn = 1, navSample = maneuverSample(distance = 400)) }
         assertTrue("got $held", held.none { it is Action.SetBitrate || it is Action.Rebuild })
-        assertEquals("still profile 2", 2, g.fps)
+        assertEquals("still profile B", 3, g.fps)
 
-        val back = g.poll(drawn = 1, navSample = maneuverSample(distance = 400)) // near: profile 1, after its 10 s
-        assertEquals(4, g.fps)
-        assertTrue("got $back", Action.SetBitrate(DashConfig.PROFILE_FULL_BPS) in back)
-        assertTrue("never a new encoder for it, got $back", back.none { it is Action.Rebuild })
+        val back = g.poll(drawn = 1, navSample = maneuverSample(distance = 400)) // near: profile A, after its 10 s
+        assertEquals(6, g.fps)
+        assertTrue("got $back", back.none { it is Action.SetBitrate || it is Action.Rebuild })
+        assertEquals(DashConfig.PROFILE_FULL_BPS, g.activeBitrateBps)
     }
 
     @Test
-    fun `profile 2 keeps its bitrate when the picture goes still, and profile 1 still halves its own`() {
+    fun `neither profile halves its bitrate when the picture goes still`() {
         val g = reducedGovernor()
-        g.poll(drawn = 1, navSample = maneuverSample(distance = 1450)) // profile 2, moving
+        g.poll(drawn = 1, navSample = maneuverSample(distance = 1450)) // profile B, moving
         val still = (1..12).flatMap { g.poll(navSample = maneuverSample(distance = 1450)) }
-        assertTrue("200 kbps is profile 2's whole and the still one too, got $still", still.none { it is Action.SetBitrate })
+        assertTrue("got $still", still.none { it is Action.SetBitrate })
 
         val full = reducedGovernor()
         full.poll(drawn = 1, navSample = maneuverSample(distance = 1200))
         val quiet = (1..12).flatMap { full.poll(navSample = maneuverSample(distance = 1200)) }
-        assertEquals(listOf(Action.SetBitrate(200_000)), quiet.filterIsInstance<Action.SetBitrate>())
+        assertTrue("profile A keeps its 400 kbps too, got $quiet", quiet.none { it is Action.SetBitrate })
     }
 
     @Test
-    fun `profile 2's bitrate is its own whatever the ceiling of profile 1`() {
-        val g = started(startFps = 16, ceiling = 16) // ceiling 1 024 000
+    fun `profile B's bitrate is profile A's whatever the ceiling`() {
+        val g = started(fullFps = 16) // ceiling 1 024 000
         g.keptAt(1200, drawn = 1)
         val reduced = g.poll(drawn = 1, navSample = maneuverSample(distance = 1450))
-        assertTrue("got $reduced", Action.SetBitrate(DashConfig.PROFILE_REDUCED_BPS) in reduced)
+        assertTrue("got $reduced", reduced.none { it is Action.SetBitrate })
+        assertEquals(1_024_000, g.activeBitrateBps)
     }
 
     @Test
     fun `the 5 s line says how many keyframes, and the biggest one in bytes and packets`() {
-        val g = started(startFps = 4, ceiling = 4, bitrateCeilingBps = 400_000)
+        val g = started(fullFps = 4, bitrateCeilingBps = 400_000)
         val actions = (0 until POLLS_PER_WINDOW).flatMap { i ->
             g.poll(
                 drawn = 1, keyframes = if (i % 10 == 0) 1 else 0,
@@ -647,16 +726,15 @@ class StreamGovernorTest {
         const val POLL_MS = 250L
         const val POLLS_PER_WINDOW = 20
     }
-    /** Audit of 20/10/2026: an encoder rebuilt after a failure came back at the full bitrate while the stream was at the reduced one. */
+    /** Audit of 20/10/2026: an encoder rebuilt after a failure came back at the full bitrate while the stream was at the reduced one. Now the bitrate is the ceiling at every moment. */
     @Test
-    fun `an encoder rebuilt after a failure takes the bitrate that is applied now, not the full one`() {
+    fun `an encoder rebuilt after a failure takes the bitrate that is applied now, which is the ceiling whatever the picture does`() {
         val g = governor()
         g.start(nowMs)
-        // Still: the stream starts at the reduced bitrate and stays there while nothing moves on the map.
+        // Still: the bitrate stays the ceiling while nothing moves on the map.
         g.poll(drawn = 0, repeated = 4, confirmed = true)
-        val still = g.rebuildAction()
-        assertTrue("the applied bitrate is the still one: ${still.bitrateBps}", still.bitrateBps < g.activeBitrateBps)
-        // Moving: the full bitrate is applied, and that is what a rebuild takes.
+        assertEquals(g.activeBitrateBps, g.rebuildAction().bitrateBps)
+        // Moving: the same.
         g.poll(drawn = 4, confirmed = true)
         assertEquals(g.activeBitrateBps, g.rebuildAction().bitrateBps)
         assertEquals("built for the encoder's own rate, not the pace's", g.encoderFps, g.rebuildAction().fps)

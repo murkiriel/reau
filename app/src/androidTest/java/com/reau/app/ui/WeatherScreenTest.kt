@@ -3,6 +3,7 @@ package com.reau.app.ui
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertContentDescriptionContains
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
@@ -58,9 +59,11 @@ class WeatherScreenTest {
               "wind_speed_10m":12.4,"wind_direction_10m":200,"wind_gusts_10m":30.2,"surface_pressure":1009.5,"cloud_cover":80,"is_day":1},
              "hourly":{"time":${list(hours.map { "\"$it\"" })},
               "temperature_2m":${list(hours.map { "22.0" })},"precipitation_probability":${list(hours.map { "40" })},
+              "precipitation":${list(hours.mapIndexed { i, _ -> if (i == 0) "2.4" else "0.0" })},
               "weather_code":${list(hours.map { "61" })},"uv_index":${list(hours.map { "5.0" })}},
              "daily":{"time":${list(days.map { "\"$it\"" })},"temperature_2m_max":${list(days.map { "27.0" })},"temperature_2m_min":${list(days.map { "18.0" })},
-              "precipitation_probability_max":${list(days.map { "70" })},"uv_index_max":${list(days.map { "8.0" })},
+              "precipitation_probability_max":${list(days.map { "70" })},"precipitation_sum":${list(days.mapIndexed { i, _ -> if (i == 0) "14.0" else "0.0" })},
+              "uv_index_max":${list(days.map { "8.0" })},
               "sunrise":${list(days.map { "\"${it}T06:12\"" })},"sunset":${list(days.map { "\"${it}T18:47\"" })},
               "daylight_duration":${list(days.map { "44400.0" })},"wind_speed_10m_max":${list(days.map { "20.0" })},
               "wind_gusts_10m_max":${list(days.map { "40.0" })},"weather_code":${list(days.map { "63" })}}}
@@ -93,6 +96,18 @@ class WeatherScreenTest {
         compose.onNodeWithTag("dash_weather").assertIsOn()
         compose.onNodeWithTag("dash_weather_info").performScrollTo().performClick()
         compose.onNodeWithText("quando você abre o REau", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun onlyTheLinesWithRainHaveThePill() {
+        on = true
+        seedWeather()
+        compose.onNodeWithTag("weather_hour_0_rain", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("weather_hour_0_rain", useUnmergedTree = true).assertContentDescriptionContains("2,4 milímetros de chuva")
+        compose.onNodeWithTag("weather_day_0_rain", useUnmergedTree = true).assertContentDescriptionContains("14 milímetros de chuva")
+        compose.onNodeWithTag("weather_hour_1_rain", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag("weather_day_0_rain", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("weather_day_1_rain", useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test

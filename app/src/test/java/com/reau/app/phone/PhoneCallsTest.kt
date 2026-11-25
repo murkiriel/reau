@@ -20,4 +20,24 @@ class PhoneCallsTest {
         assertEquals(CallState.RINGING, PhoneCalls.visibleState(switchOn = true, permitted = true, CallState.RINGING))
         assertEquals(CallState.IN_CALL, PhoneCalls.visibleState(switchOn = true, permitted = true, CallState.IN_CALL))
     }
+
+    @Test
+    fun `an end that Telecom answers false after the key to Android Auto does not read as a failure`() {
+        assertEquals(
+            "end by the joystick: Telecom.endCall returned false (call state before: IDLE; the call may already have ended by the key sent to Android Auto)",
+            PhoneCalls.endLine(ended = false, before = CallState.IDLE),
+        )
+        assertEquals(
+            "end by the joystick: Telecom.endCall returned false (call state before: IN_CALL; the call may already have ended by the key sent to Android Auto)",
+            PhoneCalls.endLine(ended = false, before = CallState.IN_CALL),
+        )
+    }
+
+    @Test
+    fun `an end that Telecom did is told with the state before`() {
+        assertEquals(
+            "end by the joystick: Telecom.endCall returned true (call state before: RINGING)",
+            PhoneCalls.endLine(ended = true, before = CallState.RINGING),
+        )
+    }
 }

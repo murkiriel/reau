@@ -1,0 +1,98 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:04.533
+Problemas de instalación y de Wi-Fi de REau, y cómo resolverlos
+
+2
+00:00:04.533 --> 00:00:10.133
+1. Play Protect bloqueó la instalación. Toca el botón de abajo, Entendido
+
+3
+00:00:10.133 --> 00:00:16.333
+En Play Store, pausa el análisis de apps, instala el APK otra vez y reactiva Play Protect
+
+4
+00:00:16.333 --> 00:00:22.400
+2. Servidor de Android Auto apagado: REau avisa que Android Auto no se encendió
+
+5
+00:00:22.400 --> 00:00:25.933
+Toca Abrir los ajustes de Android Auto
+
+6
+00:00:25.933 --> 00:00:30.867
+En el menú de tres puntos, toca Iniciar servidor de unidad principal
+
+7
+00:00:30.867 --> 00:00:39.533
+¿Reiniciaste el teléfono? El servidor se apaga y el aviso vuelve: enciéndelo otra vez a mano. REau se conecta solo cuando responde
+
+8
+00:00:39.533 --> 00:00:48.933
+3. ¿El menú no muestra Iniciar servidor? El modo desarrollador de Android Auto está apagado. Baja hasta el final y toca diez veces en Versión
+
+9
+00:00:48.933 --> 00:00:55.400
+Confirma con OK. El modo desarrollador del teléfono no sirve: tiene que ser el de Android Auto
+
+10
+00:00:55.400 --> 00:01:03.667
+4. Después de Apagar, Android Auto tarda hasta un minuto en cerrar la sesión anterior. REau avisa y reintenta solo
+
+11
+00:01:03.667 --> 00:01:10.267
+Para no esperar, en el menú de tres puntos toca Detener servidor de unidad principal y luego Iniciar
+
+12
+00:01:10.267 --> 00:01:17.933
+5. Android Auto sin respuesta o sin imagen: en Ajustes, Apps, Android Auto, toca Forzar detención
+
+13
+00:01:17.933 --> 00:01:23.200
+Después, apaga y enciende REau. En Batería, elige Sin restricciones
+
+14
+00:01:23.200 --> 00:01:27.800
+6. Si REau muestra este aviso, una VPN lo retiene
+
+15
+00:01:27.800 --> 00:01:34.133
+Apaga la VPN o deja a REau fuera de ella, con túnel dividido, y reconecta la VPN
+
+16
+00:01:34.133 --> 00:01:41.867
+7. Wi-Fi del tablero no encontrado: enciende la llave de la moto y revisa el Wi-Fi y la ubicación del teléfono
+
+17
+00:01:41.867 --> 00:01:47.067
+En Datos de la moto, toca Mostrar para comprobar el nombre completo de la red
+
+18
+00:01:47.067 --> 00:01:52.467
+Si cambiaste de moto o hay más de un tablero cerca, toca Olvidar y busca de nuevo
+
+19
+00:01:52.467 --> 00:01:57.667
+La primera vez, Android pregunta Conectar al dispositivo: toca Conectar
+
+20
+00:01:57.667 --> 00:02:05.400
+8. Si aparece Otra app tiene el tablero, detén la transmisión de la otra app al tablero. REau reintenta solo
+
+21
+00:02:05.400 --> 00:02:12.867
+El tablero puede haberse trabado: apaga la moto con la llave, espera unos treinta segundos y enciéndela de nuevo
+
+22
+00:02:12.867 --> 00:02:22.400
+9. Si el tablero muestra IMAGEN CONGELADA o la app dice Sin imagen nueva, Android Auto dejó de mandar la imagen. Normalmente vuelve sola
+
+23
+00:02:22.400 --> 00:02:29.533
+10. Si encendiste el servidor de red, REau no busca el tablero: apaga ese interruptor para usar la moto
+
+24
+00:02:29.533 --> 00:02:33.667
+Hay más respuestas en las preguntas frecuentes de REau
+

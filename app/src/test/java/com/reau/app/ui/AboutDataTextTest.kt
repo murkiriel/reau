@@ -43,8 +43,8 @@ class AboutDataTextTest {
     fun `the shorter texts keep what the privacy answer says`() {
         val leaves = text("about_data_leaves")
         // One short sentence (28/10/2026): the dash, with the switches that are on, and on the internet only the weather and the update check
-        // on a tap; the details (Open-Meteo, 11 km, the Wi-Fi's password, GitHub) are in the privacy page of the site, which has them.
-        assertTrue(leaves, leaves.contains("painel") && leaves.contains("clima") && leaves.contains("verificação de atualização") && leaves.contains("ao tocar"))
+        // (on a tap, and daily by itself since P32A); the details (Open-Meteo, 11 km, the Wi-Fi's password, GitHub) are in the privacy page of the site, which has them.
+        assertTrue(leaves, leaves.contains("painel") && leaves.contains("clima") && leaves.contains("verificação de atualização") && leaves.contains("ao tocar ou diariamente"))
         assertTrue(text("about_data_stays"), text("about_data_stays").contains("registro de diagnóstico") && text("about_data_stays").contains("posição"))
         // 28/10/2026: the optional recordings, off in the app you ride with, are said to hold what the log does not.
         assertTrue(text("about_data_stays"), text("about_data_stays").contains("gravações opcionais") && text("about_data_stays").contains("desligadas"))

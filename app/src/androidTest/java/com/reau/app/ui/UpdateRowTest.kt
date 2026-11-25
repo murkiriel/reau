@@ -35,10 +35,12 @@ class UpdateRowTest {
     private fun status() = compose.onNodeWithTag("update_status")
 
     @Test
-    fun beforeTheTapItSaysTheVersionAndThatNothingIsAskedByItself() {
+    fun beforeTheTapItSaysTheVersionAndNothingIsAskedByTheRow() {
         show()
         status().assertIsDisplayed().assertTextContains(BuildConfig.VERSION_NAME, substring = true)
-        compose.onNodeWithTag("update_note").assertTextContains("api.github.com", substring = true)
+        // The block of the signature and the paragraph about api.github.com are gone from the row (P32A).
+        compose.onNodeWithTag("update_note").assertDoesNotExist()
+        compose.onNodeWithTag("update_signing").assertDoesNotExist()
         compose.onNodeWithTag("update_open").assertDoesNotExist()
         assertEquals("nothing is asked until the tap", 0, checks)
         compose.onNodeWithTag("update_check").performClick()

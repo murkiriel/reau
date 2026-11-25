@@ -4,6 +4,7 @@ import com.reau.app.service.DayNight
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -112,6 +113,19 @@ class InfoRingTest {
         assertEquals("até 4 min", line(now))
         val goesOn = pages(forecast(minutely = dry.map { q(it.timeIso.substringAfter('T'), 0.5) }))
         assertEquals("chovendo", line(page(RingKind.RAIN_NOW, goesOn)))
+    }
+
+    @Test
+    fun `the ring says the rain and the minutes only, never how hard it falls`() {
+        // 3.5 mm in each quarter is 14 mm/h with no end in sight; 2 mm in the first wet quarter ahead is 8 mm/h: neither is written on the ring.
+        val goesOn = pages(forecast(minutely = dry.map { q(it.timeIso.substringAfter('T'), 3.5) }))
+        val soon = pages(forecast(minutely = dry.map { if (it.timeIso.endsWith("12:45")) q("12:45", 0.4) else if (it.timeIso.endsWith("13:00")) q("13:00", 2.0) else it }))
+        assertEquals("chovendo", line(page(RingKind.RAIN_NOW, goesOn)))
+        for (p in listOf(page(RingKind.RAIN_NOW, goesOn), page(RingKind.RAIN_SOON, soon))) {
+            val written = line(p) + " " + p.extra.joinToString(" ")
+            assertFalse("${p.kind}: $written", written.contains("mm") || written.contains("14") || written.contains("8"))
+        }
+        assertEquals("with minutes it is as before", "até 4 min", line(page(RingKind.RAIN_NOW, pages(forecast(minutely = dry.map { if (it.timeIso.endsWith("12:00")) q("12:00", 3.5) else it })))))
     }
 
     @Test
@@ -403,19 +417,123 @@ class InfoRingTest {
         assertEquals(RingKind.UV, r.pick(pages, 22_000)?.kind)
     }
 
+    /** The kinds the ring says in [count] turns of the carousel's time (7 s) from [from], one look at the start of each (the first look starts the count). */
+    private fun turns(r: InfoRingRotation, pages: List<RingPage>, count: Int, from: Long = 0L, carousel: Boolean = true) =
+        (0 until count).mapNotNull { r.pick(pages, from + it * 7_000L, carousel)?.kind }
+
+    private val sky = page(RingKind.SKY, 4)
+    private val temps = page(RingKind.TEMPS, 4)
+    private val uv = page(RingKind.UV, 3)
+    private val thunder = page(RingKind.THUNDER, 1)
+    private val rainSoon = page(RingKind.RAIN_SOON, 1)
+
     @Test
-    fun `danger pages alone take turns, as long as the carousel's time, and a new one shows at once`() {
+    fun `the rule is five turns of danger and one of the others, owner's decision of 22 November 2026`() {
+        assertEquals(5, InfoRingRotation.DANGER_TURNS)
+        assertEquals(1, InfoRingRotation.NORMAL_TURNS)
+        assertEquals(6, InfoRingRotation.CYCLE_TURNS)
+    }
+
+    @Test
+    fun `one danger with others, five turns of it and one of the next normal page, the queue going on`() {
         val r = InfoRingRotation()
-        val normal = listOf(page(RingKind.SKY, 4), page(RingKind.TEMPS, 4))
-        assertEquals(RingKind.SKY, r.pick(normal, 0)?.kind)
-        val withOne = listOf(page(RingKind.WIND_DANGER, 1)) + normal
-        assertEquals("only the danger, and it stays", RingKind.WIND_DANGER, r.pick(withOne, 3_000)?.kind)
-        assertEquals(RingKind.WIND_DANGER, r.pick(withOne, 40_000)?.kind)
-        val withTwo = listOf(page(RingKind.WIND_DANGER, 1), page(RingKind.THUNDER, 1)) + normal
-        assertEquals("a new danger shows at once", RingKind.WIND_DANGER, r.pick(withTwo, 41_000)?.kind)
-        assertEquals(RingKind.WIND_DANGER, r.pick(withTwo, 47_999)?.kind)
-        assertEquals(RingKind.THUNDER, r.pick(withTwo, 48_000)?.kind)
-        assertEquals(RingKind.WIND_DANGER, r.pick(withTwo, 55_000)?.kind)
+        val pages = listOf(thunder, uv, sky, temps)
+        val d = RingKind.THUNDER
+        assertEquals(
+            "each cycle: the danger five times, then the next of the others in the order of urgency, round and round",
+            listOf(d, d, d, d, d, RingKind.UV, d, d, d, d, d, RingKind.SKY, d, d, d, d, d, RingKind.TEMPS, d, d, d, d, d, RingKind.UV),
+            turns(r, pages, 24),
+        )
+        assertEquals("the turn lasts the carousel's time", RingKind.THUNDER, r.pick(pages, 34_999)?.kind)
+        assertEquals(RingKind.UV, r.pick(pages, 35_000)?.kind)
+        assertEquals(RingKind.THUNDER, r.pick(pages, 42_000)?.kind)
+    }
+
+    @Test
+    fun `two dangers alternate over the five turns in all, and the alternation goes on from one cycle to the next`() {
+        val r = InfoRingRotation()
+        val pages = listOf(thunder, rainSoon, uv, sky)
+        val t = RingKind.THUNDER
+        val c = RingKind.RAIN_SOON
+        assertEquals(
+            listOf(t, c, t, c, t, RingKind.UV, c, t, c, t, c, RingKind.SKY, t, c, t, c, t, RingKind.UV),
+            turns(r, pages, 18),
+        )
+    }
+
+    @Test
+    fun `three dangers go round the five turns too`() {
+        val r = InfoRingRotation()
+        val pages = listOf(thunder, rainSoon, page(RingKind.WIND_DANGER, 1), sky)
+        assertEquals(
+            listOf(RingKind.THUNDER, RingKind.RAIN_SOON, RingKind.WIND_DANGER, RingKind.THUNDER, RingKind.RAIN_SOON, RingKind.SKY, RingKind.WIND_DANGER),
+            turns(r, pages, 7),
+        )
+    }
+
+    @Test
+    fun `with no normal page only the dangers turn, as they always did`() {
+        val r = InfoRingRotation()
+        val two = listOf(thunder, rainSoon)
+        assertEquals(listOf(RingKind.THUNDER, RingKind.RAIN_SOON, RingKind.THUNDER, RingKind.RAIN_SOON, RingKind.THUNDER, RingKind.RAIN_SOON, RingKind.THUNDER), turns(r, two, 7))
+        val one = InfoRingRotation()
+        assertEquals(List(8) { RingKind.THUNDER }, turns(one, listOf(thunder), 8))
+    }
+
+    @Test
+    fun `a new danger shows at once and the count of five starts again`() {
+        val r = InfoRingRotation()
+        val normal = listOf(uv, sky)
+        // Four danger turns in, the second danger comes: it shows now, from the first turn of a new cycle.
+        assertEquals(List(4) { RingKind.THUNDER }, turns(r, listOf(thunder) + normal, 4))
+        val both = listOf(thunder, rainSoon) + normal
+        assertEquals(RingKind.THUNDER, r.pick(both, 28_000)?.kind)
+        assertEquals(
+            listOf(RingKind.THUNDER, RingKind.RAIN_SOON, RingKind.THUNDER, RingKind.RAIN_SOON, RingKind.THUNDER, RingKind.UV),
+            turns(r, both, 6, from = 28_000),
+        )
+    }
+
+    @Test
+    fun `the others changing do not restart the five, and the queue goes on from where its block is`() {
+        val r = InfoRingRotation()
+        assertEquals(listOf(RingKind.THUNDER, RingKind.THUNDER, RingKind.THUNDER, RingKind.THUNDER, RingKind.THUNDER, RingKind.UV), turns(r, listOf(thunder, uv, sky), 6))
+        // A page appears among the others: the danger is the same, so the cycle keeps its place (the second turn of the cycle after the normal one).
+        val later = listOf(thunder, page(RingKind.AIR, 3), uv, sky)
+        assertEquals(RingKind.THUNDER, r.pick(later, 6 * 7_000L + 1)?.kind)
+        assertEquals(RingKind.THUNDER, r.pick(later, 10 * 7_000L)?.kind)
+        assertEquals("the normal turn of the second cycle is the second of the queue", RingKind.UV, r.pick(later, 11 * 7_000L)?.kind)
+    }
+
+    @Test
+    fun `with the carousel off it is five turns of the most urgent danger and one of the most urgent of the others, over and over`() {
+        val r = InfoRingRotation()
+        val pages = listOf(thunder, rainSoon, uv, sky)
+        val t = RingKind.THUNDER
+        assertEquals(listOf(t, t, t, t, t, RingKind.UV, t, t, t, t, t, RingKind.UV), turns(r, pages, 12, carousel = false))
+        // with no danger it stays on the most urgent one, as before
+        val plain = InfoRingRotation()
+        assertEquals(List(8) { RingKind.UV }, turns(plain, listOf(uv, sky, temps), 8, carousel = false))
+        // with only dangers, always the most urgent
+        val only = InfoRingRotation()
+        assertEquals(List(7) { RingKind.THUNDER }, turns(only, listOf(thunder, rainSoon), 7, carousel = false))
+    }
+
+    @Test
+    fun `with no danger nothing changed, the pages turn one after the other`() {
+        val r = InfoRingRotation()
+        assertEquals(listOf(RingKind.UV, RingKind.SKY, RingKind.TEMPS, RingKind.UV, RingKind.SKY, RingKind.TEMPS, RingKind.UV), turns(r, listOf(uv, sky, temps), 7))
+    }
+
+    @Test
+    fun `the turn says which pages are in play, the danger ones and the others`() {
+        val turn = InfoRingRotation().turn(listOf(thunder, uv, rainSoon, sky), 0L)!!
+        assertEquals(listOf(RingKind.THUNDER, RingKind.RAIN_SOON), turn.danger.map { it.kind })
+        assertEquals(listOf(RingKind.UV, RingKind.SKY), turn.normal.map { it.kind })
+        assertEquals(listOf(RingKind.THUNDER, RingKind.RAIN_SOON), turn.restartKinds)
+        val off = InfoRingRotation().turn(listOf(thunder, rainSoon, uv, sky), 0L, carousel = false)!!
+        assertEquals(listOf(RingKind.THUNDER), off.danger.map { it.kind })
+        assertEquals(listOf(RingKind.UV), off.normal.map { it.kind })
     }
 
     @Test
@@ -452,9 +570,9 @@ class InfoRingTest {
     )
 
     private fun kindsShown(options: RingOptions, snap: WeatherKeeper.Snapshot = snapshot(busy())): List<RingKind> {
-        // One look per turn of the shortest carousel (five seconds), to see every page that comes round.
+        // One look per turn of the shortest carousel (seven seconds), to see every page that comes round.
         val r = InfoRingRotation()
-        return (0 until 12).mapNotNull { frame0(snap, r, it * 5_000L, options)?.page?.kind }.distinct()
+        return (0 until 12).mapNotNull { frame0(snap, r, it * 7_000L, options)?.page?.kind }.distinct()
     }
 
     private fun frame0(snap: WeatherKeeper.Snapshot, r: InfoRingRotation, at: Long, options: RingOptions) =
@@ -462,11 +580,11 @@ class InfoRingTest {
 
     @Test
     fun `a kind of data the rider unticked is never said, the others are`() {
-        val all = kindsShown(RingOptions(seconds = 5))
+        val all = kindsShown(RingOptions(seconds = 7))
         assertTrue(RingKind.RAIN_SOON in all && RingKind.WIND_ALERT in all)
-        val noRain = kindsShown(RingOptions(data = RingData.ALL and RingData.RAIN.bit.inv(), seconds = 5))
+        val noRain = kindsShown(RingOptions(data = RingData.ALL and RingData.RAIN.bit.inv(), seconds = 7))
         assertTrue(RingKind.RAIN_SOON !in noRain && RingKind.WIND_ALERT in noRain)
-        val noWind = kindsShown(RingOptions(data = RingData.ALL and RingData.WIND.bit.inv(), seconds = 5))
+        val noWind = kindsShown(RingOptions(data = RingData.ALL and RingData.WIND.bit.inv(), seconds = 7))
         assertTrue(RingKind.WIND_ALERT !in noWind && RingKind.RAIN_SOON in noWind)
     }
 
@@ -492,11 +610,11 @@ class InfoRingTest {
     @Test
     fun `with the carousel off the ring stays on the most urgent page, however long it goes`() {
         val r = InfoRingRotation()
-        val options = RingOptions(carousel = false, seconds = 5)
+        val options = RingOptions(carousel = false, seconds = 7)
         val first = frame0(snapshot(busy()), r, 0L, options)?.page?.kind
         assertEquals(RingKind.WIND_ALERT, first)
-        for (at in listOf(5_000L, 6_000L, 12_000L, 100_000L)) assertEquals(first, frame0(snapshot(busy()), r, at, options)?.page?.kind)
-        assertEquals("on, it turns", true, kindsShown(RingOptions(seconds = 5)).size > 1)
+        for (at in listOf(7_000L, 8_000L, 14_000L, 100_000L)) assertEquals(first, frame0(snapshot(busy()), r, at, options)?.page?.kind)
+        assertEquals("on, it turns", true, kindsShown(RingOptions(seconds = 7)).size > 1)
     }
 
     @Test
@@ -510,13 +628,49 @@ class InfoRingTest {
     }
 
     @Test
-    fun `the carousel's time is five to thirty seconds, whatever was asked`() {
+    fun `the carousel's time is seven to thirty seconds, whatever was asked`() {
         assertEquals(7_000L, RingOptions().periodMs)
-        assertEquals(5_000L, RingOptions(seconds = 1).periodMs)
+        assertEquals("under the least: the least", 7_000L, RingOptions(seconds = 1).periodMs)
+        assertEquals("a time saved when five was the least", 7_000L, RingOptions(seconds = 5).periodMs)
+        assertEquals(7_000L, RingOptions(seconds = 6).periodMs)
+        assertEquals(7_000L, RingOptions(seconds = 7).periodMs)
+        assertEquals(8_000L, RingOptions(seconds = 8).periodMs)
+        assertEquals(7_000L, RingOptions(seconds = -3).periodMs)
         assertEquals(30_000L, RingOptions(seconds = 99).periodMs)
         assertEquals(12_000L, RingOptions(seconds = 12).periodMs)
-        assertEquals(5..30, RingOptions.SECONDS)
+        assertEquals(7..30, RingOptions.SECONDS)
+        assertEquals(7, RingOptions.MIN_SECONDS)
         assertEquals(7, RingOptions.DEFAULT_SECONDS)
+    }
+
+    @Test
+    fun `a carousel saved at five seconds turns every seven, in the ring itself`() {
+        val pages = listOf(page(RingKind.UV, 3), page(RingKind.SKY, 4))
+        val r = InfoRingRotation()
+        val options = RingOptions(seconds = 5)
+        assertEquals(RingKind.UV, r.pick(pages, 0, true, options.periodMs)?.kind)
+        assertEquals("not at five", RingKind.UV, r.pick(pages, 5_000, true, options.periodMs)?.kind)
+        assertEquals(RingKind.UV, r.pick(pages, 6_999, true, options.periodMs)?.kind)
+        assertEquals(RingKind.SKY, r.pick(pages, 7_000, true, options.periodMs)?.kind)
+    }
+
+    @Test
+    fun `the 5 + 1 turns of the ring are each at least seven seconds, whatever was saved`() {
+        val danger = listOf(page(RingKind.THUNDER, 1), page(RingKind.WIND_DANGER, 1), page(RingKind.UV, 3), page(RingKind.SKY, 4))
+        val r = InfoRingRotation()
+        val options = RingOptions(seconds = 5)
+        val runs = mutableListOf<Long>()
+        var last: RingKind? = null
+        var since = 0L
+        for (t in 0L..120_000L step 100L) {
+            val kind = r.pick(danger, t, true, options.periodMs)?.kind
+            if (kind != last) {
+                if (last != null && t > 0L) runs += t - since
+                last = kind
+                since = t
+            }
+        }
+        assertTrue(runs.toString(), runs.size >= 10 && runs.all { it >= 7_000L })
     }
 
     // The phone's cards: the battery, the link, the GPS.

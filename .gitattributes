@@ -9,3 +9,5 @@
 *.webp binary
 # Fuzz seeds are raw bytes (HTTP heads keep their CRLF).
 app/src/test/resources/com/reau/app/fuzz/** binary
+# The protobuf classes copied from OpenCfMoto are generated code: kept out of the language bar and the diffs on GitHub.
+app/src/main/java/com/reau/app/aa/proto/** linguist-generated

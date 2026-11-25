@@ -1,0 +1,98 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:04.400
+REau installation and Wi-Fi problems, and how to fix them
+
+2
+00:00:04.400 --> 00:00:09.267
+1. Play Protect blocked the installation. Tap the button at the bottom, Got it
+
+3
+00:00:09.267 --> 00:00:15.533
+In the Play Store, pause app scanning, install the APK again and turn Play Protect back on
+
+4
+00:00:15.533 --> 00:00:21.933
+2. Android Auto server off: REau warns that Android Auto didn’t start
+
+5
+00:00:21.933 --> 00:00:25.867
+Tap Open Android Auto settings
+
+6
+00:00:25.867 --> 00:00:30.933
+In the three-dot menu, tap Start head unit server
+
+7
+00:00:30.933 --> 00:00:39.000
+Restarted the phone? The server turns off and the warning returns: start it again by hand. REau connects by itself when it answers
+
+8
+00:00:39.000 --> 00:00:48.533
+3. The menu doesn’t show Start server? Android Auto’s developer mode is off. Scroll to the bottom and tap Version ten times
+
+9
+00:00:48.533 --> 00:00:54.800
+Confirm with OK. The phone’s developer mode doesn’t count: it has to be Android Auto’s
+
+10
+00:00:54.800 --> 00:01:03.600
+4. After Turn off, Android Auto takes up to a minute to close the previous session. REau warns you and retries by itself
+
+11
+00:01:03.600 --> 00:01:10.600
+To skip the wait, in the three-dot menu tap Stop head unit server and then Start
+
+12
+00:01:10.600 --> 00:01:18.800
+5. Android Auto not answering or with no picture: in Settings, Apps, Android Auto, tap Force stop
+
+13
+00:01:18.800 --> 00:01:24.000
+Then turn REau off and on. In Battery, choose Unrestricted
+
+14
+00:01:24.000 --> 00:01:29.000
+6. If REau shows this warning, a VPN is holding it back
+
+15
+00:01:29.000 --> 00:01:35.333
+Turn the VPN off or leave REau out of it, with split tunneling, and reconnect the VPN
+
+16
+00:01:35.333 --> 00:01:43.067
+7. Dash Wi-Fi not found: turn the bike’s key on and check the phone’s Wi-Fi and location
+
+17
+00:01:43.067 --> 00:01:48.267
+In Bike data, tap Show to check the full network name
+
+18
+00:01:48.267 --> 00:01:54.400
+If you changed bikes or there is more than one dash nearby, tap Forget and search again
+
+19
+00:01:54.400 --> 00:02:00.267
+The first time, Android asks Connect to device: tap Connect
+
+20
+00:02:00.267 --> 00:02:08.067
+8. If you see Another app has the dash, stop the other app’s streaming to the dash. REau retries by itself
+
+21
+00:02:08.067 --> 00:02:14.600
+The dash may have hung: switch the bike off with the key, wait about thirty seconds and switch it on again
+
+22
+00:02:14.600 --> 00:02:24.667
+9. If the dash shows PICTURE STUCK or the app says No new picture, Android Auto stopped sending the picture. It usually comes back by itself
+
+23
+00:02:24.667 --> 00:02:31.533
+10. If you turned on the network server, REau doesn’t look for the dash: turn that switch off to use the bike
+
+24
+00:02:31.533 --> 00:02:35.667
+More answers are in REau’s frequently asked questions
+

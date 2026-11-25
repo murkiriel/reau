@@ -94,7 +94,8 @@ class SettingsScreenTest {
         compose.onNodeWithTag("density_value").assertDoesNotExist()
         compose.onNodeWithTag("margin_w_value").assertDoesNotExist()
         compose.onNodeWithTag("margin_h_value").assertDoesNotExist()
-        compose.onNodeWithTag("fps_locked").performScrollTo().assertIsDisplayed()
+        tap("profile_details") // the stream's numbers are behind "Detalhes" (12/11/2026)
+        compose.onNodeWithTag("video_fixed").performScrollTo().assertIsDisplayed()
     }
 
     // ── the fit ────────────────────────────────────────────────────────────────────────────────────────────
@@ -102,8 +103,9 @@ class SettingsScreenTest {
     // ── pace ───────────────────────────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun theFrameCeilingIsShownAndCannotBeChanged() {
-        compose.onNodeWithTag("fps_locked").performScrollTo().assertIsDisplayed()
+    fun theFixedPaceIsShownAndCannotBeChanged() {
+        tap("profile_details") // behind "Detalhes" (12/11/2026)
+        compose.onNodeWithTag("video_fixed").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("fps_plus").assertDoesNotExist()
         compose.onNodeWithTag("fps_minus").assertDoesNotExist()
     }
@@ -138,7 +140,7 @@ class SettingsScreenTest {
     @Test
     fun itSaysTheSettingsCountFromTheNextStartAndGoesBack() {
         compose.onNodeWithTag("applies_next_time").performScrollTo().assertIsDisplayed()
-        compose.infoSays("applies_next_time", "Densidade e margens também")
+        compose.infoSays("applies_next_time", "Densidade também vale")
         compose.onNodeWithTag("back").performClick() // the fixed top bar
         assertEquals(1, back)
     }

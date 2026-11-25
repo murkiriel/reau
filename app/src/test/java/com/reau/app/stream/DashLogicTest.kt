@@ -1,7 +1,6 @@
-// The stream rules: frame intervals, idle keyframes, drain wait, bitrate, actual fps.
+// The stream rules: frame intervals, idle keyframes, bitrate, actual fps.
 package com.reau.app.stream
 
-import com.reau.app.dash.DashConfig
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -61,6 +60,22 @@ class DashLogicTest {
         assertTrue(DashLogic.idleSyncNeeded(hintFps = 8, keyframeIntervalSec = 2, idleFrameMs = 250))    // 4.0 s
     }
 
+    // ── withheldAskDue: the keyframe asked for after one was withheld ───────────────────────────
+
+    @Test
+    fun `the first withheld keyframe asks at once`() {
+        assertTrue(DashLogic.withheldAskDue(nowMs = 0, lastAskMs = null))
+        assertTrue(DashLogic.withheldAskDue(nowMs = 12_345, lastAskMs = null))
+    }
+
+    @Test
+    fun `a withheld keyframe within 2 s of the last ask does not ask again, from 2 s it does`() {
+        assertFalse(DashLogic.withheldAskDue(nowMs = 10_250, lastAskMs = 10_000))
+        assertFalse(DashLogic.withheldAskDue(nowMs = 11_999, lastAskMs = 10_000))
+        assertTrue(DashLogic.withheldAskDue(nowMs = 12_000, lastAskMs = 10_000))
+        assertTrue(DashLogic.withheldAskDue(nowMs = 30_000, lastAskMs = 10_000))
+    }
+
     @Test
     fun `frameIntervalsMsForFps never divides by zero or goes negative for a non-positive fps`() {
         val (active0, idle0) = DashLogic.frameIntervalsMsForFps(0)
@@ -76,26 +91,7 @@ class DashLogicTest {
         for (i in 1 until actives.size) assertTrue("fps=${fpsValues[i]}", actives[i] <= actives[i - 1])
     }
 
-    // ── drainWaitUs: how long drain() waits for the frame just submitted ──────────────────────────
-
-    @Test
-    fun `drainWaitUs is half the frame interval, capped at 40 ms`() {
-        assertEquals(40_000L, DashLogic.drainWaitUs(250))  // 4 fps
-        assertEquals(40_000L, DashLogic.drainWaitUs(125))  // 8 fps
-        assertEquals(40_000L, DashLogic.drainWaitUs(83))   // 12 fps: 41.5 ms -> cap
-        assertEquals(22_500L, DashLogic.drainWaitUs(45))   // 22 fps
-        assertEquals(16_500L, DashLogic.drainWaitUs(33))   // 30 fps
-    }
-
-    @Test
-    fun `drainWaitUs never drops below the old fixed 10 ms`() {
-        assertEquals(10_000L, DashLogic.drainWaitUs(10))
-        assertEquals(10_000L, DashLogic.drainWaitUs(0))
-        assertEquals(10_000L, DashLogic.drainWaitUs(-5))
-    }
-
-    // ── bitrate ceiling: one slider, 200..1024 kbps, is the encoder's
-    // bitrate in both fixed and automatic fps; idle is half of it ─────────────────────────────────
+    // ── bitrate: the rider's ceiling, raised when a rate would starve its frames ──────────────────
 
     @Test
     fun `active bitrate is the chosen ceiling when it covers the fps, never above 1024 kbps`() {
@@ -106,30 +102,9 @@ class DashLogicTest {
     }
 
     @Test
-    fun `automatic fps always uses the full 1024 kbps, whatever the slider says`() {
-        for (bps in DashConfig.STREAM_BITRATE_STEPS) {
-            assertEquals(1_024_000, DashLogic.bitrateCeiling(bps, autoFps = true))
-        }
-    }
-
-    @Test
-    fun `fixed fps uses the slider's ceiling`() {
-        for (bps in DashConfig.STREAM_BITRATE_STEPS) {
-            assertEquals(bps, DashLogic.bitrateCeiling(bps, autoFps = false))
-        }
-    }
-
-    @Test
     fun `a fixed fps raises a ceiling that would starve its frames`() {
         assertEquals(1_024_000, DashLogic.effectiveActiveBitrate(200_000, fps = 30))
         assertEquals(500_000, DashLogic.effectiveActiveBitrate(300_000, fps = 12))
-    }
-
-    @Test
-    fun `idle bitrate is half the active one`() {
-        assertEquals(100_000, DashLogic.effectiveIdleBitrate(200_000, fps = 4))
-        assertEquals(512_000, DashLogic.effectiveIdleBitrate(1_024_000, fps = 8))
-        assertEquals(512_000, DashLogic.effectiveIdleBitrate(200_000, fps = 30))
     }
 
     @Test
@@ -140,45 +115,6 @@ class DashLogicTest {
             28 to 1_024_000, 30 to 1_024_000,
         )
         for ((fps, bps) in expected) assertEquals("fps=$fps", bps, DashLogic.minBitrateForFps(fps))
-    }
-
-    @Test
-    fun `fps and bitrate limits agree in both directions`() {
-        for (fps in 4..30 step 2) {
-            assertTrue("fps=$fps", DashLogic.maxAutoFpsForBitrate(DashLogic.minBitrateForFps(fps)) >= fps)
-        }
-        for (bps in DashConfig.STREAM_BITRATE_STEPS) {
-            assertTrue("bps=$bps", DashLogic.minBitrateForFps(DashLogic.maxAutoFpsForBitrate(bps)) <= bps)
-        }
-    }
-
-    @Test
-    fun `automatic fps ceiling keeps at least 34 kbit per frame`() {
-        assertEquals(30, DashLogic.maxAutoFpsForBitrate(1_024_000))
-        assertEquals(26, DashLogic.maxAutoFpsForBitrate(900_000))
-        assertEquals(22, DashLogic.maxAutoFpsForBitrate(800_000))
-        assertEquals(20, DashLogic.maxAutoFpsForBitrate(700_000))
-        assertEquals(16, DashLogic.maxAutoFpsForBitrate(600_000))
-        assertEquals(14, DashLogic.maxAutoFpsForBitrate(500_000))
-        assertEquals(10, DashLogic.maxAutoFpsForBitrate(400_000))
-        assertEquals(8, DashLogic.maxAutoFpsForBitrate(300_000))
-        assertEquals(4, DashLogic.maxAutoFpsForBitrate(200_000))
-    }
-
-    @Test
-    fun `every offered step keeps its fps ceiling above the per-frame floor`() {
-        for (bps in DashConfig.STREAM_BITRATE_STEPS) {
-            val fps = DashLogic.maxAutoFpsForBitrate(bps)
-            assertTrue("bps=$bps fps=$fps", fps == DashConfig.MIN_STREAM_FPS || bps / fps >= DashLogic.MIN_BITS_PER_FRAME)
-        }
-    }
-
-    @Test
-    fun `kbit per frame for the settings hint`() {
-        assertEquals(34, DashLogic.kbitPerFrame(1_024_000, 30))
-        assertEquals(128, DashLogic.kbitPerFrame(1_024_000, 8))
-        assertEquals(50, DashLogic.kbitPerFrame(200_000, 4))
-        assertEquals(0, DashLogic.kbitPerFrame(200_000, 0))
     }
 
     // ── computeActualFps ─────────────────────────────────────────────────
@@ -206,4 +142,15 @@ class DashLogicTest {
         assertEquals(0.0, DashLogic.computeActualFps(frames = 0, elapsedMs = 5_000), 1e-9)
     }
 
+    // ── the first frame (kept from AutoFpsDashLimitTest, which left with the fps ladder on 14/11/2026) ─────
+
+    @Test
+    fun `until the dash confirms the first frame the stream stays at the still-map pace`() {
+        // On that ride every stream that began at 4 fps (map still) had its first frame confirmed in about 8 s; of the
+        // 36 that began at 30 fps in motion, none was.
+        assertFalse(DashLogic.fullRate(mapChangedRecently = true, firstFrameConfirmed = false))
+        assertTrue(DashLogic.fullRate(mapChangedRecently = true, firstFrameConfirmed = true))
+        assertFalse(DashLogic.fullRate(mapChangedRecently = false, firstFrameConfirmed = true))
+        assertFalse(DashLogic.fullRate(mapChangedRecently = false, firstFrameConfirmed = false))
+    }
 }

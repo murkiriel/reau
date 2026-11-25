@@ -16,4 +16,12 @@ object StartAsks {
     fun permissions(sdk: Int, card: Boolean, notificationsGranted: Boolean, locationGranted: Boolean, dashNameKnown: Boolean): List<String> =
         listOfNotNull(NOTIFICATIONS.takeIf { sdk >= TIRAMISU && !notificationsGranted }) +
             (if (!card && !dashNameKnown && !locationGranted) LOCATION else emptyList())
+
+    /**
+     * After Ligar's window for [answers]: the app's page in Android opens when [AppPermissions.openAppPageAfter] says Android refused with no
+     * window, and Ligar has not opened it before ([openedBefore]): a rider who refused on purpose (the location is optional) is not sent there at
+     * every Ligar.
+     */
+    fun openAppPageAfter(answers: Map<String, Boolean>, elapsedMs: Long, openedBefore: Boolean): Boolean =
+        !openedBefore && AppPermissions.openAppPageAfter(answers, elapsedMs)
 }

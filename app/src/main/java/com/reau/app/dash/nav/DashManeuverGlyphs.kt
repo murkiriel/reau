@@ -14,6 +14,9 @@ enum class DrivingSide {
             "HK", "MO", "AU", "NZ", "PG", "FJ", "WS", "TO", "SB", "KI", "TV", "NR", "ZA", "NA", "BW", "ZW", "ZM", "MZ", "MW", "KE", "TZ", "UG",
             "SZ", "LS", "MU", "SC", "GY", "SR", "JM", "BB", "BS", "TT", "AG", "DM", "GD", "KN", "LC", "VC", "FK", "SH", "BM", "AI", "VG", "KY",
             "MS", "TC",
+            // The overseas territories that keep the left: the US Virgin Islands (VI), the Cook Islands (CK), Niue (NU), Norfolk Island (NF), Christmas Island (CX),
+            // the Cocos (Keeling) Islands (CC), Tokelau (TK), the Pitcairn Islands (PN) and the British Indian Ocean Territory (IO).
+            "VI", "CK", "NU", "NF", "CX", "CC", "TK", "PN", "IO",
         )
 
         fun forCountry(iso2: String?): DrivingSide = if (iso2 != null && iso2.uppercase() in LEFT) LEFT_HAND else RIGHT_HAND
@@ -23,10 +26,14 @@ enum class DrivingSide {
 /**
  * The byte the dash's nav bubble is told to draw (`05 02 00 01 XX`), and what every byte draws.
  *
- * Source: the glyph table observed on the dash: every byte 0x00..0xFF was sent to a real K1G dash and
- * each visible glyph was checked by eye. The repository holds only the table of names and descriptions
- * (no images or text from third parties).
- * NOT yet confirmed on a real dash: a debug card ([testSequence]) is the tool for it.
+ * Source: a published scan of the dash's glyphs (credited in the NOTICE, in the entry on the dash maneuver glyph bytes). Its author, not REau,
+ * sent every byte 0x00..0xFF to a real K1G dash and photographed each one; what each byte draws is read from that scan. Only those
+ * observed facts (byte -> drawing) are used here, in REau's own words and code: no code, text or images of the scan's source.
+ * What was looked at on REau's own dash: only the roundabout's direction. On 20/11/2026 its owner saw, on the real dash's own nav bubble (not on
+ * the video), the roundabout drawn clockwise in Brazil while Android Auto said counter-clockwise. The published table has the two directions
+ * the other way round: the bytes it calls counter-clockwise (0x0A..0x13, 0x50..0x59) draw clockwise, and the ones it calls clockwise
+ * (0x31..0x3A, 0x46..0x4F) draw counter-clockwise. REau follows what the dash was seen to draw.
+ * Everything else in this table is NOT yet confirmed on REau's own dash: the debug card ([testSequence]) is the tool for it.
  *
  * The old placeholder 0x0B is NOT "continue": it draws roundabout exit 1. Straight ahead is 0x09.
  */
@@ -45,6 +52,22 @@ object DashManeuverGlyphs {
     const val MERGE_FROM_RIGHT = 0x04     // Y-merge: your road joins from the right (you move left)
     const val FORK_RIGHT = 0x05
     const val FORK_LEFT = 0x06
+    const val OFF_RAMP_RIGHT = 0x07       // a side road leaves to the right: the exit ramp
+    const val OFF_RAMP_LEFT = 0x08        // a side road leaves to the left
+    /** The start of the route: the official app sends 0x3C (the pin alone) for it, not the straight arrow (not yet seen on the bike). */
+    const val DEPART = 0x3C
+
+    /** The ramps on that the official app draws with their own bytes, left then right (not yet seen on the bike): slight, normal, sharp. */
+    const val ON_RAMP_SLIGHT_LEFT = 0x20
+    const val ON_RAMP_SLIGHT_RIGHT = 0x1F
+    const val ON_RAMP_LEFT = 0x1E
+    const val ON_RAMP_RIGHT = 0x1D
+    const val ON_RAMP_SHARP_LEFT = 0x22
+    const val ON_RAMP_SHARP_RIGHT = 0x21
+
+    /** The slight ramp off ("bear off") the official app draws with its own bytes (not yet seen on the bike): left, right. */
+    const val OFF_RAMP_SLIGHT_LEFT = 0x2E
+    const val OFF_RAMP_SLIGHT_RIGHT = 0x2D
     const val ARRIVE = 0x00
     const val ARRIVE_LEFT = 0x01
     const val ARRIVE_RIGHT = 0x02
@@ -63,10 +86,11 @@ object DashManeuverGlyphs {
 
     private const val LAST_VISIBLE = 0x59
     private const val MAX_EXIT = 19
-    private const val CCW_LOW = 0x0A          // exits 0..9, counter-clockwise
-    private const val CCW_HIGH = 0x50         // exits 10..19, counter-clockwise
-    private const val CW_LOW = 0x31           // exits 0..9, clockwise
-    private const val CW_HIGH = 0x46          // exits 10..19, clockwise
+    // Directions as the real dash draws them (checked by the owner on 20/11/2026); the published table has the two swapped.
+    private const val CCW_LOW = 0x31          // exits 0..9, counter-clockwise
+    private const val CCW_HIGH = 0x46         // exits 10..19, counter-clockwise
+    private const val CW_LOW = 0x0A           // exits 0..9, clockwise
+    private const val CW_HIGH = 0x50          // exits 10..19, clockwise
     private const val TEN = 10
 
     /**
@@ -85,7 +109,8 @@ object DashManeuverGlyphs {
         uTurnRight: Boolean? = null,
         drivingSide: DrivingSide = DrivingSide.RIGHT_HAND,
     ): Int = when (type) {
-        ManeuverType.CONTINUE, ManeuverType.DEPART -> STRAIGHT
+        ManeuverType.CONTINUE -> STRAIGHT
+        ManeuverType.DEPART -> DEPART
         ManeuverType.TURN_LEFT -> TURN_LEFT
         ManeuverType.TURN_RIGHT -> TURN_RIGHT
         ManeuverType.SLIGHT_LEFT -> SLIGHT_LEFT
@@ -103,7 +128,7 @@ object DashManeuverGlyphs {
         ManeuverType.ARRIVE_RIGHT -> ARRIVE_RIGHT
     }
 
-    /** Roundabout glyph: [exit] 0..19 (clamped), counter-clockwise 0x0A..0x13 / 0x50..0x59, clockwise 0x31..0x3A / 0x46..0x4F. */
+    /** Roundabout glyph: [exit] 0..19 (clamped), counter-clockwise 0x31..0x3A / 0x46..0x4F, clockwise 0x0A..0x13 / 0x50..0x59. */
     fun roundabout(exit: Int, clockwise: Boolean): Int {
         val n = exit.coerceIn(0, MAX_EXIT)
         val (low, high) = if (clockwise) CW_LOW to CW_HIGH else CCW_LOW to CCW_HIGH
@@ -256,13 +281,21 @@ object DashManeuverGlyphs {
     /**
      * The bytes worth looking at on the bike, ascending: one per kind of arrow, both sides of each pair, the roundabout
      * boundaries, recalculating, the hidden bubble, and the two the app used to send (0x0B) or leaves out (Y-merge 0x03/0x04).
+     * With them, every drawing a ramp or an exit could be sent as: the side road that leaves (0x07/0x08, what an exit ramp is sent as),
+     * the other Y drawings (0x1D..0x22), the ramps and exits (0x27..0x2A, 0x2D..0x30) and the destination pin alone (0x3C); and the three
+     * the app sends that the list did not have (the ferry 0x3E, the level crossing 0x3F, the lost signal 0x42), so that every drawing the
+     * app can send, the roundabouts' other exit numbers aside, can be looked at on the dash.
      * The debug card jumps through this list; each entry has a [describe] text to compare with what the panel really draws.
      */
     val testSequence: List<Int> = listOf(
-        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x09, 0x0A, 0x0B, 0x0C, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A,
-        RECALCULATING, 0x27, 0x28, 0x31, 0x32, 0x33, 0x3B, 0x3D, 0x50, HIDDEN_BUBBLE,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, OFF_RAMP_RIGHT, OFF_RAMP_LEFT, 0x09, 0x0A, 0x0B, 0x0C, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A,
+        RECALCULATING, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x22, 0x27, 0x28, 0x29, 0x2A, 0x2D, 0x2E, 0x2F, 0x30,
+        0x31, 0x32, 0x33, 0x3B, 0x3C, 0x3D, 0x3E, 0x3F, SIGNAL_LOST, 0x46, 0x50, HIDDEN_BUBBLE,
     ).sorted().distinct()
 
     /** The next byte of [testSequence] strictly after [current], wrapping to the first (pure, so the debug button is testable). */
     fun nextCandidate(current: Int): Int = testSequence.firstOrNull { it > current } ?: testSequence.first()
+
+    /** The byte of [testSequence] strictly before [current], wrapping to the last (the debug arrow test's "previous"). */
+    fun previousCandidate(current: Int): Int = testSequence.lastOrNull { it < current } ?: testSequence.last()
 }

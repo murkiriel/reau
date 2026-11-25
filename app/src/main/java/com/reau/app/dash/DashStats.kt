@@ -27,10 +27,14 @@ class DashStats(private val onFirst: (String) -> Unit = {}) {
         var heartbeats = 0L
         var txFailed = 0L
         var malformed = 0L
+        var slid = 0L
     }
 
     /** The last 30 s of packets, for the black-box lines (never a payload). */
     val trail = PacketTrail()
+
+    /** The last seconds of what REau sent (RTP per second, the biggest burst, the last keyframe and command), for the line written when the dash goes quiet. */
+    val sendTail = SendTail()
 
     private val lock = Any()
     private var window = Counts()
@@ -47,6 +51,7 @@ class DashStats(private val onFirst: (String) -> Unit = {}) {
     fun sent(packet: ByteArray, nowMs: Long = MonotonicClock.nowMs()) {
         val key = sentKey(packet) ?: return
         DashDump.outgoingTlvs(packet).forEach { trail.add(nowMs, tx = true, it) }
+        if (key !in PERIODIC_KEYS) sendTail.command(key)
         both { tx.merge(key, 1L, Long::plus) }
     }
 
@@ -55,6 +60,9 @@ class DashStats(private val onFirst: (String) -> Unit = {}) {
 
     /** A control packet could not go out (a socket error, or held back while the link is down). */
     fun sendFailed() = both { txFailed++ }
+
+    /** A routine send waited for a keyframe's burst to pass ([KeyframeQuiet]). */
+    fun slid() = both { slid++ }
 
     /** One heartbeat sent (status or projection). */
     fun heartbeat() = both { heartbeats++ }
@@ -105,6 +113,7 @@ class DashStats(private val onFirst: (String) -> Unit = {}) {
             "buttons=${w.buttons} telemetry=${w.telemetry} heartbeats=${w.heartbeats} tx-fail=${w.txFailed} " +
             // Only when there were some, so the line of a healthy window is the one it always was.
             (if (w.malformed > 0) "cut-short=${w.malformed} " else "") +
+            (if (w.slid > 0) "quiet=${w.slid} " else "") +
             "last-rx=$lastRx | total tx=${total.tx.values.sum()} rx=${total.rx.values.sum()} acks=${total.acks} " +
             "buttons=${total.buttons} telemetry=${total.telemetry} tx-fail=${total.txFailed}"
     }
@@ -129,6 +138,14 @@ class DashStats(private val onFirst: (String) -> Unit = {}) {
         const val HEADER_SUB = 0x01
 
         fun key(tlv: Tlv) = "%02X%02X".format(Locale.US, tlv.type, tlv.sub)
+
+        /** The first TLV of the packets that go out on a timer (the 1 Hz status heartbeat, the 4 Hz projection frame): not "the last command" of [SendTail]. */
+        private val PERIODIC_KEYS: Set<String> by lazy {
+            listOfNotNull(
+                sentKey(com.reau.app.dash.protocol.DashCommands.heartbeat()),
+                sentKey(com.reau.app.dash.protocol.DashCommands.projectionFrame()),
+            ).toSet()
+        }
 
         /**
          * The telemetry kinds (0C.., 0F..) come about 25 a window, one each, and filled a fifth of the line;

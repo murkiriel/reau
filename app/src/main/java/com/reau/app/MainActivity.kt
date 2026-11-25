@@ -9,7 +9,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -17,13 +16,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import com.reau.app.phone.PhoneCalls
 import com.reau.app.aa.AndroidAuto
-import com.reau.app.aa.ServerResult
 import com.reau.app.card.CardName
 import com.reau.app.dash.DashName
 import com.reau.app.dash.DashPairing
@@ -31,7 +29,7 @@ import com.reau.app.dash.DashWifiManager
 import com.reau.app.dash.DashWifiSuggestions
 import com.reau.app.data.DetailedLog
 import com.reau.app.data.RideDiagnostics
-import com.reau.app.service.AaServerStarter
+import com.reau.app.service.AaDialNow
 import com.reau.app.service.LiveTuning
 import com.reau.app.service.Phase
 import com.reau.app.service.Projection
@@ -60,17 +58,31 @@ import kotlin.concurrent.thread
 class MainActivity : ComponentActivity() {
     private var androidAutoVersion by mutableStateOf<String?>(null)
 
-    // Whether REau is on screen (between onResume and onPause), for what opens Android Auto's settings by itself (Lite).
+    // Whether REau is on screen (between onResume and onPause), for what opens Android Auto's settings by itself.
     private var onScreen by mutableStateOf(false)
 
-    // REau's accessibility service, read again at each return to the screen.
-    private var accessibility by mutableStateOf(AaServerStarter.Accessibility.OFF)
     private var permissionRows by mutableStateOf(emptyList<com.reau.app.settings.AppPermissions.Row>())
+    // When the page's window was launched, to tell a window the rider answered from one Android never showed (AppPermissions.openAppPageAfter).
+    private var askedPermissionsAtMs = 0L
     // The permissions page asks for what is missing; the rows are read again after.
-    private val askPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-        permissionRows = PermissionRows.read(this, accessibility)
+    private val askPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { answers ->
+        notificationsAsked(answers)
+        permissionRows = PermissionRows.read(this)
+        permissionsAnswered(answers)
     }
-    internal val askRuntime: (List<String>) -> Unit = { askPermissions.launch(it.toTypedArray()) }
+    internal val askRuntime: (List<String>) -> Unit = {
+        askedPermissionsAtMs = com.reau.app.util.MonotonicClock.nowMs()
+        askPermissions.launch(it.toTypedArray())
+    }
+
+    /** Something asked is still refused and no window can have been shown (Android refuses by itself after two refusals): the app's page in Android opens. */
+    private fun permissionsAnswered(answers: Map<String, Boolean>) {
+        val elapsed = com.reau.app.util.MonotonicClock.nowMs() - askedPermissionsAtMs
+        if (!com.reau.app.settings.AppPermissions.openAppPageAfter(answers, elapsed)) return
+        val refused = answers.count { !it.value }
+        RideDiagnostics.log("ui", "the permissions page asked, Android refused with no window ($refused of ${answers.size}): the app's page opened")
+        PermissionRows.openAppSettings(this)
+    }
 
     // Battery saver and the exemption, read again at each return to the screen and when battery saver flips.
     private var battery by mutableStateOf(com.reau.app.ui.BatteryUi())
@@ -87,15 +99,31 @@ class MainActivity : ComponentActivity() {
     // The location (only for the Wi-Fi list) answered: said in the log, and the dash's name learned now if it opened.
     private val wifiListAnswered: (Boolean) -> Unit = { granted ->
         RideDiagnostics.log("ui", "the location for the Wi-Fi list " + if (granted) "allowed" else "refused")
-        permissionRows = PermissionRows.read(this, accessibility)
+        permissionRows = PermissionRows.read(this)
         learnDashName()
     }
 
     // Android 13+ asks before the projection's notification may show and, while the dash's whole name is not known,
     // for the location, only for the Wi-Fi list (StartAsks); the projection starts either way.
     private val askBeforeStart = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { answers ->
+        notificationsAsked(answers)
         answers[StartAsks.FINE_LOCATION]?.let { wifiListAnswered(it) }
         if (startingCard) ProjectionService.startCard(this) else ProjectionService.start(this)
+        startAnswered(answers)
+    }
+
+    // When Ligar's window was launched, to tell a window the rider answered from one Android never showed (StartAsks.openAppPageAfter).
+    private var askedStartAtMs = 0L
+
+    /** The projection already started: a refusal with no window opens the app's page, once (the mark is erased when Ligar has nothing to ask). */
+    private fun startAnswered(answers: Map<String, Boolean>) {
+        val store = SettingsStore.open(this)
+        val elapsed = com.reau.app.util.MonotonicClock.nowMs() - askedStartAtMs
+        if (!StartAsks.openAppPageAfter(answers, elapsed, store.startAppPageOpened())) return
+        store.startAppPageOpenedNow()
+        val refused = answers.count { !it.value }
+        RideDiagnostics.log("ui", "Ligar asked, Android refused with no window ($refused of ${answers.size}): the app's page opened, once")
+        PermissionRows.openAppSettings(this)
     }
 
     // The Wi-Fi screen's "Permitir a localização" (only for the Wi-Fi list).
@@ -107,7 +135,26 @@ class MainActivity : ComponentActivity() {
     private var vpnHoldsREau by mutableStateOf(false)
     private var locationOff by mutableStateOf(false)
 
-    // Whether the other edition of REau is installed (read at each return to the screen), for the main screen's card.
+    // Whether the alert channel would be heard (read at each return to the screen): muted or blocked in Android, the main screen says so.
+    private var alertLevel by mutableStateOf(com.reau.app.service.AlertChannelState.Level.LOUD)
+    private var alertRoute by mutableStateOf(com.reau.app.ui.AlertRoute.Route.NONE)
+
+    // The alert card's "Permitir os avisos": Android's window for the notification permission (13+); when it was launched, to tell a window
+    // the rider answered from one Android never showed (AlertRoute.openAppPageAfter).
+    private var askedNotificationsAtMs = 0L
+    private val askNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        com.reau.app.ui.AlertSettings.answered(this, granted, askedNotificationsAtMs)
+        readAlertLevel()
+        permissionRows = PermissionRows.read(this)
+    }
+
+    /** The notification permission was among what Android just asked: REau has asked, and a blocked app is a refusal now (AlertRoute). */
+    private fun notificationsAsked(answers: Map<String, Boolean>) {
+        if (StartAsks.NOTIFICATIONS in answers) SettingsStore.open(this).notificationsAskedNow()
+        readAlertLevel()
+    }
+
+    // Whether the old "lite" app is installed (read at each return to the screen), for the main screen's card and note.
     private var otherEditionInstalled by mutableStateOf(false)
 
     // The pairing read again by the screens once a search learned the dash's name.
@@ -130,6 +177,9 @@ class MainActivity : ComponentActivity() {
         learn = { learnDashName() },
     )
 
+    /** The phone is in use and unlocked (no lock screen showing); when `KeyguardManager` cannot be had it counts as locked. */
+    private fun phoneUnlocked(): Boolean = (getSystemService(KEYGUARD_SERVICE) as? android.app.KeyguardManager)?.isKeyguardLocked == false
+
     // The terms of use come before every question of Android's (the location, for the Wi-Fi list, is one).
     private fun termsAcceptedNow() = !com.reau.app.settings.Terms.needsAcceptance(com.reau.app.settings.TermsStore.open(this).accepted())
 
@@ -139,8 +189,6 @@ class MainActivity : ComponentActivity() {
         val store = SettingsStore.open(this)
         store.save(store.load().copy(answerCalls = false))
         RideDiagnostics.log("ui", "the phone permissions were refused: answering by the joystick stays off")
-        // The switch had already widened what the accessibility hears (the voice apps); take that back with it.
-        com.reau.app.service.AaServerAccessibilityService.followCallsSwitch(false)
         settingsVersion++
     }
 
@@ -175,21 +223,11 @@ class MainActivity : ComponentActivity() {
         com.reau.app.util.FrameJank.watch(this, com.reau.app.util.MonotonicClock.nowMs()) { resumedAtMs }
         lifecycle.addObserver(dashSearch)
         if (savedInstanceState == null) quickStart(intent)
-        // The accessibility service connects some seconds after the app starts (after an install): the state is read again then.
-        lifecycleScope.launch {
-            repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
-                AaServerStarter.serviceChanges.collect {
-                    accessibility = AaServerStarter.accessibility(this@MainActivity)
-                    permissionRows = PermissionRows.read(this@MainActivity, accessibility)
-                }
-            }
-        }
         setContent {
-            val projection by ProjectionService.projection.collectAsState()
-            val startedAt by ProjectionService.startedAt.collectAsState()
-            val serverResult by AaServerStarter.status.collectAsState()
+            val projection by ProjectionService.projection.collectAsStateWithLifecycle()
+            val startedAt by ProjectionService.startedAt.collectAsStateWithLifecycle()
             // The network server is up when it has published its address and PIN (the icon of the main screen blinks for it).
-            val networkOn = com.reau.app.web.WebAccess.state.collectAsState().value != null
+            val networkOn = com.reau.app.web.WebAccess.state.collectAsStateWithLifecycle().value != null
             var inSettings by rememberSaveable { mutableStateOf(false) }
             var inAndroidAuto by rememberSaveable { mutableStateOf(false) }
             var inJoystick by rememberSaveable { mutableStateOf(false) }
@@ -202,10 +240,12 @@ class MainActivity : ComponentActivity() {
             var settings by remember(settingsVersion) { mutableStateOf(store.load()) }
             var pairing by remember(pairingVersion) { mutableStateOf(pairingStore.toUi()) }
             com.reau.app.ui.BatteryWatch.Follow(this) { battery = it }
-            // Lite: the server is switched on by hand, so Android Auto's settings open by themselves, once for each projection.
+            // The server is switched on by hand, so Android Auto's settings open by themselves, once for each projection.
             var aaSettingsOpened by remember(startedAt) { mutableStateOf(false) }
             androidx.compose.runtime.LaunchedEffect(projection.androidAuto, startedAt, onScreen, androidAutoVersion) {
-                if (AndroidAuto.opensSettingsByItself(projection.androidAuto, aaSettingsOpened, onScreen, androidAutoVersion != null)) {
+                if (AndroidAuto.opensSettingsByItself(
+                        projection.androidAuto, aaSettingsOpened, onScreen, androidAutoVersion != null,
+                    )) {
                     aaSettingsOpened = true
                     RideDiagnostics.log("aa-server", "the head unit server is off: Android Auto's settings open by themselves")
                     openAndroidAutoSettings()
@@ -238,7 +278,7 @@ class MainActivity : ComponentActivity() {
                     onBack = {},
                 )
             } else if (inAndroidAuto) {
-                AndroidAutoFromSettings(settings, saveSettings) { inAndroidAuto = false }
+                AndroidAutoFromSettings(settings, saveSettings, store) { inAndroidAuto = false }
             } else if (page == SettingsPage.WIFI) {
                 BackHandler { page = SettingsPage.NONE }
                 com.reau.app.ui.WifiScreen(
@@ -252,7 +292,7 @@ class MainActivity : ComponentActivity() {
                 // The server's screen, from its icon on the main screen.
                 BackHandler { page = SettingsPage.NONE }
                 com.reau.app.ui.ServerScreen(
-                    mainState(projection, settings, serverResult, startedAt, pairing.ssid).withNetwork(networkOn), settings,
+                    mainState(projection, settings, startedAt, pairing.ssid).withNetwork(networkOn), settings,
                     { saveSettings(it.sanitized()) },
                 ) { page = SettingsPage.NONE }
             } else if (page != SettingsPage.NONE) {
@@ -266,12 +306,12 @@ class MainActivity : ComponentActivity() {
             } else if (inSettings) {
                 BackHandler(onBack = leaveSettings)
                 kept.SaveableStateProvider(SETTINGS_SCREEN) {
-                    SettingsScreen(settings, actions, { inJoystick = true }, accessibility)
+                    SettingsScreen(settings, actions, { inJoystick = true })
                 }
             } else {
                 kept.SaveableStateProvider(MAIN_SCREEN) {
                     MainScreen(
-                        mainState(projection, settings, serverResult, startedAt, pairing.ssid).withNetwork(networkOn),
+                        mainState(projection, settings, startedAt, pairing.ssid).withNetwork(networkOn),
                         onToggle = { toggle(projection) },
                         onOpenAndroidAutoSettings = { openAndroidAutoSettings() },
                         onOpenSettings = { reload(); inSettings = true },
@@ -280,6 +320,7 @@ class MainActivity : ComponentActivity() {
                             onOpenWifi = { reload(); page = SettingsPage.WIFI },
                             onOpenWeather = { page = SettingsPage.WEATHER },
                             onOpenServer = { page = SettingsPage.SERVER },
+                            onOpenTips = { page = SettingsPage.TIPS },
                         ),
                     )
                 }
@@ -317,7 +358,6 @@ class MainActivity : ComponentActivity() {
         onBack = onBack,
         onPickCardImage = { pickCardImage.launch(arrayOf("image/*")) },
         onShareLogs = { DiagnosticsExport.shareFrom(this, withRecordings = it) },
-        onOpenAccessibility = { AaServerStarter.openAccessibilitySettings(this) },
         onLanguage = { com.reau.app.settings.AppLanguages.set(this, it) },
         onViewLogs = { open(SettingsPage.LOGS) },
         onAskWifiList = { askWifiList.launch(StartAsks.LOCATION.toTypedArray()) },
@@ -325,19 +365,32 @@ class MainActivity : ComponentActivity() {
     )
 
     /** What the main screen shows: the projection, its start, the card's picture, the server, battery, dash and permissions. */
-    private fun mainState(projection: com.reau.app.service.Projection, settings: REauSettings, server: ServerResult, startedAt: Long?, dashName: String) =
+    private fun mainState(projection: com.reau.app.service.Projection, settings: REauSettings, startedAt: Long?, dashName: String) =
         MainUiState(
             projection, androidAutoVersion, settings.cardImage?.let { CardName.shown(this, it) },
-            ServerUi(
-                // Never in the Lite edition (no accessibility service): its screens do not speak of the automatic switch.
-                settings.aaServerAuto && com.reau.app.Edition.hasAccessibility, server, accessibility,
-            ),
+            ServerUi(),
             battery,
             startedAtMs = startedAt, dashName = dashName, permissionsMissing = permissionsMissing(settings), vpnHoldsREau = vpnHoldsREau,
             locationOff = locationOff,
+            alertLevel = alertLevel,
+            alertRoute = alertRoute,
             otherEditionInstalled = otherEditionInstalled,
             weatherOn = settings.dashWeather,
         )
+
+    /** Reads whether the alert channel would be heard; the ride log says it when it changes (and the main screen's card follows [alertLevel]). */
+    private fun readAlertLevel() {
+        val read = com.reau.app.service.AlertChannelState.read(this)
+        val route = com.reau.app.ui.AlertSettings.routeNow(this, read)
+        // On a clean install, before REau asked for the permission, the card waits: nobody has refused anything (AlertRoute).
+        val level = if (route == com.reau.app.ui.AlertRoute.Route.NONE) com.reau.app.service.AlertChannelState.Level.LOUD else read
+        alertRoute = route
+        if (level != alertLevel) {
+            val line = com.reau.app.service.AlertChannelState.line(level)
+            if (line != null) RideDiagnostics.warn("ui", line) else RideDiagnostics.log("ui", "alerts: the alert channel would be heard again")
+        }
+        alertLevel = level
+    }
 
     /** "Faltam N": only what the functions switched on need (the others are optional on the permissions page). */
     private fun permissionsMissing(settings: REauSettings) = com.reau.app.settings.AppPermissions.missing(
@@ -348,10 +401,15 @@ class MainActivity : ComponentActivity() {
     private fun mainExtras(onShowAndroidAuto: () -> Unit) = MainExtras(
         onCard = { start(card = true) },
         onShowAndroidAuto = onShowAndroidAuto,
-        onRetryServer = { AaServerStarter.retry(this) },
-        onOpenAccessibility = { AaServerStarter.openAccessibilitySettings(this) },
         onAskBatteryExemption = { com.reau.app.ui.BatteryWatch.askExemption(this) },
         onOpenBatterySaver = { com.reau.app.ui.BatteryWatch.openSaver(this) },
+        onOpenAlertSettings = {
+            com.reau.app.ui.AlertSettings.open(this) {
+                askedNotificationsAtMs = com.reau.app.util.MonotonicClock.nowMs()
+                askNotifications.launch(StartAsks.NOTIFICATIONS)
+            }
+        },
+        onOpenWifiPanel = { com.reau.app.service.WifiPanel.open(this) },
     )
 
     /** What follows a change in the settings: the log, the Wi-Fi suggestion, a running refit. */
@@ -361,8 +419,6 @@ class MainActivity : ComponentActivity() {
         // The bike Wi-Fi suggestion follows the switch.
         if (after.autoJoinWifi != before.autoJoinWifi) DashWifiSuggestions.syncSoon(this)
         if (after.answerCalls && !before.answerCalls && !PhoneCalls(this).permitted()) askForCalls.launch(PhoneCalls.PERMISSIONS)
-        // Privacy: the accessibility hears the voice apps only with this switch on.
-        if (after.answerCalls != before.answerCalls) com.reau.app.service.AaServerAccessibilityService.followCallsSwitch(after.answerCalls)
         if (after.gemini && !before.gemini && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             askForMicrophone.launch(Manifest.permission.RECORD_AUDIO)
         }
@@ -409,7 +465,14 @@ class MainActivity : ComponentActivity() {
 
     private fun quickStart(intent: Intent?) {
         val projection = ProjectionService.projection.value
-        if (!com.reau.app.service.QuickStart.switchesOn(intent?.action, projection, termsAcceptedNow())) return
+        val unlocked = phoneUnlocked()
+        if (intent?.action == com.reau.app.service.QuickStart.ACTION && !unlocked) {
+            // Opened over a lock screen: the app opens, nothing is switched on, and the action is not kept for when the phone is unlocked later.
+            intent.action = null
+            RideDiagnostics.log("ui", "the shortcut or the tile was used with the phone locked: the app opened, the projection was not switched on")
+            return
+        }
+        if (!com.reau.app.service.QuickStart.switchesOn(intent?.action, projection, termsAcceptedNow(), unlocked)) return
         // Handled once: a rotation or a recreation of the activity must not switch it on again.
         intent?.action = null
         RideDiagnostics.log("ui", "the rider switched the projection on from the shortcut or the tile")
@@ -422,7 +485,7 @@ class MainActivity : ComponentActivity() {
     private fun openAndroidAutoSettings() {
         // Without Android Auto the button leads to its page in the store; whatever fails says so, never in silence.
         val installed = AndroidAuto.installedVersion(this) != null
-        val opened = com.reau.app.aa.AndroidAutoStore.open(this)
+        val opened = com.reau.app.aa.AndroidAutoStore.open(this, say = { RideDiagnostics.log("aa-server", it) })
         RideDiagnostics.log("aa-server", "rider opened Android Auto settings (installed: $installed) → $opened")
         if (opened != AndroidAuto.Opened.NOTHING) {
             leftForAaSettingsAtMs = android.os.SystemClock.elapsedRealtime()
@@ -438,8 +501,12 @@ class MainActivity : ComponentActivity() {
         super.onPause()
     }
 
-    override fun onResume() {
+    override fun onResume() = com.reau.app.util.StartupTiming.timed("MainActivity.onResume") {
         super.onResume()
+        resume()
+    }
+
+    private fun resume() {
         onScreen = true
         resumedAtMs = com.reau.app.util.MonotonicClock.nowMs()
         if (leftForAaSettingsAtMs != 0L) {
@@ -447,16 +514,16 @@ class MainActivity : ComponentActivity() {
             RideDiagnostics.log("aa-server", "rider back from Android Auto settings after $away s")
             leftForAaSettingsAtMs = 0L
             // The server may have been switched on there: dial now, not at the end of the wait (a refused dial costs nothing).
-            AaServerStarter.dialNow()
+            AaDialNow.now()
         }
         // Read again each time: the rider may have just installed or updated Android Auto.
         androidAutoVersion = AndroidAuto.installedVersion(this)
-        accessibility = AaServerStarter.accessibility(this)
         battery = com.reau.app.ui.BatteryWatch.read(this)
         vpnHoldsREau = com.reau.app.dash.NetworkBlock.vpnHolds(this)
         locationOff = com.reau.app.ui.LocationSwitch.read(this)
+        readAlertLevel()
         otherEditionInstalled = OtherEdition.installed(this)
-        permissionRows = PermissionRows.read(this, accessibility)
+        permissionRows = PermissionRows.read(this)
         learnDashName()
         learnSunPlace(this, thenWeather = true)
     }
@@ -491,8 +558,13 @@ class MainActivity : ComponentActivity() {
         )
         startingCard = card
         if (card) RideDiagnostics.log("ui", "the rider switched the card mode on")
+        // Nothing to ask (all allowed or not needed): a later refusal opens the app's page once again.
+        if (asks.isEmpty()) SettingsStore.open(this).startAppPageForget()
         when {
-            asks.isNotEmpty() -> askBeforeStart.launch(asks.toTypedArray())
+            asks.isNotEmpty() -> {
+                askedStartAtMs = com.reau.app.util.MonotonicClock.nowMs()
+                askBeforeStart.launch(asks.toTypedArray())
+            }
             card -> ProjectionService.startCard(this)
             else -> ProjectionService.start(this)
         }
@@ -527,9 +599,10 @@ private const val KB = 1024
 /** How often the screens' theme asks the sun again. */
 
 /** The dash's name and password as the rider typed them; the pairing now. */
-private fun savePairing(pairingStore: DashPairing, typed: PairingUi): PairingUi {
-    pairingStore.ssidPrefix = typed.ssidPrefix
-    pairingStore.password = typed.password
+internal fun savePairing(pairingStore: DashPairing, typed: PairingUi): PairingUi {
+    // Only what changed: each write is a round of the Keystore on this thread, and this runs at every letter typed in the name.
+    if (typed.ssidPrefix != pairingStore.ssidPrefix) pairingStore.ssidPrefix = typed.ssidPrefix
+    if (typed.password != pairingStore.password) pairingStore.password = typed.password
     // On a clean install the whole name may be typed when REau cannot see the Wi-Fi list.
     if (typed.ssid != pairingStore.ssid) pairingStore.ssid = typed.ssid
     return typed
@@ -555,7 +628,7 @@ private fun forgetDash(context: android.content.Context, pairingStore: DashPairi
  * The pages over the settings that hold no setting, and the bike's Wi-Fi (from the settings or the main screen). The
  * permissions page shows the rows read at the last onResume, read again whenever REau comes back to the front.
  */
-private enum class SettingsPage { NONE, PERMISSIONS, ABOUT_DATA, CREDITS, TERMS, LOGS, WIFI, WEATHER, SERVER }
+private enum class SettingsPage { NONE, PERMISSIONS, ABOUT_DATA, CREDITS, TERMS, LOGS, WIFI, WEATHER, SERVER, TIPS }
 
 private val forgetScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
 
@@ -583,6 +656,7 @@ private fun SettingsPageFromSettings(
         SettingsPage.ABOUT_DATA -> com.reau.app.ui.AboutDataScreen(
             onBack, onOpenCredits = { goTo(SettingsPage.CREDITS) }, onOpenTerms = { goTo(SettingsPage.TERMS) },
         )
+        SettingsPage.TIPS -> com.reau.app.ui.TipsScreen(onBack)
         SettingsPage.CREDITS -> com.reau.app.ui.CreditsScreen(back) { copyAddress(activity, it) }
         SettingsPage.TERMS -> com.reau.app.ui.TermsScreen(gate = false, onAccept = {}, onDecline = {}, onBack = back)
         SettingsPage.LOGS -> com.reau.app.ui.LogViewerScreen(RideDiagnostics.logDir(), onBack) {
@@ -605,11 +679,9 @@ private fun PermissionsPage(
         com.reau.app.ui.PermissionsActions(
             onBack = onBack,
             onOpenAppSettings = { PermissionRows.openAppSettings(activity) },
-            onOpenAccessibility = { AaServerStarter.openAccessibilitySettings(activity) },
             onAsk = { ask ->
                 when (ask) {
                     is com.reau.app.settings.AppPermissions.Ask.Runtime -> activity.askRuntime(ask.permissions)
-                    com.reau.app.settings.AppPermissions.Ask.Accessibility -> AaServerStarter.openAccessibilitySettings(activity)
                     com.reau.app.settings.AppPermissions.Ask.Battery -> com.reau.app.ui.BatteryWatch.askExemption(activity)
                 }
             },
@@ -622,7 +694,7 @@ private fun PermissionsPage(
 
 /** The permissions page's rows as Android has them now, and Android's page of REau's own permissions. */
 private object PermissionRows {
-    fun read(context: android.content.Context, accessibility: AaServerStarter.Accessibility): List<com.reau.app.settings.AppPermissions.Row> {
+    fun read(context: android.content.Context): List<com.reau.app.settings.AppPermissions.Row> {
         val requested = runCatching {
             context.packageManager.getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS).requestedPermissions.orEmpty().toList()
         }.getOrDefault(emptyList())
@@ -630,21 +702,9 @@ private object PermissionRows {
         return com.reau.app.settings.AppPermissions.rows(
             requested = requested,
             granted = { context.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED },
-            accessibilityOn = accessibility == AaServerStarter.Accessibility.CONNECTED,
             batteryExempt = runCatching { power?.isIgnoringBatteryOptimizations(context.packageName) == true }.getOrDefault(false),
-            accessibilityStuck = accessibility == AaServerStarter.Accessibility.ENABLED,
-            accessibilityRestricted = com.reau.app.settings.AppPermissions.restrictedSettings(Build.VERSION.SDK_INT, installer(context)),
-            withAccessibility = com.reau.app.Edition.hasAccessibility,
         )
     }
-
-    /** Who installed REau (null: unknown, as with adb or before Android 11). */
-    private fun installer(context: android.content.Context): String? =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            runCatching { context.packageManager.getInstallSourceInfo(context.packageName).installingPackageName }.getOrNull()
-        } else {
-            null
-        }
 
     fun openAppSettings(context: android.content.Context) {
         val uri = android.net.Uri.fromParts("package", context.packageName, null)
@@ -656,12 +716,14 @@ private object PermissionRows {
 
 /** The Android Auto screen with the touch, the mask and the fit (which lives there now) of the settings. */
 @androidx.compose.runtime.Composable
-private fun AndroidAutoFromSettings(settings: REauSettings, save: (REauSettings) -> Unit, onBack: () -> Unit) {
+private fun AndroidAutoFromSettings(settings: REauSettings, save: (REauSettings) -> Unit, store: SettingsStore, onBack: () -> Unit) {
     // The screen Android Auto shows; the mask shows the fit in force on it, the fit opens on its tab
-    val screen = com.reau.app.aa.AaScreens.watch.screen.collectAsState().value
+    val screen = com.reau.app.aa.AaScreens.watch.screen.collectAsStateWithLifecycle().value
+    // The fit assistant opens by itself only on a phone that never saved a fit; asked once, as the screen opens.
+    val assistantPending = remember { store.fitAssistantPending() }
     AndroidAutoScreen(
         onBack = onBack, touch = settings.phoneTouch, mask = maskOf(settings, save, screen),
-        fit = com.reau.app.ui.AaScreenFit(settings, screen, save),
+        fit = com.reau.app.ui.AaScreenFit(settings, screen, com.reau.app.ui.FitAssistantAsk(assistantPending, store::fitAssistantSeen), save),
         stats = settings.overlay,
         button = settings.buttonLook,
     )
@@ -669,6 +731,6 @@ private fun AndroidAutoFromSettings(settings: REauSettings, save: (REauSettings)
 
 /** The dash's mask on the Android Auto screen follows its switch and the fit saved in the settings. */
 private fun maskOf(settings: REauSettings, save: (REauSettings) -> Unit, screen: com.reau.app.aa.AaScreen) =
-    AaScreenMask(settings.dashMask, settings.mappingFor(screen), com.reau.app.aa.AaVideo.WIDTH, com.reau.app.aa.AaVideo.HEIGHT) {
+    AaScreenMask(settings.dashMask, settings.mappingFor(screen), com.reau.app.aa.AaVideo.WIDTH, com.reau.app.aa.AaVideo.HEIGHT, settings.frameSize) {
         save(settings.copy(dashMask = it))
     }

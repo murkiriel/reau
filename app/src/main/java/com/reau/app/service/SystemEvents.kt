@@ -10,11 +10,15 @@ import android.content.IntentFilter
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.net.NetworkRequest
+import android.net.wifi.WifiManager
 import android.os.BatteryManager
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.content.ContextCompat
+import com.reau.app.aa.UsbSessionEnd
+import com.reau.app.dash.PhoneLeftNetwork
 import com.reau.app.data.RideDiagnostics
 
 /**
@@ -28,6 +32,7 @@ object SystemEvents {
     private const val TAG = "system"
     @Volatile private var started = false
 
+    @Suppress("DEPRECATION") // the Wi-Fi's broadcasts are deprecated and still sent: the only way to hear the supplicant without the location permission
     private val ACTIONS = listOf(
         Intent.ACTION_SCREEN_ON, Intent.ACTION_SCREEN_OFF,
         PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED, PowerManager.ACTION_POWER_SAVE_MODE_CHANGED,
@@ -38,13 +43,19 @@ object SystemEvents {
         // The USB data link (a computer or a car: connected, configured, with which functions): Android Auto was seen to close its
         // link at each plug and unplug of the cable (26/10/2026), which the charger's own broadcast does not tell apart from a wall charger.
         USB_STATE,
+        // The phone's own word on its Wi-Fi (no permission beyond the ones held): the radio, the supplicant, the network state.
+        WifiManager.WIFI_STATE_CHANGED_ACTION, WifiManager.SUPPLICANT_STATE_CHANGED_ACTION, WifiManager.NETWORK_STATE_CHANGED_ACTION,
     )
 
     /** The system's broadcast of the phone's USB data link (UsbManager.ACTION_USB_STATE, hidden from the SDK). */
     internal const val USB_STATE = "android.hardware.usb.action.USB_STATE"
 
+    /** The extra of [USB_STATE] that says whether the phone is the USB host (hidden constant UsbManager.USB_HOST_CONNECTED). */
+    private const val HOST_CONNECTED = "host_connected"
+
     /** Starts listening, once per process. */
     @Synchronized
+    @Suppress("DEPRECATION") // see ACTIONS
     fun start(context: Context) {
         if (started) return
         started = true
@@ -52,16 +63,28 @@ object SystemEvents {
         val power = app.getSystemService(PowerManager::class.java)
         val toggles = Toggles(runCatching { power.isDeviceIdleMode }.getOrNull(), runCatching { power.isPowerSaveMode }.getOrNull())
         val battery = LowBattery()
+        val supplicant = WifiEvents.Supplicant()
+        val networkState = WifiEvents.NetworkState()
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(c: Context, intent: Intent) {
                 val dozing = runCatching { power.isDeviceIdleMode }.getOrNull()
                 val saver = runCatching { power.isPowerSaveMode }.getOrNull()
                 com.reau.app.data.PhoneNow.heard(intent.action.orEmpty(), dozing)
+                // Android Auto closes its sessions at every change of the USB: the receiver is told, to say it and to dial again at once.
+                if (changesTheUsb(intent.action.orEmpty()) { plugged(app) }) UsbSessionEnd.shared.changed()
                 when (val action = intent.action.orEmpty()) {
                     PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED -> log(toggles.doze(dozing))
                     PowerManager.ACTION_POWER_SAVE_MODE_CHANGED -> log(toggles.saver(saver))
                     Intent.ACTION_BATTERY_LOW -> battery.low(batteryLevel(app), saverLevel(app))?.let(::log)
                     Intent.ACTION_BATTERY_OKAY -> log(battery.okay())
+                    WifiManager.WIFI_STATE_CHANGED_ACTION -> {
+                        val radio = intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE, -1)
+                        log(WifiEvents.radioLine(com.reau.app.dash.PhoneSide.radioName(radio)))
+                        // The projection that runs (if any) is told: with the radio on again, the dash is tried at once.
+                        WifiRadio.heard(WifiRadio.of(radio))
+                    }
+                    WifiManager.SUPPLICANT_STATE_CHANGED_ACTION -> supplicantLine(intent, supplicant)?.let(::log)
+                    WifiManager.NETWORK_STATE_CHANGED_ACTION -> networkStateLine(intent, networkState)?.let(::log)
                     USB_STATE -> log(usbLine(intent.extras?.keySet().orEmpty().associateWith { intent.extras?.getBoolean(it) == true }))
                     else -> {
                         if (action == Intent.ACTION_POWER_CONNECTED) battery.charger()
@@ -75,6 +98,7 @@ object SystemEvents {
         runCatching { ContextCompat.registerReceiver(app, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED) }
             .onFailure { log("listening to the phone's broadcasts failed: $it") }
         watchTheDataNetwork(app)
+        watchTheWifiNetworks(app)
         (app as? Application)?.registerActivityLifecycleCallbacks(Screens(AppVisibility(standing = ::standing, say = ::log)))
     }
 
@@ -96,18 +120,28 @@ object SystemEvents {
         }
     }
 
+    /** Whether this broadcast is a change of the USB: its data link ([USB_STATE]), or a charger that is plugged in as a USB one. */
+    internal fun changesTheUsb(action: String, plugged: () -> Int?): Boolean =
+        action == USB_STATE || action == Intent.ACTION_POWER_CONNECTED && plugSuffix(action, plugged()) == " (usb)"
+
     /**
      * The line for the USB data link: `usb connected, configured, adb`, from the extras of the broadcast (each a flag, true when on):
-     * `connected`, `configured` and the functions (`adb`, `mtp`, `ptp`...). `usb disconnected` when the link is not there.
+     * `connected`, `configured` and the functions (`adb`, `mtp`, `ptp`...). `usb disconnected` when the link is not there. The extra `host_connected`
+     * (whether the phone is the USB host) is no function: it ends the line as `host_connected=true` or `=false` when the broadcast has it.
      */
     internal fun usbLine(flags: Map<String, Boolean>): String {
+        val host = flags[HOST_CONNECTED]?.let { ", $HOST_CONNECTED=$it" }.orEmpty()
+        return usbState(flags) + host
+    }
+
+    private fun usbState(flags: Map<String, Boolean>): String {
         val on = flags.filterValues { it }.keys
         val state = when {
             "connected" !in on -> return "usb disconnected"
             "configured" in on -> "configured"
             else -> "not configured"
         }
-        val functions = on.filter { it != "connected" && it != "configured" }.sorted()
+        val functions = on.filter { it != "connected" && it != "configured" && it != HOST_CONNECTED }.sorted()
         return "usb connected, $state" + if (functions.isEmpty()) "" else ", " + functions.joinToString("+")
     }
 
@@ -134,6 +168,54 @@ object SystemEvents {
                 override fun onLost(network: Network) = log(dataNetwork(null))
             })
         }.onFailure { log("watching the data network failed: $it") }
+    }
+
+    /**
+     * The Wi-Fi networks the phone has up, as they come and go (any Wi-Fi network, the dash's included, with or without the internet). The
+     * data network callback above hears only the default one. A callback the system refuses (too many) costs one line and nothing else.
+     */
+    @Suppress("TooGenericExceptionCaught") // registerNetworkCallback throws a hidden RuntimeException when the app holds too many callbacks
+    private fun watchTheWifiNetworks(app: Context) {
+        val connectivity = app.getSystemService(ConnectivityManager::class.java)
+        val networks = WifiEvents.Networks()
+        val request = NetworkRequest.Builder()
+            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+            .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build()
+        try {
+            connectivity.registerNetworkCallback(request, object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) = log(networks.available(network.hashCode()))
+
+                override fun onLosing(network: Network, maxMsToLive: Int) = log(networks.losing(network.hashCode(), maxMsToLive))
+
+                override fun onLost(network: Network) {
+                    log(networks.lost(network.hashCode()))
+                    // The watches over the dash's Wi-Fi wait a moment after this: the phone is about to join another one (PhoneLeftNetwork).
+                    PhoneLeftNetwork.shared.left()
+                }
+
+                override fun onUnavailable() = log(WifiEvents.Networks.UNAVAILABLE)
+            })
+        } catch (e: RuntimeException) {
+            log("watching the Wi-Fi networks failed: ${e.javaClass.simpleName}")
+        }
+    }
+
+    /** The supplicant's new state and its error, from the broadcast; the SSID and BSSID that come with it are not read. */
+    @Suppress("DEPRECATION") // the broadcast is the only way to hear the supplicant's states without the location permission
+    private fun supplicantLine(intent: Intent, supplicant: WifiEvents.Supplicant): String? {
+        val state = androidx.core.content.IntentCompat.getParcelableExtra(
+            intent, WifiManager.EXTRA_NEW_STATE, android.net.wifi.SupplicantState::class.java,
+        )
+        if (WifiEvents.leavesANetwork(state?.name)) PhoneLeftNetwork.shared.left()
+        return supplicant.line(state?.name, intent.getIntExtra(WifiManager.EXTRA_SUPPLICANT_ERROR, 0))
+    }
+
+    /** The network state's new detailed state, from the broadcast; the network info's text (it carries the name) is never written. */
+    @Suppress("DEPRECATION") // NetworkInfo is deprecated, and still what this broadcast carries
+    private fun networkStateLine(intent: Intent, state: WifiEvents.NetworkState): String? {
+        val info = androidx.core.content.IntentCompat.getParcelableExtra(intent, WifiManager.EXTRA_NETWORK_INFO, android.net.NetworkInfo::class.java)
+        return state.line(info?.detailedState?.name)
     }
 
     private fun kindOf(caps: NetworkCapabilities?): String = when {

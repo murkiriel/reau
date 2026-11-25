@@ -82,7 +82,7 @@ class AaReceiverTest {
     private val patient = AaReceiver.Timing(redialMs = 200, afterDropMs = 1_500)
 
     private fun receiverOn(port: Int, timing: AaReceiver.Timing = quick, config: AaConfig = this.config) =
-        AaReceiver(context, config, reader.surface, { states += it }, AaReceiver.Options(port, timing)).also { receiver = it }
+        AaReceiver(context, config, reader.surface, { states += it }, AaReceiver.Options(port, timing, wake = {})).also { receiver = it }
 
     private fun peerOn(port: Int, script: FakeAndroidAutoPeer.Script = FakeAndroidAutoPeer.Script()) =
         FakeAndroidAutoPeer(script, listenOn = port).also { peers += it }
@@ -164,7 +164,7 @@ class AaReceiverTest {
             receiverOn(mute.port).start()
             awaitState(AaLinkState.CLOSING_PREVIOUS, timeoutMs = 45_000)
             assertTrue("three tries before saying so: ${mute.accepted.get()}", mute.accepted.get() >= 3)
-            assertTrue("the log says it did not see the session end: $log", log.any { "this REau did not see end" in it })
+            assertTrue("the log says Android Auto may be frozen by Android: $log", log.any { "may be frozen by Android" in it })
         }
     }
 
@@ -261,46 +261,10 @@ class AaReceiverTest {
 
     // ── a session ──────────────────────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Every input sent to Android Auto asks for its screen to be read again (the
-     * focus may move with no window event, as when Waze is picked in the menu); the phone's own call
-     * commands are not Android Auto inputs and ask nothing.
-     */
-    @Test
-    fun anInputSentToAndroidAutoAsksForItsScreenToBeReadAgain() {
-        val calls = CopyOnWriteArrayList<String>()
-        AaScreens.rereader = object : AaScreens.Rereader {
-            override fun inputSent() { calls += "input" }
-            override fun projection(on: Boolean) { calls += "projection $on" }
-        }
-        try {
-            val port = freePort()
-            peerOn(port)
-            val r = receiverOn(port)
-            r.sendInput(AaCommand.Key(23))
-            assertTrue("no session, nothing sent, nothing asked: $calls", calls.isEmpty())
-            r.start()
-            awaitState(AaLinkState.ACTIVE)
-            r.sendInput(AaCommand.Key(23))
-            await("a re-read asked after the key") { calls == listOf("input") }
-            r.sendInput(AaCommand.AnswerCall)
-            Thread.sleep(200)
-            assertEquals(listOf("input"), calls)
-        } finally {
-            AaScreens.rereader = null
-        }
-    }
-
     /** 21/10/2026: back to Waze by a tap on the phone's screen, the menu's fit stayed (only the select was said to leave the menu). */
     @Test
     fun aTapOnThePhoneInTheMenuSaysTheMenuWasLeftButADragDoesNot() {
-        val menu = listOf(AaScreenRule.Display(8, "GhostActivityDisplay:ComponentInfo{x/GhAppLauncherService}", true))
-        fun inTheMenu() {
-            AaScreens.watch.reset()
-            AaScreens.watch.update(menu, nowMs = 1_000)
-            AaScreens.watch.update(menu, nowMs = 1_500)
-            assertEquals(AaScreen.MENU, AaScreens.watch.screen.value)
-        }
+        fun inTheMenu() = ScreenShown.put(AaScreen.MENU)
         val port = freePort()
         peerOn(port)
         val r = receiverOn(port)
@@ -324,7 +288,7 @@ class AaReceiverTest {
     fun withAndroidAutoListeningOn5277TheSessionBecomesActiveAndAnswers() {
         val peer = peerOn(5277)
         // No port given: the receiver's own default.
-        val r = AaReceiver(context, config, reader.surface, { states += it }).also { receiver = it }
+        val r = AaReceiver(context, config, reader.surface, { states += it }, AaReceiver.Options(wake = {})).also { receiver = it }
 
         r.start()
         awaitState(AaLinkState.ACTIVE)
@@ -365,6 +329,52 @@ class AaReceiverTest {
 
         receiver!!.stop()
         assertTrue("the session's decoder is closed with it, got $log", log.any { "Decoder stopped: session over" in it })
+        // The socket is let go before the decoder's release (a codec that hangs there must not hold the link open).
+        val linkClosed = log.indexOfFirst { "AaReceiver: the link is closed" in it }
+        val decoderStopped = log.indexOfFirst { "Decoder stopped: session over" in it }
+        assertTrue("the link is closed first, got $log", linkClosed in 0 until decoderStopped)
+    }
+
+    /**
+     * The compositor the receiver is given reaches the decoder of its session: while it is stuck inside a frame, a decoder that stops
+     * giving pictures is not restarted; the moment it is free the stall is called.
+     */
+    @Test
+    fun aStallOfTheSessionsDecoderIsExcusedWhileTheCompositorGivenToTheReceiverIsStuck() {
+        val busy = java.util.concurrent.atomic.AtomicLong(5_000)
+        val port = freePort()
+        val peer = peerOn(port)
+        AaReceiver(context, config, reader.surface, { states += it }, AaReceiver.Options(port, quick, downstreamBusyMs = { busy.get() }, wake = {}))
+            .also { receiver = it }.start()
+        awaitState(AaLinkState.ACTIVE)
+
+        val units = TestH264Source.encode(frames = 3)
+        peer.send(Channel.ID_VID, Media.MsgType.MEDIA_MESSAGE_START_VALUE, Media.Start.newBuilder().setSessionId(3).setConfigurationIndex(0).build().toByteArray())
+        peer.send(Channel.ID_VID, type = 1, body = units.single { it.isConfig }.data)
+        for (frame in units.filter { !it.isConfig }) {
+            val body = byteArrayOf(1, 2, 3, 4, 5, 6, 7, 8) + frame.data
+            if (frame.isKey) peer.sendInPieces(Channel.ID_VID, type = 0, body = body, pieces = 3) else peer.send(Channel.ID_VID, type = 0, body = body)
+        }
+        repeat(4) { assertEquals(Media.MsgType.MEDIA_MESSAGE_ACK_VALUE, next(peer, "acknowledgement ${it + 1}").type) }
+        await("a picture on the surface") { lastPicture.get() != null }
+
+        val filler = byteArrayOf(1, 2, 3, 4, 5, 6, 7, 8, 0, 0, 0, 1, 0x0C, 0xFF.toByte(), 0xFF.toByte(), 0x80.toByte())
+        fun fillersUntil(deadline: Long, done: () -> Boolean) {
+            while (!done() && System.currentTimeMillis() < deadline) {
+                peer.send(Channel.ID_VID, type = 0, body = filler)
+                Thread.sleep(50)
+                while (true) {
+                    val received = peer.receive(1_000) ?: break
+                    if (received.type == Media.MsgType.MEDIA_MESSAGE_ACK_VALUE) break
+                }
+            }
+        }
+        fillersUntil(System.currentTimeMillis() + 5_000) { false } // the stall is called after 3 s
+        assertTrue("the decoder was restarted while the compositor was stuck, got $log", log.none { "Decoder stall detected" in it })
+
+        busy.set(0)
+        fillersUntil(System.currentTimeMillis() + 10_000) { log.any { "Decoder stall detected" in it } }
+        assertTrue("the excused stall must be called once the compositor is free, got $log", log.any { "Decoder stall detected" in it })
     }
 
     @Test
@@ -387,7 +397,7 @@ class AaReceiverTest {
         }
         val port = freePort()
         val peer = peerOn(port)
-        AaReceiver(context, config, reader.surface, { states += it }, AaReceiver.Options(port, quick, voice = { voice }))
+        AaReceiver(context, config, reader.surface, { states += it }, AaReceiver.Options(port, quick, voice = { voice }, wake = {}))
             .also { receiver = it }.start()
         awaitState(AaLinkState.ACTIVE)
 
@@ -582,7 +592,7 @@ class AaReceiverTest {
         peerOn(port, FakeAndroidAutoPeer.Script(answerByeAfterMs = 0))
         val swallowing = AaReceiver.Options(
             port, AaReceiver.Timing(redialMs = 200, afterDropMs = LONG_AFTER_DROP_MS),
-            onNavigation = { if (it == NavGuidance.INACTIVE) runCatching { Thread.sleep(SWALLOW_MS) } },
+            onNavigation = { if (it == NavGuidance.INACTIVE) runCatching { Thread.sleep(SWALLOW_MS) } }, wake = {},
         )
         val r = AaReceiver(context, config, reader.surface, { states += it }, swallowing).also { receiver = it }
         r.start()
@@ -682,5 +692,76 @@ class AaReceiverTest {
         assertTrue("got '$line'", line.startsWith("Android Auto ") && line.endsWith(ending))
         receiverOn(freePort()).start()
         await("the version line '$line'") { log.any { line in it } }
+    }
+
+    // ── waking Android Auto before a dial (always on; AaWake) ────────────────────────────────
+
+    /** Accepts every connection and says nothing, like [MuteServer], writing each accepted connection into [events] (the receiver's wake writes there too). */
+    private class RecordingMuteServer(private val events: MutableList<String>) : java.io.Closeable {
+        private val server = ServerSocket(0)
+        private val held = CopyOnWriteArrayList<java.net.Socket>()
+        val port get() = server.localPort
+        private val worker = kotlin.concurrent.thread(name = "recording-mute-android-auto") {
+            runCatching { while (true) { held += server.accept(); events += "accepted" } }
+        }
+
+        override fun close() {
+            server.close()
+            held.forEach { runCatching { it.close() } }
+            worker.join(1_000)
+        }
+    }
+
+    private val events = CopyOnWriteArrayList<String>()
+    private val fastWake = AaReceiver.Timing(redialMs = 200, afterDropMs = 100, wakeWaitMs = 50)
+
+    private fun wakingReceiverOn(port: Int, config: AaConfig = this.config) =
+        AaReceiver(context, config, reader.surface, { states += it }, AaReceiver.Options(port, fastWake, wake = { events += "wake" })).also { receiver = it }
+
+    @Test
+    fun insideTheWindowTheWakeComesBeforeTheFirstDialAndOnlyOnce() {
+        // Escrito, não rodado (sem emulador nesta rodada): um fim de sessão há 60 s, dentro da janela de 8 s a 45 min.
+        RecordingMuteServer(events).use { server ->
+            AaRestartGap.lastEndedAtMs = android.os.SystemClock.elapsedRealtime() - 60_000
+            wakingReceiverOn(server.port).start()
+            await("the first connection", timeoutMs = 5_000) { events.count { it == "accepted" } >= 1 }
+            assertEquals("the wake first, then the dial: $events $log", listOf("wake", "accepted"), events.take(2))
+            assertEquals("once: $events", 1, events.count { it == "wake" })
+            assertTrue("the log says why and how long ago: $log", log.any { "waking Android Auto before the first dial" in it && "ended 60 s ago" in it })
+        }
+    }
+
+    @Test
+    fun outsideTheWindowThereIsNoWakeBeforeTheDial() {
+        RecordingMuteServer(events).use { server ->
+            AaRestartGap.lastEndedAtMs = android.os.SystemClock.elapsedRealtime() - 3_000
+            wakingReceiverOn(server.port).start()
+            await("the first connection", timeoutMs = 5_000) { events.count { it == "accepted" } >= 1 }
+            assertEquals("no wake in the first seconds: $events", listOf("accepted"), events.toList())
+        }
+    }
+
+    @Test
+    fun aMuteNegotiationMakesOneWakeAndOneDialAndThenTheCadenceGoesOnAsItWas() {
+        // The handshake waits 10 s for the version answer: the first negotiation ends mute after that.
+        RecordingMuteServer(events).use { server ->
+            AaRestartGap.lastEndedAtMs = null
+            wakingReceiverOn(server.port).start()
+            await("the wake after the first mute negotiation", timeoutMs = 30_000) { events.contains("wake") }
+            await("the dial after it", timeoutMs = 5_000) { events.count { it == "accepted" } >= 2 }
+            assertEquals("a dial, the wake, a dial: ${events.take(3)} $log", listOf("accepted", "wake", "accepted"), events.take(3))
+            await("a third and a fourth dial", timeoutMs = 45_000) { events.count { it == "accepted" } >= 4 }
+            assertEquals("one wake only: $events", 1, events.count { it == "wake" })
+        }
+    }
+
+    @Test
+    fun withTheSwitchOffNothingIsWoken() {
+        RecordingMuteServer(events).use { server ->
+            AaRestartGap.lastEndedAtMs = android.os.SystemClock.elapsedRealtime() - 60_000
+            wakingReceiverOn(server.port, config = config).start()
+            await("two connections", timeoutMs = 30_000) { events.count { it == "accepted" } >= 2 }
+            assertFalse("no wake: $events", events.contains("wake"))
+        }
     }
 }

@@ -154,7 +154,11 @@ class DashSocketTest {
     fun `sends from several threads keep the suppression counters whole`() {
         val s = DashSocket().apply { close() }
         val packet = byteArrayOf(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-        val threads = List(4) { Thread { repeat(5_000) { s.send(packet) } }.apply { start() } }
+        // Eight threads let go at the same instant, many times over: without the lock the counters lose updates on any runner, not only
+        // when the scheduler happens to interleave a few threads (a CI runner with two cores let a lockless counter pass twice).
+        val start = java.util.concurrent.CountDownLatch(1)
+        val threads = List(8) { Thread { start.await(); repeat(40_000) { s.send(packet) } }.apply { start() } }
+        start.countDown()
         threads.forEach { it.join() }
         org.junit.Assert.assertTrue(s.testOnlyTxSuppressed())
         // every call of a suppressed link is counted once, and all of them are held back but the probe, the 20th, 40th...
@@ -190,4 +194,62 @@ class DashSocketTest {
         s.sendBatch(emptyList())
         org.junit.Assert.assertFalse(s.testOnlyTxSuppressed())
     }
+
+    @Test
+    fun `sends refused for being on the main thread are not a dead link and never suppress the channel`() {
+        val s = DashSocket().also { socket = it }
+        repeat(50) { s.testOnlySendFailed(NetworkOnMainThreadException()) }
+        org.junit.Assert.assertFalse("50 main-thread sends must not silence the control channel", s.testOnlyTxSuppressed())
+        assertEquals("and they do not count in the streak", 0, s.testOnlyTxFailStreak())
+        assertEquals(50, s.testOnlyMainThreadWarnings())
+        // Mixed in with real failures, they neither add to nor reset the streak.
+        repeat(4) { s.testOnlySendFailed(java.net.SocketException("Network is unreachable")) }
+        repeat(10) { s.testOnlySendFailed(NetworkOnMainThreadException()) }
+        org.junit.Assert.assertFalse(s.testOnlyTxSuppressed())
+        assertEquals(4, s.testOnlyTxFailStreak())
+        s.testOnlySendFailed(java.net.SocketException("Network is unreachable"))
+        org.junit.Assert.assertTrue("the fifth real failure still suppresses", s.testOnlyTxSuppressed())
+    }
+
+    @Test
+    fun `real socket failures still turn the suppression on after five`() {
+        val s = DashSocket().also { socket = it }
+        repeat(4) { s.testOnlySendFailed(java.net.SocketException("sendto failed: ENETUNREACH")) }
+        org.junit.Assert.assertFalse(s.testOnlyTxSuppressed())
+        s.testOnlySendFailed(java.io.IOException("sendto failed: EBADF"))
+        org.junit.Assert.assertTrue(s.testOnlyTxSuppressed())
+        assertEquals(0, s.testOnlyMainThreadWarnings())
+    }
+
+    @Test
+    fun `a send on the main thread is accused in the log as a programming bug, a few lines only`() {
+        val logFile = java.nio.file.Files.createTempFile("dash-socket-main-thread", ".log").toFile()
+        com.reau.app.data.RideDiagnostics.testOnlySetFile(logFile)
+        try {
+            val s = DashSocket().also { socket = it }
+            repeat(200) { s.testOnlySendFailed(NetworkOnMainThreadException()) }
+            s.testOnlySendFailed(java.net.SocketException("sendto failed: ENETUNREACH")) // a real one is still told, once
+            val deadline = System.currentTimeMillis() + 10_000
+            while (System.currentTimeMillis() < deadline && logFile.readText().let { "TX send failing" !in it }) Thread.sleep(20)
+            val lines = logFile.readLines()
+            val accused = lines.filter { "TX send refused: NetworkOnMainThreadException" in it }
+            org.junit.Assert.assertTrue("the accusation says it is the caller's bug: $accused", accused.isNotEmpty() && accused.all { "programming bug" in it })
+            org.junit.Assert.assertTrue("200 bad sends must not flood the log: ${accused.size} lines", accused.size in 1..3)
+            org.junit.Assert.assertTrue("a main-thread send is never told as a dead link", lines.none { "link down?" in it && "NetworkOnMainThread" in it })
+            org.junit.Assert.assertEquals("the real failure is told as before", 1, lines.count { "TX send failing (link down?)" in it })
+        } finally {
+            com.reau.app.data.RideDiagnostics.testOnlyReset()
+            logFile.delete()
+        }
+    }
+
+    @Test
+    fun `only the exception named NetworkOnMainThreadException is taken for a main-thread send`() {
+        org.junit.Assert.assertTrue(DashSocket.isMainThreadViolation(NetworkOnMainThreadException()))
+        org.junit.Assert.assertFalse(DashSocket.isMainThreadViolation(java.net.SocketException("x")))
+        org.junit.Assert.assertFalse(DashSocket.isMainThreadViolation(IllegalStateException("main thread")))
+    }
+
+    /** Stands for android.os.NetworkOnMainThreadException (not usable on the JVM): the guard goes by the class's simple name. */
+    private class NetworkOnMainThreadException : java.io.IOException("stand-in")
 }

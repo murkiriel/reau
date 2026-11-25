@@ -19,6 +19,22 @@ val StatusErro = Color(0xFFD64A4A)
 val StatusSucesso = Color(0xFF3E8C45)
 val StatusAtencao = Color(0xFFC26A22)
 val StatusInfo = Color(0xFF4A82C3)
+// The error colour as TEXT (an experimental row's letters, "Delete", "Forget"): StatusErro reads at 3.9:1 on Carvão and 3.5:1 on Marfim,
+// under the 4.5:1 small text needs. A lighter red on the dark theme and a darker one on the light theme; the status icons keep StatusErro.
+val ErroTextoNoEscuro = Color(0xFFE86A6A)
+val ErroTextoNoClaro = Color(0xFFB3261E)
+// The other states as TEXT in the dark theme (a card's title, "Granted", "Servidor ligado"): the brand's green (4.0:1 on Carvão), orange
+// (4.3:1) and blue (4.2:1) are under the 4.5:1 small text needs. Lighter ones for the letters; the icons and borders keep the brand's,
+// which read at 3:1 or more on every ground. In the light theme the letters are Grafite (the icon carries the colour).
+val SucessoTextoNoEscuro = Color(0xFF52A25A)
+val AtencaoTextoNoEscuro = Color(0xFFD2802F)
+val InfoTextoNoEscuro = Color(0xFF6296D0)
+// The rain pill of the Clima screen: the amount in a deep blue in the light theme (5.2:1 on Marfim; the dark theme writes it in
+// InfoTextoNoEscuro), on a pill of its own: the rain blue of the icons (0xFF1E88E5) at 14% over Carvao in the dark theme and at 12% over
+// Marfim in the light one (each is the most the text still reads at 4.5:1 on, and the pill still steps 1.1:1 or more from the card).
+val ChuvaTextoNoClaro = Color(0xFF1A5FA8)
+val ChuvaFundoNoEscuro = Color(0xFF212C33)
+val ChuvaFundoNoClaro = Color(0xFFD3DCDE)
 
 // Blends worked out beforehand (Material 3 wants solid colours)
 private val OuroSobreGrafite12 = Color(0xFF2B2510)  // Ouro 12% over Grafite
@@ -36,7 +52,7 @@ val REauDark = darkColorScheme(
     surfaceContainerLowest = Grafite, surfaceContainerLow = Carvao,
     surfaceContainer = Carvao, surfaceContainerHigh = Carvao, surfaceContainerHighest = Carvao,
     outline = OuroSuave, outlineVariant = OuroSuaveSobreGrafite22,
-    error = StatusErro, onError = Grafite,
+    error = ErroTextoNoEscuro, onError = Grafite,
     inverseSurface = Marfim, inverseOnSurface = Grafite, inversePrimary = Ouro,
 )
 
@@ -51,7 +67,7 @@ val REauLight = lightColorScheme(
     surfaceContainer = Marfim, surfaceContainerHigh = Marfim,
     surfaceContainerHighest = Carvao,               // chrome: the top bar, the tabs' track
     outline = OuroSuave, outlineVariant = OuroSuave,
-    error = StatusErro, onError = Grafite,
+    error = ErroTextoNoClaro, onError = Marfim,
     inverseSurface = Carvao, inverseOnSurface = Marfim, inversePrimary = Ouro,
 )
 
@@ -66,9 +82,21 @@ data class REauStatusColors(
     /** Chrome: the top bar in the light theme, the tabs' track. */
     val chrome: Color = Carvao,
     val onChrome: Color = Marfim,
+    /** The states as text (see [com.reau.app.ui.components.textColor]): 4.5:1 on every ground of the theme. */
+    val successText: Color = SucessoTextoNoEscuro,
+    val warningText: Color = AtencaoTextoNoEscuro,
+    val infoText: Color = InfoTextoNoEscuro,
+    val errorText: Color = ErroTextoNoEscuro,
+    /** The rain pill's amount ("4,2 mm"): blue in both themes, 4.5:1 on the pill and on the card. */
+    val rainText: Color = InfoTextoNoEscuro,
+    /** The rain pill's fill: a faint blue, a step from the card (the border is the rain blue of the icons), solid. */
+    val rainChip: Color = ChuvaFundoNoEscuro,
 )
 
 val REauStatusDark = REauStatusColors(idle = OuroSuave)
-val REauStatusLight = REauStatusColors(idle = Grafite62SobreMarfim)
+val REauStatusLight = REauStatusColors(
+    idle = Grafite62SobreMarfim, successText = Grafite, warningText = Grafite, infoText = Grafite, errorText = Grafite,
+    rainText = ChuvaTextoNoClaro, rainChip = ChuvaFundoNoClaro,
+)
 
 val LocalREauStatus = staticCompositionLocalOf { REauStatusDark }

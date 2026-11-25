@@ -103,7 +103,8 @@ class WebAudioSettingsTest {
 
     @Test
     fun `the log line of the settings in use says the mode`() {
-        assertTrue(SettingsInUse.line(REauSettings()).endsWith(" webView=false webTouch=false webAudio=PHONE"))
-        assertTrue(SettingsInUse.line(REauSettings(webView = true, webAudio = WebAudioMode.BOTH)).endsWith(" webAudio=BOTH"))
+        // The picture and the reserve's cap come after the mode.
+        assertTrue(SettingsInUse.line(REauSettings()).contains(" webView=false webTouch=false webAudio=PHONE videoFrame="))
+        assertTrue(SettingsInUse.line(REauSettings(webView = true, webAudio = WebAudioMode.BOTH)).contains(" webAudio=BOTH videoFrame="))
     }
 }

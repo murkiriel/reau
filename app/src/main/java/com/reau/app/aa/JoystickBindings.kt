@@ -7,7 +7,7 @@ package com.reau.app.aa
  * the page (the wheel, home, confirm); in the map mode, the sides move the focus, down is the info ring's switch and the rest does nothing. That is not the
  * page the app starts with: that one is [com.reau.app.settings.REauSettings.DEFAULT_JOYSTICK] (the app menu and Gemini in the media
  * mode, zoom out and zoom in on the map mode's sides, the info ring below them), which a new install starts with. The calls act above the page
- * ([JoystickMap]).
+ * ([JoystickMap]): with REau's own call card on, a call going on takes the sides for its volume and leaves up and down doing nothing, whatever the page says.
  *
  * No "twice": a double tap does not work well on the dash's joystick; a "twice" choice saved before
  * is left out when read. "Held" is kept but never fires: as far as is known the dash sends one code per press,
@@ -35,9 +35,36 @@ data class JoystickBindings(private val chosen: Map<Slot, Action> = emptyMap()) 
         PLAY_PAUSE({ AaCommand.Key(ServiceDiscoveryResponse.KEY_MEDIA_PLAY_PAUSE) }),
         NEXT_SONG({ AaCommand.Key(ServiceDiscoveryResponse.KEY_MEDIA_NEXT) }),
         PREVIOUS_SONG({ AaCommand.Key(ServiceDiscoveryResponse.KEY_MEDIA_PREVIOUS) }),
+
+        /**
+         * The phone's volume one step up or down, with no panel on the screen: the music's, or the call's during a call ([com.reau.app.phone.PhoneVolume]).
+         * The dash calls the media mode's up and down "volume" (0x06, 0x07), but no default page uses them so; these are choices
+         * on the page, on no control by default. Not a "music control" for the card ([mediaControls]): the card is about the song.
+         */
+        VOLUME_UP({ AaCommand.Volume(1) }),
+        VOLUME_DOWN({ AaCommand.Volume(-1) }),
         ASSISTANT({ assistant -> if (assistant) AaCommand.Key(ServiceDiscoveryResponse.KEY_ASSISTANT) else null }),
         ZOOM_IN({ AaCommand.PanelZoom(1) }),
         ZOOM_OUT({ AaCommand.PanelZoom(-1) }),
+
+        /**
+         * One action for the map and the music: it asks what Android Auto shows ([SwapMapMusic]) and, on the map, opens the last music app
+         * (Android Auto's own media button); on anything else (Spotify, the app menu, another app, a screen not known), the last navigation app
+         * (its navigation button). On no control by default. The two that open one of them for good come right after it ([OPEN_NAVIGATION], [OPEN_MUSIC]).
+         */
+        SWAP_MAP_MUSIC({ AaCommand.SwapMapMusic }),
+
+        /**
+         * Opens the last navigation app, whatever Android Auto shows: Android Auto's own navigation key, the one [SwapMapMusic.Target.MAP] sends,
+         * with no look at the screen first. On no control by default.
+         */
+        OPEN_NAVIGATION({ AaCommand.Key(ServiceDiscoveryResponse.KEY_NAVIGATION) }),
+
+        /**
+         * Opens the last music app, whatever Android Auto shows: Android Auto's own media key, the one [SwapMapMusic.Target.MUSIC] sends, with no
+         * look at the screen first. On no control by default.
+         */
+        OPEN_MUSIC({ AaCommand.Key(ServiceDiscoveryResponse.KEY_MEDIA) }),
 
         /**
          * The info ring's own switch: it sends Android Auto nothing, the dash's down button in its map mode (0x15) shows and hides REau's
@@ -104,6 +131,7 @@ data class JoystickBindings(private val chosen: Map<Slot, Action> = emptyMap()) 
 
         private val ZOOM_ACTIONS = listOf(Action.ZOOM_IN, Action.ZOOM_OUT)
 
+        // The song's own controls; the volume is not one: the card shows the song, and a volume knob does not need it.
         private val MEDIA_ACTIONS = setOf(Action.PREVIOUS_SONG, Action.PLAY_PAUSE, Action.NEXT_SONG)
 
 
@@ -131,6 +159,13 @@ data class JoystickBindings(private val chosen: Map<Slot, Action> = emptyMap()) 
         fun isLocked(slot: Slot): Boolean = slot.mode to slot.control in LOCKED
 
         private val BY_KEY = SLOTS.associateBy { it.key }
+
+        /**
+         * The names of actions that no longer exist, and what a page saved with them reads as: none is renamed now. The ones that opened the phone and
+         * switched among the first three apps are gone, and so are the four focus arrows ("Focus up", "Focus down", "Focus left", "Focus right"; a name
+         * that is not an [Action] is left out when read, and its slot goes back to its default). "OPEN_MUSIC" and "OPEN_NAVIGATION" are actions again
+         * and read as themselves.
+         */
 
         /**
          * [text] without its map-mode choices: those saved

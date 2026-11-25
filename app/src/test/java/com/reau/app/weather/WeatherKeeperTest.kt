@@ -39,8 +39,37 @@ class WeatherKeeperTest {
     }
 
     @Test
+    fun `the weather stays usable until three hours, however old, and the switch of 30 minutes is gone`() {
+        val fetched = snapshot(now(61))
+        val at = fun(ageMs: Long) = 1_000L + ageMs
+        assertEquals(DashCommands.Weather(24, 3), WeatherKeeper.forDash(fetched, at(31 * 60_000L)))
+        assertEquals(DashCommands.Weather(24, 3), WeatherKeeper.forDash(fetched, at(2 * 60 * 60_000L)))
+        assertEquals(DashCommands.Weather(24, 3), WeatherKeeper.forDash(fetched, at(WeatherKeeper.USABLE_MS)))
+        assertNull(WeatherKeeper.forDash(fetched, at(WeatherKeeper.USABLE_MS + 1)))
+        assertEquals(3 * 60 * 60_000L, WeatherKeeper.USABLE_MS)
+    }
+
+    @Test
+    fun `a current reading with no temperature, or none at all, is no weather at any age`() {
+        assertNull(WeatherKeeper.forDash(snapshot(now(61, Double.NaN)), 2_000L))
+        assertNull(WeatherKeeper.forDash(null, 2_000L))
+    }
+
+    @Test
+    fun `the heartbeat and the weather screen ask for the weather with no switch`() {
+        val live = java.io.File("src/main/java/com/reau/app/service/LiveSides.kt").readText()
+        assertTrue(live.contains("setup.weather()"))
+        assertTrue(live.contains("WeatherKeeper.forDash() }"))
+        val screen = java.io.File("src/main/java/com/reau/app/ui/WeatherScreen.kt").readText()
+        assertTrue(screen.contains("val sent = WeatherKeeper.forDash()"))
+    }
+
+    @Test
     fun `no weather, no current reading, or one older than three hours is told to the dash as none`() {
         assertNull(WeatherKeeper.forDash(null, 2_000L))
+        // A temperature that is not a number (a broken answer) is no weather for the dash: rounding it threw.
+        assertNull(WeatherKeeper.forDash(snapshot(now(61, Double.NaN)), 2_000L))
+        assertNull(WeatherKeeper.forDash(snapshot(now(61, Double.POSITIVE_INFINITY)), 2_000L))
         assertNull(WeatherKeeper.forDash(snapshot(null), 2_000L))
         val usableUntil = 1_000L + WeatherKeeper.USABLE_MS
         assertEquals(DashCommands.Weather(24, 3), WeatherKeeper.forDash(snapshot(now(61)), usableUntil)?.copy())
@@ -54,6 +83,9 @@ class WeatherKeeperTest {
         for (field in listOf("temperature_2m", "wind_gusts_10m", "surface_pressure", "uv_index", "sunrise", "forecast_days=14", "timezone=auto")) {
             assertTrue("$field in $url", url.contains(field))
         }
+        // The rain of each hour (mm) and of each day (mm).
+        assertTrue(url, url.contains("hourly=temperature_2m,precipitation_probability,precipitation,weather_code,uv_index&"))
+        assertTrue(url, url.contains("precipitation_probability_max,precipitation_sum,uv_index_max"))
         // The next two hours in quarters (the one now and seven more), for the dash's info ring.
         assertTrue(url, url.contains("minutely_15=precipitation,weather_code,wind_gusts_10m&forecast_minutely_15=8"))
         // A finer place is cut to a tenth in the request itself, whatever the caller kept.
