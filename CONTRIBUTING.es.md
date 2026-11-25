@@ -25,10 +25,7 @@ cabecera del archivo copiado. Nunca pegues en un issue, un pull request, una pru
 
 Lo que se acepta de esas fuentes es la idea, dicha con tus palabras y escrita como código tuyo, y hechos que tú mismo
 observaste en tu propio tablero (qué byte hace qué, y en qué firmware). Un pull request que traiga material de los dos
-primeros tipos se cierra, y el material sale de la historia. Si dudas, pregunta en un issue antes de enviar código. Lo que
-hace el mantenedor cuando un titular de derechos pide retirar algo está en
-[TAKEDOWN_RESPONSE.es.md](TAKEDOWN_RESPONSE.es.md) (en inglés: [TAKEDOWN_RESPONSE.md](TAKEDOWN_RESPONSE.md); en portugués:
-[TAKEDOWN_RESPONSE.pt-br.md](TAKEDOWN_RESPONSE.pt-br.md)).
+primeros tipos se cierra, y el material sale de la historia. Si dudas, pregunta en un issue antes de enviar código.
 
 ## Ejecutar las pruebas
 

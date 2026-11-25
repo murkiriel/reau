@@ -25,10 +25,7 @@ copiado. Nunca cole numa issue, num pull request, num teste, num comentário ou 
 
 O que se aceita dessas fontes é a ideia, dita com as suas palavras e escrita como código seu, e fatos que você mesmo
 observou no seu próprio painel (qual byte faz o quê, e em qual firmware). Um pull request que traga material dos dois
-primeiros tipos é fechado, e o material sai da história. Na dúvida, pergunte numa issue antes de mandar código. O que o
-mantenedor faz quando um titular de direitos pede a retirada de algo está em
-[TAKEDOWN_RESPONSE.pt-br.md](TAKEDOWN_RESPONSE.pt-br.md) (em inglês: [TAKEDOWN_RESPONSE.md](TAKEDOWN_RESPONSE.md); em espanhol:
-[TAKEDOWN_RESPONSE.es.md](TAKEDOWN_RESPONSE.es.md)).
+primeiros tipos é fechado, e o material sai da história. Na dúvida, pergunte numa issue antes de mandar código.
 
 ## Como rodar os testes
 

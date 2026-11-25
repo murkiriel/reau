@@ -26,9 +26,7 @@ header of the copied file. Never paste into an issue, a pull request, a test, a 
 What is welcome from such sources is the idea, said in your own words and written as your own code, and facts that you
 observed yourself on your own dash (which byte does what, and on which firmware). A pull request that carries material of
 the first two kinds is closed, and the material is taken out of the history. If in doubt, ask in an issue before sending
-code. What the maintainer does when a rights holder asks for something to be removed is in
-[TAKEDOWN_RESPONSE.md](TAKEDOWN_RESPONSE.md) (in Portuguese: [TAKEDOWN_RESPONSE.pt-br.md](TAKEDOWN_RESPONSE.pt-br.md); in Spanish:
-[TAKEDOWN_RESPONSE.es.md](TAKEDOWN_RESPONSE.es.md)).
+code.
 
 ## Running the tests
 
