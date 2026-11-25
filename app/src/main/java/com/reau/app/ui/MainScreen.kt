@@ -99,7 +99,8 @@ fun MainScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     val warnings = MainLook.warnings(p, state.battery, state.vpnHoldsREau, state.locationOff) +
-                        MainLook.alertWarnings(state.alertLevel)
+                        MainLook.alertWarnings(state.alertLevel) +
+                        MainLook.systemClosedWarnings(state.systemClosedAtMs != null)
                     for (warning in warnings) {
                         Warning(warning, state, onOpenAndroidAutoSettings, extras)
                     }

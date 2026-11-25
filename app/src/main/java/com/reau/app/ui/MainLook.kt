@@ -16,7 +16,7 @@ object MainLook {
     /** The warnings, in display order; each is shown only while its trouble lasts. */
     enum class Warning {
         SERVER_OFF, UNRESPONSIVE, CLOSING_PREVIOUS, NOT_CALLING, NO_VIDEO,
-        BATTERY_EXEMPTION, BATTERY_SAVER, WIFI_OFF, DASH_TAKEN, NAME_NEEDED, VPN, LOCATION_OFF, ALERTS_MUTED, ALERTS_BLOCKED,
+        BATTERY_EXEMPTION, BATTERY_SAVER, WIFI_OFF, DASH_TAKEN, NAME_NEEDED, VPN, LOCATION_OFF, ALERTS_MUTED, ALERTS_BLOCKED, SYSTEM_CLOSED,
     }
 
     fun androidAutoKind(p: Projection): StatusKind = when {
@@ -94,6 +94,9 @@ object MainLook {
         Warning.ALERTS_MUTED.takeIf { level == com.reau.app.service.AlertChannelState.Level.MUTED },
         Warning.ALERTS_BLOCKED.takeIf { level == com.reau.app.service.AlertChannelState.Level.BLOCKED },
     )
+
+    /** The card that the system closed REau during the last ride, until the rider dismisses it ([com.reau.app.data.SystemClosedRide]); after the others, as it is about the past. */
+    fun systemClosedWarnings(pending: Boolean): List<Warning> = listOfNotNull(Warning.SYSTEM_CLOSED.takeIf { pending })
 
     /**
      * Why the "Tela do Android Auto" cannot open now; null when it can: with the projection on, outside the card mode,

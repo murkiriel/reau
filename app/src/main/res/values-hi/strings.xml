@@ -918,4 +918,23 @@
     <string name="tip_gemini_swap_text">Gemini आवाज़ से चलता है और उसके लिए हेलमेट में इंटरकॉम चाहिए। न हो, तो डैश जॉयस्टिक स्क्रीन (मीडिया कंट्रोल, नीचे का बटन) में Gemini की जगह \"मैप और संगीत बदलें\" चुन सकते हैं: एक टैप से आप मैप से संगीत ऐप पर जाते हैं और फिर वापस आते हैं।</string>
     <string name="tip_video_fps_title">वीडियो 6 fps से ऊपर क्यों नहीं जाता</string>
     <string name="tip_video_fps_text">डैश इससे ज़्यादा फ़्रेम प्रति सेकंड ले लेता है, पर जो प्रोसेसर वीडियो दिखाता है वही स्क्रीन भी बनाता है और बटन भी सँभालता है। बाइक पर टेस्ट में 8 fps पर रिज़र्व आइकन टिमटिमाने लगा, और 12 fps पर डैश बटन को अनदेखा करने लगा। 6 fps पर सब कुछ बिना गड़बड़ी के चला, इसलिए REau इससे ऊपर कभी नहीं जाता। फिर भी ऐप मूल गति के साथ आता है (A पर 4 fps, B पर 2), जो डैश पर हल्की है; ज़्यादा स्मूद तस्वीर के लिए \"वीडियो गति\" सेटिंग में REau (A पर 6 fps, B पर 3) चुनें।</string>
+    <string name="keepalive_title">REau को चालू रखें</string>
+    <string name="keepalive_intro">कुछ फ़ोन बैटरी बचाने के लिए बैकग्राउंड में चल रहे ऐप बंद कर देते हैं, तब भी जब REau डैश पर प्रोजेक्ट कर रहा हो, और सफ़र बिना डैश के रह जाता है। आपके फ़ोन के लिए ये वे क़दम हैं जो ऐसा होने की संभावना घटाते हैं।</string>
+    <string name="keepalive_honest">ये क़दम संभावना घटाते हैं, पक्का नहीं करते: हर फ़ोन निर्माता के अपने नियम होते हैं, और अपडेट उन्हें बदल सकता है।</string>
+    <string name="keepalive_brand_xiaomi">Xiaomi, Redmi और POCO (HyperOS या MIUI)</string>
+    <string name="keepalive_brand_oppo">realme, OPPO और OnePlus (realme UI, ColorOS या OxygenOS)</string>
+    <string name="keepalive_brand_other">आपका फ़ोन</string>
+    <string name="keepalive_step_lock">REau को हाल के ऐप्स में लॉक करें: हाल के ऐप्स खोलें, REau के कार्ड को दबाए रखें और ताले के निशान पर टैप करें।</string>
+    <string name="keepalive_step_xiaomi_battery">REau की ऐप जानकारी खोलें, बैटरी सेवर पर टैप करें और \"कोई प्रतिबंध नहीं\" चुनें।</string>
+    <string name="keepalive_step_autostart">REau के लिए ऑटोस्टार्ट चालू करें (ऐप जानकारी में, या फ़ोन की सेटिंग में ऑटोस्टार्ट की सूची में)।</string>
+    <string name="keepalive_step_xiaomi_performance">वैकल्पिक: फ़ोन की बैटरी सेटिंग में परफ़ॉर्मेंस मोड या प्लान चुनें, जो बैकग्राउंड ऐप्स को कम रोकता है।</string>
+    <string name="keepalive_step_oppo_battery">REau की ऐप जानकारी खोलें, बैटरी उपयोग पर टैप करें और बैकग्राउंड गतिविधि की अनुमति दें (\"बैकग्राउंड गतिविधि की अनुमति दें\")।</string>
+    <string name="keepalive_step_oppo_autostart">REau के लिए ऑटो लॉन्च चालू करें (ऐप जानकारी में, या फ़ोन की सेटिंग में बैटरी या ऐप्स के अंतर्गत)।</string>
+    <string name="keepalive_step_other_battery">REau को बैटरी ऑप्टिमाइज़ेशन से बाहर रखें: मुख्य स्क्रीन यह माँगती है, और अनुमतियों वाला पेज दिखाता है कि यह हो चुका है या नहीं (\"बैटरी ऑप्टिमाइज़ेशन से छूट\")।</string>
+    <string name="keepalive_step_other_lock">अगर आपका फ़ोन हाल के ऐप्स में ऐप लॉक करने देता है (कार्ड पर ताले का निशान), तो REau को लॉक करें।</string>
+    <string name="keepalive_open_app_info">REau की ऐप जानकारी खोलें</string>
+    <string name="permissions_keep_alive">REau को बंद होने से बचाएँ: आपके फ़ोन के लिए क़दम</string>
+    <string name="action_keepalive_guide">क़दम देखें</string>
+    <string name="warn_system_closed_title">फ़ोन ने REau को बंद कर दिया</string>
+    <string name="warn_system_closed">फ़ोन के सिस्टम ने सफ़र के दौरान (%1$s) REau को बंद कर दिया, जब वह प्रोजेक्ट कर रहा था। यह फ़ोन की ओर से हुआ, डैश की ओर से नहीं। देखें कि इसके दोबारा होने की संभावना कैसे घटाएँ।</string>
 </resources>

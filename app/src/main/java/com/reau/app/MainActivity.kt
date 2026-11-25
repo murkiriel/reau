@@ -45,6 +45,7 @@ import com.reau.app.ui.MainUiState
 import com.reau.app.ui.PairingUi
 import com.reau.app.ui.ServerUi
 import com.reau.app.ui.withNetwork
+import com.reau.app.ui.withSystemClosed
 import com.reau.app.ui.SettingsActions
 import com.reau.app.ui.SettingsScreen
 import com.reau.app.util.DiagnosticsExport
@@ -223,11 +224,15 @@ class MainActivity : ComponentActivity() {
         com.reau.app.util.FrameJank.watch(this, com.reau.app.util.MonotonicClock.nowMs()) { resumedAtMs }
         lifecycle.addObserver(dashSearch)
         if (savedInstanceState == null) quickStart(intent)
+        // What the last opening found about the system closing REau during a ride, still not dismissed (the opening's thread may add to it: SystemClosedRide.note).
+        com.reau.app.data.SystemClosedRide.load(applicationContext)
         setContent {
             val projection by ProjectionService.projection.collectAsStateWithLifecycle()
             val startedAt by ProjectionService.startedAt.collectAsStateWithLifecycle()
             // The network server is up when it has published its address and PIN (the icon of the main screen blinks for it).
             val networkOn = com.reau.app.web.WebAccess.state.collectAsStateWithLifecycle().value != null
+            // The system closed REau during the last ride, until the rider dismisses the notice (SystemClosedRide, told at the opening).
+            val systemClosedAt = com.reau.app.data.SystemClosedRide.pendingAt.collectAsStateWithLifecycle().value
             var inSettings by rememberSaveable { mutableStateOf(false) }
             var inAndroidAuto by rememberSaveable { mutableStateOf(false) }
             var inJoystick by rememberSaveable { mutableStateOf(false) }
@@ -313,7 +318,7 @@ class MainActivity : ComponentActivity() {
             } else {
                 kept.SaveableStateProvider(MAIN_SCREEN) {
                     MainScreen(
-                        mainState(projection, settings, startedAt, pairing.ssid).withNetwork(networkOn),
+                        mainState(projection, settings, startedAt, pairing.ssid).withNetwork(networkOn).withSystemClosed(systemClosedAt),
                         onToggle = { toggle(projection) },
                         onOpenAndroidAutoSettings = { openAndroidAutoSettings() },
                         onOpenSettings = { reload(); inSettings = true },
@@ -323,6 +328,11 @@ class MainActivity : ComponentActivity() {
                             onOpenWeather = { page = SettingsPage.WEATHER },
                             onOpenServer = { page = SettingsPage.SERVER },
                             onOpenTips = { page = SettingsPage.TIPS },
+                            onOpenKeepAlive = {
+                                com.reau.app.data.SystemClosedRide.dismiss(this@MainActivity)
+                                page = SettingsPage.KEEP_ALIVE
+                            },
+                            onDismissSystemClosed = { com.reau.app.data.SystemClosedRide.dismiss(this@MainActivity) },
                         ),
                     )
                 }
@@ -636,7 +646,7 @@ private fun forgetDash(context: android.content.Context, pairingStore: DashPairi
  * The pages over the settings that hold no setting, and the bike's Wi-Fi (from the settings or the main screen). The
  * permissions page shows the rows read at the last onResume, read again whenever REau comes back to the front.
  */
-private enum class SettingsPage { NONE, PERMISSIONS, ABOUT_DATA, CREDITS, TERMS, LOGS, WIFI, WEATHER, SERVER, TIPS }
+private enum class SettingsPage { NONE, PERMISSIONS, ABOUT_DATA, CREDITS, TERMS, LOGS, WIFI, WEATHER, SERVER, TIPS, KEEP_ALIVE }
 
 private val forgetScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
 
@@ -665,12 +675,16 @@ private fun SettingsPageFromSettings(
             onBack, onOpenCredits = { goTo(SettingsPage.CREDITS) }, onOpenTerms = { goTo(SettingsPage.TERMS) },
         )
         SettingsPage.TIPS -> com.reau.app.ui.TipsScreen(onBack)
+        SettingsPage.KEEP_ALIVE -> com.reau.app.ui.KeepAliveScreen(back, onOpenAppInfo = {
+            RideDiagnostics.log("ui", "the rider opened REau's app info from the keep-alive guide")
+            PermissionRows.openAppSettings(activity)
+        })
         SettingsPage.CREDITS -> com.reau.app.ui.CreditsScreen(back) { copyAddress(activity, it) }
         SettingsPage.TERMS -> com.reau.app.ui.TermsScreen(gate = false, onAccept = {}, onDecline = {}, onBack = back)
         SettingsPage.LOGS -> com.reau.app.ui.LogViewerScreen(RideDiagnostics.logDir(), onBack) {
             DiagnosticsExport.shareFrom(activity, withRecordings = false)
         }
-        else -> PermissionsPage(activity, rows, locationAllowed, functions, onBack)
+        else -> PermissionsPage(activity, rows, locationAllowed, functions, goTo, onBack)
     }
 }
 
@@ -680,6 +694,7 @@ private fun PermissionsPage(
     rows: List<com.reau.app.settings.AppPermissions.Row>,
     locationAllowed: Boolean,
     functions: com.reau.app.settings.AppPermissions.Functions,
+    goTo: (SettingsPage) -> Unit,
     onBack: () -> Unit,
 ) {
     com.reau.app.ui.PermissionsScreen(
@@ -694,6 +709,7 @@ private fun PermissionsPage(
                 }
             },
             onAskAll = activity.askRuntime,
+            onOpenKeepAlive = { goTo(SettingsPage.KEEP_ALIVE) },
         ),
         locationAllowed = locationAllowed,
         functions = functions,

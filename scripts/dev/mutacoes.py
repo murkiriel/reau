@@ -5508,6 +5508,20 @@ MUTATIONS += [
 ]
 
 
+MUTATIONS += [
+    ("p34/5 Sistema fechou o REau: um app só em cache (importância 400) também avisa", MAIN + "data/SystemClosedRide.kt",
+     "importance in 1..PROJECTING_IMPORTANCE", "importance in 1..400", ["SystemClosedRideTest"]),
+    ("p34/5 Sistema fechou o REau: a saída do próprio app (o Desligar) também avisa", MAIN + "data/SystemClosedRide.kt",
+     "setOf(2, 3, 9, 10, 11, 12, 13, 14)", "setOf(1, 2, 3, 9, 10, 11, 12, 13, 14)", ["SystemClosedRideTest"]),
+    ("p34/5 Sistema fechou o REau: o piloto que tirou o app dos recentes também é avisado", MAIN + "data/SystemClosedRide.kt",
+     'private val BY_THE_RIDER = listOf("remove task", "swipeupclean")', "private val BY_THE_RIDER = emptyList<String>()", ["SystemClosedRideTest"]),
+    ("p34/5 Sistema fechou o REau: a abertura do app não olha as saídas para avisar", MAIN + "data/ExitHistory.kt",
+     "        runCatching { SystemClosedRide.note(context, byExit.keys.toList(), System.currentTimeMillis()) }\n", "", ["SystemClosedRideIsWiredTest"]),
+    ("p34/5 Guia: um POCO (marca POCO, fabricante POCO) recebe os passos gerais e não os da Xiaomi", MAIN + "ui/KeepAliveGuide.kt",
+     'setOf("xiaomi", "redmi", "poco")', 'setOf("xiaomi", "redmi")', ["KeepAliveGuideTest"]),
+]
+
+
 def command_for(classes):
     """The command that runs a mutation's tests: Python test files (`test_*.py`) with unittest, JVM unit test classes with Gradle. A bare name (`test_apk_audit.py`) is found
     in scripts/; one with a folder (`registro/test_chaves.py`, `dev/test_teste_cego.py`) in that folder of scripts/ (the folders are not packages, so discover does not go

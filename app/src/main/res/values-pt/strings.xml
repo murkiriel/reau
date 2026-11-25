@@ -963,4 +963,23 @@
     <string name="tip_gemini_swap_text">O Gemini conversa por voz e precisa de um intercomunicador no capacete. Se você não tem um, troque na tela Joystick do painel (Controle de mídia, botão “Pra baixo”) a ação do Gemini por “Alternar mapa e música”: um toque leva do mapa para o app de música e de volta.</string>
     <string name="tip_video_fps_title">Por que o vídeo não passa de 6 fps</string>
     <string name="tip_video_fps_text">O painel aceita mais quadros por segundo, mas o mesmo processador que mostra o vídeo também desenha a tela e atende os botões. Nos testes na moto, a 8 fps o ícone da reserva passou a piscar e a 12 fps o painel começou a ignorar os botões. A 6 fps tudo funcionou sem falhas, por isso o REau nunca passa disso. Mesmo assim, o app vem com o ritmo Original (4 fps no A, 2 no B), mais leve para o painel; para uma imagem mais fluida, escolha o REau (6 fps no A, 3 no B) no ajuste \"Ritmo do vídeo\".</string>
+    <string name="keepalive_title">Manter o REau vivo</string>
+    <string name="keepalive_intro">Alguns celulares fecham os apps que rodam em segundo plano para economizar bateria, até com o REau projetando no painel, e a viagem fica sem o painel. Estes são os passos para o seu celular diminuir a chance de isso acontecer.</string>
+    <string name="keepalive_honest">Estes passos diminuem a chance, mas não garantem: cada fabricante de celular tem as suas regras, e uma atualização pode mudá-las.</string>
+    <string name="keepalive_brand_xiaomi">Xiaomi, Redmi e POCO (HyperOS ou MIUI)</string>
+    <string name="keepalive_brand_oppo">realme, OPPO e OnePlus (realme UI, ColorOS ou OxygenOS)</string>
+    <string name="keepalive_brand_other">O seu celular</string>
+    <string name="keepalive_step_lock">Trave o REau nos apps recentes: abra os apps recentes, mantenha o dedo sobre o cartão do REau e toque no cadeado.</string>
+    <string name="keepalive_step_xiaomi_battery">Abra as informações do app do REau, toque em Economia de bateria e escolha \"Sem restrições\".</string>
+    <string name="keepalive_step_autostart">Ligue a Inicialização automática para o REau (nas informações do app, ou na lista de Inicialização automática das configurações do celular).</string>
+    <string name="keepalive_step_xiaomi_performance">Opcional: nas configurações de Bateria do celular, escolha o modo ou plano de desempenho, que segura menos os apps em segundo plano.</string>
+    <string name="keepalive_step_oppo_battery">Abra as informações do app do REau, toque em Uso da bateria e permita a atividade em segundo plano (\"Permitir atividade em segundo plano\").</string>
+    <string name="keepalive_step_oppo_autostart">Ligue a Inicialização automática para o REau (nas informações do app, ou nas configurações do celular, em Bateria ou Apps).</string>
+    <string name="keepalive_step_other_battery">Deixe o REau fora da otimização de bateria: a tela principal pede isso, e a página de permissões mostra se já está feito (\"Fora da otimização de bateria\").</string>
+    <string name="keepalive_step_other_lock">Se o seu celular permite travar apps nos apps recentes (um cadeado no cartão), trave o REau.</string>
+    <string name="keepalive_open_app_info">Abrir as informações do app do REau</string>
+    <string name="permissions_keep_alive">Não deixar o REau ser fechado: passos para o seu celular</string>
+    <string name="action_keepalive_guide">Ver os passos</string>
+    <string name="warn_system_closed_title">O celular fechou o REau</string>
+    <string name="warn_system_closed">O sistema do celular fechou o REau durante a viagem (%1$s), enquanto ele projetava. Isso vem do celular, não do painel. Veja como diminuir a chance de acontecer de novo.</string>
 </resources>

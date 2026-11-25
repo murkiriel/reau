@@ -80,7 +80,7 @@ fun PermissionsScreen(
     }
 }
 
-/** One group: its label with "granted/total", then a card with its rows and, for two of them, the way to Android's page. */
+/** One group: its label with "granted/total", then a card with its rows and, for two of them, a way out: Android's page, or the guide to keep REau from being closed. */
 @Composable
 private fun Group(
     kind: Kind,
@@ -112,6 +112,7 @@ private fun Group(
             }
             when (kind) {
                 Kind.ASKED -> Way(R.string.permissions_open_app_settings, "permissions_open_app_settings", actions.onOpenAppSettings)
+                Kind.SPECIAL -> Way(R.string.permissions_keep_alive, "permissions_keep_alive", actions.onOpenKeepAlive)
                 else -> Unit
             }
         }

@@ -33,6 +33,8 @@ object ExitHistory {
         tellNews(book, byExit.keys.toList(), { exit ->
             ExitReasons.tracePrefix(exit.reason)?.let { byExit[exit]?.let { info -> keepTrace(book, exit, info) } }
         }) { RideDiagnostics.log("exit", it) }
+        // The system closing REau in the middle of a ride (a maker's battery manager): the main screen tells the rider, once ([SystemClosedRide]).
+        runCatching { SystemClosedRide.note(context, byExit.keys.toList(), System.currentTimeMillis()) }
     }
 
     /**

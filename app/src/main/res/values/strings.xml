@@ -974,4 +974,23 @@
     <string name="tip_gemini_swap_text">Gemini talks by voice and needs an intercom in the helmet. If you do not have one, on the Dash joystick screen (Media control, the Down button) you can swap the Gemini action for “Switch map and music”: one tap takes you from the map to the music app and back.</string>
     <string name="tip_video_fps_title">Why the video does not go above 6 fps</string>
     <string name="tip_video_fps_text">The dash accepts more frames per second, but the same processor that shows the video also draws the screen and handles the buttons. In tests on the bike, at 8 fps the reserve icon started to flicker, and at 12 fps the dash began to ignore the buttons. At 6 fps everything worked without glitches, so REau never goes above it. Even so, the app comes with the Original pace (4 fps on A, 2 on B), which is lighter on the dash; for a smoother picture, pick REau (6 fps on A, 3 on B) in the \"Video pace\" setting.</string>
+    <string name="keepalive_title">Keep REau running</string>
+    <string name="keepalive_intro">Some phones close apps running in the background to save battery, even while REau is projecting on the dash, and the ride is left without the dash. These are the steps for your phone to lower the chance of that happening.</string>
+    <string name="keepalive_honest">These steps lower the chance but do not guarantee it: each phone maker has its own rules, and an update can change them.</string>
+    <string name="keepalive_brand_xiaomi">Xiaomi, Redmi and POCO (HyperOS or MIUI)</string>
+    <string name="keepalive_brand_oppo">realme, OPPO and OnePlus (realme UI, ColorOS or OxygenOS)</string>
+    <string name="keepalive_brand_other">Your phone</string>
+    <string name="keepalive_step_lock">Lock REau in the recent apps: open the recent apps, press and hold REau’s card and tap the padlock.</string>
+    <string name="keepalive_step_xiaomi_battery">Open REau’s app info, tap Battery saver and choose \"No restrictions\".</string>
+    <string name="keepalive_step_autostart">Turn on Autostart for REau (in its app info, or in the Autostart list in the phone’s settings).</string>
+    <string name="keepalive_step_xiaomi_performance">Optional: in the phone’s Battery settings, choose the performance mode or plan, which holds back background apps less.</string>
+    <string name="keepalive_step_oppo_battery">Open REau’s app info, tap Battery usage and allow background activity (\"Allow background activity\").</string>
+    <string name="keepalive_step_oppo_autostart">Turn on Auto launch for REau (in its app info, or in the phone’s settings under Battery or Apps).</string>
+    <string name="keepalive_step_other_battery">Keep REau out of battery optimization: the main screen asks for it, and the permissions page shows whether it is done (\"Exempt from battery optimization\").</string>
+    <string name="keepalive_step_other_lock">If your phone can lock apps in the recent apps (a padlock on the card), lock REau.</string>
+    <string name="keepalive_open_app_info">Open REau’s app info</string>
+    <string name="permissions_keep_alive">Keep REau from being closed: steps for your phone</string>
+    <string name="action_keepalive_guide">See the steps</string>
+    <string name="warn_system_closed_title">The phone closed REau</string>
+    <string name="warn_system_closed">The phone’s system closed REau during the ride (%1$s), while it was projecting. That comes from the phone, not from the dash. See how to lower the chance of it happening again.</string>
 </resources>

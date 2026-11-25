@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -71,6 +72,7 @@ internal fun Warning(warning: Warning, state: MainUiState, onOpenAndroidAutoSett
             null, null, tag = "location_warning",
         )
         Warning.ALERTS_MUTED, Warning.ALERTS_BLOCKED -> AlertWarning(warning, state.alertRoute, extras.onOpenAlertSettings)
+        Warning.SYSTEM_CLOSED -> SystemClosedWarning(state.systemClosedAtMs, extras)
         Warning.NAME_NEEDED -> WarningCard(
             StatusKind.ERROR, R.drawable.ic_ms_error, stringResource(R.string.warn_name_title), stringResource(R.string.dash_name_warning),
             null, CardAction(stringResource(R.string.action_open_bike_data_short), "name_open_settings", extras.onOpenWifi),
@@ -89,6 +91,21 @@ private fun AlertWarning(warning: Warning, route: AlertRoute.Route, onOpenAlertS
         stringResource(if (muted) R.string.warn_alerts_muted else R.string.warn_alerts_blocked),
         null, CardAction(stringResource(alertActionLabel(route)), "open_alert_settings", onOpenAlertSettings),
         tag = if (muted) "alerts_muted_warning" else "alerts_blocked_warning",
+    )
+}
+
+/**
+ * The card for the system having closed REau during the last ride ([com.reau.app.data.SystemClosedRide]): when, that it is the phone's doing and not the dash's,
+ * and the way to the guide of what lowers the chance; "Entendi" dismisses it. Opening the guide dismisses it too: it has said what it had to.
+ */
+@Composable
+private fun SystemClosedWarning(atMs: Long?, extras: MainExtras) {
+    val at = remember(atMs) { atMs?.let { com.reau.app.data.SystemClosedRide.stamp(it, System.currentTimeMillis()) }.orEmpty() }
+    WarningCard(
+        StatusKind.CONNECTING, R.drawable.ic_ms_error, stringResource(R.string.warn_system_closed_title), stringResource(R.string.warn_system_closed, at),
+        CardAction(stringResource(R.string.action_keepalive_guide), "open_keepalive", extras.onOpenKeepAlive),
+        CardAction(stringResource(R.string.action_understood), "dismiss_system_closed", extras.onDismissSystemClosed),
+        tag = "system_closed_warning",
     )
 }
 

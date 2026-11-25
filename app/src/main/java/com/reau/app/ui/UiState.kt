@@ -33,6 +33,8 @@ data class MainUiState(
     val weatherOn: Boolean = false,
     /** The head unit server is off because Android Auto was updated since it last worked ([com.reau.app.aa.AaUpdatedServerOff]): the card of the server says so. */
     val aaUpdatedServerOff: Boolean = false,
+    /** When the system closed REau during the last ride, until the rider dismisses the notice ([com.reau.app.data.SystemClosedRide]); null with none to tell. */
+    val systemClosedAtMs: Long? = null,
 ) {
     /** Whether Android Auto is installed; when not, its buttons lead to the store instead of to its settings. */
     val androidAutoInstalled: Boolean get() = androidAutoVersion != null
@@ -51,6 +53,9 @@ enum class BatteryNotice { NOT_EXEMPT, SAVER_ON }
 
 /** The state with the network server's flag set (the icon of the main screen and the server screen read it). */
 fun MainUiState.withNetwork(on: Boolean): MainUiState = copy(server = server.copy(networkOn = on))
+
+/** The state with the time of the exit the system caused, for the notice on the main screen. */
+fun MainUiState.withSystemClosed(atMs: Long?): MainUiState = copy(systemClosedAtMs = atMs)
 
 /** What the main screen shows of the servers. */
 data class ServerUi(
@@ -80,6 +85,9 @@ data class MainExtras(
     val onOpenServer: () -> Unit = {},
     /** The tips page, from the lightbulb in the main screen's bar. */
     val onOpenTips: () -> Unit = {},
+    /** The guide of what keeps REau from being closed by the system, and the dismissing of the notice that the system closed it. */
+    val onOpenKeepAlive: () -> Unit = {},
+    val onDismissSystemClosed: () -> Unit = {},
 )
 
 /** What the settings screen shows of the dash pairing. */
@@ -119,4 +127,6 @@ data class PermissionsActions(
     val onAsk: (com.reau.app.settings.AppPermissions.Ask) -> Unit = {},
     /** "Pedir as que faltam": the runtime permissions still missing, in one dialog. */
     val onAskAll: (List<String>) -> Unit = {},
+    /** The guide of what keeps REau from being closed by the system, from the special access group (near the battery line). */
+    val onOpenKeepAlive: () -> Unit = {},
 )
