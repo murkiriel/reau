@@ -48,12 +48,6 @@ object PhoneNow {
         dozing?.let { this.dozing = it }
     }
 
-    /** Whether the charger is in, as last heard (null: not heard yet). */
-    fun chargingNow(): Boolean? = charging
-
-    /** Whether the screen is on, as last heard (null: not heard yet). */
-    fun screenOnNow(): Boolean? = screenOn
-
     /**
      * The words for the line that says Android Auto's link ended. The time since the last screen event (on, off, unlocked) is there
      * once one was heard, to tell a link that closed with the screen (the link closed 0.5 s before the screen went off, 20/10/2026).

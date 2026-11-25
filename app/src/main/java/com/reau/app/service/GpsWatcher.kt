@@ -19,7 +19,7 @@ internal class GpsWatcher(private val clock: () -> Long) {
     private val owners = mutableSetOf<GpsOwner>()
     private var giveBack: (() -> Unit)? = null
 
-    private class Satellites(val used: Int, val visible: Int, val atMs: Long)
+    private class Satellites(val used: Int, val atMs: Long)
 
     private class Fix(val accuracy: Float?, val bearing: Float?, val speed: Float?, val atMs: Long)
 
@@ -67,8 +67,8 @@ internal class GpsWatcher(private val clock: () -> Long) {
         fix = null
     }
 
-    fun satellitesSeen(used: Int, visible: Int) {
-        satellites = Satellites(used, visible, clock())
+    fun satellitesSeen(used: Int) {
+        satellites = Satellites(used, clock())
     }
 
     fun fixSeen(accuracy: Float?, bearing: Float?, speed: Float?) {
@@ -80,7 +80,7 @@ internal class GpsWatcher(private val clock: () -> Long) {
         if (!listening) return null
         val sky = satellites?.takeIf { nowMs - it.atMs <= FRESH_MS } ?: return null
         val last = fix?.takeIf { nowMs - it.atMs <= FRESH_MS }
-        return GpsReading(sky.used, sky.visible, last?.accuracy, last?.bearing, last?.speed)
+        return GpsReading(sky.used, last?.accuracy, last?.bearing, last?.speed)
     }
 
     companion object {

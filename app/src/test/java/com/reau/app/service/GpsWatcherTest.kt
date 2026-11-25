@@ -28,7 +28,7 @@ class GpsWatcherTest {
 
     private fun want(wanted: Boolean = true, permitted: Boolean = true) = watcher.want(wanted, { permitted }, start)
 
-    private fun hear(used: Int = 7, visible: Int = 19) = watcher.satellitesSeen(used, visible)
+    private fun hear(used: Int = 7) = watcher.satellitesSeen(used)
 
     @Test
     fun `it listens when the ring wants the GPS and the permission is there, and asking again registers nothing more`() {
@@ -44,15 +44,15 @@ class GpsWatcherTest {
         want()
         hear()
         watcher.fixSeen(5f, 90f, 12f)
-        assertEquals(GpsReading(7, 19, 5f, 90f, 12f), watcher.read())
+        assertEquals(GpsReading(7, 5f, 90f, 12f), watcher.read())
         watcher.stop()
         assertEquals("the registrations were given back: the GPS is off", 1, givenBack)
         assertNull("nothing is read from a stopped GPS", watcher.read())
         want()
         assertEquals("the next projection registers again", 2, registered)
         assertNull("and starts from a clean sky, not from the last ride's fix", watcher.read())
-        hear(3, 10)
-        assertEquals(GpsReading(3, 10, null, null, null), watcher.read())
+        hear(3)
+        assertEquals(GpsReading(3, null, null, null), watcher.read())
     }
 
     @Test
@@ -103,15 +103,15 @@ class GpsWatcherTest {
     fun `a reading needs satellites that are fresh, and the fix is dropped from it when it is old`() {
         want()
         assertNull("no satellite said yet", watcher.read())
-        hear(8, 20)
+        hear(8)
         watcher.fixSeen(4f, 10f, 3f)
-        assertEquals(GpsReading(8, 20, 4f, 10f, 3f), watcher.read(now + GpsWatcher.FRESH_MS))
+        assertEquals(GpsReading(8, 4f, 10f, 3f), watcher.read(now + GpsWatcher.FRESH_MS))
         assertNull("the sky is old", watcher.read(now + GpsWatcher.FRESH_MS + 1))
         now += 6_000
-        hear(9, 21)
-        assertEquals("fresh sky, fix of 6 s", GpsReading(9, 21, 4f, 10f, 3f), watcher.read(now))
-        assertEquals("fix right at the limit", GpsReading(9, 21, 4f, 10f, 3f), watcher.read(now + 4_000))
-        assertEquals("the fix is older than the limit, the sky is not", GpsReading(9, 21, null, null, null), watcher.read(now + 4_001))
+        hear(9)
+        assertEquals("fresh sky, fix of 6 s", GpsReading(9, 4f, 10f, 3f), watcher.read(now))
+        assertEquals("fix right at the limit", GpsReading(9, 4f, 10f, 3f), watcher.read(now + 4_000))
+        assertEquals("the fix is older than the limit, the sky is not", GpsReading(9, null, null, null), watcher.read(now + 4_001))
     }
 
     @Test
@@ -119,7 +119,7 @@ class GpsWatcherTest {
         want()
         hear()
         watcher.fixSeen(null, null, null)
-        assertEquals(GpsReading(7, 19, null, null, null), watcher.read())
+        assertEquals(GpsReading(7, null, null, null), watcher.read())
     }
 
     @Test
@@ -129,6 +129,6 @@ class GpsWatcherTest {
         now += GpsWatcher.FRESH_MS + 1
         assertNull(watcher.read())
         hear()
-        assertEquals(GpsReading(7, 19, null, null, null), watcher.read())
+        assertEquals(GpsReading(7, null, null, null), watcher.read())
     }
 }

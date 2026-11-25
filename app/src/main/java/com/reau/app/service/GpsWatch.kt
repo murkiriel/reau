@@ -45,7 +45,7 @@ internal object GpsWatch {
         override fun onSatelliteStatusChanged(status: GnssStatus) {
             var used = 0
             for (i in 0 until status.satelliteCount) if (status.usedInFix(i)) used++
-            watcher.satellitesSeen(used, status.satelliteCount)
+            watcher.satellitesSeen(used)
         }
     }
 
