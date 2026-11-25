@@ -139,6 +139,13 @@ DESLIGOU = ("---- projeção desligada", "==== session end: projection")
 # (`==== continued from …`, a troca de dia ou de tamanho) não fecha nada.
 FIM_DO_REGISTRO = (("==== log switched off", "registro desligado pelo piloto"), ("==== process end:", "o app terminou"))
 PROCESSO_RECOMECOU = (tempo.PROCESSO_COMECOU, "o app recomeçou")
+# `[exit] past exit: package updated (16) at 2026-11-25 06:02:24.550, process …` (or `… (16) ×2 from <a> to 2026-11-25 06:02:24.550, …`): the app tells, at the start of the
+# next process, why Android ended the previous one (`ExitReasons`). The reader says it in these words, by the number in the parentheses.
+SAIDA_DO_PROCESSO = re.compile(r"^past exit: .*? \((\d+)\) (?:at|×\d+ from \S+ \S+ to) \d{4}-\d\d-\d\d (\d\d:\d\d:\d\d(?:\.\d+)?)")
+SAIDA_DO_PROCESSO_LINHAS = 60  # how far after the `process start` the app tells its past exits
+MOTIVO_DA_SAIDA = {0: "motivo desconhecido", 1: "o app saiu sozinho", 2: "morto por sinal", 3: "falta de memória", 4: "falha", 5: "falha nativa", 6: "app sem resposta (ANR)",
+                   7: "falha ao iniciar", 8: "permissão mudou", 9: "uso excessivo de recursos", 10: "pedido do usuário",
+                   11: "parado pelo usuário", 12: "dependência morreu", 13: "outro motivo", 14: "congelado", 15: "estado do pacote mudou", 16: "pacote atualizado"}
 TERMICO = ["none", "light", "moderate", "severe", "critical", "emergency", "shutdown"]
 # `dark=2/3m02s (max 1m08s)` in the resumo: the interruptions of the picture on the dash (since 20/10/2026), the longest listed above this.
 DARK = re.compile(r"dark=(\d+)/(\S+) \(max (\S+)\)")
@@ -802,7 +809,7 @@ def projecoes(linhas):
     Esses blocos levam o motivo em `sem_fim`; o resto do arquivo não é mais dela, mesmo que o arquivo seguinte seja da mesma coleta."""
     blocos: list[Bloco] = []
     atual: Bloco | None = None
-    for x in linhas:
+    for i, x in enumerate(linhas):
         if x.texto.startswith(LIGOU):
             if atual is not None:
                 atual.sem_fim = atual.sem_fim or "outra projeção começou sem a marca de desligar desta"
@@ -810,7 +817,8 @@ def projecoes(linhas):
             blocos.append(atual)
         elif atual is not None:
             if x.texto.startswith(PROCESSO_RECOMECOU[0]):
-                atual.sem_fim = PROCESSO_RECOMECOU[1]
+                motivo = _motivo_da_saida(linhas, i, atual[-1])
+                atual.sem_fim = PROCESSO_RECOMECOU[1] + (f": {motivo}" if motivo else "")
                 atual = None
                 continue
             atual.append(x)
@@ -821,6 +829,22 @@ def projecoes(linhas):
             elif x.texto.startswith(DESLIGOU):
                 atual = None
     return blocos
+
+
+def _motivo_da_saida(linhas, i, ultima):
+    """Por que o processo anterior acabou, pela linha `past exit` que o processo que começa em `linhas[i]` escreve: a primeira saída não antes da `ultima` linha da projeção (até 5 s
+    antes: o relógio das duas), as anteriores são de processos mais velhos. Vazio sem a linha (registro de antes dela, ou o Android sem o histórico)."""
+    inicio = linhas[i]
+    for y in linhas[i + 1:i + 1 + SAIDA_DO_PROCESSO_LINHAS]:
+        if y.texto.startswith(PROCESSO_RECOMECOU[0]):
+            break
+        m = SAIDA_DO_PROCESSO.match(y.texto)
+        if m:
+            h, mi, se = m.group(2).split(":")
+            saiu = int(h) * 3600 + int(mi) * 60 + float(se)
+            if tempo.assinado(saiu, ultima.segundos) >= -5 and tempo.assinado(inicio.segundos, saiu) >= -5:
+                return MOTIVO_DA_SAIDA.get(int(m.group(1)), f"motivo {m.group(1)}")
+    return ""
 
 
 def _do_desligamento(x, bloco):
@@ -2113,8 +2137,9 @@ def _em_uso(texto):
 
 
 def _trechos_de_uso(bloco):
-    """As temperaturas da bateria nas olhadas em uso (sem carregador, tela ligada), em trechos: o carregador (uma olhada com `charging=yes`,
-    `charger in` ou `charger out`) fecha o trecho, e as olhadas até 10 min depois do último sinal dele são o calor da carga, não do uso."""
+    """As temperaturas da bateria nas olhadas em uso (sem carregador, tela ligada), em trechos de (graus, sem painel): o carregador (uma olhada com `charging=yes`,
+    `charger in` ou `charger out`) fecha o trecho, e as olhadas até 10 min depois do último sinal dele são o calor da carga, não do uso. Sem painel é a olhada com `bike=none`
+    (o Wi-Fi do painel não está unido); uma olhada sem o campo (registro de antes dele) conta como com painel."""
     trechos, atual, carga_em = [], [], None
     for x in bloco:
         carregador = (x.etiqueta == "system" and x.texto.startswith(("charger in", "charger out"))) or (
@@ -2128,10 +2153,26 @@ def _trechos_de_uso(bloco):
                 continue
             g = _device(x.texto, "temp")
             if g and g != "?" and _em_uso(x.texto):
-                atual.append(float(g))
+                atual.append((float(g), _device(x.texto, "bike") == "none"))
     if atual:
         trechos.append(atual)
     return trechos
+
+
+def _subidas_de_uso(bloco):
+    """As subidas de `SOBE_GRAUS` ou mais dentro de um trecho de uso, de duas qualidades: (com painel, sem painel), cada uma a lista de (menor, maior) dos trechos. A subida
+    é medida em cada olhada contra a menor de antes dela no trecho, e é de quem está na olhada em que ela se vê: a que se vê com o painel unido (ou sem o campo `bike=`) é a do
+    uso com o painel; a que só se vê com `bike=none` é a da tela acesa e do Android Auto decodificando sem painel (25/11/2026, 30 → 38 °C numa parada de 14 min)."""
+    com, sem = [], []
+    for trecho in _trechos_de_uso(bloco):
+        graus = [g for g, _ in trecho]
+        sobe = [g - min(graus[:i + 1]) >= SOBE_GRAUS for i, g in enumerate(graus)]
+        if any(s and not sem_painel for s, (_, sem_painel) in zip(sobe, trecho)):
+            com.append((min(graus), max(graus)))
+        elif any(sobe):
+            ultima = max(i for i, s in enumerate(sobe) if s)
+            sem.append((min(graus[:ultima + 1]), max(g for g, s in zip(graus, sobe) if s)))
+    return com, sem
 
 
 def _temperatura(bloco):
@@ -2141,12 +2182,12 @@ def _temperatura(bloco):
     niveis = [TERMICO.index(t) for t in termicos if t in TERMICO]
     if niveis and max(niveis) >= TERMICO.index("moderate") and max(niveis) > niveis[0]:
         saida.append(f"temperatura subindo: estado térmico {TERMICO[niveis[0]]} → {TERMICO[max(niveis)]}")
-    # Sem o carregador e com a tela ligada, e dentro de um trecho só (o carregador entrando, ou saindo, reinicia a conta): subida de 8 °C ou mais.
-    for graus in _trechos_de_uso(bloco):
-        sobe = max(g - min(graus[:i + 1]) for i, g in enumerate(graus))
-        if sobe >= SOBE_GRAUS:
-            saida.append(f"temperatura subindo: bateria de {min(graus):.1f} °C a {max(graus):.1f} °C (sem carregador, tela ligada)")
-            break
+    # Sem o carregador e com a tela ligada, e dentro de um trecho só (o carregador entrando, ou saindo, reinicia a conta): subida de 8 °C ou mais com o painel unido. A que só
+    # se vê sem painel não é problema: `_temperatura_sem_painel` a conta como informação.
+    com_painel, _ = _subidas_de_uso(bloco)
+    if com_painel:
+        menor, maior = com_painel[0]
+        saida.append(f"temperatura subindo: bateria de {menor:.1f} °C a {maior:.1f} °C (sem carregador, tela ligada)")
     # Acima de 44 °C em qualquer olhada, com ou sem carregador: perto de onde o Android reduz a carga.
     quentes = [(x, float(g)) for x in olhadas for g in [_device(x.texto, "temp")] if g and g != "?" and float(g) > QUENTE_GRAUS]
     if quentes:
@@ -2310,9 +2351,20 @@ def _economia(bloco):
     return saida
 
 
+def _temperatura_sem_painel(bloco):
+    """A bateria que subiu 8 °C ou mais com a tela acesa e sem painel (`bike=none`) e sem carregador: é o esperado (o Android Auto segue decodificando o vídeo e a tela está
+    acesa), não defeito. Uma linha por projeção; o alarme é só a subida vista com o painel unido ou a bateria acima de 44 °C (`_temperatura`)."""
+    _, sem_painel = _subidas_de_uso(bloco)
+    if not sem_painel:
+        return []
+    menor, maior = sem_painel[0]
+    return [f"temperatura subiu de {menor:.1f} °C a {maior:.1f} °C sem carregador, com a tela acesa e sem painel: o Android Auto segue decodificando o vídeo e a tela está acesa "
+            f"(causa provável; não alarma, só a subida com o painel unido ou acima de {QUENTE_GRAUS:g} °C)"]
+
+
 def _informes(bloco):
-    """Tudo o que o registro de uma projeção conta e não é defeito: o painel que calou primeiro, o menu sem tecla, os cartões de chamada, o doze e a economia de bateria."""
-    return _painel_calou_primeiro(bloco) + _menu_sem_tecla(bloco) + _cartoes_de_chamada(bloco) + _doze(bloco) + _economia(bloco)
+    """Tudo o que o registro de uma projeção conta e não é defeito: o painel que calou primeiro, o menu sem tecla, os cartões de chamada, o doze, a economia de bateria e a temperatura que sobe sem painel."""
+    return _painel_calou_primeiro(bloco) + _menu_sem_tecla(bloco) + _cartoes_de_chamada(bloco) + _doze(bloco) + _economia(bloco) + _temperatura_sem_painel(bloco)
 
 
 def _eventos_do_painel(t):
