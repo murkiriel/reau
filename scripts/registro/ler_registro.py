@@ -286,6 +286,8 @@ EVENTOS = [
     ("link lost — reconnecting", "Wi-Fi da moto caiu"),
     ("dash visible but refusing", "painel visível mas recusando (Wi-Fi do painel provavelmente travado; piloto avisado)"),
     ("send tail before", "o que o app enviava antes do silêncio"),
+    # O detalhe fino dos últimos 15 s (cada quadro de vídeo, o código e o tamanho de cada comando; plano 34, item 6): a linha de cabeçalho traz o resumo, as de baixo (`fine tail t-14 s: …`) o detalhe.
+    ("fine tail before", "detalhe do app antes do silêncio"),
     ("bike network lost", "Wi-Fi da moto perdido"),
     # O Wi-Fi no instante de um vigia do painel (sinal, velocidades, banda) e o último minuto, para dizer
     # Wi-Fi fraco de painel calado. A linha é longa de propósito: o minuto de sinal é o que interessa.
@@ -299,6 +301,23 @@ EVENTOS = [
     ("Decoder restart requested", "vigia do decodificador"),
     ("the app crashed", "o app travou"),
 ]
+# O cabeçalho do detalhe fino: `fine tail before a watchdog fired (last 15 s): 3 keyframes in 61 frames, biggest 28728 B in 21 pkts, longest gap between packets 41 ms; 120 commands out, 340 in`
+DETALHE_FINO = re.compile(
+    r"fine tail before (.*?) \(last (\d+) s\): (\d+) keyframes in (\d+) frames, biggest (\d+) B in (\d+) pkts, "
+    r"longest gap between packets (\d+) ms; (\d+) commands out, (\d+) in")
+
+
+def _detalhe_fino(t):
+    """O resumo do cabeçalho do detalhe fino em português (quadros-chave, maior quadro, maior intervalo sem pacote); o texto como veio se a linha não tem o resumo
+    (nada trocado na janela, ou o corte por tamanho)."""
+    m = DETALHE_FINO.search(t)
+    if not m:
+        return t[t.index("fine tail before") + len("fine tail before"):].strip()
+    motivo, janela, chaves, quadros, maior, pacotes, intervalo, saiu, entrou = m.groups()
+    return (f"{motivo}: nos últimos {janela} s, {chaves} quadros-chave em {quadros} quadros, maior quadro {maior} B em {pacotes} pacotes, "
+            f"maior intervalo sem pacote {intervalo} ms; {saiu} comandos enviados, {entrou} recebidos")
+
+
 # "RX watchdog:" with the colon: the dash's "no 09 06 55 after 15s" notice only mentions the watchdog in passing.
 QUEDAS = ("link lost — reconnecting", "RX watchdog:", "bike network lost", "AaReceiver: session ended (clean=false")
 # A fall whose Wi-Fi was steady until it went (the dash's own Wi-Fi vanished at once) is the bike being switched off.
@@ -1293,7 +1312,9 @@ def linha_do_tempo(linhas):
             elif not _nao_e_queda(x, bloco):
                 for procura, diz in EVENTOS:
                     if procura in t:
-                        if diz.startswith(("Wi-Fi na falha", "o que o app enviava")):
+                        if diz.startswith("detalhe do app"):
+                            saida.append(f"{x.hora}  {diz}: {_detalhe_fino(t)}")
+                        elif diz.startswith(("Wi-Fi na falha", "o que o app enviava")):
                             saida.append(f"{x.hora}  {diz}: {t[t.index(procura) + len(procura):].strip()}")
                         else:
                             saida.append(f"{x.hora}  {diz}: {t[:110]}" if diz.startswith(("vigia", "o app", "auth:")) else f"{x.hora}  {diz}")

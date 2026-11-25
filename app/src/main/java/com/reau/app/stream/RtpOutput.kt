@@ -23,6 +23,10 @@ internal class RtpOutput(
     private val onKeyframe: ((bytes: Int, packets: Int) -> Unit)? = null,
     /** Told just before a keyframe's packets go out (the dash session keeps its routine sends away from the burst). */
     private val onKeyframeStart: (() -> Unit)? = null,
+    /** Told after each frame (not parameter sets) went out: its bytes, RTP packets, whether it is a keyframe and the longest gap between two of its packets, in ns (the fine tail of the ride log). */
+    private val onFrame: ((bytes: Int, packets: Int, key: Boolean, maxGapNs: Long) -> Unit)? = null,
+    /** The clock of the gaps between packets, in ns; the tests give theirs. */
+    private val nanoTime: () -> Long = System::nanoTime,
     private val sendRtp: (ByteArray) -> Unit,
 ) {
 
@@ -37,9 +41,20 @@ internal class RtpOutput(
     // RTP packets made: a keyframe's own count is the difference across its NALs.
     private var packetsMade = 0
 
+    // The longest gap between two packets of the buffer being sent (observed only; nothing is paced here).
+    private var lastPacketNs = NO_PACKET
+    private var frameGapNs = 0L
+
     private val packetizer = RtpPacketizer { packet ->
+        watchGap()
         packetsMade++
         sendRtp(packet)
+    }
+
+    private fun watchGap() {
+        val now = nanoTime()
+        if (lastPacketNs != NO_PACKET && now - lastPacketNs > frameGapNs) frameGapNs = now - lastPacketNs
+        lastPacketNs = now
     }
 
     // All NALs of one frame share the time that frame was stamped with, however late the encoder hands it back.
@@ -93,6 +108,8 @@ internal class RtpOutput(
         framePtsMs = ptsMs
         val withheldBefore = nalProcessor.withheldIdr
         val packetsBefore = packetsMade
+        lastPacketNs = NO_PACKET
+        frameGapNs = 0L
         if (isKey && !KeyframeGate.isParameterSetsOnly(annexB, isKey)) onKeyframeStart?.invoke()
         nalProcessor.process(annexB)
         if (nalProcessor.withheldIdr != withheldBefore) {
@@ -110,6 +127,7 @@ internal class RtpOutput(
                 keyPacketsMax = maxOf(keyPacketsMax, packetsMade - packetsBefore)
                 onKeyframe?.invoke(annexB.size, packetsMade - packetsBefore)
             }
+            onFrame?.invoke(annexB.size, packetsMade - packetsBefore, isKey, frameGapNs)
         }
     }
 
@@ -121,5 +139,9 @@ internal class RtpOutput(
         keyframes = 0
         keyBytesMax = 0
         keyPacketsMax = 0
+    }
+
+    private companion object {
+        const val NO_PACKET = Long.MIN_VALUE
     }
 }

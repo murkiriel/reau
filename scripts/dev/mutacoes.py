@@ -5521,6 +5521,20 @@ MUTATIONS += [
      'setOf("xiaomi", "redmi", "poco")', 'setOf("xiaomi", "redmi")', ["KeepAliveGuideTest"]),
 ]
 
+MUTATIONS += [
+    ("p34/6 Detalhe fino: a janela passa de 15 s para 30 s", MAIN + "dash/FineLines.kt",
+     "const val WINDOW_S = 15", "const val WINDOW_S = 30", ["FineTailTest"]),
+    ("p34/6 Detalhe fino: o título que é igual ao anterior é dito como mudou", MAIN + "dash/FineTail.kt",
+     "title = if (titleSeen && hash == titleHash) TITLE_SAME else TITLE_CHANGED", "title = if (titleSeen && hash != titleHash) TITLE_SAME else TITLE_CHANGED", ["FineTailTest"]),
+    ("p34/6 Detalhe fino: o teto de 4 000 caracteres deixa de valer", MAIN + "dash/FineLines.kt",
+     "body.sumOf { it.length } > MAX_CHARS", "body.sumOf { it.length } > MAX_CHARS * 2", ["FineTailTest"]),
+    ("p34/6 Detalhe fino: a perda do Wi-Fi escreve o detalhe sem runCatching", MAIN + "dash/DashWifiManager.kt",
+     'runCatching { DashHeard.fine?.reportOnce("the Wi-Fi was lost")?.forEach { com.reau.app.data.RideDiagnostics.log("wifi", it) } }',
+     'DashHeard.fine?.reportOnce("the Wi-Fi was lost")?.forEach { com.reau.app.data.RideDiagnostics.log("wifi", it) }', ["FineTailIsWiredTest"]),
+    ("p34/6 Detalhe fino: o intervalo entre pacotes de um quadro conta desde o quadro anterior", MAIN + "stream/RtpOutput.kt",
+     "        lastPacketNs = NO_PACKET\n        frameGapNs = 0L\n", "        frameGapNs = 0L\n", ["RtpOutputTest"]),
+]
+
 
 def command_for(classes):
     """The command that runs a mutation's tests: Python test files (`test_*.py`) with unittest, JVM unit test classes with Gradle. A bare name (`test_apk_audit.py`) is found

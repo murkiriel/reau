@@ -1231,6 +1231,7 @@ internal class LiveSides(
                 override fun sendRtp(packet: ByteArray) = session.sendRtp(packet)
                 override fun keyframeSent(bytes: Int, packets: Int) = session.keyframeSent(bytes, packets)
                 override fun keyframeStarting() = session.keyframeStarting()
+                override fun frameSent(bytes: Int, packets: Int, key: Boolean, maxGapNs: Long) = session.frameSent(bytes, packets, key, maxGapNs)
                 override val firstFrameConfirmed: Boolean get() = session.firstFrameConfirmed
                 override val decodedFrameCount: Long get() = session.decodedFrameCount
             }

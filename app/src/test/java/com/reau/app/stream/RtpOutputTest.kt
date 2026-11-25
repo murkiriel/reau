@@ -146,6 +146,31 @@ class RtpOutputTest {
         assertEquals(listOf("start", "rtp", "end", "rtp"), events)
     }
 
+    @Test
+    fun `each frame that goes out is told with its bytes, packets, key flag and the longest gap between its packets, the held ones and the parameter sets are not`() {
+        val told = mutableListOf<List<Any>>()
+        // Each packet reads the clock once: the first two packets of the big keyframe 4 ms apart (the longest gap), the next ones 1 ms after each other.
+        var reads = 0
+        val clock = { (if (reads++ == 0) 1L else 3L + reads) * 1_000_000L }
+        val telling = RtpOutput(
+            onFrame = { size, count, key, gap -> told += listOf(size, count, key, gap) },
+            nanoTime = clock,
+        ) { packets += it }.also { it.switchTo(encoder) }
+        telling.onEncoded(encoder, pFrame(1), isKey = false, ptsMs = 0) // held back
+        telling.onEncoded(encoder, config, isKey = false, ptsMs = 0) // not a frame
+        val big = bytes(0, 0, 0, 1, 0x65) + ByteArray(3_000) { 0x55 }
+        telling.onEncoded(encoder, big, isKey = true, ptsMs = 62)
+        telling.onEncoded(encoder, pFrame(2), isKey = false, ptsMs = 124)
+
+        assertEquals(2, told.size)
+        assertEquals(big.size, told[0][0])
+        assertEquals("the packets of the frame, not of the one after", packets.size - 1, told[0][1])
+        assertTrue(packets.size >= 4)
+        assertEquals(true, told[0][2])
+        assertEquals("the gap is between the packets of one frame, not from the frame before", 4_000_000L, told[0][3])
+        assertEquals("a frame of one packet has no gap", listOf(pFrame(2).size, 1, false, 0L), told[1])
+    }
+
     // ── the tap (the recording of what is sent) ────────────────────────────────────────────────────────────
 
     @Test

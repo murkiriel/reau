@@ -921,6 +921,9 @@ class DashSession(
         TimeToPicture.marks.keyframeSent(MonotonicClock.nowMs())?.let { com.reau.app.data.RideDiagnostics.log("dash", it) }
     }
 
+    /** A frame went out ([FineTail]): kept for the detail written when the dash goes quiet. */
+    fun frameSent(bytes: Int, packets: Int, key: Boolean, maxGapNs: Long) = stats.fine.frame(bytes, packets, key, maxGapNs)
+
     /** A keyframe starts to go out: the routine sends keep away from it ([KeyframeQuiet]). */
     fun keyframeStarting() = keyframeQuiet.keyframeStarted(MonotonicClock.nowMs())
 
@@ -1046,9 +1049,11 @@ class DashSession(
                 sock.stats = stats
                 stats.trail.clear()
                 stats.sendTail.clear()
+                stats.fine.clear()
                 socketsOpenedMs = MonotonicClock.nowMs()
                 DashHeard.trail = stats.trail
                 DashHeard.tail = stats.sendTail
+                DashHeard.fine = stats.fine
                 // The refusal that the local address went around is not a bind that worked: the count of refusals is not started over.
                 if (!localTried) onBindResult?.invoke(network, false)
                 linkNetwork = network
@@ -1655,6 +1660,8 @@ class DashSession(
         stats.trail.report(why, now).forEach { com.reau.app.data.RideDiagnostics.log("link", it) }
         val open = socketsOpenedMs.takeIf { it > 0L }?.let { "session open for ${(now - it) / MS_PER_SECOND} s" }
         stats.sendTail.reportOnce(why, open)?.let { com.reau.app.data.RideDiagnostics.log("link", it) }
+        // The detail of the last 15 s (frames, commands' codes and sizes); a log never takes the projection down.
+        runCatching { stats.fine.reportOnce(why).forEach { com.reau.app.data.RideDiagnostics.log("link", it) } }
     }
 
     /** One dash-stats line every [statsEveryMs] while the session lives. */

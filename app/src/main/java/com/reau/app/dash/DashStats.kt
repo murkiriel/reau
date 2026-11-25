@@ -36,6 +36,9 @@ class DashStats(private val onFirst: (String) -> Unit = {}) {
     /** The last seconds of what REau sent (RTP per second, the biggest burst, the last keyframe and command), for the line written when the dash goes quiet. */
     val sendTail = SendTail()
 
+    /** The fine detail of the last 15 s (each frame, each command's code and size, the title's size and change), for the same lines. */
+    val fine = FineTail()
+
     private val lock = Any()
     private var window = Counts()
     private val total = Counts()
@@ -50,7 +53,10 @@ class DashStats(private val onFirst: (String) -> Unit = {}) {
     /** A control packet went out. */
     fun sent(packet: ByteArray, nowMs: Long = MonotonicClock.nowMs()) {
         val key = sentKey(packet) ?: return
-        DashDump.outgoingTlvs(packet).forEach { trail.add(nowMs, tx = true, it) }
+        DashDump.outgoingTlvs(packet).forEach {
+            trail.add(nowMs, tx = true, it)
+            fine.sent(DashStats.key(it), it.value)
+        }
         if (key !in PERIODIC_KEYS) sendTail.command(key)
         both { tx.merge(key, 1L, Long::plus) }
     }
@@ -75,6 +81,7 @@ class DashStats(private val onFirst: (String) -> Unit = {}) {
             for (tlv in tlvs) {
                 if (isHeader(tlv)) continue
                 trail.add(nowMs, tx = false, tlv)
+                fine.received(key(tlv), tlv.value.size)
                 both { rx.merge(key(tlv), 1L, Long::plus) }
                 classify(tlv)?.let { news += it }
             }

@@ -571,6 +571,21 @@ class Ler(unittest.TestCase):
         tempo = "\n".join(ler_registro.linha_do_tempo(ler_registro.ler([self.arquivo(texto)])))
         self.assertIn("o que o app enviava antes do silêncio: the Wi-Fi was lost (on this network for 59 s)", tempo)
 
+    def test_o_detalhe_fino_do_que_o_app_enviava_entra_na_linha_do_tempo_em_portugues_e_as_linhas_de_baixo_nao(self):
+        texto = projecao(
+            linha("10:01:00.000", "link", "fine tail before a watchdog fired (last 15 s): 3 keyframes in 61 frames, biggest 28728 B in 21 pkts, longest gap between packets 41 ms; 120 commands out, 340 in"),
+            linha("10:01:00.001", "link", "fine tail t-14 s: video K 28728B/21p gap 3ms, P 8100B/6p gap 2ms | tx 0501×3 264B | title 88B same | rx 0101 6B, 0C*×5 40B"))
+        tempo = "\n".join(ler_registro.linha_do_tempo(ler_registro.ler([self.arquivo(texto)])))
+        self.assertIn("detalhe do app antes do silêncio: a watchdog fired: nos últimos 15 s, 3 quadros-chave em 61 quadros, maior quadro 28728 B em 21 pacotes, "
+                      "maior intervalo sem pacote 41 ms; 120 comandos enviados, 340 recebidos", tempo)
+        self.assertEqual(1, tempo.count("detalhe do app antes do silêncio"))
+        self.assertNotIn("t-14 s", tempo)
+
+    def test_o_detalhe_fino_sem_resumo_sai_como_veio(self):
+        texto = projecao(linha("10:01:00.000", "link", "fine tail before the Wi-Fi was lost (last 15 s): nothing exchanged"))
+        tempo = "\n".join(ler_registro.linha_do_tempo(ler_registro.ler([self.arquivo(texto)])))
+        self.assertIn("detalhe do app antes do silêncio: the Wi-Fi was lost (last 15 s): nothing exchanged", tempo)
+
     def test_autenticacao_que_expira_e_pedido_de_rede_com_o_painel_na_varredura_entram_nos_problemas(self):
         texto = projecao(
             linha("10:01:00.000", "error", "E: session fail: Auth timed out — the dash answered but never accepted (no 07 01 01). Check SSID matches 'RE_****30'."),

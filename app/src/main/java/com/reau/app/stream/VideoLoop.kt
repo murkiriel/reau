@@ -67,6 +67,9 @@ internal class VideoLoop(
         /** A keyframe of [bytes] bytes went out in [packets] RTP packets (only for the dash session's record of what it sent last). */
         fun keyframeSent(bytes: Int, packets: Int) = Unit
 
+        /** A frame of [bytes] bytes went out in [packets] RTP packets, the longest gap between two of them [maxGapNs] (for the fine tail of the ride log). */
+        fun frameSent(bytes: Int, packets: Int, key: Boolean, maxGapNs: Long) = Unit
+
         /** A keyframe starts to go out (the dash session keeps its routine sends away from the burst). */
         fun keyframeStarting() = Unit
 
@@ -165,6 +168,7 @@ internal class VideoLoop(
             tap = rec?.let { it::write },
             onKeyframe = dash::keyframeSent,
             onKeyframeStart = dash::keyframeStarting,
+            onFrame = dash::frameSent,
             sendRtp = { packet ->
                 dash.sendRtp(packet)
                 // Cheap when no touch is being followed (a flag): the line of a touch is written when its first packet goes out.

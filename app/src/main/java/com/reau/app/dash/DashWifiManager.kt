@@ -828,6 +828,8 @@ class DashWifiManager(
         // What was going out in the seconds before the silence: RTP per second, the biggest burst, the last keyframe and command.
         DashHeard.tail?.reportOnce("the Wi-Fi was lost", notes.facts?.let { "on this network for ${(now - it.upAtMs).coerceAtLeast(0) / MS_PER_SECOND} s" })
             ?.let { com.reau.app.data.RideDiagnostics.log("wifi", it) }
+        // And the detail of the last 15 s: each frame, each command's code and size (never what it said); a log never takes the projection down.
+        runCatching { DashHeard.fine?.reportOnce("the Wi-Fi was lost")?.forEach { com.reau.app.data.RideDiagnostics.log("wifi", it) } }
         // The next connection of this projection is compared with the channel this one had (kept if it is not known now).
         notes.lost()
         com.reau.app.service.SystemEvents.log(com.reau.app.service.SystemEvents.bikeNetwork(false))

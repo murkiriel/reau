@@ -118,6 +118,9 @@ internal object DashHeard {
     /** What the session sent in its last seconds ([SendTail]), written next to the trail when the Wi-Fi is lost. */
     @Volatile var tail: SendTail? = null
 
+    /** The detail of the last 15 s ([FineTail]), written with the tail. */
+    @Volatile var fine: FineTail? = null
+
     @Volatile var atMs = 0L
         private set
 
