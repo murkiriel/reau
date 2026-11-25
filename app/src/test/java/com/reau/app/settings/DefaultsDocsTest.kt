@@ -241,7 +241,7 @@ class DefaultsDocsTest {
         }
     }
 
-    /** The terms (version 3) say what the new defaults are, in the three texts of the root and of the app (28/10/2026; the info ring on since 21/11/2026). */
+    /** The terms (since version 3) say what the new defaults are, in the three texts of the root and of the app (28/10/2026; the info ring on since 21/11/2026). */
     @Test
     fun `the terms say that Gemini, the location and the weather come on, that the info ring is on, and that the recordings are optional, off in the app you ride with and on in the test build`() {
         val files = mapOf(

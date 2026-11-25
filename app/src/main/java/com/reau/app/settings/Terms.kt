@@ -10,7 +10,7 @@ import androidx.core.content.edit
  * version asks the rider to accept again: raise [VERSION] together with the "Versão N" and "Version N" lines of the texts.
  */
 object Terms {
-    const val VERSION = 3
+    const val VERSION = 4
 
     const val ASSET_PT = "terms/termos.pt.md"
     const val ASSET_EN = "terms/terms.en.md"

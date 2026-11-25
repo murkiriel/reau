@@ -5353,6 +5353,22 @@ MUTATIONS += [
     ("A4 25/11 Atualização: o cartão do servidor mostra a linha da atualização sempre", MAIN + "ui/MainParts.kt",
      "if (aaUpdated) stringResource(R.string.aa_updated_note) else null", "stringResource(R.string.aa_updated_note)",
      ["AaUpdatedServerOffIsWiredTest"]),
+    ('p33/C4 Termos: a versão do app volta a 3 e o aceite da versão 3 basta', MAIN + "settings/Terms.kt",
+     'const val VERSION = 4', 'const val VERSION = 3', ["TermsTest", "TermsStoreTest"]),
+    ('p33/C4 Termos: quem aceitou a versão anterior não é mais chamado a aceitar', MAIN + "settings/Terms.kt",
+     'acceptedVersion < VERSION', 'acceptedVersion + 1 < VERSION', ["TermsTest", "TermsStoreTest"]),
+    ('p33/C4 Termos: o item da consulta de versão some do texto em espanhol', "app/src/main/assets/terms/terminos.es.md",
+     '- Una vez al día, con internet, REau le pregunta a GitHub (donde está publicado el proyecto) si hay una versión nueva; el botón "Buscar ahora" hace la misma pregunta cuando lo tocas. La solicitud lleva solo la versión de REau (en el User-Agent) y ningún dato tuyo, sin cuenta, sin posición y sin identificador, y la respuesta solo dice cuál es la última versión; no se descarga ni se instala nada. GitHub, como cualquier sitio, ve la dirección IP del teléfono. Para apagar la consulta diaria, apaga "Avisar cuando haya una actualización" en Ajustes, Actualizaciones.\n', '', ["TermsTest"]),
+    ('p33/C4 Termos: o texto em português volta a dizer a versão 3', "app/src/main/assets/terms/termos.pt.md",
+     'Versão 4, de 25 de novembro de 2026', 'Versão 3, de 28 de outubro de 2026', ["TermsTest"]),
+    ('p33/C4 Termos: o item em português deixa de dizer o User-Agent', "app/src/main/assets/terms/termos.pt.md",
+     'só a versão do REau (no User-Agent) e nenhum', 'só a versão do REau e nenhum', ["TermsTest"]),
+    ('p33/C4 Termos: o item em inglês deixa de dizer que o GitHub vê o IP', "app/src/main/assets/terms/terms.en.md",
+     "GitHub, like any website, sees the phone's IP address. ", '', ["TermsTest"]),
+    ('p33/C4 Termos: o item em inglês nomeia outra chave que não a do app', "app/src/main/assets/terms/terms.en.md",
+     '"Notify when there is an update" in Settings, Updates', '"Notify of updates" in Settings, Updates', ["TermsTest"]),
+    ('p33/C4 Termos: o item em espanhol diz que a consulta é semanal', "app/src/main/assets/terms/terminos.es.md",
+     'Una vez al día, con internet, REau le pregunta a GitHub', 'Una vez por semana, con internet, REau le pregunta a GitHub', ["TermsTest"]),
 ]
 
 
