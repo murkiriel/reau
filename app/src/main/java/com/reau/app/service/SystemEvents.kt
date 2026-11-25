@@ -50,6 +50,9 @@ object SystemEvents {
     /** The system's broadcast of the phone's USB data link (UsbManager.ACTION_USB_STATE, hidden from the SDK). */
     internal const val USB_STATE = "android.hardware.usb.action.USB_STATE"
 
+    /** The extra of [USB_STATE] that says whether the phone is the USB host (hidden constant UsbManager.USB_HOST_CONNECTED). */
+    private const val HOST_CONNECTED = "host_connected"
+
     /** Starts listening, once per process. */
     @Synchronized
     @Suppress("DEPRECATION") // see ACTIONS
@@ -123,16 +126,22 @@ object SystemEvents {
 
     /**
      * The line for the USB data link: `usb connected, configured, adb`, from the extras of the broadcast (each a flag, true when on):
-     * `connected`, `configured` and the functions (`adb`, `mtp`, `ptp`...). `usb disconnected` when the link is not there.
+     * `connected`, `configured` and the functions (`adb`, `mtp`, `ptp`...). `usb disconnected` when the link is not there. The extra `host_connected`
+     * (whether the phone is the USB host) is no function: it ends the line as `host_connected=true` or `=false` when the broadcast has it.
      */
     internal fun usbLine(flags: Map<String, Boolean>): String {
+        val host = flags[HOST_CONNECTED]?.let { ", $HOST_CONNECTED=$it" }.orEmpty()
+        return usbState(flags) + host
+    }
+
+    private fun usbState(flags: Map<String, Boolean>): String {
         val on = flags.filterValues { it }.keys
         val state = when {
             "connected" !in on -> return "usb disconnected"
             "configured" in on -> "configured"
             else -> "not configured"
         }
-        val functions = on.filter { it != "connected" && it != "configured" }.sorted()
+        val functions = on.filter { it != "connected" && it != "configured" && it != HOST_CONNECTED }.sorted()
         return "usb connected, $state" + if (functions.isEmpty()) "" else ", " + functions.joinToString("+")
     }
 

@@ -11,6 +11,9 @@ English: [CHANGELOG.md](CHANGELOG.md) · Português (pt-BR): [CHANGELOG.pt-br.md
 
 ## [Unreleased]
 
+### Añadido
+- **La música sigue después de que el USB del teléfono termine la sesión de Android Auto** (**aún sin probar en la moto**): cuando Android Auto cierra su sesión porque el USB del teléfono cambió (sobre todo al quitar el cargador) y la música estaba sonando, REau pulsa la tecla multimedia PLAY una vez, unos segundos después de que abra la sesión nueva, para que la música no quede en pausa. No la pulsa si la música ya estaba parada, si hay una llamada, si la sesión terminó por otro motivo o si la música ya suena de nuevo por sí sola; el registro del viaje dice lo que hizo en cada caso. La línea del cambio de USB en el registro también trae `host_connected`, para ver si el teléfono era el host USB.
+
 ### Cambiado
 - **Solo en las compilaciones de depuración: el cuadro de prueba de FPS va a 2, 3, 4 o 6 fps** (eran de 4 a 12): los ritmos a los que el video realmente va, y nunca por encima de 6, la regla del proyecto desde que el tablero falló por encima de eso en la moto.
 

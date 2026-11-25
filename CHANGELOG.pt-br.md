@@ -12,6 +12,9 @@ aparecem).
 
 ## [Unreleased]
 
+### Adicionado
+- **A música continua depois que o USB do celular encerra a sessão do Android Auto** (**ainda não testado na moto**): quando o Android Auto fecha a sessão porque o USB do celular mudou (principalmente ao tirar o carregador) e a música estava tocando, o REau aperta a tecla de mídia PLAY uma vez, alguns segundos depois de a sessão nova abrir, para a música não ficar pausada. Não aperta se a música já estava parada, se há uma chamada, se a sessão acabou por outro motivo ou se a música já voltou a tocar sozinha; o registro da viagem diz o que fez, nos dois casos. A linha da mudança de USB no registro também traz o `host_connected`, para ver se o celular estava como host USB.
+
 ### Alterado
 - **Só nas builds de depuração: o quadro de teste de FPS roda a 2, 3, 4 ou 6 fps** (eram de 4 a 12): os ritmos em que o vídeo de fato roda, e nunca acima de 6, a regra do projeto desde que o painel falhou acima disso na moto.
 
