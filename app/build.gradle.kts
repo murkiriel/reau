@@ -156,9 +156,9 @@ android {
     // Test doubles that both the JVM tests and the instrumented ones use (the fake Android Auto peer) live in one
     // place and are compiled into both. They are plain JVM code: no Android classes.
     sourceSets {
-        getByName("test").kotlin.srcDir("src/sharedTest/java")
-        getByName("androidTest").kotlin.srcDir("src/sharedTest/java")
-        getByName("benchmark").kotlin.srcDir("src/release/java")
+        getByName("test").kotlin.directories.add("src/sharedTest/java")
+        getByName("androidTest").kotlin.directories.add("src/sharedTest/java")
+        getByName("benchmark").kotlin.directories.add("src/release/java")
     }
 
     // A device that Gradle creates, starts and stops by itself, for the instrumented tests (`./gradlew pixel6Api34DebugAndroidTest`; see CONTRIBUTING). It is only
