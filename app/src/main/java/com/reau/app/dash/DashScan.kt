@@ -87,17 +87,6 @@ internal class DashScan(
         return DashJoin.seenRecently(seen, ssid, prefix, nowUs)
     }
 
-    /**
-     * The look at the list that a failed try judges by: the list, and its [DashStuck.Sighting] of the dash. The same read tells [StuckMemory]
-     * whether the dash left the list since its verdict, before the verdict is asked for.
-     */
-    fun stuckLook(ssid: String, prefix: Boolean): DashStuck.Look {
-        val seen = read()
-        val nowUs = SystemClock.elapsedRealtime() * MICROS_PER_MILLI
-        StuckMemory.noteList(seen, ssid, prefix, nowUs, MonotonicClock.nowMs())
-        return DashStuck.Look(seen, DashStuck.sighting(seen, ssid, prefix, nowUs))
-    }
-
     /** Log only: what the last Wi-Fi scan says of the dash, and how old that sighting is. [network] is the one in use, if any. */
     @SuppressLint("MissingPermission")
     fun evidence(ssid: String, prefix: Boolean, network: Network?): String =
@@ -164,3 +153,16 @@ internal class DashScan(
         }.mapNotNull { it.BSSID?.lowercase() }.toSet()
     }.getOrDefault(emptySet())
 }
+
+/**
+ * The look at the list that a failed try judges by: the list, and its [DashStuck.Sighting] of the dash. The same read tells [StuckMemory]
+ * whether the dash left the list since its verdict, before the verdict is asked for. Outside the class, which is at detekt's count of functions.
+ */
+internal fun DashScan.stuckLook(ssid: String, prefix: Boolean): DashStuck.Look {
+    val seen = read()
+    val nowUs = SystemClock.elapsedRealtimeNanos() / NANOS_PER_MICRO
+    StuckMemory.noteList(seen, ssid, prefix, nowUs, MonotonicClock.nowMs())
+    return DashStuck.Look(seen, DashStuck.sighting(seen, ssid, prefix, nowUs))
+}
+
+private const val NANOS_PER_MICRO = 1_000L
