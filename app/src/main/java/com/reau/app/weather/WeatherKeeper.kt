@@ -206,7 +206,8 @@ object WeatherKeeper {
         val airJson = reached?.let { net -> withContext(Dispatchers.IO) { runCatching { get(net, airUrl(place)) }.getOrNull() } }
         val air = airJson?.let { runCatching { AirQualityParser.parse(it) }.getOrNull() }
         if (!SettingsStore.open(app).load().weatherWanted) return@withLock
-        snapshotState.value = Snapshot(forecast, nowMs, air, monoAtMs = MonotonicClock.nowMs())
+        val fresh = Snapshot(forecast, nowMs, air, monoAtMs = MonotonicClock.nowMs())
+        snapshotState.value = fresh
         cachedPlace = place
         whyState.value = Why.NONE
         backoff.succeeded()
@@ -217,7 +218,10 @@ object WeatherKeeper {
             putLong(KEY_LAT, place.lat.toRawBits())
             putLong(KEY_LNG, place.lng.toRawBits())
         }
-        RideDiagnostics.log("weather", "weather updated: ${forecast.hourly.size} hours, ${forecast.daily.size} days")
+        // The line is only a log: if building it ever failed, the forecast is still kept and the update still counts.
+        val line = runCatching { WeatherUpdatedLine.of(fresh, InfoRing.hasRealQuarters(place), nowMs, fresh.monoAtMs) }
+            .getOrElse { "weather: the update line failed (${it.javaClass.simpleName})" }
+        RideDiagnostics.log("weather", line)
     }
 
     internal fun url(place: DayNight.Place): String {
