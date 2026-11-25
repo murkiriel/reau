@@ -69,6 +69,11 @@ jobs:
       - name: Compilar os testes instrumentados
         run: ./gradlew --console=plain --max-workers=2 :app:assembleAndroidTest
 
+      # O módulo de benchmark (macrobenchmark/) só roda num aparelho, mas tem de compilar: nenhuma outra tarefa do CI o monta, e ele
+      # quebraria sem ninguém ver (revisão de 25/11/2026). Compilar não pede aparelho nem a chave de release.
+      - name: Compilar o benchmark
+        run: ./gradlew --console=plain --max-workers=2 :macrobenchmark:assemble
+
       - name: Guardar os relatórios se algo falhou
         if: failure()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0

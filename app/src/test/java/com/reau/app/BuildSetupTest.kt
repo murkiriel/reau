@@ -107,6 +107,12 @@ class BuildSetupTest {
     }
 
     @Test
+    fun `the CI compiles the macrobenchmark module, which needs a device only to run`() {
+        val ci = text(".github/workflows/ci.yml")
+        assertTrue(Regex("""(?m)^\s+run: \./gradlew [^\n]*:macrobenchmark:assemble\s*$""").containsMatchIn(ci))
+    }
+
+    @Test
     fun `the macrobenchmark module measures the app's start and writes a profile, and the release does not carry it`() {
         val module = text("macrobenchmark/build.gradle.kts")
         assertTrue(module.contains("targetProjectPath = \":app\""))
