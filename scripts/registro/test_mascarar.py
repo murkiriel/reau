@@ -50,6 +50,12 @@ class MascararTest(unittest.TestCase):
 class OutrasRedesEMacTest(unittest.TestCase):
     """Item 23 (11/11/2026): the names of networks that are not the dash's, and the MAC addresses, are hidden too. Invented names only."""
 
+    def test_a_mac_glued_to_a_letter_or_a_digit_is_hidden_too(self):
+        for texto, esperado in ((f"bssid=x{MAC_FF}", f"bssid=x{mascarar.MASK_MAC}"), (f"{MAC_FF}x up", f"{mascarar.MASK_MAC}x up"),
+                                (f"7{MAC_UPPER}9", f"7{mascarar.MASK_MAC}9"), (f"a{MAC_01}{MAC_02}", f"a{mascarar.MASK_MAC}{mascarar.MASK_MAC}")):
+            with self.subTest(texto=texto):
+                self.assertEqual(esperado, mascarar.mascarar(texto))
+
     def test_every_mac_address_is_hidden_in_either_case(self):
         self.assertEqual(f"wlan0: Associated with {mascarar.MASK_MAC} and {mascarar.MASK_MAC}",
                          mascarar.mascarar(f"wlan0: Associated with {MAC_FF} and {MAC_UPPER}"))

@@ -4,7 +4,7 @@ Three things are masked:
 - the dash's Wi-Fi name, `RE_<4 characters>_<6 digits>` (e.g. `RE_AB12_345678`), tied to one bike and its owner (the system's logcat carries it whole 51 times
   in the logs of 26/10/2026; REau's own ride log never writes it), even glued to other text or escaped in an address (`%22RE_AB12_345678%22`), and any other
   name that starts the way a dash's does (at the start of a word, after a character that is not of a word, or after a `%XX` escape; `MODE_RE_ABCD` is left);
-- every MAC address (six pairs of hex digits split by colons, `aa:bb:…:ff`: the dash's BSSID, the phone's, a router's);
+- every MAC address (six pairs of hex digits split by colons, `aa:bb:…:ff`: the dash's BSSID, the phone's, a router's), even glued to a letter or a digit;
 - the names of the Wi-Fi networks that are not the dash's (home, work): the name that follows `SSID`, `ssid=`, `configKey=` or `SSID:` (quoted, or unquoted up to the comma
   or the next field). A name found that way is also hidden everywhere else in the same file (where a line says it without the keyword), and `--rede NOME` hides one by hand.
 
@@ -26,7 +26,9 @@ _DASH = re.compile(r"RE_[A-Za-z0-9]{4}_\d{6}")
 # What the system log reader (`logcat_sistema.py`) picks lines by and hides: the two patterns above as one, so the name glued to a letter or a digit on its left (`xRE_AB12_345678`)
 # is found there too (it was not: with only `_OTHER` the reader neither chose such a line nor hid the name in it).
 DASH_QUALQUER = re.compile(_OTHER.pattern + "|" + _DASH.pattern)
-MAC = re.compile(r"\b(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}\b")
+# A MAC has no edge either, like the dash's own pattern: glued to a letter or a digit (`bssid=xaa:bb:cc:dd:ee:ff`, `…:ffx`) it is hidden too. Six pairs of hex digits split by colons
+# are not an ordinary word, so there is nothing common to leave (a clock has three groups).
+MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}")
 MASK = "RE_****_******"
 MASK_MAC = "**:**:**:**:**:**"
 MASK_REDE = "<rede>"

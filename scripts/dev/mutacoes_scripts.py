@@ -41,7 +41,7 @@ MUTATIONS_SCRIPTS = [
      "{sum(e[0] for e in contas['subteto'])} arquivos", "{sum(e[1] for e in contas['subteto'])} arquivos", ["registro/test_gravacoes.py"]),
     # ── mascarar.py ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────
     ("leva2/mascarar: o MAC de cinco grupos também é escondido", REG + "mascarar.py",
-     'MAC = re.compile(r"\\b(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}\\b")', 'MAC = re.compile(r"\\b(?:[0-9A-Fa-f]{2}:){4}[0-9A-Fa-f]{2}\\b")', ["registro/test_mascarar.py"]),
+     'MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}")', 'MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){4}[0-9A-Fa-f]{2}")', ["registro/test_mascarar.py"]),
     ("leva2/mascarar: o nome de duas letras vale em qualquer lugar", REG + "mascarar.py",
      "NOME_MINIMO = 3", "NOME_MINIMO = 2", ["registro/test_mascarar.py"]),
     ("leva2/mascarar: o nome mais curto é escondido antes do mais longo", REG + "mascarar.py",
@@ -487,4 +487,19 @@ MUTATIONS_SCRIPTS = [
      '        elif any(sobe):', '        elif False:', ["registro/test_a2_saida_e_calor.py"]),
     ("p33/A2 a linha informativa não entra nos avisos", REG + "ler_registro.py",
      '_economia(bloco) + _temperatura_sem_painel(bloco)', '_economia(bloco)', ["registro/test_a2_saida_e_calor.py"]),
+    # Leitor 25/11 (A3, C16): o nome do painel e o MAC escondidos em qualquer posição (colados a letra ou dígito) nas linhas do sistema que o leitor conta.
+    ("p33/A3 o MAC volta a exigir borda à esquerda", REG + "mascarar.py",
+     'MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}")', 'MAC = re.compile(r"\\b(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}")', ["registro/test_mascarar.py", "registro/test_logcat_sistema.py"]),
+    ("p33/A3 o MAC volta a exigir borda à direita", REG + "mascarar.py",
+     'MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}")', 'MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}\\b")', ["registro/test_mascarar.py", "registro/test_logcat_sistema.py"]),
+    ("p33/A3 o MAC aceita só cinco pares", REG + "mascarar.py",
+     'MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}")', 'MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){3}[0-9A-Fa-f]{2}")', ["registro/test_mascarar.py", "registro/test_logcat_sistema.py"]),
+    ("p33/A3 o nome do painel colado à letra deixa de ser achado", REG + "mascarar.py",
+     'DASH_QUALQUER = re.compile(_OTHER.pattern + "|" + _DASH.pattern)', 'DASH_QUALQUER = re.compile(_OTHER.pattern)', ["registro/test_mascarar.py", "registro/test_logcat_sistema.py"]),
+    ("p33/A3 o nome do painel exige só RE_ e 4 caracteres", REG + "mascarar.py",
+     '_DASH = re.compile(r"RE_[A-Za-z0-9]{4}_\\d{6}")', '_DASH = re.compile(r"RE_[A-Za-z0-9]{4}")', ["registro/test_mascarar.py", "registro/test_logcat_sistema.py"]),
+    ("p33/A3 o nome do painel só vale com letras maiúsculas", REG + "mascarar.py",
+     '_DASH = re.compile(r"RE_[A-Za-z0-9]{4}_\\d{6}")', '_DASH = re.compile(r"RE_[A-Z0-9]{4}_\\d{6}")', ["registro/test_mascarar.py", "registro/test_logcat_sistema.py"]),
+    ("p33/A3 o nome do painel aceita qualquer coisa depois do RE_ colado", REG + "mascarar.py",
+     '_OTHER = re.compile(r"(?:(?<=%[0-9A-Fa-f]{2})|\\b)RE_[A-Za-z0-9_]{4,}")', '_OTHER = re.compile(r"RE_[A-Za-z0-9_]{4,}")', ["registro/test_mascarar.py", "registro/test_logcat_sistema.py"]),
 ]
