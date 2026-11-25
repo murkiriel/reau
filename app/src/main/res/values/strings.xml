@@ -103,6 +103,7 @@
     <string name="action_open_aa_settings">Open Android Auto settings</string>
     <string name="action_get_aa">Get Android Auto</string>
     <string name="aa_missing_note">Android Auto isn’t installed on this phone. Tap \"Get Android Auto\" to install it from Google Play, open it once to finish its setup, then come back.</string>
+    <string name="aa_updated_note">Android Auto was updated, and the update turns its head unit server off. Turn it on again.</string>
     <string name="aa_store_none">Android Auto isn’t installed, and this phone has no app store or browser to get it from.</string>
     <string name="aa_settings_failed">Couldn’t open Android Auto’s settings. Open Android Auto from your app list.</string>
     <string name="headline_card">Wallpaper on the dash</string>

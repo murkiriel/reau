@@ -33,6 +33,8 @@ data class MainUiState(
     val reauVersion: String = com.reau.app.BuildConfig.VERSION_NAME,
     /** The switch "Clima no painel", which the weather section of the main screen shows. */
     val weatherOn: Boolean = false,
+    /** The head unit server is off because Android Auto was updated since it last worked ([com.reau.app.aa.AaUpdatedServerOff]): the card of the server says so. */
+    val aaUpdatedServerOff: Boolean = false,
 ) {
     /** Whether Android Auto is installed; when not, its buttons lead to the store instead of to its settings. */
     val androidAutoInstalled: Boolean get() = androidAutoVersion != null

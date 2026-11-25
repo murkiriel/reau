@@ -396,6 +396,8 @@ internal class AaReceiver(
     /** One dialled connection: its state report, and the session on it. */
     private fun serve(mine: Int, socket: Socket, refused: RefusedDials, unanswered: HandshakeStreak, waking: AaWake) {
         refused.connected(android.os.SystemClock.elapsedRealtime())?.let(::logReceiver)
+        // A connection accepted says the server is on: the update time of Android Auto is kept, to tell later whether an update turned it off (AaUpdatedServerOff).
+        runCatching { AaUpdatedServerOff.markSeenOn(context) }
         // A "still closing the previous session" or a "not responding" already said is not taken back by the next
         // dial being accepted: only an answer (or the port refusing) takes it back.
         val held = synchronized(lock) { state }

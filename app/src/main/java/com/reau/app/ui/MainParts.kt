@@ -27,7 +27,7 @@ import com.reau.app.ui.components.WarningCard
 internal fun Warning(warning: Warning, state: MainUiState, onOpenAndroidAutoSettings: () -> Unit, extras: MainExtras) {
     val warn = StatusKind.CONNECTING
     when (warning) {
-        Warning.SERVER_OFF -> ServerWarning(state.androidAutoInstalled, onOpenAndroidAutoSettings)
+        Warning.SERVER_OFF -> ServerWarning(state.androidAutoInstalled, state.aaUpdatedServerOff, onOpenAndroidAutoSettings)
         Warning.UNRESPONSIVE -> UnresponsiveWarning()
         Warning.CLOSING_PREVIOUS -> WarningCard(
             warn, R.drawable.ic_ms_error, stringResource(R.string.warn_closing_previous_title),
@@ -109,12 +109,13 @@ private fun UnresponsiveWarning() {
     )
 }
 
-/** While Android Auto's head unit server is off: how to switch it on by hand, with the way to Android Auto's settings. */
+/** While Android Auto's head unit server is off: how to switch it on by hand, with the way to Android Auto's settings (and, after an update of Android Auto, why it is off). */
 @Composable
-private fun ServerWarning(aaInstalled: Boolean, onOpenAndroidAutoSettings: () -> Unit) {
-    // Without Android Auto the card says so first: its settings button is the way to the store.
+private fun ServerWarning(aaInstalled: Boolean, aaUpdated: Boolean, onOpenAndroidAutoSettings: () -> Unit) {
+    // Without Android Auto the card says so first: its settings button is the way to the store. After an update of Android Auto, it says why the server is off.
     val missing = if (aaInstalled) null else stringResource(R.string.aa_missing_note)
-    val more = listOfNotNull(missing?.let { it to "aa_missing_note" })
+    val updated = if (aaUpdated) stringResource(R.string.aa_updated_note) else null
+    val more = listOfNotNull(missing?.let { it to "aa_missing_note" }, updated?.let { it to "aa_updated_note" })
     WarningCard(
         StatusKind.ERROR, R.drawable.ic_ms_error, stringResource(R.string.warn_server_title), stringResource(R.string.server_warning),
         null, CardAction(aaButtonLabel(aaInstalled), "open_aa_settings", onOpenAndroidAutoSettings), tag = "server_warning", more = more,

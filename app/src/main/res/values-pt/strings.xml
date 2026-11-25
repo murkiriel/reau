@@ -103,6 +103,7 @@
     <string name="action_open_aa_settings">Abrir as configurações do Android Auto</string>
     <string name="action_get_aa">Instalar o Android Auto</string>
     <string name="aa_missing_note">O Android Auto não está instalado neste celular. Toque em \"Instalar o Android Auto\" para baixá-lo na Google Play, abra-o uma vez para terminar a configuração e volte aqui.</string>
+    <string name="aa_updated_note">O Android Auto foi atualizado, e a atualização desliga o servidor da unidade principal. Ligue de novo.</string>
     <string name="aa_store_none">O Android Auto não está instalado e este celular não tem loja de aplicativos nem navegador para baixá-lo.</string>
     <string name="aa_settings_failed">Não foi possível abrir as configurações do Android Auto. Abra o Android Auto pela lista de aplicativos.</string>
     <string name="headline_card">Wallpaper no painel</string>

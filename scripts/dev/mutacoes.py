@@ -5166,6 +5166,17 @@ MUTATIONS += [
      "        anchorMs += (nowMs() - since).coerceAtLeast(0L)\n", "", ["InfoTitleTest"]),
     ("P32 Título: o eco do toque não avisa o relógio das páginas", MAIN + "dash/DashSession.kt",
      "        if (echoNow != null) infoTitle.hold()\n", "", ["DashSessionInfoTitleTest", "InfoTitleSettingsTest"]),
+    ("A4 25/11 Atualização: sem valor guardado (a primeira vez) o aviso já diz que foi atualização", MAIN + "aa/AaUpdatedServerOff.kt",
+     "link == AaLinkState.SERVER_OFF && seenOnAt != null && updatedAt != null && updatedAt > seenOnAt",
+     "link == AaLinkState.SERVER_OFF && updatedAt != null && updatedAt > (seenOnAt ?: 0L)",
+     ["AaUpdatedServerOffTest"]),
+    ("A4 25/11 Atualização: o mesmo tempo de atualização também conta como atualizado", MAIN + "aa/AaUpdatedServerOff.kt",
+     "updatedAt != null && updatedAt > seenOnAt", "updatedAt != null && updatedAt >= seenOnAt", ["AaUpdatedServerOffTest"]),
+    ("A4 25/11 Atualização: a discagem aceita não guarda a hora da atualização do Android Auto", MAIN + "aa/AaReceiver.kt",
+     "        runCatching { AaUpdatedServerOff.markSeenOn(context) }\n", "", ["AaUpdatedServerOffIsWiredTest"]),
+    ("A4 25/11 Atualização: o cartão do servidor mostra a linha da atualização sempre", MAIN + "ui/MainParts.kt",
+     "if (aaUpdated) stringResource(R.string.aa_updated_note) else null", "stringResource(R.string.aa_updated_note)",
+     ["AaUpdatedServerOffIsWiredTest"]),
 ]
 
 

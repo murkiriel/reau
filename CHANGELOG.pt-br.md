@@ -12,6 +12,9 @@ aparecem).
 
 ## [Unreleased]
 
+### Adicionado
+- **Depois de uma atualização do Android Auto, a tela diz por que o servidor da unidade principal está desligado** (**ainda não testado na moto**): uma atualização do Android Auto desliga a opção "Iniciar servidor da unidade principal", e o piloto que a tinha ligado não via por que ela "desligou sozinha". O REau agora guarda, só no celular, a hora da atualização do Android Auto da última vez em que o servidor aceitou uma conexão; com o servidor desligado e o Android Auto atualizado depois disso, o cartão do servidor na tela principal ganha uma linha dizendo que o Android Auto foi atualizado, que a atualização desliga o servidor e que é preciso ligar de novo (o botão para as configurações do Android Auto é o mesmo). Sem notificação; sem nada guardado ainda (a primeira vez) o cartão é o de sempre. O registro da corrida diz uma vez, com a etiqueta `aa-server`.
+
 ## [0.3.1] - 2026-11-25
 
 ### Adicionado

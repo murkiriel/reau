@@ -11,6 +11,9 @@ English: [CHANGELOG.md](CHANGELOG.md) · Português (pt-BR): [CHANGELOG.pt-br.md
 
 ## [Unreleased]
 
+### Añadido
+- **Tras una actualización de Android Auto, la pantalla dice por qué el servidor de unidad principal está apagado** (**aún sin probar en la moto**): una actualización de Android Auto apaga la opción "Iniciar servidor de unidad principal", y el piloto que la había encendido no veía por qué se "apagó sola". REau ahora guarda, solo en el teléfono, la hora de actualización de Android Auto de la última vez que el servidor aceptó una conexión; con el servidor apagado y Android Auto actualizado desde entonces, la tarjeta del servidor de la pantalla principal añade una línea que dice que Android Auto se actualizó, que la actualización apaga el servidor y que hay que encenderlo de nuevo (el botón a los ajustes de Android Auto es el mismo). Sin notificación; sin nada guardado aún (la primera vez) la tarjeta es la de siempre. El registro de la corrida lo dice una vez, con la etiqueta `aa-server`.
+
 ## [0.3.1] - 2026-11-25
 
 ### Añadido

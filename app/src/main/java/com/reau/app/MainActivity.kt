@@ -58,6 +58,9 @@ import kotlin.concurrent.thread
 class MainActivity : ComponentActivity() {
     private var androidAutoVersion by mutableStateOf<String?>(null)
 
+    // The server is off because an update of Android Auto turned it off (AaUpdatedServerOff): the card of the server says so.
+    private var aaUpdatedServerOff by mutableStateOf(false)
+
     // Whether REau is on screen (between onResume and onPause), for what opens Android Auto's settings by itself.
     private var onScreen by mutableStateOf(false)
 
@@ -252,6 +255,8 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            androidx.compose.runtime.LaunchedEffect(projection.androidAuto, androidAutoVersion) { aaUpdatedServerOff = readAaUpdated(projection.androidAuto) }
+
             val saveSettings: (REauSettings) -> Unit = { settings = saved(store, settings, it) }
             val reload = { settings = store.load(); pairing = pairingStore.toUi() }
             // The browser switch goes off with the projection (the service writes it): the screen follows when it ends.
@@ -376,7 +381,15 @@ class MainActivity : ComponentActivity() {
             alertRoute = alertRoute,
             otherEditionInstalled = otherEditionInstalled,
             weatherOn = settings.dashWeather,
+            aaUpdatedServerOff = aaUpdatedServerOff,
         )
+
+    /** Whether the server being off is the work of an update of Android Auto; the ride log says it once for each time it becomes so. */
+    private fun readAaUpdated(link: com.reau.app.aa.AaLinkState): Boolean {
+        val updated = com.reau.app.aa.AaUpdatedServerOff.now(this, link)
+        if (updated && !aaUpdatedServerOff) RideDiagnostics.log("aa-server", com.reau.app.aa.AaUpdatedServerOff.LOG_LINE)
+        return updated
+    }
 
     /** Reads whether the alert channel would be heard; the ride log says it when it changes (and the main screen's card follows [alertLevel]). */
     private fun readAlertLevel() {
