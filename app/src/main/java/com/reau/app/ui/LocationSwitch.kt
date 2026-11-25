@@ -8,7 +8,7 @@ import android.location.LocationManager
 /**
  * Android's own Location switch, which the rider may turn off while REau has the permission: the phone then does not return the Wi-Fi
  * scan, so REau cannot see the dash in the scan (it asks again when the dash shows up) and the GPS card and the sun theme have no place.
- * Another app for this dash (NorthStar) found the first authentication failing on Android 13 with the switch off.
+ * With the switch off, the first authentication with the dash may also fail on Android 13.
  */
 object LocationSwitch {
     /** The warning is for a rider who gave the permission and then switched Location off; without the permission the permissions screen speaks. */
