@@ -11,14 +11,14 @@ que conozca el software y el derecho de autor, y deja que él decida lo que la l
 
 Solo lo que los propios proyectos publicaron:
 
-- **NorthStar**, un proyecto abierto para el mismo panel, tuvo todo su código retirado por su autor el 08/07/2026 (commit
+- **NorthStar**, un proyecto abierto para el mismo tablero, tuvo todo su código retirado por su autor el 08/07/2026 (commit
   `f33f183`, "Remove source, project discontinued at Royal Enfield's request"). El repositorio quedó con un README corto y
   se archivó después. Ningún aviso aparece en el repositorio público de avisos de retirada de GitHub (buscado el
   18/11/2026), así que la solicitud parece haber llegado directamente al autor. Los forks hechos antes de la retirada
   siguieron en línea.
 - **open-dash**, un proyecto que desciende de NorthStar, dice en su README que Royal Enfield lo contactó y que, tras
-  conversaciones, quita de las próximas versiones los protocolos de conexión y proyección del panel, el código propietario y
-  el fondo de pantalla del panel. El 21/09/2026 su rama principal se reescribió en un único commit (`a55fa90`), sin ese código.
+  conversaciones, quita de las próximas versiones los protocolos de conexión y proyección del tablero, el código propietario y
+  el fondo de pantalla del tablero. El 21/09/2026 su rama principal se reescribió en un único commit (`a55fa90`), sin ese código.
 - Ninguno de los dos publicó los fundamentos de la solicitud. Los dos tenían un aviso de "sin vínculo" y un archivo NOTICE, y
   eso no evitó la solicitud: el aviso ayuda, pero no es un escudo.
 - Cuando un proyecto desaparece, su historia puede irse con él, y también la prueba de su licencia. Por eso el NOTICE de REau
@@ -55,7 +55,7 @@ Pregunta qué se reclama exactamente, quién lo reclama y con qué derecho. Una 
   de REau es que nada de eso está en el repositorio, en la historia ni en el APK, y el mantenedor lo vuelve a comprobar
   siempre que una reclamación señala un archivo. Si el reclamante señala algo que de verdad está ahí, retíralo de inmediato,
   del árbol actual y de las versiones, y dile al abogado lo que guarda la historia.
-- **Hechos de protocolo.** Qué byte espera el panel, y en qué orden, observado en el panel del propio mantenedor y escrito
+- **Hechos de protocolo.** Qué byte espera el tablero, y en qué orden, observado en el tablero del propio mantenedor y escrito
   en código propio de REau. Si y cómo se pueden usar hechos así para la interoperabilidad depende del país, así que esta
   es la parte del abogado, no solo del mantenedor.
 

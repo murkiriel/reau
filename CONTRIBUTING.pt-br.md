@@ -48,6 +48,8 @@ Os scripts em Python têm testes próprios (`python3 -B -m unittest discover -p 
 `scripts/dev/`, `scripts/emu/`, `scripts/painel_falso/` e `bench/`; o último precisa do Pillow, fixado em `scripts/requirements.txt`), e a
 integração contínua também os roda. Ela também confere o estilo deles: `ruff check .` na raiz (regras em `ruff.toml`), `mypy --ignore-missing-imports *.py` dentro de cada pasta de scripts e `shellcheck -S warning` nos `.sh`; as versões do ruff e do mypy estão em `scripts/requirements-estilo.txt`.
 
+O APK também é auditado: `python3 -B scripts/apk_audit.py <apk>` compara as permissões, as bibliotecas, as bibliotecas nativas e os hosts de URL que um APK traz com o `scripts/apk_audit_baseline.json`, e confere que um APK de release tem a forma de release (não depurável, sem classes de debug, só os componentes da lista). A integração contínua monta o release (`-PreauDebugSigned=true`, já que o repositório não tem chave de assinatura) e o roda; quando algo novo deve entrar no APK, olhe o que é e aceite com `--gravar`.
+
 Toda mudança de código vem com um teste novo ou ajustado. O projeto tem três idiomas: os textos que as pessoas leem vão em
 inglês (o padrão), português (pt-BR) e espanhol, nos `strings.xml` de `values`, `values-pt` e `values-es`, e a documentação tem um arquivo
 por idioma. O texto atrás de um (i) dá a ideia geral em no máximo 3 frases e 100 palavras, sem abreviação que termine em ponto
