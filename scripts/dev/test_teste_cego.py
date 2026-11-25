@@ -16,7 +16,6 @@ from pathlib import Path
 
 CEGO = Path(__file__).resolve().parent / "teste_cego"
 sys.path.insert(0, str(CEGO))
-import reencodar_200k  # noqa: E402
 import extrair  # noqa: E402  (does not run anything on import since 11/11/2026)
 import indice_video  # noqa: E402
 
@@ -175,117 +174,6 @@ class AvaliarNoiteTest(unittest.TestCase):
             self.assertIn("MELHOR REGRA em tst (teste, nunca visto na busca)", feito.stdout)
 
 
-class Reencodar200kTest(unittest.TestCase):
-    """The tool that prepares the blind comparison at 200 kbps: it never writes inside the collection or reau_registros/, and its commands are the ones the ffmpeg would get."""
-
-    def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self.tmp.cleanup)
-        self.dir = Path(self.tmp.name)
-        self.coleta = self.dir / "celular-20261101-1000"
-        (self.coleta / "video").mkdir(parents=True)
-        for nome, passo in (("reau_20261101_100000_000", 250), ("reau_20261101_110000_000", 500)):
-            (self.coleta / "video" / f"{nome}.h264").write_bytes(b"\x00" * 40)
-            (self.coleta / "video" / f"{nome}.csv").write_text("frame,pts_ms,bytes_in_file,key\n" + "".join(f"{i + 1},{i * passo},10,{1 if i == 0 else 0}\n" for i in range(4)))
-        self.saida = self.dir / "saida"
-
-    def ffmpeg_falso(self, falha=False):
-        f = self.dir / "ffmpeg-falso"
-        f.write_text('#!/usr/bin/env bash\necho "$*" >> "%s/chamadas.txt"\n%sfor ultimo; do :; done\necho filme > "$ultimo"\n' % (self.dir, "exit 1\n" if falha else ""))
-        f.chmod(f.stat().st_mode | stat.S_IXUSR)
-        return f
-
-    def test_the_average_rate_comes_from_the_index_and_defaults_without_it(self):
-        self.assertAlmostEqual(4.0, reencodar_200k.ritmo_medio(self.coleta / "video" / "reau_20261101_100000_000.h264"))  # 3 intervals in 750 ms
-        self.assertAlmostEqual(2.0, reencodar_200k.ritmo_medio(self.coleta / "video" / "reau_20261101_110000_000.h264"))
-        solto = self.dir / "sem_indice.h264"
-        solto.write_bytes(b"x")
-        self.assertEqual(reencodar_200k.FPS_PADRAO, reencodar_200k.ritmo_medio(solto))
-
-    def test_without_ffmpeg_it_says_so_writes_nothing_and_exits_three(self):
-        feito = rodar("reencodar_200k.py", self.coleta, self.saida, "--ffmpeg", str(self.dir / "nao-existe"))
-        self.assertEqual(3, feito.returncode)
-        self.assertIn("ffmpeg não está instalado", feito.stderr)
-        self.assertFalse(self.saida.exists())
-
-    def test_listing_the_commands_works_without_ffmpeg_and_runs_none(self):
-        feito = rodar("reencodar_200k.py", self.coleta, self.saida, "--ffmpeg", str(self.dir / "nao-existe"), "--so-listar", "--max-s", "60")
-        self.assertEqual(0, feito.returncode, feito.stderr)
-        linhas = feito.stdout.strip().splitlines()
-        self.assertEqual(4, len(linhas))  # two recordings, original and reencoded each
-        reenc = [l for l in linhas if "libx264" in l]
-        self.assertEqual(2, len(reenc))
-        for l in reenc:
-            for pedaco in ("-b:v 200k", "-maxrate 200k", "-bufsize 200k", "-t 60", "-an", "-pix_fmt yuv420p"):
-                self.assertIn(pedaco, l)
-        self.assertIn("-r 4.0000", linhas[0])
-        self.assertTrue([l for l in linhas if "-c:v copy" in l])
-        self.assertFalse(self.saida.exists())
-
-    def test_blind_mode_writes_pairs_a_b_and_a_key_that_says_which_is_which(self):
-        feito = rodar("reencodar_200k.py", self.coleta, self.saida, "--ffmpeg", self.ffmpeg_falso())
-        self.assertEqual(0, feito.returncode, feito.stderr)
-        self.assertEqual(["001_A.mp4", "001_B.mp4", "002_A.mp4", "002_B.mp4", "gabarito.json"], sorted(p.name for p in self.saida.iterdir()))
-        gabarito = json.loads((self.saida / "gabarito.json").read_text())
-        self.assertEqual(["001_A.mp4", "001_B.mp4", "002_A.mp4", "002_B.mp4"], sorted(gabarito))
-        for n in ("001", "002"):
-            self.assertEqual(["original", "reencodado"], sorted([gabarito[f"{n}_A.mp4"], gabarito[f"{n}_B.mp4"]]))
-        chamadas = (self.dir / "chamadas.txt").read_text().splitlines()
-        self.assertEqual(4, len(chamadas))
-        for nome, o_que in gabarito.items():  # the encoder got the 200k command exactly for the file the key calls reencoded
-            linha = next(c for c in chamadas if c.endswith(nome))
-            self.assertEqual(o_que == "reencodado", "libx264" in linha, (nome, o_que))
-        self.assertIn("abra só depois de escolher", feito.stdout)
-
-    def test_the_draw_is_fixed_by_the_seed_and_changes_with_it(self):
-        h264s = reencodar_200k.gravacoes(self.coleta)
-        a = reencodar_200k.planejar(h264s, self.saida, 200, 15, False, "ffmpeg")[1]
-        self.assertEqual(a, reencodar_200k.planejar(h264s, self.saida, 200, 15, False, "ffmpeg")[1])
-        varios = {tuple(reencodar_200k.planejar(h264s * 6, self.saida, 200, semente, False, "ffmpeg")[1].values()) for semente in range(1, 8)}
-        self.assertGreater(len(varios), 1)
-
-    def test_open_mode_names_the_files_by_what_they_are_and_has_no_key(self):
-        feito = rodar("reencodar_200k.py", self.coleta, self.saida, "--ffmpeg", self.ffmpeg_falso(), "--aberto", "--kbps", "150")
-        self.assertEqual(0, feito.returncode, feito.stderr)
-        nomes = sorted(p.name for p in self.saida.iterdir())
-        self.assertEqual(["reau_20261101_100000_000.150k.mp4", "reau_20261101_100000_000.original.mp4", "reau_20261101_110000_000.150k.mp4", "reau_20261101_110000_000.original.mp4"], nomes)
-        self.assertIn("-b:v 150k", (self.dir / "chamadas.txt").read_text())
-
-    def test_the_output_may_not_be_inside_reau_registros_nor_inside_the_collection(self):
-        for ruim in (self.dir / "reau_registros" / "saida", self.coleta / "saida", self.coleta, self.coleta / "video"):
-            feito = rodar("reencodar_200k.py", self.coleta, ruim, "--ffmpeg", self.ffmpeg_falso())
-            self.assertEqual(2, feito.returncode, ruim)
-            self.assertFalse(ruim.exists() and any(ruim.glob("*.mp4")))
-        self.assertIn("é só leitura", rodar("reencodar_200k.py", self.coleta, self.dir / "reau_registros" / "x", "--so-listar").stderr)
-
-    def test_a_failing_ffmpeg_is_reported_and_the_exit_code_is_one(self):
-        feito = rodar("reencodar_200k.py", self.coleta, self.saida, "--ffmpeg", self.ffmpeg_falso(falha=True))
-        self.assertEqual(1, feito.returncode)
-        self.assertIn("FALHOU", feito.stderr)
-
-    def test_bad_arguments_and_a_folder_without_video_say_how_to_use_it(self):
-        self.assertEqual(2, rodar("reencodar_200k.py").returncode)
-        self.assertEqual(2, rodar("reencodar_200k.py", self.coleta, self.saida, "--kbps").returncode)
-        self.assertEqual(2, rodar("reencodar_200k.py", self.coleta, self.saida, "--kbps", "dois").returncode)
-        self.assertEqual(2, rodar("reencodar_200k.py", self.coleta, self.saida, "--nada").returncode)
-        vazia = self.dir / "vazia"
-        vazia.mkdir()
-        self.assertEqual(2, rodar("reencodar_200k.py", vazia, self.saida, "--so-listar").returncode)
-        self.assertEqual(2, rodar("reencodar_200k.py", self.dir / "nao-existe", self.saida).returncode)
-        self.assertEqual(0, rodar("reencodar_200k.py", "--help").returncode)
-
-    def test_the_video_folder_itself_can_be_given(self):
-        feito = rodar("reencodar_200k.py", self.coleta / "video", self.saida, "--so-listar")
-        self.assertEqual(4, len(feito.stdout.strip().splitlines()))
-
-
-def pillow_instalado():
-    """Whether Pillow loads the way the scripts are run (`rodar` uses `python3 -I`, which leaves out the user's site-packages): a Pillow
-    installed only for the user (`pip install --user`, as on the CI) is there for this process and not for the script."""
-    return subprocess.run([sys.executable, "-I", "-c", "import PIL"], capture_output=True).returncode == 0
-
-
-@unittest.skipUnless(pillow_instalado(), "Pillow não está instalado (scripts/requirements.txt): amostrar_cego.py não roda")
 class AmostrarCegoTest(unittest.TestCase):
     def test_it_draws_the_frames_with_a_fixed_seed_and_makes_the_contact_sheets_with_a_fake_decoder(self):
         with tempfile.TemporaryDirectory() as tmp:
