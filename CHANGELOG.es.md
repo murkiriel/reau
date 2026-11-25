@@ -9,7 +9,7 @@ sin cambios visibles para quien usa la app no se listan).
 
 English: [CHANGELOG.md](CHANGELOG.md) · Português (pt-BR): [CHANGELOG.pt-br.md](CHANGELOG.pt-br.md)
 
-## [0.3.0] - 2026-11-22
+## [0.3.0] - 2026-11-24
 
 > **Si usabas la edición Lite**, lee la primera entrada de "Cambiado": esta versión es una app nueva para ti.
 

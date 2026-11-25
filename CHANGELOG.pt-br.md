@@ -10,7 +10,7 @@ de debug acrescentam a data e a hora da compilação depois de `-dev+` (`0.3.0-d
 dela como histórico do projeto, cada um reunindo o que mudou naquele dia (dias sem mudança visível para quem usa o app não
 aparecem).
 
-## [0.3.0] - 2026-11-22
+## [0.3.0] - 2026-11-24
 
 > **Se você usava a edição Lite**, leia a primeira entrada de "Alterado": esta versão é um app novo para você.
 
