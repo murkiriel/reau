@@ -176,6 +176,7 @@ O que fica com o mantenedor, já que o script não publica nem faz push:
 
 - ler o rascunho no GitHub (título, texto e os dois arquivos) e publicar;
 - baixar o que foi publicado (`gh release download v0.3.1`) e conferir: `sha256sum -c SHA256SUMS`, e o certificado com `apksigner verify --print-certs`;
+- o build é reproduzível, e o CI prova isso a cada push: o job "Auditoria dos APKs" monta a release duas vezes, a segunda do zero numa cópia do commit em outro caminho, e o `scripts/apk_compare.py` falha se os dois diferirem em qualquer coisa além da assinatura (ela leva um sal aleatório, então muda a cada build). Para conferir que um APK publicado sai do código público, baixe a tag, monte com o JDK 21 (`./gradlew :app:assembleRelease -PreauDebugSigned=true`) e rode `python3 scripts/apk_compare.py REau-0.3.1.apk app/build/outputs/apk/release/app-release.apk`: os dois SHA-256 que ele mostra (de cada APK sem a assinatura) têm de ser iguais;
 - avançar a `main` até a tag (`git merge --ff-only v0.3.1`) e fazer o push, para que o ramo principal mostre o código que foi lançado.
 
 ## O que não mudar sem teste na moto

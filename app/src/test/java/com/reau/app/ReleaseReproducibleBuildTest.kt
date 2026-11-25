@@ -35,6 +35,18 @@ class ReleaseReproducibleBuildTest {
     }
 
     @Test
+    fun `the CI builds the release a second time, from scratch in another copy of the commit, and compares the two without the signature`() {
+        val ci = File(root(), ".github/workflows/ci.yml").readText()
+        val job = ci.substring(ci.indexOf("  auditoria-apk:"), ci.indexOf("\n  python:"))
+        assertTrue("two builds of the release in the job", Regex(""":app:assembleRelease""").findAll(job).count() == 2)
+        assertTrue("the second one in a copy at another path, not over the first build", job.contains("git clone --quiet --depth 1 \"file://\$GITHUB_WORKSPACE\" \"\$RUNNER_TEMP/segunda-copia\""))
+        assertTrue("the second one is built the way the first is (debug-signed, as the CI has no release key)", job.substringAfter("segunda-copia\"\n").contains("-PreauDebugSigned=true :app:assembleRelease"))
+        assertTrue("the comparison fails the job when the two differ", job.contains("python3 -B scripts/apk_compare.py \"\$RUNNER_TEMP/primeiro.apk\" \"\$RUNNER_TEMP/segundo.apk\""))
+        assertTrue("the script and its tests are in the repository", File(root(), "scripts/apk_compare.py").isFile && File(root(), "scripts/test_apk_compare.py").isFile)
+        assertTrue("and the tests run in the job", job.contains("test_apk_compare.py"))
+    }
+
+    @Test
     fun `the debug build stays incremental`() {
         assertFalse(block().contains("DebugKotlin"))
         val properties = File(root(), "gradle.properties").readText()
