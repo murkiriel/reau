@@ -4442,6 +4442,18 @@ MUTATIONS = [
      "if (ofTheDash && counts(state)) {", "if (counts(state)) {", ["AssociationInFlightTest"]),
     ("DashJoin: o vigia da varredura volta a olhar a cada 2 s", MAIN + "dash/DashJoin.kt",
      "const val WATCH_PERIOD_MS = 500L", "const val WATCH_PERIOD_MS = 2_000L", ["AssociationInFlightTest", "AssociationHoldIsWiredTest"]),
+    # 0.4.0 (25/11/2026): o registro da viagem diz o som do Bluetooth (aparelhos que entram e saem, a rota do áudio), sem nome, endereço nem id e sem permissão nova.
+    ("bt/AudioDeviceLines: a mesma rota do áudio é escrita de novo", MAIN + "phone/AudioDeviceLines.kt",
+     "routeLine(route).takeIf { it != lastRoute }?.also { lastRoute = it }", "routeLine(route).also { lastRoute = it }", ["AudioDeviceLinesTest"]),
+    ("bt/AudioDeviceLines: o aparelho que sai e não é Bluetooth também é dito", MAIN + "phone/AudioDeviceLines.kt",
+     "            val bluetooth = devices.filter { isBluetooth(it.type) }\n            if (bluetooth.isEmpty()) return null\n            bluetooth.forEach { device ->",
+     "            val bluetooth = devices\n            if (bluetooth.isEmpty()) return null\n            bluetooth.forEach { device ->", ["AudioDeviceLinesTest"]),
+    ("bt/AudioDeviceWatch: o nome do aparelho entra no que se lê dele", MAIN + "service/AudioDeviceWatch.kt",
+     "    encodings = device.encodings.toList(),\n)", "    encodings = device.encodings.toList() + device.productName.length,\n)", ["AudioDeviceWatchIsWiredTest"]),
+    ("bt/AudioDeviceWatch: o callback dos aparelhos não é desregistrado ao parar", MAIN + "service/AudioDeviceWatch.kt",
+     "deviceCallback?.let { runCatching { manager.unregisterAudioDeviceCallback(it) } }", "deviceCallback?.let { }", ["AudioDeviceWatchIsWiredTest"]),
+    ("bt/AudioDeviceWatch: a linha do registro sai fora do runCatching", MAIN + "service/AudioDeviceWatch.kt",
+     "if (line != null) runCatching { RideDiagnostics.log(TAG, line) }", "if (line != null) RideDiagnostics.log(TAG, line)", ["AudioDeviceWatchIsWiredTest"]),
 ]
 
 

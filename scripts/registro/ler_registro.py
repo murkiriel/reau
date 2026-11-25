@@ -2539,6 +2539,27 @@ def _eventos_da_leva5(etiqueta, t):
     return []
 
 
+# As linhas `[audio]` do som do Bluetooth (0.4.0): `bluetooth device added: A2DP out (rates 44100/48000, channels 2) - now 1 bluetooth output(s), 0 input(s)`.
+BT_APARELHO = re.compile(r"^bluetooth devices? (added|removed): (.*) - now (\d+) bluetooth output\(s\), (\d+) input\(s\)$")
+BT_NO_INICIO = re.compile(r"^bluetooth audio at start: (?!no device)(.*) - (\d+) bluetooth output\(s\), (\d+) input\(s\)$")
+
+
+def _eventos_do_bluetooth(t):
+    """A linha do tempo para o aparelho de áudio Bluetooth que entra ou sai (`[audio] bluetooth device added/removed`) e os que já estavam na partida; só o tipo e a direção (o app nunca diz nome nem endereço)."""
+    m = BT_APARELHO.match(t)
+    if m:
+        tipos = "; ".join(x.split(" (")[0] for x in m.group(2).split("; "))
+        diz = "conectado" if m.group(1) == "added" else "desconectado"
+        return [f"Bluetooth: aparelho de áudio {diz} ({tipos}); agora {m.group(3)} saída(s) e {m.group(4)} entrada(s)"]
+    m = BT_NO_INICIO.match(t)
+    if m:
+        tipos = "; ".join(x.split(" (")[0] for x in m.group(1).split("; "))
+        return [f"Bluetooth: aparelho de áudio já conectado na partida ({tipos}); {m.group(2)} saída(s) e {m.group(3)} entrada(s)"]
+    if t.startswith("audio becoming noisy"):
+        return ["Bluetooth: o Android avisou que o som vai mudar de saída (um fone ou um enlace Bluetooth saiu)"]
+    return []
+
+
 def _eventos_novos(x, bloco):
     """As linhas de linha do tempo para o que o leitor não contava antes: `has not joined`, as chamadas (`[call]`), o doze e a economia de bateria."""
     t = x.texto
@@ -2552,6 +2573,8 @@ def _eventos_novos(x, bloco):
         if t.startswith("end: "):
             return [f"chamada encerrada pelo joystick ({t[5:60]})"]
         return []
+    if x.etiqueta == "audio":
+        return _eventos_do_bluetooth(t)
     if x.etiqueta == "dash":
         return _eventos_do_painel(t) or _eventos_da_leva5(x.etiqueta, t)
     if x.etiqueta in ("stream", "aa"):

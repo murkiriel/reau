@@ -67,7 +67,8 @@ import java.io.File
  * Both sides report to the machine through [report]: the receiver its [AaReceiver] states, the dash session its
  * states read by [ProjectionMachine.linkOf]. All the methods are called on the service's worker, one at a time.
  */
-@Suppress("TooManyFunctions") // one small function per case; splitting them would only scatter the same thing
+// one small function per case; splitting them would only scatter the same thing; the class holds every side of one projection and its watches, splitting it is a refactor of its own
+@Suppress("LargeClass", "TooManyFunctions")
 internal class LiveSides(
     context: Context,
     private val report: (ProjectionEvent) -> Unit,
@@ -492,6 +493,9 @@ internal class LiveSides(
     /** The system's volume broadcast, listened to while this projection runs (started in the init block, given back in [release]). */
     private val volumeWatch = VolumeWatch(context, ::volumeStepHeard)
 
+    /** The Bluetooth sound's lines for the ride log (devices that come and go, where the sound goes), listened to while this projection runs (started in the init block, given back in [release]). Only observes. */
+    private val audioDeviceWatch = AudioDeviceWatch(context)
+
     /** The phone's volume moved ([step]), from wherever: the card says it, and the log says the level (no song, no name). Nothing when the card is off. */
     private fun volumeStepHeard(step: com.reau.app.dash.VolumeCards.Step) = showVolumeCard(step, log = true)
 
@@ -628,6 +632,8 @@ internal class LiveSides(
             scope.launch { watchWaiting() }
             // The volume card listens only while this projection runs, and only in the real app (a test has no settings).
             if (setup.settings != null && !volumeWatch.start()) RideDiagnostics.warn("projection", "the volume card cannot listen to the phone's volume")
+            // The Bluetooth sound is told to the ride log while this projection runs, in the real app only: it only watches, it changes no route.
+            if (setup.settings != null) audioDeviceWatch.start()
         }
         scope.launch { ProjectionMachine.dashLinks(session.state).collect { report(ProjectionEvent.DashChanged(it)) } }
         // The weather for the dash: looked at every minute, fetched at most every quarter of an hour, and after a failure with a growing wait (WeatherBackoff).
@@ -1064,6 +1070,7 @@ internal class LiveSides(
                 "dash session" to { session.disconnect() },
                 "link up" to { linkUp.stop() },
                 "volume watch" to { volumeWatch.stop() },
+                "audio devices watch" to { audioDeviceWatch.stop() },
                 "sighting" to { com.reau.app.dash.DashSighting.release(sightingListener) },
                 "wifi radio" to { WifiRadio.release(radioListener) },
                 "image gap" to { com.reau.app.dash.ImageGap.clock.forget() },
