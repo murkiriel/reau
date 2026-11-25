@@ -73,11 +73,7 @@ propias (nunca capturas reales: mira "Datos personales"). Para esto las pruebas 
 `--lista` cuenta las mutaciones y `--fatia I/N` ejecuta una porción (el workflow semanal ejecuta veinticuatro, y `mutacao-mensal.yml` ejecuta una de doce cada mes, la del número del mes); una mutación que sobrevive es una prueba
 que no guarda esa decisión.
 
-## Cobertura, benchmark, dispositivos gestionados y la verificación de dependencias
-
-**Cobertura de las pruebas unitarias (Kover).** `./gradlew :app:koverHtmlReportDebug` ejecuta las pruebas de JVM de la variante debug y escribe el informe HTML en
-`app/build/reports/kover/htmlDebug/` (`:app:koverXmlReportDebug` escribe el XML). No forma parte de `check`, de `assemble` ni de la integración continua, y el APK
-no se toca. Las clases generadas `R` y `BuildConfig`, las `ComposableSingletons` del compilador de Compose y los mensajes de Android Auto que genera protoc (`com.reau.app.aa.proto`) quedan fuera de la cuenta.
+## Benchmark, dispositivos gestionados y la verificación de dependencias
 
 **Benchmark de arranque y perfil base (`macrobenchmark/`).** El módulo compila sin dispositivo (`./gradlew :macrobenchmark:assemble`) pero solo SE EJECUTA en un teléfono con depuración USB
 o en un emulador, y mide el tipo de build `benchmark` de la app (el código de la release, firmado con la clave de debug, y por eso sin necesitar la clave de release). Con un dispositivo conectado:

@@ -121,7 +121,7 @@ jobs:
       - name: Auditar o APK
         run: python3 -B scripts/apk_audit.py app/build/outputs/apk/release/app-release.apk
 
-      # A verificação de dependências do Gradle às vezes recusa o .pom do plugin kover baixado do Maven (22/11/2026, quatro vezes num dia,
+      # A verificação de dependências do Gradle às vezes recusa um .pom baixado do Maven (22/11/2026, quatro vezes num dia, o do plugin de cobertura que saiu depois,
       # e repetir o job passa); o relatório diz qual arquivo chegou e de onde, para decidir com calma.
       - name: Guardar o relatório da verificação de dependências se algo falhou
         if: failure()

@@ -100,11 +100,10 @@ class BuildSetupTest {
     }
 
     @Test
-    fun `the coverage is set for the debug variant and leaves the generated classes out, the protobuf ones too`() {
-        val app = text("app/build.gradle.kts")
-        assertTrue(app.contains("alias(libs.plugins.kover)"))
-        assertTrue(app.contains("classes(\"*.R\", \"*.R\\\$*\", \"*.BuildConfig\", \"*ComposableSingletons*\", \"com.reau.app.aa.proto.*\")"))
-        assertTrue(text("gradle/libs.versions.toml").contains("kover = { id = \"org.jetbrains.kotlinx.kover\", version.ref = \"kover\" }"))
+    fun `no coverage plugin rides in the build (the Qualidade workflow measures coverage with JaCoCo)`() {
+        assertFalse(text("app/build.gradle.kts").contains("kover"))
+        assertFalse(text("build.gradle.kts").contains("kover"))
+        assertFalse(text("gradle/libs.versions.toml").contains("kover"))
     }
 
     @Test

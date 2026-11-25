@@ -74,11 +74,7 @@ The unit tests run on the JUnit Platform for this (the vintage engine runs the J
 `--lista` counts the mutations and `--fatia I/N` runs one slice of them (the weekly workflow runs twenty-four, and `mutacao-mensal.yml` runs one of twelve each month, the month's number); a mutation that survives means a test that
 does not hold that decision.
 
-## Coverage, benchmark, managed devices and the dependency check
-
-**Coverage of the unit tests (Kover).** `./gradlew :app:koverHtmlReportDebug` runs the JVM unit tests of the debug variant and writes the HTML report to
-`app/build/reports/kover/htmlDebug/` (`:app:koverXmlReportDebug` writes the XML one). It is not part of `check`, `assemble` or the continuous integration, and the APK
-is not touched. The generated `R` and `BuildConfig` classes, the Compose compiler's `ComposableSingletons` and the Android Auto messages that protoc generates (`com.reau.app.aa.proto`) are left out of the count.
+## Benchmark, managed devices and the dependency check
 
 **Startup benchmark and baseline profile (`macrobenchmark/`).** This module builds without a device (`./gradlew :macrobenchmark:assemble`) but only RUNS on a phone with USB debugging
 or on an emulator, and it measures the `benchmark` build type of the app (the release code, signed with the debug key, so it needs no release key). With a device connected:

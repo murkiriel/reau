@@ -97,8 +97,8 @@ jobs:
   mutacao:
     name: Teste de mutação (fatia ${{ matrix.fatia }} de 24)
     runs-on: ubuntu-24.04
-    # 2 476 mutações em 24/11/2026 (python3 scripts/dev/mutacoes.py --lista conta), cada uma um Gradle de testes. Com o daemon ligado e o código já compilado
-    # cada uma leva de 10 a 60 s; uma fatia de um vinte e quatro avos (103 ou 104: 2 476 / 24 = 103,17) leva de 17 a 104 min no pior caso, dentro do limite de 120, com
+    # 2 474 mutações em 25/11/2026 (python3 scripts/dev/mutacoes.py --lista conta), cada uma um Gradle de testes. Com o daemon ligado e o código já compilado
+    # cada uma leva de 10 a 60 s; uma fatia de um vinte e quatro avos (103 ou 104: 2 474 / 24 = 103,08) leva de 17 a 104 min no pior caso, dentro do limite de 120, com
     # 16 min de folga para a partida (com vinte e duas fatias, de 101 ou 102, o pior caso seria de 102 min; com vinte e uma, de 106 ou 107, de 107 min; com dez, de 224,
     # passaria). A folga acaba perto de 2 880 mutações (24 fatias de 120).
     # Medir a cada execução e ajustar o número de fatias se a lista crescer (o script aceita qualquer N; mudar o 24 aqui, na matriz, na linha do script e no resumo).
@@ -146,8 +146,8 @@ jobs:
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: mutacoes-${{ matrix.fatia }}
-          # Com o log, o relatório da verificação de dependências do Gradle, quando ela recusa um arquivo baixado (o .pom do
-          # plugin kover, quatro vezes em 22/11/2026): diz qual arquivo chegou e de onde.
+          # Com o log, o relatório da verificação de dependências do Gradle, quando ela recusa um arquivo baixado (um .pom,
+          # quatro vezes em 22/11/2026): diz qual arquivo chegou e de onde.
           path: |
             mutacoes.log
             build/reports/dependency-verification/
