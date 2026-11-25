@@ -15,6 +15,7 @@ English: [CHANGELOG.md](CHANGELOG.md) · Português (pt-BR): [CHANGELOG.pt-br.md
 - **Solo en las compilaciones de depuración: el cuadro de prueba de FPS va a 2, 3, 4 o 6 fps** (eran de 4 a 12): los ritmos a los que el video realmente va, y nunca por encima de 6, la regla del proyecto desde que el tablero falló por encima de eso en la moto.
 
 ### Corregido
+- **Un apagado y encendido corto del contacto ya no trae de vuelta el aviso falso de "tablero colgado"** (**aún sin probar en la moto**): REau recuerda durante cinco minutos que el tablero se colgó, para que apagar y encender la proyección muestre el aviso de inmediato. Ahora, si una lectura de la lista de Wi-Fi después de ese veredicto muestra el tablero ausente (se apagó y encendió el contacto, aunque tan rápido que ningún intento cayó en medio), el veredicto se olvida; un tablero realmente colgado nunca sale de la lista, así que el caso del 21/11 no cambia.
 - **El registro del viaje ya no escribe el país del teléfono**: la línea de las unidades de distancia de la navegación decía "the phone's region is BR"; ahora dice solo si el teléfono tenía una región que seguir. La regla del proyecto es que el registro, que se puede compartir, nunca lleve el país.
 
 ## [0.3.0] - 2026-11-25

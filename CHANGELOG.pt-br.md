@@ -16,6 +16,7 @@ aparecem).
 - **Só nas builds de depuração: o quadro de teste de FPS roda a 2, 3, 4 ou 6 fps** (eram de 4 a 12): os ritmos em que o vídeo de fato roda, e nunca acima de 6, a regra do projeto desde que o painel falhou acima disso na moto.
 
 ### Corrigido
+- **Um desliga-liga curto da ignição não traz mais de volta o aviso falso de "painel travado"** (**ainda não testado na moto**): o REau lembra por cinco minutos que o painel travou, para que desligar e ligar a projeção mostre o aviso logo. Agora, se uma leitura da lista de Wi-Fi depois desse veredito mostra o painel sumido (a ignição foi desligada e ligada, mesmo tão rápido que nenhuma tentativa caiu no meio), o veredito é esquecido; um painel travado de verdade nunca sai da lista, então o caso de 21/11 não muda.
 - **O registro da corrida não escreve mais o país do celular**: a linha das unidades de distância da navegação dizia "the phone's region is BR"; agora diz só se o celular tinha uma região para seguir. A regra do projeto é que o registro, que pode ser compartilhado, nunca leve o país.
 
 ## [0.3.0] - 2026-11-25

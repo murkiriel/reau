@@ -96,6 +96,95 @@ class StuckMemoryTest {
         assertNull(since(good, 50_000L))
     }
 
+    // ── A short ignition cycle that no try fell inside (C4-3) ──────────────────────────────────────
+
+    // The verdict was given at 100 s of this object's clock; now is 130 s, which is 5 000 s of the scan's clock (microseconds since boot).
+    private val verdictMs = 100_000L
+    private val nowMs = 130_000L
+    private val nowUs = 5_000_000_000L
+    private fun ago(seconds: Long) = nowUs - seconds * 1_000_000L
+    private fun net(name: String, stampUs: Long) = ScanSeen(name, -60, 2412, stampUs)
+    private fun note(seen: List<ScanSeen>?, ssid: String = dash, prefix: Boolean = false) =
+        StuckMemory.noteList(seen, ssid, prefix, nowUs, nowMs)
+
+    @Test
+    fun `a list after the verdict without the dash forgets it, even when the dash is back by the next try`() {
+        StuckMemory.remember(dash, false, verdictMs)
+        note(listOf(net("Cafe", ago(5)), net("Home", ago(6))))
+        assertNull("the dash is back in the list with a good signal", since(good, 140_000L))
+    }
+
+    @Test
+    fun `a list where the dash is only an old result beside the newest scan forgets it too`() {
+        StuckMemory.remember(dash, false, verdictMs)
+        note(listOf(net("Cafe", ago(5)), net(dash, ago(25))))
+        assertNull(since(good, 140_000L))
+    }
+
+    @Test
+    fun `a dash that never left the list keeps the verdict, the case of 21-11`() {
+        StuckMemory.remember(dash, false, verdictMs)
+        note(listOf(net("Cafe", ago(4)), net(dash, ago(4))))
+        note(listOf(net("Cafe", ago(4)), net(dash, ago(8))))
+        note(listOf(net("Cafe", ago(4)), net(dash, ago(4)), net("Home", ago(2))))
+        assertEquals(40_000L, since(good, 140_000L))
+    }
+
+    @Test
+    fun `a list read before the verdict is not a sighting of the dash gone`() {
+        StuckMemory.remember(dash, false, verdictMs)
+        // Newest result 40 s ago: the scan is older than the verdict (30 s ago), the dash absent from it says nothing.
+        note(listOf(net("Cafe", ago(40)), net("Home", ago(41))))
+        assertEquals(40_000L, since(good, 140_000L))
+        // At the very moment of the verdict it counts.
+        note(listOf(net("Cafe", ago(30))))
+        assertNull(since(good, 141_000L))
+    }
+
+    @Test
+    fun `a list that cannot be read, is empty or has no stamps says nothing`() {
+        StuckMemory.remember(dash, false, verdictMs)
+        note(null)
+        note(emptyList())
+        note(listOf(net("Cafe", 0L), net("Home", 0L)))
+        note(listOf(net("Cafe", ago(5)), net(dash, 0L)))
+        assertEquals(40_000L, since(good, 140_000L))
+    }
+
+    @Test
+    fun `the list of another dash does not forget the verdict`() {
+        StuckMemory.remember(dash, false, verdictMs)
+        note(listOf(net("Cafe", ago(5))), ssid = "RE_ZZ99_000000")
+        assertNotNull(since(good, 140_000L))
+    }
+
+    @Test
+    fun `a prefix start forgets the verdict of the exact name, and a new verdict after the loss holds again`() {
+        StuckMemory.remember(dash, false, verdictMs)
+        note(listOf(net("Cafe", ago(5))), ssid = "RE_", prefix = true)
+        assertNull(since(good, 140_000L))
+        StuckMemory.remember(dash, false, 141_000L)
+        assertNotNull(since(good, 142_000L))
+    }
+
+    @Test
+    fun `without a verdict a list changes nothing`() {
+        note(listOf(net("Cafe", ago(5))))
+        assertNull(since(good, 140_000L))
+        StuckMemory.remember(dash, false, 141_000L)
+        assertNotNull(since(good, 142_000L))
+    }
+
+    @Test
+    fun `the dash counts as missed only by more than ten seconds behind the newest result`() {
+        val newest = nowUs - 1_000_000L
+        val atTen = listOf(net("Cafe", newest), net(dash, newest - 10_000_000L))
+        val pastTen = listOf(net("Cafe", newest), net(dash, newest - 10_001_000L))
+        assertTrue(!DashStuck.vanishedFromList(atTen, dash, false, nowUs, 0L))
+        assertTrue(DashStuck.vanishedFromList(pastTen, dash, false, nowUs, 0L))
+        assertTrue("a result stamped in the future is no stamp", !DashStuck.vanishedFromList(listOf(net("Cafe", nowUs + 5_000_000L)), dash, false, nowUs, 0L))
+    }
+
     // ── The watch ──────────────────────────────────────────────────────────────────────────────────
 
     @Test

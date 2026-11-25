@@ -912,10 +912,8 @@ class DashWifiManager(
      * ignition off and on.
      */
     private fun noteFailedTry() {
-        val seen = scan.read()
-        val nowUs = SystemClock.elapsedRealtime() * MICROS_PER_MILLI
-        val sighting = DashStuck.sighting(seen, pendingSsid, pendingPrefix, nowUs)
-        judgeStuck(seen, sighting)
+        val look = scan.stuckLook(pendingSsid, pendingPrefix)
+        judgeStuck(look.seen, look.sighting)
     }
 
     /**
@@ -944,9 +942,7 @@ class DashWifiManager(
      * with the dash gone from the scan makes [StuckMemory] forget (the ignition was cycled).
      */
     private fun stuckAtFirstTry(ruled: Refusal): Refusal {
-        val seen = scan.read()
-        val nowUs = SystemClock.elapsedRealtime() * MICROS_PER_MILLI
-        val sighting = DashStuck.sighting(seen, pendingSsid, pendingPrefix, nowUs)
+        val (seen, sighting) = scan.stuckLook(pendingSsid, pendingPrefix)
         val verdict = judgeStuck(seen, sighting)
         // The later tries of the same start (the rider already told) keep the words of a hung dash on the screen while the memory holds.
         val held = verdict?.remembered == true ||

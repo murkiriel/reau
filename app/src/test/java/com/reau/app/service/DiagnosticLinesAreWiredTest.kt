@@ -52,7 +52,8 @@ class DiagnosticLinesAreWiredTest {
         val reading = Regex("wifi\\.scanResults\\.mapNotNull \\{ r ->")
         assertEquals("the list is read from the system in two places only: the lookup and read", 2, reading.findAll(scan).count())
         assertEquals("and never by the manager itself", 0, Regex("scanResults").findAll(wifi).count())
-        assertTrue("the failed try reads it through the scan too", wifi.between("private fun noteFailedTry()", "DashStuck.sighting(").contains("scan.read()"))
+        assertTrue("the failed try reads it through the scan too", wifi.between("private fun noteFailedTry()", "judgeStuck(").contains("scan.stuckLook(pendingSsid, pendingPrefix)"))
+        assertTrue("and that look reads the list once", scan.substringAfter("internal fun DashScan.stuckLook(").substringBefore("\n}\n").contains("val seen = read()"))
     }
 
     @Test

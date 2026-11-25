@@ -15,6 +15,7 @@ Português (pt-BR): [CHANGELOG.pt-br.md](CHANGELOG.pt-br.md) · Español: [CHANG
 - **Debug builds only: the FPS test card runs at 2, 3, 4 or 6 fps** (it offered 4 to 12): the paces the video really runs at, and never above 6, the project's rule since the dash failed above it on the bike.
 
 ### Fixed
+- **A short ignition off and on no longer brings back a false "dash hung" notice** (**not yet tried on the bike**): REau remembers for five minutes that the dash hung, so that switching the projection off and on shows the notice at once. Now, if a read of the Wi-Fi list after that verdict shows the dash missing (the ignition was cycled, even if so briefly that no try fell inside it), the verdict is forgotten; a dash that really hung never leaves the list, so the case of 21/11 is unchanged.
 - **The ride log no longer writes the phone's country**: the line about the nav distance units said "the phone's region is BR"; it now says only whether the phone had a region to go by. The project's rule is that the log, which can be shared, never carries the country.
 
 ## [0.3.0] - 2026-11-25

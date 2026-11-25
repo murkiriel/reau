@@ -17,6 +17,7 @@ import com.reau.app.dash.DashSsid.maskSsid
 import com.reau.app.dash.DashSsid.matchesPendingSsid
 import com.reau.app.dash.DashSsid.scanVerdict
 import com.reau.app.service.ProjectionService
+import com.reau.app.util.MonotonicClock
 
 /** The scan lookups of every manager in the process: one at a time, and not again within a second (the managers of the projection and of the screen). */
 private val dashSearches = RecentSearch<DashFound>()
@@ -82,6 +83,7 @@ internal class DashScan(
         val nowUs = SystemClock.elapsedRealtime() * MICROS_PER_MILLI
         // Every look of every watch passes here: the log says when the list moved, so the dash's age at REau's look is on record (ScanLookLog).
         scanLooks.line(seen, ssid, prefix, nowUs)?.let { com.reau.app.data.RideDiagnostics.log("wifi", it) }
+        StuckMemory.noteList(seen, ssid, prefix, nowUs, MonotonicClock.nowMs())
         return DashJoin.seenRecently(seen, ssid, prefix, nowUs)
     }
 
@@ -151,3 +153,16 @@ internal class DashScan(
         }.mapNotNull { it.BSSID?.lowercase() }.toSet()
     }.getOrDefault(emptySet())
 }
+
+/**
+ * The look at the list that a failed try judges by: the list, and its [DashStuck.Sighting] of the dash. The same read tells [StuckMemory]
+ * whether the dash left the list since its verdict, before the verdict is asked for. Outside the class, which is at detekt's count of functions.
+ */
+internal fun DashScan.stuckLook(ssid: String, prefix: Boolean): DashStuck.Look {
+    val seen = read()
+    val nowUs = SystemClock.elapsedRealtimeNanos() / NANOS_PER_MICRO
+    StuckMemory.noteList(seen, ssid, prefix, nowUs, MonotonicClock.nowMs())
+    return DashStuck.Look(seen, DashStuck.sighting(seen, ssid, prefix, nowUs))
+}
+
+private const val NANOS_PER_MICRO = 1_000L
