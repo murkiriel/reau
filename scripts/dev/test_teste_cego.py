@@ -174,6 +174,13 @@ class AvaliarNoiteTest(unittest.TestCase):
             self.assertIn("MELHOR REGRA em tst (teste, nunca visto na busca)", feito.stdout)
 
 
+def pillow_instalado():
+    """Whether Pillow loads the way the scripts are run (`rodar` uses `python3 -I`, which leaves out the user's site-packages): a Pillow
+    installed only for the user (`pip install --user`, as on the CI) is there for this process and not for the script."""
+    return subprocess.run([sys.executable, "-I", "-c", "import PIL"], capture_output=True).returncode == 0
+
+
+@unittest.skipUnless(pillow_instalado(), "Pillow não está instalado (scripts/requirements.txt): amostrar_cego.py não roda")
 class AmostrarCegoTest(unittest.TestCase):
     def test_it_draws_the_frames_with_a_fixed_seed_and_makes_the_contact_sheets_with_a_fake_decoder(self):
         with tempfile.TemporaryDirectory() as tmp:
