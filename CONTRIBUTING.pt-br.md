@@ -153,6 +153,31 @@ que o celular manda é só registrado. Ele prova o lado do celular, não que um 
 `test_sincronia.py` lê as portas, os códigos dos botões, os pacotes e a sequência de saída do código Kotlin, então uma mudança no app falha
 ali até o painel falso acompanhar.
 
+## Publicar uma versão
+
+Só o mantenedor publica uma versão, e uma regra manda em tudo: **o código da tag é o código do APK**. O APK de uma Release sai de uma árvore
+limpa, no commit para onde a tag `v<versão>` aponta, e nada muda depois da tag: uma correção é uma versão nova com uma tag nova.
+
+1. Suba `appVersionName` e `releaseVersionCode` em `app/build.gradle.kts` (o comentário de lá explica a numeração, e o `VersionCodeSchemeTest` confere).
+2. Escreva a seção da versão, `## [0.3.1] - AAAA-MM-DD`, no topo dos três changelogs (`CHANGELOG.md`, `CHANGELOG.pt-br.md` e `CHANGELOG.es.md`), com
+   as mesmas entradas em cada um: o que mudou para quem usa o app, agrupado em Adicionado, Alterado e Corrigido, e com "ainda não testado na moto" no que não foi.
+3. Faça o commit e depois a tag nele: `git tag -a v0.3.1 -m "REau 0.3.1"`. O script nunca cria a tag.
+4. Defina as quatro variáveis da chave de release (a chave nunca está no repositório): `REAU_KEYSTORE` (o caminho absoluto do arquivo), `REAU_KEY_ALIAS`,
+   `REAU_KEYSTORE_PASSWORD` e `REAU_KEY_PASSWORD`. Escreva o texto da Release (o que a seção do changelog diz, para quem não conhece o projeto) num arquivo.
+5. Rode `scripts/release.sh 0.3.1 --publicar --notas NOTAS.md`. Ele para no primeiro problema; faz estes passos, nesta ordem:
+
+- confere que a árvore está limpa e que a tag existe e aponta para o HEAD;
+- confere que o `versionName` do build é essa versão e que a seção está nos três changelogs, e que as quatro variáveis da chave estão definidas (diz o nome das que faltam, nunca os valores);
+- compila com `./gradlew :app:assembleRelease`, roda o `apksigner verify` (a assinatura v2 tem de verificar, e o SHA-256 do certificado tem de ser `63f5c3ba687699b0b4288a878bd8372bed2c9632222d7f673ea71073aa208970`, o de todas as Releases até hoje, que o `ApkAttestationTest` e a página de instalação também guardam) e o `scripts/apk_audit.py` (nada novo em relação à linha de base);
+- copia o APK como `REau-0.3.1.apk`, com um `SHA256SUMS`, para `build/release-0.3.1/` (`--saida` muda a pasta);
+- com `--publicar` cria a Release no GitHub como RASCUNHO (`gh release create v0.3.1 --draft --verify-tag`), com esses dois arquivos; sem ele, só imprime o comando que rodaria, e `--so-conferir --apk ARQUIVO` só roda as conferências num APK já montado.
+
+O que fica com o mantenedor, já que o script não publica nem faz push:
+
+- ler o rascunho no GitHub (título, texto e os dois arquivos) e publicar;
+- baixar o que foi publicado (`gh release download v0.3.1`) e conferir: `sha256sum -c SHA256SUMS`, e o certificado com `apksigner verify --print-certs`;
+- avançar a `main` até a tag (`git merge --ff-only v0.3.1`) e fazer o push, para que o ramo principal mostre o código que foi lançado.
+
 ## O que não mudar sem teste na moto
 
 O protocolo do Android Auto e o do painel (`aa/` e `dash/protocol/`), o aperto de mão com o painel e o caminho do vídeo (o
