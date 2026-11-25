@@ -72,6 +72,8 @@ class DashSession(
     private val networkUp: (android.net.Network?) -> Boolean = { false },
     /** The run of silent sessions; the process-wide one in the app, a test's own in a test. */
     private val silentDash: SilentDash = SilentDash.shared,
+    /** The speed the navigation gives now (km/h), null with none: written beside the changes of the dash's `09 08`, in the ride log only. */
+    private val speedProvider: () -> Double? = { null },
 ) {
     /**
      * The waits of a session: [keyPatienceMs] for the dash's key before the greeting goes again, [rxWatchdogMs] of silence before the
@@ -120,6 +122,9 @@ class DashSession(
     private val linkNotice = LinkNotice()
     // The engine, as the dash's 0C26 says it (log only); one state per connection ([beginAuthState] resets it).
     private val engine = EngineWatch()
+
+    // The dash's 09 08, as the study of 22/11/2026 guesses it ("in gear?"): the ride log says when it changes, nothing else uses it; per connection.
+    private val gearGuess = GearGuessWatch()
     private var resentOnNotice = false
     // Wall-clock of the last packet received from the dash — fed to the RX watchdog.
     @Volatile private var lastRxMs = 0L
@@ -1122,6 +1127,7 @@ class DashSession(
         clockNoticeAfterMs = -1L
         firstHeartbeat = -1
         engine.reset()
+        gearGuess.reset()
         clockNoticeBeforeStream = linkNotice.knownOn(network ?: NO_NETWORK)
         resendOnNotice = false
         resentOnNotice = false
@@ -1377,6 +1383,14 @@ class DashSession(
                 }
                 _telemetry.tryEmit(com.reau.app.dash.protocol.TelemetryEvent(System.currentTimeMillis(), tlv.type, tlv.sub, tlv.value))
                 continue
+            }
+            // ── 09 08: a guess ("in gear?" or "neutral or clutch?"), for the ride log only; it falls through to the telemetry like the rest of the 09
+            // group. A failure of the line never ends the receive loop. ──
+            if (tlv.type == 0x09 && tlv.sub == 0x08 && tlv.value.size == 1) {
+                runCatching {
+                    gearGuess.onReading(tlv.value[0].toInt() and 0xFF, MonotonicClock.nowMs(), speedProvider())
+                        ?.let { com.reau.app.data.RideDiagnostics.log("dash", it) }
+                }
             }
             // Every OTHER incoming event goes on with the telemetry (not in full to logcat; the detailed log's
             // DashDump shows it).

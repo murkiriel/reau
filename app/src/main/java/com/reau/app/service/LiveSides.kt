@@ -329,6 +329,8 @@ internal class LiveSides(
         },
         weatherProvider = { if (tuned?.dashWeather == true) setup.weather() else null },
         readings = setup.readings,
+        // The speed the navigation gives, beside the changes of the dash's 09 08 in the ride log.
+        speedProvider = { navSpeed.kmhAt(android.os.SystemClock.elapsedRealtime()) },
         // The phone's network to the dash still known to Android (a lost one has no capabilities): what tells a silent dash from a gone one (SilentDash).
         networkUp = { network ->
             network != null && runCatching {
