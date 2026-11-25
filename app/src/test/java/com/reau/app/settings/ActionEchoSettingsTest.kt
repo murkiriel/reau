@@ -85,8 +85,7 @@ class ActionEchoSettingsTest {
 
     @Test
     fun `the key names of the new settings are made of letters`() {
-        val store = File("src/main/java/com/reau/app/settings/SettingsStore.kt").readText()
-        assertTrue(store, "private const val KEY_ACTION_ECHO = \"actionEcho\"" in store)
-        assertTrue(store, "private const val KEY_JOYSTICK_LEGEND = \"joystickLegend\"" in store)
+        StoredKey.assertKeptUnder("actionEcho", { REauSettings(actionEcho = it) }, { it.actionEcho })
+        StoredKey.assertKeptUnder("joystickLegend", { REauSettings(joystickLegend = it) }, { it.joystickLegend })
     }
 }

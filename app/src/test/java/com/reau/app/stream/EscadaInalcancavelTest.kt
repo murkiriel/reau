@@ -1,16 +1,18 @@
 package com.reau.app.stream
 
 import com.reau.app.dash.BitrateMode
+import com.reau.app.data.KeystoreBackedPrefsTest
 import com.reau.app.dash.DashConfig
 import com.reau.app.dash.NavProfileMode
 import com.reau.app.settings.REauSettings
+import com.reau.app.settings.SettingsStore
 import com.reau.app.settings.VideoPace
 import com.reau.app.stream.StreamGovernor.Action
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
 
 /**
  * Plan 27, layer 1: with the settings the app really runs with, the fps ladder (`AutoFpsController`) could not be reached. It never
@@ -65,10 +67,23 @@ class EscadaInalcancavelTest {
 
     @Test
     fun `the stored settings pass through sanitized on the way in and on the way out`() {
-        val store = File("src/main/java/com/reau/app/settings/SettingsStore.kt").readText()
-        val load = store.substringAfter("fun load(): REauSettings {").substringBefore("\n    }\n")
-        assertTrue("SettingsStore.load() must end with .sanitized()", load.trimEnd().endsWith(".sanitized()"))
-        assertTrue("SettingsStore.save() must store settings.sanitized()", Regex("""fun save\(settings: REauSettings\) \{\s*val s = settings\.sanitized\(\)""").containsMatchIn(store))
+        // A margin far past what a picture can lose: what sanitized brings it to is what the file may hold and what is read.
+        val tooWide = 99_999
+        val inRange = REauSettings(marginW = tooWide).sanitized().marginW
+        assertTrue("the margin is cut by sanitized", inRange < tooWide)
+        val stored = KeystoreBackedPrefsTest.FakePrefs()
+        stored.edit().putInt("margin_w", tooWide).apply()
+        assertEquals("what was stored is cleaned when it is loaded", inRange, SettingsStore(stored).load().marginW)
+        // The crop's place is read apart from the rest ([SettingsStore.load] puts it back after the first cleaning), and is cleaned with it.
+        val placeInRange = REauSettings(cropX = tooWide).sanitized().cropX
+        assertNotNull(placeInRange)
+        assertTrue("the crop's place is cut by sanitized", placeInRange!! < tooWide)
+        val placed = KeystoreBackedPrefsTest.FakePrefs()
+        placed.edit().putInt("crop_x", tooWide).apply()
+        assertEquals("the place that was stored is cleaned too", placeInRange, SettingsStore(placed).load().cropX)
+        val saved = KeystoreBackedPrefsTest.FakePrefs()
+        SettingsStore(saved).save(REauSettings(marginW = tooWide))
+        assertEquals("what is saved is cleaned before it is written", inRange, saved.getInt("margin_w", -1))
     }
 
     @Test

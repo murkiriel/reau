@@ -49,8 +49,7 @@ class CallCardSettingsTest {
     fun `the settings line of the ride log says it, with a name of letters only`() {
         assertTrue(" callCard=true " in SettingsInUse.line(REauSettings()))
         assertTrue(" callCard=false " in SettingsInUse.line(REauSettings(callCard = false)))
-        assertTrue("callCard".all { it.isLetter() })
-        assertTrue(File("src/main/java/com/reau/app/settings/SettingsStore.kt").readText().contains("private const val KEY_CALL_CARD = \"callCard\""))
+        StoredKey.assertKeptUnder("callCard", { REauSettings(callCard = it) }, { it.callCard })
     }
 
     private fun string(folder: String, name: String) =
