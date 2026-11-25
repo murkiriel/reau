@@ -27,6 +27,12 @@ internal object DashStuck {
     /** The sighting must be at most this old to count as "there now" (the logs show them 3 to 20 s old with the screen on). */
     const val FRESH_SIGHTING_MS = 15_000L
 
+    /**
+     * The dash counts as missing from a scan list when its newest result is this much older than the list's newest result of any network: the
+     * networks of one scan are stamped within a few seconds of each other, so a dash heard in the newest scan is never this far behind.
+     */
+    const val MISSED_BY_MS = 10_000L
+
     private const val MICROS_PER_MILLI = 1_000L
 
     /** What the scan says of the dash at the end of a try: it counts, it says nothing, or the dash is gone. */
@@ -48,6 +54,23 @@ internal object DashStuck {
             ageMs != null && ageMs <= FRESH_SIGHTING_MS && dash.maxOf { it.level } >= GOOD_SIGNAL_DBM -> Sighting.GOOD
             else -> Sighting.UNKNOWN
         }
+    }
+
+    /** One look at the scan list for a failed try: the list as read ([seen], null when unreadable) and what it says of the dash. */
+    data class Look(val seen: List<ScanSeen>?, val sighting: Sighting)
+
+    /**
+     * Whether [seen] shows the dash gone since [notBeforeUs] (microseconds since boot, as the scan's stamps; [nowUs] is now in the same base):
+     * the list has a result of some network stamped at or after [notBeforeUs] (a scan made after that moment, not an old list read again) and
+     * the dash is not in it, or only with results older than that newest one by [MISSED_BY_MS] (that scan did not hear it). A short ignition
+     * off and on shows up so, minutes before the list lets go of the dash ([DashJoin.SIGHTING_FRESH_MS]). Unreadable, empty, unstamped lists
+     * and a dash with an unstamped result say nothing: false.
+     */
+    fun vanishedFromList(seen: List<ScanSeen>?, wantedSsid: String, wantedIsPrefix: Boolean, nowUs: Long, notBeforeUs: Long): Boolean {
+        val newest = seen.orEmpty().map { it.timestampUs }.filter { it in 1..nowUs }.maxOrNull() ?: return false
+        if (newest < notBeforeUs) return false
+        return seen.orEmpty().filter { DashSsid.matchesPendingSsid(it.ssid, wantedSsid, wantedIsPrefix) }
+            .all { it.timestampUs in 1..nowUs && newest - it.timestampUs > MISSED_BY_MS * MICROS_PER_MILLI }
     }
 
     /** The line for the ride log, said once for an absence. */
@@ -76,7 +99,8 @@ internal object DashStuck {
  * signal ([DashStuck.Sighting.GOOD]), shows the notice at once.
  *
  * Forgotten when the dash is really joined (it is back), when a try ends with the dash gone from the scan ([DashStuck.Sighting.GONE]: the
- * ignition was switched off, which is what clears it), and [REMEMBER_MS] after the last verdict. NOT forgotten by the manual disconnect, which is
+ * ignition was switched off, which is what clears it), when a list read after the verdict shows the dash missing ([noteList]: the same, for an
+ * ignition cycle so short that no try fell inside it; a hung dash never leaves the list), and [REMEMBER_MS] after the last verdict. NOT forgotten by the manual disconnect, which is
  * the very case. Pure: the monotonic clock is given, not read. Thread-safe: the manager's callbacks and the projection call it.
  */
 internal object StuckMemory {
@@ -86,6 +110,7 @@ internal object StuckMemory {
     private var ssid: String? = null
     private var prefix = false
     private var verdictAtMs = 0L
+    private const val MICROS_PER_MILLI = 1_000L
 
     /** The dash called [pendingSsid] ([pendingPrefix]: it is a prefix) was judged hung at [nowMs]. */
     @Synchronized
@@ -93,6 +118,19 @@ internal object StuckMemory {
         ssid = pendingSsid
         prefix = pendingPrefix
         verdictAtMs = nowMs
+    }
+
+    /**
+     * A look at the scan list [seen] at [nowUs] (microseconds since boot, as the scan's stamps) and [nowMs] (this object's clock) for the dash
+     * called [pendingSsid]: if it shows that dash gone since the verdict ([DashStuck.vanishedFromList]), the ignition was cycled and the
+     * verdict goes, even when it is back in the list by the next try. Any look of the same dash may call it; another dash's list says nothing.
+     */
+    @Synchronized
+    fun noteList(seen: List<ScanSeen>?, pendingSsid: String, pendingPrefix: Boolean, nowUs: Long, nowMs: Long) {
+        val held = ssid ?: return
+        if (!sameDash(held, prefix, pendingSsid, pendingPrefix)) return
+        val verdictUs = nowUs - (nowMs - verdictAtMs) * MICROS_PER_MILLI
+        if (DashStuck.vanishedFromList(seen, pendingSsid, pendingPrefix, nowUs, verdictUs)) ssid = null
     }
 
     /** The dash is back, or the ignition was switched off: nothing is held. */
