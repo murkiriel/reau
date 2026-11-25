@@ -324,6 +324,7 @@ internal class LiveSides(
     // The phone's real state in the heartbeat while the rider's switch is on; `tuned` is read at each beat.
     private val session = DashSession(
         scope, socketFactory = setup.dashSocket, linkProbe = com.reau.app.dash.PhoneLinkProbe(context)::read,
+        channelScan = com.reau.app.dash.PhoneLinkProbe(context)::readScan,
         phoneStatusProvider = {
             if (tuned?.dashPhoneStatus == true) setup.phoneStatus()?.let { PhoneStatusReader.withLocationRule(it, tuned?.useLocation == true) } else null
         },

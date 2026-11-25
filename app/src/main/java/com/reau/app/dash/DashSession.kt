@@ -64,6 +64,8 @@ class DashSession(
      * the service passes [PhoneLinkProbe.read]; the default reads nothing.
      */
     private val linkProbe: (android.net.Network?) -> LinkSample? = { null },
+    /** The scan list Android has cached, for the line of the dash's channel in the ride log ([ChannelCrowd]); the default has none. Never asks for a scan. */
+    private val channelScan: () -> List<ChannelCrowd.Row>? = { null },
     /** Everything the dash says, for the screen "Dados da moto"; null keeps it to itself, as a test does. */
     private val readings: DashReadingSink? = null,
     /** The session's waits; a test shortens them (27/10/2026 review: the fake-dash tests took 86 s on the real ones). */
@@ -156,6 +158,10 @@ class DashSession(
     @Volatile private var linkNetwork: android.net.Network? = null
     private val linkHistory = LinkHistory()
     @Volatile private var linkBaselineLogged = false
+    // The channel line ([ChannelCrowd]): the name of the dash (to leave it out of the count; never written), whether the line has gone and whether the "nothing cached" one has.
+    @Volatile private var linkSsid = ""
+    @Volatile private var channelLogged = false
+    @Volatile private var channelTeller = ChannelCrowd.Teller()
     // Set at the very start of disconnect(), before sock.close() — closing the socket unblocks
     // rxJob's blocking sock.receive() with an OS-level exception (EBADF), which would otherwise
     // reach fail() and flip _state to ERROR, racing disconnect()'s own unconditional _state = IDLE
@@ -1022,6 +1028,9 @@ class DashSession(
                 linkNetwork = network
                 linkHistory.clear()
                 linkBaselineLogged = false
+                linkSsid = ssid
+                channelLogged = false
+                channelTeller = ChannelCrowd.Teller()
                 launchStatsLine()
                 auth = DashAuth(ssid)
                 rxFailures.ok()
@@ -1432,6 +1441,7 @@ class DashSession(
                     com.reau.app.data.RideDiagnostics.log("dash", "bike data asked again (0A 02, ${n / DATA_REFRESH_TICKS} of every 15 min)")
                 }
                 sampleLink(n)
+                runCatching { logChannel(n) } // only a log line: it never stops the heartbeat
                 n++
                 // RX watchdog: once the dash has spoken at all (rxSilenceFails), a long silence means it
                 // dropped (out of range / off). UDP gives no error, so detect it here and fail the
@@ -1514,6 +1524,20 @@ class DashSession(
             linkBaselineLogged = true
             com.reau.app.data.RideDiagnostics.log("link", "${LinkReport.describe(sample)} | ${LinkReport.trend(linkHistory.snapshot())}")
         }
+    }
+
+    /**
+     * One 1 Hz heartbeat tick of the dash's channel: while streaming, at the first tick and then every [ChannelCrowd.EVERY_TICKS] s, a line of the ride log
+     * with how many networks of the cached scan list share the dash's channel ([ChannelCrowd]). The list is only read, never scanned for; with none cached the
+     * line says so once and is not repeated until a list shows again. The dash's frequency is the phone's own reading of its link; with none the tick is skipped.
+     */
+    private fun logChannel(tick: Int) {
+        if (_state.value != DashState.STREAMING || (channelLogged && tick % ChannelCrowd.EVERY_TICKS != 0)) return
+        val sample = linkProbe(linkNetwork)
+        val mhz = sample?.mhz?.takeIf { sample.viaDashNetwork } ?: return
+        channelLogged = true
+        val nowUs = android.os.SystemClock.elapsedRealtime() * MICROS_PER_MILLI
+        channelTeller.look(channelScan(), mhz, linkSsid, nowUs)?.let { com.reau.app.data.RideDiagnostics.log("link", it) }
     }
 
     /** The session of the last silent end noted ([noteSilentEnd]), so that [fail] does not count it as another kind of end. */
@@ -1871,6 +1895,7 @@ class DashSession(
         internal const val RX_EXCEPTIONS_BEFORE_FAIL = 20
         /** How long the dash may take to offer its key after a burst before the burst is sent again, and how many times. */
         internal const val KEY_PATIENCE_MS = 3_000L
+        private const val MICROS_PER_MILLI = 1_000L
         internal const val MAX_BURST_RESENDS = (AUTH_TIMEOUT / KEY_PATIENCE_MS).toInt() - 1
         private const val BURST_PAUSE   = 20L
         // Projection control keep-alive (a TLV, NOT the video). Now that the video cadence is

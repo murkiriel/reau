@@ -36,6 +36,16 @@ class PhoneLinkProbe(context: Context) {
         )
     }.getOrNull()
 
+    /**
+     * The scan list Android already has in its cache, for [ChannelCrowd] (the ride log only). It never asks for a scan: that would disturb the video.
+     * Null when Android refuses it (no location permission, Wi-Fi off).
+     */
+    @android.annotation.SuppressLint("MissingPermission")
+    @Suppress("DEPRECATION") // ScanResult.SSID, as in DashScan: read only to leave the dash out of the count, never written
+    fun readScan(): List<ChannelCrowd.Row>? = runCatching {
+        wifi.scanResults.map { ChannelCrowd.Row(it.SSID.orEmpty().trim('"'), it.frequency, it.level, it.timestamp) }
+    }.getOrNull()
+
     private companion object {
         /** WifiInfo's own "no signal reading" (INVALID_RSSI is hidden from the public SDK). */
         const val NO_RSSI = -127
