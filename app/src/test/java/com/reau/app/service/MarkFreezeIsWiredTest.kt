@@ -6,8 +6,9 @@ import org.junit.Test
 import java.io.File
 
 /**
- * The service and the receiver need Android to run, so the lines that wire the rider's mark to the copy of the session recording
- * (MarkFreezerTest) are read from the source, as [DashRecoveryIsWiredTest] does.
+ * The service and the receiver need Android to run, so the lines that hand the rider's mark to the copy of the session recording are read from
+ * the source, as [DashRecoveryIsWiredTest] does. What they hand it to is proved by what it does: the order of the mark's line and the ask
+ * ([KeepMarkTest]) and the copy off the caller's thread ([com.reau.app.aa.MarkKeepTest]), and what the copy holds (MarkFreezerTest).
  */
 class MarkFreezeIsWiredTest {
     private val service = File("src/main/java/com/reau/app/service/ProjectionService.kt").readText()
@@ -15,19 +16,15 @@ class MarkFreezeIsWiredTest {
     private val receiver = File("src/main/java/com/reau/app/aa/AaReceiver.kt").readText()
 
     @Test
-    fun `a mark asks the sides to keep the session recording, after the line of the mark and off the main thread`() {
+    fun `a mark is handed to the keeping of the recording, off the main thread`() {
         val mark = service.substringAfter("ACTION_MARK -> worker.execute {").substringBefore("ACTION_REFIT")
-        assertTrue(mark.contains("sides?.freezeRecording(marks.count)"))
-        assertTrue("after the mark's own line", mark.indexOf("marks.mark(") < mark.indexOf("freezeRecording"))
+        assertTrue(mark.contains("keepMark(sides, marks, System.currentTimeMillis(), ::log)"))
     }
 
     @Test
-    fun `the live sides hand it to the receiver, which opens the files at once and copies on a thread of its own`() {
+    fun `the live sides hand it to the receiver, which keeps it on a thread of its own`() {
         assertTrue(live.contains("override fun freezeRecording(mark: Int): Boolean = receiver?.freezeRecording(mark) ?: false"))
-        val freeze = receiver.substringAfter("fun freezeRecording(mark: Int): Boolean {").substringBefore("fun sendInput(")
-        assertTrue(freeze.contains("sentRecorder?.snapshot()"))
-        assertTrue(freeze.contains("freezeIo.execute"))
-        assertTrue("the copy is inside the executor", freeze.indexOf("freezeIo.execute") < freeze.indexOf("keeper.freeze("))
+        assertTrue(receiver.contains("fun freezeRecording(mark: Int): Boolean = MarkFreezer.keep(freezer, sentRecorder, freezeIo, mark)"))
         assertTrue(receiver.contains("Thread(it, \"mark-freeze\")"))
     }
 

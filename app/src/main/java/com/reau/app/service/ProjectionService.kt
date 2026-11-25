@@ -163,6 +163,19 @@ class ProjectionService : Service() {
         /** A mark of the rider's goes in a projection that is on; a refit applies only to one that is running. */
         internal fun markApplies(phase: Phase): Boolean = phase != Phase.STOPPED
 
+        /**
+         * The rider's mark: its line in the ride log first, then the ask to the sides to keep a copy of the session recording (the ring of it
+         * overwrites itself, about 11 min of a long ride). A failure of the copy costs the copy only: [log] says it.
+         */
+        internal fun keepMark(
+            sides: ProjectionSides?, marks: RiderMarks, nowMs: Long, log: (String) -> Unit,
+            note: (String) -> Unit = { RideDiagnostics.log("mark", it) },
+        ) {
+            note(marks.mark(nowMs))
+            runCatching { sides?.freezeRecording(marks.count) }
+                .onFailure { log("${RideDiagnostics.WARN}mark ${marks.count}: keeping the session recording failed: $it") }
+        }
+
         internal fun refitApplies(phase: Phase): Boolean = phase == Phase.RUNNING
 
         /** A drop of Android Auto's side, for the summary. */
@@ -377,10 +390,7 @@ class ProjectionService : Service() {
                 if (!markApplies(controller.state.phase)) {
                     stopSelf(startId)
                 } else {
-                    RideDiagnostics.log("mark", marks.mark(System.currentTimeMillis()))
-                    // The ring of the session recording overwrites itself (about 11 min of a long ride): the mark keeps a copy.
-                    runCatching { sides?.freezeRecording(marks.count) }
-                        .onFailure { log("${RideDiagnostics.WARN}mark ${marks.count}: keeping the session recording failed: $it") }
+                    keepMark(sides, marks, System.currentTimeMillis(), ::log)
                     ProjectionNotification.show(this, controller.state.headline, markNote(), started.value, card = controller.state.card)
                 }
             }

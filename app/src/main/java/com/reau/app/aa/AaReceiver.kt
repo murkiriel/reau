@@ -234,19 +234,7 @@ internal class AaReceiver(
      * It returns at once (the files are opened here, the bytes copied on another thread). False when there is nothing to keep: the option
      * is off, or no session is open.
      */
-    fun freezeRecording(mark: Int): Boolean {
-        val keeper = freezer ?: return false
-        val snapshot = sentRecorder?.snapshot()
-        if (snapshot == null) {
-            com.reau.app.data.RideDiagnostics.log("mark", "mark $mark: no session recording is open to keep a copy of")
-            return false
-        }
-        freezeIo.execute {
-            runCatching { keeper.freeze(snapshot, mark) }
-                .onFailure { com.reau.app.data.RideDiagnostics.warn("mark", "mark $mark: keeping the session recording failed: $it") }
-        }
-        return true
-    }
+    fun freezeRecording(mark: Int): Boolean = MarkFreezer.keep(freezer, sentRecorder, freezeIo, mark)
 
     /** A key or a wheel step for Android Auto (the dash's joystick); nothing without a session. */
     fun sendInput(command: AaCommand) {
