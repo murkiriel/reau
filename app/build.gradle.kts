@@ -72,7 +72,7 @@ android {
         testInstrumentationRunner = "com.reau.app.KeepAppStateRunner"
     }
 
-    // One app, com.reau.app, no product flavors (until 0.2.0 there were two editions, "completa" and "lite"; their sources are not in this repository
+    // One app, com.reau.app, no product flavors (until 0.2.0 there were two editions; their sources are not in this repository
     // any more, only in the git history up to the commit of 20/10/2026). The app has no accessibility service (the one it had until 0.3.0 is
     // not in this repository either, only in that history).
 

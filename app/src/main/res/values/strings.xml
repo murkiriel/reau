@@ -161,7 +161,6 @@
     <string name="headline_android_auto_no_video">Android Auto: no picture</string>
     <string name="aa_no_video_warning">Android Auto is connected but isn’t sending a picture, and the dash stays black. Force stop it (Settings › Apps › Android Auto › Force stop), then turn REau off and on again. With Android Auto 17.4 or newer, also check that its head unit server is on.</string>
     <string name="aa_unresponsive_warning">Android Auto accepts the connection but doesn’t respond. In Android Auto’s developer settings, tap ⋮ and choose \"Stop head unit server\", then ⋮ and \"Start head unit server\"; REau tries again by itself.</string>
-    <string name="aa_other_edition_warning">The old REau app, the one with the seal on its icon, is still installed on this phone and may be using Android Auto: its head unit server takes only one session at a time. This app replaces it, so you can uninstall it. If it is on, turn it off (tap Turn off in it), wait about a minute and REau connects by itself.</string>
     <string name="joystick_title">Dash joystick</string>
     <string name="joystick_intro">Choose what each joystick tap does. Applies right away, even while the projection is on.</string>
     <string name="joystick_music_on">The dash shows the song that plays (music card): the media mode has a music control.</string>
@@ -357,7 +356,6 @@
     <string name="warn_server_title">Head unit server is off</string>
     <string name="warn_closing_previous_title">Closing the previous session</string>
     <string name="warn_unresponsive_title">Android Auto isn’t responding</string>
-    <string name="warn_other_edition_title">Another REau is installed</string>
     <string name="warn_no_video_title">Android Auto has no picture</string>
     <string name="warn_battery_exemption_title">Battery optimization</string>
     <string name="warn_battery_saver_title">Battery saver is on</string>
@@ -908,9 +906,6 @@
     <string name="update_button_open">See the release</string>
     <string name="update_notice_title">Notify when there is an update</string>
     <string name="update_notice_sub">Once a day, with internet, REau asks GitHub (api.github.com) for the latest version, with no account and nothing about you, and tells you once per version. Nothing is downloaded or installed.</string>
-
-    <!-- A small line on the main screen while the old app with the seal on its icon (id ending in .lite) is still installed -->
-    <string name="old_app_note">The old REau app (the one with the seal on its icon) is still installed. It isn’t needed any more: you can uninstall it.</string>
 
     <string name="warn_wifi_off_title">Phone Wi-Fi is off</string>
     <string name="wifi_off_warning">Phone Wi-Fi is off: turn on Wi-Fi to connect to the dash</string>

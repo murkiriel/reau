@@ -13,7 +13,7 @@ package com.reau.app.video
  * them before fixing the design). It does NOT carry over to a phone it has seen no frame of (44% from the owner's phone to the test phone, the menu being black
  * on one and gray on the other): both are in its training set.
  *
- * Retrained on 25/10/2026 with 648 more frames of the Lite edition on the owner's phone (a ride of Google Maps with the dark map and of Waze by day, the app
+ * Retrained on 25/10/2026 with 648 more frames on the owner's phone (a ride of Google Maps with the dark map and of Waze by day, the app
  * menu and Spotify, every one looked at by eye). Read by the net before it had them: 13951 of 14109 frames of those sessions were a map, none with a confidence under
  * 0.988, and none of the rest was a map read as an app or as the menu. Across sessions with all the data (4 groups of sessions, never the group it was tested on):
  * 5620 of 5621 maps and 574 of 574 menus right, no map read as an app and no app as a map. The abstention limit stayed at 0.9: the
@@ -27,7 +27,7 @@ package com.reau.app.video
  * 49%. The limit stayed at 0.9: the study's optimum was 0.95, which would leave 108 of the new maps unsure.
  *
  * Retrained on 03/11/2026 for Android Auto 18 (the icon bar moved from the right to the left, and the map got a rounded card with a blue focus border): the 27/10 net read the
- * Waze map of the Lite edition by night as "apps" in 55% of the frames it was sure of (12% right, 32% unsure), and the Waze map by day in 47% unsure. The new net has the 7426 frames
+ * Waze map by night as "apps" in 55% of the frames it was sure of (12% right, 32% unsure), and the Waze map by day in 47% unsure. The new net has the 7426 frames
  * of 27/10, a mirrored copy of each (the bar moves to the left) and 8124 frames of 18 recordings of the Android Auto 18 (31/10 to 01/11 and 30/10; Waze and Google Maps by day and by night,
  * the app menu, Spotify, Phone, Messages), every label looked at by eye on contact sheets (the 30/10 labels of the 27/10 study were corrected: menus that had been called maps and the other
  * way round). Across sessions (4 groups, no session ever in the training of the net that read it; 5 seeds; T 1.05, limit 0.9): no frame wrong with the net sure of itself in any of the

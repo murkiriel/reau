@@ -11,7 +11,6 @@ package com.reau.app.aa
 import android.content.Context
 import android.os.SystemClock
 import android.view.Surface
-import com.reau.app.OtherEdition
 import java.io.File
 import java.io.IOException
 import java.net.InetAddress
@@ -525,7 +524,7 @@ internal class AaReceiver(
                         PreviousSessionClosing.within(now, AaRestartGap.lastStoppedAtMs) ->
                             CLOSING_NOTE
                         else -> FROZEN_NOTE
-                    } + OtherEdition.logNote(context),
+                    },
             )
         }
         report(mine, kind)

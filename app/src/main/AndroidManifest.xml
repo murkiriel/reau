@@ -61,8 +61,6 @@
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>
-        <!-- The old "lite" app (its id ends in .lite), to tell the rider it can be uninstalled now (see OtherEdition). -->
-        <package android:name="com.reau.app.lite" />
     </queries>
 
     <!-- Backups disabled: the app will hold the dash Wi-Fi name and password, which identify one bike. -->

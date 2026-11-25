@@ -98,7 +98,7 @@ fun MainScreen(
                         .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    val warnings = MainLook.warnings(p, state.battery, state.vpnHoldsREau, state.otherEditionInstalled, state.locationOff) +
+                    val warnings = MainLook.warnings(p, state.battery, state.vpnHoldsREau, state.locationOff) +
                         MainLook.alertWarnings(state.alertLevel)
                     for (warning in warnings) {
                         Warning(warning, state, onOpenAndroidAutoSettings, extras)
@@ -127,8 +127,6 @@ fun MainScreen(
                         FootLine(androidAuto ?: stringResource(R.string.aa_not_installed), "aa_version")
                         // REau's own version under Android Auto's.
                         FootLine(stringResource(R.string.reau_version, state.reauVersion), "reau_version")
-                        // The old app with the seal on its icon, if it is still installed: it is not needed any more.
-                        if (state.otherEditionInstalled) FootLine(stringResource(R.string.old_app_note), "old_app_note")
                     }
                 }
                 SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter)) {

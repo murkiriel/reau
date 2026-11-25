@@ -161,7 +161,6 @@
     <string name="headline_android_auto_no_video">Android Auto sem imagem</string>
     <string name="aa_no_video_warning">O Android Auto está conectado mas não manda imagem, e o painel fica preto. Force a parada dele (Configurações › Apps › Android Auto › Forçar parada), depois desligue e ligue o REau. Com o Android Auto 17.4 ou mais novo, confira também se o servidor da unidade principal dele está ligado.</string>
     <string name="aa_unresponsive_warning">O Android Auto aceita a conexão e não responde. Nas opções de desenvolvedor do Android Auto, toque em ⋮ e escolha \"Parar servidor da unidade principal\", depois em ⋮ e \"Iniciar servidor da unidade principal\"; o REau tenta de novo sozinho.</string>
-    <string name="aa_other_edition_warning">O app REau antigo, o do ícone com selo, ainda está instalado neste celular e pode estar usando o Android Auto: o servidor da unidade principal dele aceita uma sessão por vez. Este app o substitui, então pode desinstalá-lo. Se ele estiver ligado, desligue-o (toque em Desligar nele), espere cerca de um minuto e o REau conecta sozinho.</string>
     <string name="joystick_title">Joystick do painel</string>
     <string name="joystick_intro">Escolha o que cada toque do joystick faz. Vale na hora, também com a projeção ligada.</string>
     <string name="joystick_music_on">O painel mostra a música que toca (cartão de música): o modo mídia tem um controle de música.</string>
@@ -344,7 +343,6 @@
     <string name="warn_server_title">Servidor do Android Auto desligado</string>
     <string name="warn_closing_previous_title">Fechando a sessão anterior</string>
     <string name="warn_unresponsive_title">Android Auto não responde</string>
-    <string name="warn_other_edition_title">Outro REau está instalado</string>
     <string name="warn_no_video_title">Android Auto sem imagem</string>
     <string name="warn_battery_exemption_title">Otimização de bateria</string>
     <string name="warn_battery_saver_title">Economia de bateria ligada</string>
@@ -897,9 +895,6 @@
     <string name="update_button_open">Ver a versão</string>
     <string name="update_notice_title">Avisar quando houver atualização</string>
     <string name="update_notice_sub">Uma vez por dia, com internet, o REau pergunta ao GitHub (api.github.com) qual é a última versão, sem conta e sem nada sobre você, e avisa uma vez por versão. Nada é baixado nem instalado.</string>
-
-    <!-- A small line on the main screen while the old app with the seal on its icon (id ending in .lite) is still installed -->
-    <string name="old_app_note">O app REau antigo (o do ícone com selo) ainda está instalado. Não é mais necessário: pode desinstalá-lo.</string>
 
     <string name="warn_wifi_off_title">Wi-Fi do celular desligado</string>
     <string name="wifi_off_warning">Wi-Fi do celular desligado: ligue o Wi-Fi para conectar ao painel</string>

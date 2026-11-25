@@ -157,8 +157,8 @@ class AaReceiverTest {
     }
 
     @Test
-    fun threeHandshakesWithNoAnswerFromTheFirstDialOfAReceiverWithNoStopAreAPreviousSessionTheOtherEditionEnded() {
-        // Escrito, não rodado: 18/10, a edição completa ligada logo depois do Desligar da Lite. Sem parada própria para contar,
+    fun threeHandshakesWithNoAnswerFromTheFirstDialOfAReceiverWithNoStopAreAPreviousSessionAnotherRunEnded() {
+        // Escrito, não rodado: 18/10, o REau ligado logo depois do Desligar de outra edição. Sem parada própria para contar,
         // o receptor conta a dúvida a partir do início das discagens (AaRestartGap.maybeClosingSinceMs).
         MuteServer().use { mute ->
             receiverOn(mute.port).start()

@@ -867,8 +867,6 @@ MUTATIONS = [
      "if (rtpProbeCounter % PROBE_EVERY != 0) { rtpSuppressedTotal++; return }", "rtpSuppressedTotal++; return", ["DashSocketTest"]),
     ("P11r DashSocket: o RTP que volta continua suspenso", MAIN + "dash/DashSocket.kt",
      "                rtpSuppressed = false; rtpProbeCounter = 0; rtpSuppressedTotal = 0\n", "                rtpProbeCounter = 0; rtpSuppressedTotal = 0\n", ["DashSocketTest"]),
-    ("P11r OtherEdition: o app antigo procurado passa a ser o próprio app", MAIN + "OtherEdition.kt",
-     "const val LITE_ID = \"com.reau.app.lite\"", "const val LITE_ID = \"com.reau.app\"", ["OtherEditionTest", "AppIdentityTest"]),
     # A-12 (28/10/2026): the web page's policy has no 'unsafe-inline'; its inline tags run by a nonce that is new in every answer.
     ("CSP: a política volta a abrir o unsafe-inline", MAIN + "web/HttpResponses.kt",
      "fun policy(nonce: String) = \"default-src 'self' data: blob: ws: wss:; script-src", "fun policy(nonce: String) = \"default-src 'self' 'unsafe-inline' data: blob: ws: wss:; script-src",

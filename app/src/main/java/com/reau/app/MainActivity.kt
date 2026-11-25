@@ -157,9 +157,6 @@ class MainActivity : ComponentActivity() {
         readAlertLevel()
     }
 
-    // Whether the old "lite" app is installed (read at each return to the screen), for the main screen's card and note.
-    private var otherEditionInstalled by mutableStateOf(false)
-
     // The pairing read again by the screens once a search learned the dash's name.
     private var pairingVersion by mutableIntStateOf(0)
 
@@ -379,7 +376,6 @@ class MainActivity : ComponentActivity() {
             locationOff = locationOff,
             alertLevel = alertLevel,
             alertRoute = alertRoute,
-            otherEditionInstalled = otherEditionInstalled,
             weatherOn = settings.dashWeather,
             aaUpdatedServerOff = aaUpdatedServerOff,
         )
@@ -535,7 +531,6 @@ class MainActivity : ComponentActivity() {
         vpnHoldsREau = com.reau.app.dash.NetworkBlock.vpnHolds(this)
         locationOff = com.reau.app.ui.LocationSwitch.read(this)
         readAlertLevel()
-        otherEditionInstalled = OtherEdition.installed(this)
         permissionRows = PermissionRows.read(this)
         learnDashName()
         learnSunPlace(this, thenWeather = true)

@@ -15,7 +15,7 @@ import com.reau.app.ui.components.StatusKind
 object MainLook {
     /** The warnings, in display order; each is shown only while its trouble lasts. */
     enum class Warning {
-        SERVER_OFF, UNRESPONSIVE, CLOSING_PREVIOUS, OTHER_EDITION, NOT_CALLING, NO_VIDEO,
+        SERVER_OFF, UNRESPONSIVE, CLOSING_PREVIOUS, NOT_CALLING, NO_VIDEO,
         BATTERY_EXEMPTION, BATTERY_SAVER, WIFI_OFF, DASH_TAKEN, NAME_NEEDED, VPN, LOCATION_OFF, ALERTS_MUTED, ALERTS_BLOCKED,
     }
 
@@ -67,27 +67,17 @@ object MainLook {
     }
 
     /**
-     * Whether to name the old "lite" app as a suspect: it is installed ([otherEdition]) and Android Auto accepts the
-     * connection and does not answer the handshake, again and again (the link says so with [AaLinkState.UNRESPONSIVE] or
-     * [AaLinkState.CLOSING_PREVIOUS], three in a row). Whether it is running cannot be known, so this only says "may".
-     */
-    fun otherEditionSuspect(androidAuto: AaLinkState, otherEdition: Boolean): Boolean =
-        otherEdition && (androidAuto == AaLinkState.UNRESPONSIVE || androidAuto == AaLinkState.CLOSING_PREVIOUS)
-
-    /**
-     * [vpn]: REau's own traffic goes into a VPN, which keeps it off the bike's Wi-Fi. [otherEdition]: the old "lite" app is installed. [locationOff]: Android's Location switch is off although REau has the permission ([LocationSwitch]).
+     * [vpn]: REau's own traffic goes into a VPN, which keeps it off the bike's Wi-Fi. [locationOff]: Android's Location switch is off although REau has the permission ([LocationSwitch]).
      */
     fun warnings(
         p: Projection,
         battery: BatteryUi,
         vpn: Boolean = false,
-        otherEdition: Boolean = false,
         locationOff: Boolean = false,
     ): List<Warning> = listOfNotNull(
         Warning.SERVER_OFF.takeIf { p.androidAuto == AaLinkState.SERVER_OFF },
         Warning.UNRESPONSIVE.takeIf { p.androidAuto == AaLinkState.UNRESPONSIVE },
         Warning.CLOSING_PREVIOUS.takeIf { p.androidAuto == AaLinkState.CLOSING_PREVIOUS },
-        Warning.OTHER_EDITION.takeIf { otherEditionSuspect(p.androidAuto, otherEdition) },
         Warning.NOT_CALLING.takeIf { p.androidAuto == AaLinkState.NOT_CALLING },
         Warning.NO_VIDEO.takeIf { p.headline == Headline.ANDROID_AUTO_NO_VIDEO },
         Warning.BATTERY_EXEMPTION.takeIf { BatteryNotice.NOT_EXEMPT in battery.notices },

@@ -33,10 +33,6 @@ internal fun Warning(warning: Warning, state: MainUiState, onOpenAndroidAutoSett
             warn, R.drawable.ic_ms_error, stringResource(R.string.warn_closing_previous_title),
             stringResource(R.string.aa_closing_previous_warning), null, null, tag = "aa_closing_previous_warning",
         )
-        Warning.OTHER_EDITION -> WarningCard(
-            warn, R.drawable.ic_ms_error, stringResource(R.string.warn_other_edition_title),
-            stringResource(R.string.aa_other_edition_warning), null, null, tag = "aa_other_edition_warning",
-        )
         Warning.NOT_CALLING -> WarningCard(
             StatusKind.ERROR, R.drawable.ic_ms_error, stringResource(R.string.warn_not_calling_title),
             stringResource(R.string.aa_not_calling_warning),

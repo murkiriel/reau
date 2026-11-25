@@ -19,7 +19,7 @@ import kotlin.math.tanh
  *
  * Trained on 24/10/2026 on 6150 labelled frames (owner's phone, Android Auto 17.x, and the test phone, Android Auto 11.8; the protocols and numbers of the study are in [PictureLook]);
  * retrained on 25/10 and on 27/10/2026 on 7426 frames, and on 03/11/2026 on 22976 frames: those 7426, their mirror images, and 8124 frames of the Android Auto 18 (icon bar on the left, map card
- * with a blue focus border) of the owner's Lite edition, every one looked at by eye (see [PictureLook]); retrained on 08/11/2026 on 33366 frames: those 22976 plus 10390 frames of 27 more
+ * with a blue focus border) of the owner's phone, every one looked at by eye (see [PictureLook]); retrained on 08/11/2026 on 33366 frames: those 22976 plus 10390 frames of 27 more
  * recordings of the Android Auto 18 (03/11 to 07/11: Waze by day and by night, the call card laid over the map, the app menu, Spotify by day with its "safety pause" screen, media apps, Phone,
  * and 9 frames of the Android Auto home screen with its cards and a small map, taught as the map); retrained on 10/11/2026 on 38633 frames: those 33366 plus 4621 frames of 10 more recordings of the Android Auto 18 (08/11 to 10/11: Waze by day and by night, Google Maps by day, the app menu, and the Organic Maps navigation app by day and by night, taught as the map), and 646 mirrored/shifted/zoomed copies of the Organic Maps ones, every one looked at by eye (see [PictureLook]).
  *
