@@ -217,6 +217,16 @@ class AapControlNavigationTest {
         assertEquals("step=(no meters) time=9s destination=none", AapControlNavigation.positionSummary(onlyText))
     }
 
+    @Test
+    fun `the summary carries the seconds and the clock of the arrival when Android Auto says them`() {
+        val destination = NavigationStatus.NavigationDestinationDistance.newBuilder()
+            .setTimeToArrivalSeconds(480).setEstimatedTimeAtArrival("06:59").buildPartial()
+        val withArrival = NavigationStatus.NavigationCurrentPosition.newBuilder().addDestinationDistances(destination).buildPartial()
+        assertEquals(
+            "step=none time=none destination=none arrival=480s eta=06:59", AapControlNavigation.positionSummary(withArrival),
+        )
+    }
+
     private companion object {
         /** Channel, flags, two length bytes and the two type bytes. */
         const val HEADER = 6

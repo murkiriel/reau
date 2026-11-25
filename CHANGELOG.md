@@ -14,6 +14,9 @@ Português (pt-BR): [CHANGELOG.pt-br.md](CHANGELOG.pt-br.md) · Español: [CHANG
 ### Added
 - **After an Android Auto update, the screen says why the head unit server is off** (**not yet tried on the bike**): an update of Android Auto turns its "Start head unit server" option off, and the rider who had switched it on did not see why it "turned off by itself". REau now keeps, on the phone only, the update time of Android Auto the last time the server accepted a connection; with the server off and Android Auto updated since, the server card of the main screen adds a line saying that Android Auto was updated, that the update turns the server off, and to turn it on again (the button to Android Auto's settings is the same). No notification; with nothing kept yet (the first time) the card is the usual one. The ride log says it once, with the tag `aa-server`.
 
+### Fixed
+- **The time left and the arrival time on the dash no longer flicker by one minute** (**not yet tried on the bike**): in the ride of 25/11 the dash showed the time left going 7 min, 8 min for a second, 7 min again, and the arrival time going 06:59, 07:00, 06:59, every 10 to 15 s. Android Auto rounds both figures to the minute on its own, and the two rounded at different moments, so each went up and down by one near the minute's edge. The time left now goes down at once, as before, but goes up by one minute only after it has stayed there for 30 s, and the arrival time moves by one minute only after 75 s; a change of two minutes or more (a recalculated route) still shows at once. The ride log now also says the seconds and the clock of the arrival that Android Auto sends, to confirm the cause on the next ride.
+
 ## [0.3.1] - 2026-11-25
 
 ### Added

@@ -4,6 +4,7 @@ package com.reau.app.dash
 
 import android.util.Log
 import com.reau.app.dash.protocol.DashCommands
+import com.reau.app.dash.nav.ArrivalSmoother
 import com.reau.app.dash.nav.DashManeuverGlyphs
 import com.reau.app.util.Dbg
 import com.reau.app.dash.protocol.K1GPacket
@@ -374,6 +375,7 @@ class DashSession(
         maneuver: Int, primaryDist: Int, primaryUnit: Int,
         totalDist: Int, totalUnit: Int, etaHHMM: String? = null, road: String = "",
         remainingSeconds: Long = DashCommands.REMAINING_OMIT, nextManeuver: Int = DashCommands.NEXT_MANEUVER_NONE,
+        nowMs: Long = MonotonicClock.nowMs(),
     ) {
         val shown = ringManeuver(maneuver, lastVisibleManeuver)
         if (shown != maneuver) {
@@ -392,8 +394,16 @@ class DashSession(
             keepingManeuver = false
             if (maneuver != DashManeuverGlyphs.RECALCULATING) lastVisibleManeuver = maneuver
         }
-        nav = NavFigures(shown, primaryDist, primaryUnit, totalDist, totalUnit, etaHHMM, road, remainingSeconds, nextManeuver)
+        // The arrival time and the time left are rounded to the minute on Android Auto's side and flickered by one minute on the dash
+        // (ride of 25/11/2026): a one-minute rise or move shows only after it has lasted ([ArrivalSmoother]).
+        nav = NavFigures(
+            shown, primaryDist, primaryUnit, totalDist, totalUnit, arrival.arrival(etaHHMM, nowMs), road,
+            arrival.remaining(remainingSeconds, nowMs), nextManeuver,
+        )
     }
+
+    /** What the time left and the arrival time of the guidance in course were shown as, so a flicker of one minute does not reach the dash. */
+    private val arrival = ArrivalSmoother()
 
     /** For the tests: what the ring carries now (straight on with no guidance). */
     internal val ringNow: Int get() = nav?.maneuver ?: DashCommands.NAV_MANEUVER_CONTINUE
@@ -401,6 +411,7 @@ class DashSession(
     /** No guidance any more: the nav packets stop and the route card goes back to the card with no route. */
     fun clearNavInfo() {
         nav = null
+        arrival.reset()
         forgetLastManeuver()
     }
 
