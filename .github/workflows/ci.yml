@@ -86,12 +86,11 @@ jobs:
     name: Auditoria dos APKs
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    # Só este job pede mais do que ler o código: id-token e attestations são o que a atestação de proveniência exige (a ação pede um
-    # token OIDC ao GitHub e grava a atestação no repositório). Um job que declara permissões não herda as do topo, daí o contents: read.
+    # Este job, como o resto do workflow, só lê o código. A atestação que vale é a da Release: com as releases imutáveis ligadas
+    # (25/11/2026), o próprio GitHub atesta o APK e o SHA256SUMS publicados (confira com o verify-asset do gh). O APK deste job é
+    # assinado com a chave de debug e nunca é publicado, então não é atestado.
     permissions:
       contents: read
-      id-token: write
-      attestations: write
     steps:
       - name: Baixar o código
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -131,16 +130,6 @@ jobs:
           path: build/reports/dependency-verification/
           if-no-files-found: ignore
           retention-days: 14
-
-      # Atestação de proveniência (SLSA) do APK que acabou de ser montado e auditado: o GitHub assina que aquele arquivo, com aquele SHA-256, saiu
-      # deste commit e deste workflow. Só no push na main: num pull request o código ainda não foi aceito (e o de um fork nem recebe o token).
-      # A atestação cobre o arquivo que o CI monta (assinado com a chave de debug, não guardado nem publicado) e não diz nada sobre as Releases,
-      # que são assinadas fora do GitHub, com a chave do projeto.
-      - name: Atestar a proveniência do APK
-        if: github.event_name == 'push'
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
-        with:
-          subject-path: app/build/outputs/apk/release/app-release.apk
 
   python:
     name: Testes do Python
