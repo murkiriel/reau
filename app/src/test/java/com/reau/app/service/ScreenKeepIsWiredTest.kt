@@ -104,6 +104,29 @@ class ScreenKeepIsWiredTest {
     }
 
     @Test
+    fun `the screen turning on lets the lock go at once, and the rider's pause is asked at every decision and ends with the projection`() {
+        val keeper = source("service/ScreenKeeper.kt")
+        val on = keeper.substringAfter("private fun screenOn()").substringBefore("private fun armTimer()")
+        assertTrue(on, "lock?.takeIf { it.isHeld }?.release()" in on)
+        assertTrue("pausedByRider = ScreenKeepFront.paused" in keeper.substringAfter("private fun decide("))
+        assertTrue("ScreenKeepFront.clearPause()" in keeper.substringAfter("private fun turnOff()").substringBefore("val heard"))
+        val over = source("ui/ScreenKeepOver.kt")
+        val pause = over.substringAfter("fun pauseByRider()").substringBefore("private fun locked()")
+        assertTrue(pause, "RideDiagnostics.log(ScreenKeepPolicy.TAG, ScreenKeepPolicy.PAUSED_LINE)" in pause && "ScreenKeepFront.pauseByRider()" in pause)
+        assertTrue("TextButton(onClick = host::pauseByRider)" in over && "R.string.screen_keep_lock_pause" in over)
+        assertTrue("a touch the button consumes does not unlock", "awaitFirstDown()" in over && "requireUnconsumed = false" !in over)
+        assertTrue("the unlock by another way leaves the screen of the function", "override fun onReceive(context: Context, intent: Intent) {\n            over = false" in over)
+    }
+
+    @Test
+    fun `the screen of the function draws nothing animated`() {
+        val code = source("ui/ScreenKeepOver.kt").lines().filterNot { it.trimStart().startsWith("*") || it.trimStart().startsWith("//") }.joinToString("\n")
+        for (animated in listOf("animate", "infiniteTransition", "rememberInfiniteTransition", "Animatable", "AnimatedVisibility", "Canvas", "Image(", "painterResource")) {
+            assertFalse(animated, animated in code)
+        }
+    }
+
+    @Test
     fun `there is no separate activity for it, and no permission was added`() {
         val manifest = File("src/main/AndroidManifest.xml").readText()
         assertFalse("ScreenKeepActivity" in manifest)

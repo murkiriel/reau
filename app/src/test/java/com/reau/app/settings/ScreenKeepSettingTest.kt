@@ -86,7 +86,7 @@ class ScreenKeepSettingTest {
         val names = listOf(
             "group_screen_keep", "screen_keep_title", "screen_keep_sub", "screen_keep_info", "screen_keep_mode_title", "screen_keep_mode_off",
             "screen_keep_mode_60", "screen_keep_mode_30", "screen_keep_lock_ui_title", "screen_keep_lock_ui_sub", "screen_keep_lock_projecting",
-            "screen_keep_lock_swipe",
+            "screen_keep_lock_swipe", "screen_keep_lock_pause",
         )
         for (folder in listOf("values", "values-pt", "values-es")) for (name in names) assertTrue("$folder $name", string(folder, name).isNotBlank())
         assertEquals("Sempre que a tela apagar", string("values-pt", "screen_keep_mode_off"))
@@ -95,5 +95,6 @@ class ScreenKeepSettingTest {
         assertEquals("Mostrar o REau sobre o bloqueio", string("values-pt", "screen_keep_lock_ui_title"))
         assertEquals("Projetando no painel", string("values-pt", "screen_keep_lock_projecting"))
         assertEquals("Deslize para cima para desbloquear", string("values-pt", "screen_keep_lock_swipe"))
+        assertEquals("Apagar a tela nesta viagem", string("values-pt", "screen_keep_lock_pause"))
     }
 }

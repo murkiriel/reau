@@ -30,6 +30,7 @@ internal object ScreenKeepPolicy {
     /**
      * The decision. [proximityCovered] is true when the sensor says covered, false when it says free and null when the phone has no such sensor or it
      * did not answer in time (then the screen lights: a rider with no sensor must not lose the function). [sinceLastWakeMs] is null before the first light.
+     * [pausedByRider]: the rider paused the function for this projection.
      */
     @Suppress("LongParameterList") // the rider's two choices and the four facts of the moment
     fun decide(
@@ -39,8 +40,11 @@ internal object ScreenKeepPolicy {
         screenOn: Boolean,
         proximityCovered: Boolean?,
         sinceLastWakeMs: Long?,
+        pausedByRider: Boolean = false,
     ): Decision = when {
         !enabled -> Decision.NOTHING
+        // "Apagar a tela nesta viagem": the rider asked for the screen to go off, for this projection only.
+        pausedByRider -> Decision.NOTHING
         // At each screen-off only the "always" mode lights at once; the modes with an interval only start counting then.
         trigger == Trigger.SCREEN_OFF && mode != ScreenKeepMode.ON_SCREEN_OFF -> Decision.NOTHING
         trigger == Trigger.TIMER && mode.intervalSec == null -> Decision.NOTHING
@@ -82,6 +86,9 @@ internal object ScreenKeepPolicy {
 
     const val SKIP_LINE = "skip proximity"
     const val OFF_LINE = "off"
+
+    /** The rider pressed "Apagar a tela nesta viagem" on the screen over the lock screen. */
+    const val PAUSED_LINE = "paused by rider"
 
     /** The app's activity set showWhenLocked and turnScreenOn (the function and its lock-screen choice are on and the projection runs). */
     const val ARMED_LINE = "lockui armed"

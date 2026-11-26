@@ -18,7 +18,8 @@ class ScreenKeepPolicyTest {
         screenOn: Boolean = false,
         covered: Boolean? = false,
         since: Long? = null,
-    ) = ScreenKeepPolicy.decide(enabled, mode, trigger, screenOn, covered, since)
+        paused: Boolean = false,
+    ) = ScreenKeepPolicy.decide(enabled, mode, trigger, screenOn, covered, since, paused)
 
     @Test
     fun `the screen going off lights it in the mode that lights at every screen-off`() {
@@ -116,5 +117,15 @@ class ScreenKeepPolicyTest {
         assertNull("in front over the lock screen: the activity says shown itself", ScreenKeepPolicy.frontLine(activityResumed = true, keyguardLocked = true))
         assertEquals("lockui armed", ScreenKeepPolicy.ARMED_LINE)
         assertEquals("lockui shown", ScreenKeepPolicy.SHOWN_LINE)
+    }
+
+    @Test
+    fun `with the rider's pause nothing is lit, in any mode and by any trigger, and without it the same call lights`() {
+        for (mode in ScreenKeepMode.entries) for (trigger in Trigger.entries) {
+            assertEquals("$mode $trigger", Decision.NOTHING, decide(mode = mode, trigger = trigger, paused = true))
+        }
+        assertEquals("a covered sensor is not even asked about while paused", Decision.NOTHING, decide(covered = true, paused = true))
+        assertEquals(Decision.WAKE, decide(paused = false))
+        assertEquals("paused by rider", ScreenKeepPolicy.PAUSED_LINE)
     }
 }

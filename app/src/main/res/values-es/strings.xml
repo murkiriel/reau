@@ -981,4 +981,5 @@
     <string name="screen_keep_lock_ui_sub">La pantalla que se enciende muestra REau, y no la pantalla de bloqueo del sistema. Solo si REau está al frente cuando bloqueas</string>
     <string name="screen_keep_lock_projecting">Proyectando en el tablero</string>
     <string name="screen_keep_lock_swipe">Desliza hacia arriba para desbloquear</string>
+    <string name="screen_keep_lock_pause">Apagar la pantalla en este viaje</string>
 </resources>

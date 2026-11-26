@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -91,6 +92,12 @@ internal class LockOverHost(private val activity: ComponentActivity) {
         ScreenKeepFront.resumed = false
     }
 
+    /** "Apagar a tela nesta viagem": the screen is not lit again until the next projection; the saved setting stays. The screen over the lock screen goes and the phone's timeout takes over. */
+    fun pauseByRider() {
+        RideDiagnostics.log(ScreenKeepPolicy.TAG, ScreenKeepPolicy.PAUSED_LINE)
+        ScreenKeepFront.pauseByRider()
+    }
+
     private fun locked() = activity.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true
 
     /** A touch on the screen: Android is asked to dismiss the lock screen (its own PIN or pattern prompt, if there is one). */
@@ -148,7 +155,7 @@ internal fun LockOverScreen(host: LockOverHost) {
         Surface(
             Modifier.fillMaxSize().pointerInput(Unit) {
                 awaitPointerEventScope {
-                    awaitFirstDown(requireUnconsumed = false)
+                    awaitFirstDown()
                     host.unlock()
                 }
             },
@@ -165,10 +172,19 @@ internal fun LockOverScreen(host: LockOverHost) {
                     Text(time, style = MaterialTheme.typography.displaySmall.copy(fontSize = 64.sp, lineHeight = 68.sp), color = ink)
                     Text(stringResource(R.string.screen_keep_lock_projecting), style = MaterialTheme.typography.titleMedium, color = ink)
                 }
-                Text(
-                    stringResource(R.string.screen_keep_lock_swipe), style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        stringResource(R.string.screen_keep_lock_swipe), style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
+                    )
+                    // A discreet button: its touch is its own (it consumes the press), so only a touch elsewhere unlocks.
+                    TextButton(onClick = host::pauseByRider) {
+                        Text(
+                            stringResource(R.string.screen_keep_lock_pause), style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
         }
     }

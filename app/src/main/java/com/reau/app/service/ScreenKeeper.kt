@@ -93,6 +93,8 @@ internal class ScreenKeeper(
     }
 
     private fun turnOff() {
+        // The projection ended (or the switch went off): the rider's pause for this ride ends with it.
+        ScreenKeepFront.clearPause()
         ScreenKeepFront.arm(false)
         val heard = receiver ?: return
         receiver = null
@@ -121,7 +123,9 @@ internal class ScreenKeeper(
     }
 
     private fun screenOn() {
-        // The screen is on: nothing to light, and a reading of the sensor that was under way is of no use.
+        // The screen is on: nothing to light, and a reading of the sensor that was under way is of no use. The lock is let go at once (the maker's own app does the same),
+        // so the screen follows the phone's own timeout instead of being held for the lock's whole timeout.
+        lock?.takeIf { it.isHeld }?.release()
         generation++
         probe?.cancel()
         cancelTimer()
@@ -169,7 +173,7 @@ internal class ScreenKeeper(
 
     private fun decide(trigger: ScreenKeepPolicy.Trigger, covered: Boolean?) = ScreenKeepPolicy.decide(
         enabled = receiver != null, mode = mode, trigger = trigger, screenOn = power().isInteractive, proximityCovered = covered,
-        sinceLastWakeMs = lastWakeMs?.let { now() - it },
+        sinceLastWakeMs = lastWakeMs?.let { now() - it }, pausedByRider = ScreenKeepFront.paused,
     )
 
     private fun wake(trigger: ScreenKeepPolicy.Trigger) {
