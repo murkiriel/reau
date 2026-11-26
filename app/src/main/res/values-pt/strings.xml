@@ -971,7 +971,7 @@
     <string name="group_screen_keep">Celular bloqueado</string>
     <string name="screen_keep_title">Tela acesa com o celular bloqueado (teste)</string>
     <string name="screen_keep_sub">Na viagem, o REau acende a tela quando ela apaga, para o celular não fechá-lo. Gasta mais bateria</string>
-    <string name="screen_keep_info">Alguns celulares (realme, Xiaomi) fecham o REau quando a tela fica apagada com a projeção ligada. Com isto ligado, o REau acende a tela de novo, por alguns segundos, cada vez que ela apaga (ou a cada 60 ou 30 segundos desde que apagou), e não acende com o celular no bolso (sensor de proximidade coberto). Só vale com a projeção ligada, gasta mais bateria, vem desligado e é um teste.</string>
+    <string name="screen_keep_info">Alguns celulares (realme, Xiaomi) fecham o REau quando a tela fica apagada com a projeção ligada. Com isto ligado, o REau acende a tela de novo, por alguns segundos, cada vez que ela apaga (ou a cada 60 ou 30 segundos desde que apagou), até no bolso. Só vale com a projeção ligada, gasta mais bateria, vem desligado e é um teste.</string>
     <string name="screen_keep_mode_title">Quando acender a tela</string>
     <string name="screen_keep_mode_off">Sempre que a tela apagar</string>
     <string name="screen_keep_mode_60">A cada 60 segundos</string>

@@ -972,7 +972,7 @@
     <string name="group_screen_keep">Teléfono bloqueado</string>
     <string name="screen_keep_title">Pantalla encendida con el teléfono bloqueado (prueba)</string>
     <string name="screen_keep_sub">En el viaje, REau enciende la pantalla cuando se apaga, para que el teléfono no lo cierre. Gasta más batería</string>
-    <string name="screen_keep_info">Algunos teléfonos (realme, Xiaomi) cierran REau cuando la pantalla queda apagada con la proyección encendida. Con esto activado, REau vuelve a encender la pantalla, por unos segundos, cada vez que se apaga (o cada 60 o 30 segundos desde que se apagó), y no la enciende con el teléfono en el bolsillo (sensor de proximidad cubierto). Solo vale con la proyección encendida, gasta más batería, viene apagado y es una prueba.</string>
+    <string name="screen_keep_info">Algunos teléfonos (realme, Xiaomi) cierran REau cuando la pantalla queda apagada con la proyección encendida. Con esto activado, REau vuelve a encender la pantalla, por unos segundos, cada vez que se apaga (o cada 60 o 30 segundos desde que se apagó), incluso en el bolsillo. Solo vale con la proyección encendida, gasta más batería, viene apagado y es una prueba.</string>
     <string name="screen_keep_mode_title">Cuándo encender la pantalla</string>
     <string name="screen_keep_mode_off">Cada vez que la pantalla se apague</string>
     <string name="screen_keep_mode_60">Cada 60 segundos</string>

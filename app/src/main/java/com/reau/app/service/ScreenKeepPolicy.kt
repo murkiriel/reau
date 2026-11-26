@@ -14,31 +14,23 @@ internal object ScreenKeepPolicy {
         /** Light the screen. */
         WAKE,
 
-        /** The proximity sensor is covered (a pocket): the screen stays off, and the log says it was skipped. */
-        SKIP_PROXIMITY,
-
-        /** Nothing to do now: not on, not projecting, the wrong trigger for the mode, the screen already on, or a light a moment ago. */
+        /** Nothing to do now: not on, paused by the rider, the wrong trigger for the mode, the screen already on, or a light a moment ago. */
         NOTHING,
     }
 
     /** Nothing lights again within this long of the last light: the screen cannot be turned on and off in a loop that drains the battery. */
     const val MIN_GAP_MS = 3_000L
 
-    /** A distance under this many centimetres is near (a hand, a pocket's cloth), whatever the sensor's own range. */
-    private const val NEAR_CM = 5f
-
     /**
-     * The decision. [proximityCovered] is true when the sensor says covered, false when it says free and null when the phone has no such sensor or it
-     * did not answer in time (then the screen lights: a rider with no sensor must not lose the function). [sinceLastWakeMs] is null before the first light.
-     * [pausedByRider]: the rider paused the function for this projection.
+     * The decision. [sinceLastWakeMs] is null before the first light. [pausedByRider]: the rider paused the function for this projection.
+     * It lights wherever the phone is, a pocket too: the rider wanted the function to hold the phone awake, so no sensor is asked.
      */
-    @Suppress("LongParameterList") // the rider's two choices and the four facts of the moment
+    @Suppress("LongParameterList") // the rider's two choices and the facts of the moment
     fun decide(
         enabled: Boolean,
         mode: ScreenKeepMode,
         trigger: Trigger,
         screenOn: Boolean,
-        proximityCovered: Boolean?,
         sinceLastWakeMs: Long?,
         pausedByRider: Boolean = false,
     ): Decision = when {
@@ -51,13 +43,12 @@ internal object ScreenKeepPolicy {
         // The timer lights an off screen only; the broadcast of the screen going off is the event itself, so it does not look at the state.
         trigger == Trigger.TIMER && screenOn -> Decision.NOTHING
         sinceLastWakeMs != null && sinceLastWakeMs in 0L until MIN_GAP_MS -> Decision.NOTHING
-        proximityCovered == true -> Decision.SKIP_PROXIMITY
         else -> Decision.WAKE
     }
 
     /**
      * How long until the next light of a mode with an interval: the screen went off at [offSinceMs], and it lights at each multiple of the
-     * interval since then (a skip for the proximity does not move the others). Null for the mode with no interval. Always between 1 ms and a whole
+     * interval since then (a light the folga mínima holds back does not move the others). Null for the mode with no interval. Always between 1 ms and a whole
      * interval: a clock read exactly on a multiple waits the next one.
      */
     fun nextDelayMs(mode: ScreenKeepMode, offSinceMs: Long, nowMs: Long): Long? {
@@ -69,12 +60,6 @@ internal object ScreenKeepPolicy {
     /** Seconds since the screen went off, rounded down, for the log's `after=Ns`. */
     fun secondsOff(offSinceMs: Long, nowMs: Long): Long = ((nowMs - offSinceMs).coerceAtLeast(0L)) / 1_000L
 
-    /**
-     * Whether a proximity reading says covered: [distanceCm] is under the sensor's own [maxRangeCm] (many sensors only say 0 or the maximum)
-     * and under [NEAR_CM] (a sensor that says centimetres).
-     */
-    fun covered(distanceCm: Float, maxRangeCm: Float): Boolean = distanceCm < maxRangeCm && distanceCm < NEAR_CM
-
     /** The ride log's lines, under the tag [TAG] (so the file reads `[screen-keep] on mode=off lockui=off`). */
     const val TAG = "screen-keep"
 
@@ -84,7 +69,6 @@ internal object ScreenKeepPolicy {
     /** The line for a light of the screen. */
     fun wakeLine(trigger: Trigger, afterSeconds: Long) = "wake reason=${trigger.logName} after=${afterSeconds}s"
 
-    const val SKIP_LINE = "skip proximity"
     const val OFF_LINE = "off"
 
     /** The rider pressed "Apagar a tela nesta viagem" on the screen over the lock screen. */

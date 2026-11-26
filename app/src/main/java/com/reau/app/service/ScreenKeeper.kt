@@ -5,10 +5,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.hardware.Sensor
-import android.hardware.SensorEvent
-import android.hardware.SensorEventListener
-import android.hardware.SensorManager
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
@@ -20,12 +16,12 @@ import com.reau.app.settings.ScreenKeepMode
 /**
  * "Tela acesa com o celular bloqueado (teste)": while the projection runs and the rider's switch is on, the screen is lit again when it goes off
  * (a short screen wake lock that wakes it up), so the phone's own task killer (realme, Xiaomi) never finds REau in the background with the screen off.
- * The decisions are [ScreenKeepPolicy]'s; this holds the Android parts: the screen broadcasts, the timer, the proximity sensor, the wake lock and, if the
+ * The decisions are [ScreenKeepPolicy]'s; this holds the Android parts: the screen broadcasts, the timer, the wake lock and, if the
  * rider asked, the arming of the app's own activity over the lock screen ([ScreenKeepFront], [com.reau.app.ui.LockOverHost]): the service never starts an activity.
  * Every call and every callback is on the main thread, so nothing here needs a lock.
  *
- * It lights with a wake lock that always has a timeout and is never held past it, and it never asks for KEEP_SCREEN_ON. The proximity sensor is read
- * only at the moment of lighting, by a listener that lives at most [PROBE_MS].
+ * It lights with a wake lock that always has a timeout and is never held past it, and it never asks for KEEP_SCREEN_ON. It lights in a pocket too: the rider
+ * wanted the function to hold the phone awake wherever it is, so it reads no sensor.
  */
 @Suppress("TooManyFunctions") // one small function per case; splitting them would only scatter the same thing
 internal class ScreenKeeper(
@@ -44,11 +40,7 @@ internal class ScreenKeeper(
     private var offSinceMs = 0L
     private var lastWakeMs: Long? = null
     private var tick: Runnable? = null
-    private var probe: ProximityRead? = null
     private var frontCheck: Runnable? = null
-
-    /** Bumped at each screen change and at each stop: an answer of the sensor that comes after is of a moment that is gone. */
-    private var generation = 0
 
     /** Takes the switch as it is now (on the main thread): goes on, changes its mode, or goes off. Called when the projection runs and when a setting changes. */
     fun sync() {
@@ -85,7 +77,6 @@ internal class ScreenKeeper(
         runCatching { ContextCompat.registerReceiver(app, heard, filter, ContextCompat.RECEIVER_NOT_EXPORTED) }
             .onFailure { log("${com.reau.app.data.RideDiagnostics.WARN}listening to the screen failed: ${it.javaClass.simpleName}") }
         log(ScreenKeepPolicy.onLine(mode, lockUi))
-        log("proximity sensor=${if (app.getSystemService(SensorManager::class.java)?.getDefaultSensor(Sensor.TYPE_PROXIMITY) != null) "yes" else "no"}")
         if (!power().isInteractive) {
             offSinceMs = now()
             armTimer()
@@ -100,9 +91,6 @@ internal class ScreenKeeper(
         receiver = null
         runCatching { app.unregisterReceiver(heard) }
         cancelTimer()
-        generation++
-        probe?.cancel()
-        probe = null
         lock?.takeIf { it.isHeld }?.release()
         frontCheck?.let { main.removeCallbacks(it) }
         frontCheck = null
@@ -110,8 +98,6 @@ internal class ScreenKeeper(
     }
 
     private fun screenOff() {
-        generation++
-        probe?.cancel()
         offSinceMs = now()
         cancelTimer()
         val s = settings()
@@ -123,11 +109,9 @@ internal class ScreenKeeper(
     }
 
     private fun screenOn() {
-        // The screen is on: nothing to light, and a reading of the sensor that was under way is of no use. The lock is let go at once (the maker's own app does the same),
+        // The screen is on: nothing to light. The lock is let go at once (the maker's own app does the same),
         // so the screen follows the phone's own timeout instead of being held for the lock's whole timeout.
         lock?.takeIf { it.isHeld }?.release()
-        generation++
-        probe?.cancel()
         cancelTimer()
     }
 
@@ -155,24 +139,13 @@ internal class ScreenKeeper(
         armTimer()
     }
 
-    /** The first look at the decision, then the proximity sensor (only if the screen is to be lit), then the decision again with its answer. */
+    /** The decision for [trigger], and the light of the screen at once when it is to be lit. */
     private fun ask(trigger: ScreenKeepPolicy.Trigger) {
-        if (decide(trigger, null) == ScreenKeepPolicy.Decision.NOTHING) return
-        val asked = generation
-        probe?.cancel()
-        probe = ProximityRead(app, main) { covered ->
-            probe = null
-            if (asked != generation || receiver == null) return@ProximityRead
-            when (decide(trigger, covered)) {
-                ScreenKeepPolicy.Decision.WAKE -> wake(trigger)
-                ScreenKeepPolicy.Decision.SKIP_PROXIMITY -> log(ScreenKeepPolicy.SKIP_LINE)
-                ScreenKeepPolicy.Decision.NOTHING -> Unit
-            }
-        }.also { it.start() }
+        if (decide(trigger) == ScreenKeepPolicy.Decision.WAKE) wake(trigger)
     }
 
-    private fun decide(trigger: ScreenKeepPolicy.Trigger, covered: Boolean?) = ScreenKeepPolicy.decide(
-        enabled = receiver != null, mode = mode, trigger = trigger, screenOn = power().isInteractive, proximityCovered = covered,
+    private fun decide(trigger: ScreenKeepPolicy.Trigger) = ScreenKeepPolicy.decide(
+        enabled = receiver != null, mode = mode, trigger = trigger, screenOn = power().isInteractive,
         sinceLastWakeMs = lastWakeMs?.let { now() - it }, pausedByRider = ScreenKeepFront.paused,
     )
 
@@ -206,42 +179,6 @@ internal class ScreenKeeper(
 
     private fun power() = app.getSystemService(PowerManager::class.java)
 
-    /** One reading of the proximity sensor: a listener that lives until the first value or [PROBE_MS], whichever comes first; the answer null when there is none. */
-    private class ProximityRead(context: Context, private val main: Handler, private val answer: (Boolean?) -> Unit) : SensorEventListener {
-        private val manager = context.getSystemService(SensorManager::class.java)
-        private val sensor: Sensor? = manager?.getDefaultSensor(Sensor.TYPE_PROXIMITY)
-        private var done = false
-        private val timeout = Runnable { finish(null) }
-
-        fun start() {
-            if (manager == null || sensor == null || !manager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_NORMAL, main)) {
-                finish(null)
-                return
-            }
-            main.postDelayed(timeout, PROBE_MS)
-        }
-
-        /** Gives the sensor back without an answer (the screen changed, or the function went off). */
-        fun cancel() {
-            done = true
-            main.removeCallbacks(timeout)
-            manager?.unregisterListener(this)
-        }
-
-        private fun finish(covered: Boolean?) {
-            if (done) return
-            cancel()
-            answer(covered)
-        }
-
-        override fun onSensorChanged(event: SensorEvent) {
-            val range = sensor?.maximumRange ?: return finish(null)
-            finish(ScreenKeepPolicy.covered(event.values[0], range))
-        }
-
-        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
-    }
-
     companion object {
         /** The tag of the wake lock, as `dumpsys power` shows it. */
         const val LOCK_TAG = "reau:screen-keep"
@@ -257,9 +194,6 @@ internal class ScreenKeeper(
         /** How long the lock of a screen-off lights, and of a timer's light: the lock is let go by Android itself when it runs out. */
         internal const val SCREEN_OFF_LOCK_MS = 10_000L
         internal const val TIMER_LOCK_MS = 5_000L
-
-        /** The longest the proximity sensor is listened to for one reading. */
-        internal const val PROBE_MS = 400L
 
         /** How long after a light of the screen the log says whether the app's activity was in front. */
         internal const val FRONT_CHECK_MS = 1_500L

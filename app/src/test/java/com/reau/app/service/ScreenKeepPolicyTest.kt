@@ -4,9 +4,7 @@ import com.reau.app.service.ScreenKeepPolicy.Decision
 import com.reau.app.service.ScreenKeepPolicy.Trigger
 import com.reau.app.settings.ScreenKeepMode
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** The decision of "Tela acesa com o celular bloqueado": when the screen is lit, when it is not, and when the next try is. Pure, no Android. */
@@ -16,10 +14,9 @@ class ScreenKeepPolicyTest {
         trigger: Trigger = Trigger.SCREEN_OFF,
         enabled: Boolean = true,
         screenOn: Boolean = false,
-        covered: Boolean? = false,
         since: Long? = null,
         paused: Boolean = false,
-    ) = ScreenKeepPolicy.decide(enabled, mode, trigger, screenOn, covered, since, paused)
+    ) = ScreenKeepPolicy.decide(enabled, mode, trigger, screenOn, since, paused)
 
     @Test
     fun `the screen going off lights it in the mode that lights at every screen-off`() {
@@ -52,20 +49,11 @@ class ScreenKeepPolicyTest {
     }
 
     @Test
-    fun `a covered proximity sensor skips the light and a free one or none lights`() {
-        assertEquals(Decision.SKIP_PROXIMITY, decide(covered = true))
-        assertEquals(Decision.WAKE, decide(covered = false))
-        assertEquals("no sensor, or no answer in time", Decision.WAKE, decide(covered = null))
-        assertEquals(Decision.SKIP_PROXIMITY, decide(mode = ScreenKeepMode.EVERY_60_S, trigger = Trigger.TIMER, covered = true))
-    }
-
-    @Test
     fun `nothing is lit again within the minimum gap, so the screen cannot loop`() {
         assertEquals(Decision.NOTHING, decide(since = 0L))
         assertEquals(Decision.NOTHING, decide(since = ScreenKeepPolicy.MIN_GAP_MS - 1))
         assertEquals(Decision.WAKE, decide(since = ScreenKeepPolicy.MIN_GAP_MS))
         assertEquals(Decision.WAKE, decide(since = 60_000L))
-        assertEquals("a covered sensor inside the gap is still nothing", Decision.NOTHING, decide(covered = true, since = 1_000L))
     }
 
     @Test
@@ -86,23 +74,12 @@ class ScreenKeepPolicyTest {
     }
 
     @Test
-    fun `a covered reading is near and under the sensor's range, whatever kind of sensor it is`() {
-        assertTrue("binary sensor, near", ScreenKeepPolicy.covered(0f, 5f))
-        assertFalse("binary sensor, far", ScreenKeepPolicy.covered(5f, 5f))
-        assertTrue("a sensor of centimetres, a hand", ScreenKeepPolicy.covered(2f, 10f))
-        assertFalse("a sensor of centimetres, far", ScreenKeepPolicy.covered(8f, 10f))
-        assertFalse("a sensor of 1 cm range, far", ScreenKeepPolicy.covered(1f, 1f))
-        assertTrue("a sensor of 1 cm range, near", ScreenKeepPolicy.covered(0f, 1f))
-    }
-
-    @Test
     fun `the ride log lines are short and tell the mode, the reason and the seconds`() {
         assertEquals("on mode=off lockui=off", ScreenKeepPolicy.onLine(ScreenKeepMode.ON_SCREEN_OFF, false))
         assertEquals("on mode=n60 lockui=on", ScreenKeepPolicy.onLine(ScreenKeepMode.EVERY_60_S, true))
         assertEquals("on mode=n30 lockui=off", ScreenKeepPolicy.onLine(ScreenKeepMode.EVERY_30_S, false))
         assertEquals("wake reason=screenoff after=0s", ScreenKeepPolicy.wakeLine(Trigger.SCREEN_OFF, 0))
         assertEquals("wake reason=timer after=60s", ScreenKeepPolicy.wakeLine(Trigger.TIMER, 60))
-        assertEquals("skip proximity", ScreenKeepPolicy.SKIP_LINE)
         assertEquals("off", ScreenKeepPolicy.OFF_LINE)
         assertEquals("screen-keep", ScreenKeepPolicy.TAG)
         assertEquals(61L, ScreenKeepPolicy.secondsOff(offSinceMs = 1_000L, nowMs = 62_999L))
@@ -124,7 +101,6 @@ class ScreenKeepPolicyTest {
         for (mode in ScreenKeepMode.entries) for (trigger in Trigger.entries) {
             assertEquals("$mode $trigger", Decision.NOTHING, decide(mode = mode, trigger = trigger, paused = true))
         }
-        assertEquals("a covered sensor is not even asked about while paused", Decision.NOTHING, decide(covered = true, paused = true))
         assertEquals(Decision.WAKE, decide(paused = false))
         assertEquals("paused by rider", ScreenKeepPolicy.PAUSED_LINE)
     }

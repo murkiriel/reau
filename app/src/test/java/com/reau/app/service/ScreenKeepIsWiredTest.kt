@@ -53,20 +53,18 @@ class ScreenKeepIsWiredTest {
         val keeper = source("service/ScreenKeeper.kt")
         assertTrue("Intent.ACTION_SCREEN_OFF" in keeper && "Intent.ACTION_SCREEN_ON" in keeper)
         val off = keeper.substringAfter("private fun turnOff()").substringBefore("private fun screenOff()")
-        val steps = listOf("app.unregisterReceiver(heard)", "cancelTimer()", "probe?.cancel()", "release()", "ScreenKeepFront.arm(false)", "main.removeCallbacks(it)")
+        val steps = listOf("app.unregisterReceiver(heard)", "cancelTimer()", "release()", "ScreenKeepFront.arm(false)", "main.removeCallbacks(it)")
         for (step in steps + "ScreenKeepPolicy.OFF_LINE") assertTrue(step, step in off)
     }
 
     @Test
-    fun `the proximity sensor is read only at the moment of lighting, by a listener that gives itself up`() {
+    fun `it lights in a pocket too, so no sensor is read and the light is direct`() {
         val keeper = source("service/ScreenKeeper.kt")
-        assertEquals("one registration, in the one-reading class", 1, Regex("""\bregisterListener\(""").findAll(keeper).count())
-        assertTrue("PROBE_MS = 400L" in keeper)
-        val read = keeper.substringAfter("private class ProximityRead")
-        assertTrue("main.postDelayed(timeout, PROBE_MS)" in read && "manager?.unregisterListener(this)" in read)
+        for (word in listOf("Sensor", "proximity", "PROBE_MS", "ProximityRead", "probe", "generation")) assertFalse(word, word in keeper)
+        val policy = source("service/ScreenKeepPolicy.kt")
+        for (word in listOf("proximity", "covered", "SKIP", "NEAR_CM")) assertFalse(word, word in policy)
         val ask = keeper.substringAfter("private fun ask(").substringBefore("private fun decide(")
-        assertTrue("the sensor is asked after the first look at the decision", ask.indexOf("NOTHING") in 0 until ask.indexOf("ProximityRead("))
-        assertTrue("the skip is said in the log", "log(ScreenKeepPolicy.SKIP_LINE)" in ask)
+        assertTrue(ask, "if (decide(trigger) == ScreenKeepPolicy.Decision.WAKE) wake(trigger)" in ask)
     }
 
     @Test
