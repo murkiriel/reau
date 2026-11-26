@@ -187,7 +187,8 @@ class DashEncoder(
 
     /**
      * Which encoder the rider asked for ([VideoEncoder], 26/11/2026): the phone's own, as always, or Android's software one. Set before [prepare], from the settings
-     * the stream was started with, so a change counts from the next stream; a rebuilt encoder keeps it.
+     * the stream was started with, so a change counts from the next stream; a rebuilt encoder keeps it,
+     * except after the software one failed in this session (the loop then hands the rebuilt one the phone's own, until that session ends; review of 26/11/2026, C1).
      */
     var preference: VideoEncoder = VideoEncoder.PHONE
 

@@ -390,7 +390,8 @@ internal class VideoLoop(
     /**
      * The encoder that just failed while it ran: if it was Android's software one the rider asked for, the rebuild (and any later one of this session) takes the phone's
      * own instead of the one that failed, which would otherwise be asked for again every few seconds until the rider turned the option off (review of 26/11/2026, S1).
-     * The loop is the dash session's, so the next session asks for the rider's choice again.
+     * The change belongs to this loop only: the rider's choice stays in [LiveSides]' video settings, so every new stream (a new loop: the next dash session, or the
+     * rider changing the pace, the rate or the keyframe interval) asks for the software encoder again, and if it fails again it is dropped again (review of 26/11/2026, C3).
      */
     private fun stopAskingForSoftware() {
         val next = encoderAfterFailure(settings.videoEncoder, encoder?.softwareInUse == true)
@@ -409,7 +410,8 @@ internal class VideoLoop(
         // What the phone offers and what the codec accepted go to the ride log once for a stream: the first encoder tells it, a rebuilt one does not.
         created.reportCodecs = reportCodecsOfNextEncoder
         reportCodecsOfNextEncoder = false
-        // The rider's experimental choice of the encoder (26/11/2026), taken when the stream starts; a rebuilt encoder keeps it.
+        // The rider's experimental choice of the encoder (26/11/2026), taken when the stream starts; a rebuilt encoder keeps it,
+        // except after the software one failed in this session (stopAskingForSoftware): then the phone's own, until the session ends (review of 26/11/2026, C1).
         created.preference = settings.videoEncoder
         if (created.prepare(fps, bitrateBps, encoderKeyframeSec, settings.bitrateMode)) return created
         log("${RideDiagnostics.ERROR}encoder prepare failed: ${created.lastPrepareError}")

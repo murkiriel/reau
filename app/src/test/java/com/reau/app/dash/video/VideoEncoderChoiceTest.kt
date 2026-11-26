@@ -77,7 +77,7 @@ class VideoEncoderChoiceTest {
     }
 
     @Test
-    fun `the encoder reads the rider's choice, the stream hands it over and a rebuilt encoder keeps it`() {
+    fun `the encoder reads the rider's choice, the stream hands it over and a rebuilt encoder keeps it except after the software one failed in this session`() {
         val encoder = File("src/main/java/com/reau/app/dash/video/DashEncoder.kt").readText()
         assertTrue(encoder.contains("var preference: VideoEncoder = VideoEncoder.PHONE"))
         assertTrue(encoder.contains("val pick = encoderNames()"))

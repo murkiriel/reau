@@ -6115,6 +6115,11 @@ MUTATIONS += [
      "if (asked == VideoEncoder.SOFTWARE && softwareRan) VideoEncoder.PHONE else asked", "asked", ["VideoEncoderChoiceTest"]),
     ("revisao-tA/S7 Texto do (i): o codificador de software volta a ser dito como fato que faz quadros-chave menores", "app/src/main/res/values/strings.xml",
      "which should keep the bitrate steady and tends to make smaller keyframes, at the cost", "which keeps the bitrate steady and makes smaller keyframes, at the cost", ["VideoEncoderSettingTest"]),
+    # Revisão de 26/11/2026 do commit 862a664 (revisao-862): o leitor do codificador acompanha a taxa recusada e a troca do de software para o do celular.
+    ("revisao-862/C2 Leitor: a taxa recusada do último degrau volta a sair em inglês (none (refused))", "scripts/registro/codificador.py",
+     ".replace('none (refused)', 'nenhum (recusado)')", "", ["registro/test_codificador.py"]),
+    ("revisao-862/C2 Leitor: a sessão em que o de software caiu para o do celular não leva o aviso de que a forma mistura os dois", "scripts/registro/codificador.py",
+     "e não serve para comparar\" if troca else \"\"", "e não serve para comparar\" if False else \"\"", ["registro/test_codificador.py"]),
 ]
 
 

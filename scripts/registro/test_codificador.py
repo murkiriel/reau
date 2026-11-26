@@ -21,6 +21,7 @@ EM_USO_SEM = ("encoder in use: asked=SOFTWARE name=c2.mtk.avc.encoder kind=hw ra
 TAXA_MTK = "encoder rate: CBR -> VBR (CBR not offered), codec says VBR"
 SPS_MTK = "encoder sps: profile=Baseline(66) level=4.1 constraints=0x00; original=67 42 00 29 11; sent=67 42 00 29 11"
 SPS_QTI = "encoder sps: profile=Baseline(66) level=4.1 constraints=0x80; original=67 42 80 29 11; sent=67 42 00 29 11"
+TROCA = "W: software encoder failed: the phone's own from now on"
 FORMA = "video shape: frames=300 keyframes=48 keybytes avg=31200 max=44700 keypackets avg=24.3 max=33 slices=1 peak1s=441kbps/38pkt"
 
 
@@ -56,6 +57,14 @@ class LinhasDoCodificador(unittest.TestCase):
         t, _ = lido(stream("10:00:03.100", "encoder rate: CBR -> CBR, codec says not echoed"))
         self.assertIn("pedida CBR, enviada CBR, o codec diz not echoed", t)
 
+    def test_a_taxa_recusada_do_ultimo_degrau_vai_em_portugues(self):
+        t, _ = lido(stream("10:00:03.000", EM_USO_MTK.replace("CBR -> VBR (CBR not offered)", "CBR -> none (refused)")),
+                    stream("10:00:03.100", "encoder rate: CBR -> none (refused), codec says VBR"))
+        self.assertIn("taxa pedida CBR, enviada nenhum (recusado)", t)
+        self.assertIn("taxa do codificador: pedida CBR, enviada nenhum (recusado), o codec diz VBR", t)
+        self.assertNotIn("none (refused)", t)
+        self.assertNotIn("refused", t.replace("recusado", ""))
+
     def test_o_sps_original_e_o_enviado_com_o_perfil_e_o_nivel(self):
         t, _ = lido(stream("10:00:04.000", SPS_QTI))
         self.assertIn("10:00:04.000  SPS do codificador: Baseline(66), nível 4.1, flags 0x80; original 67 42 80 29 11; enviado 67 42 00 29 11", t)
@@ -75,6 +84,27 @@ class LinhasDoCodificador(unittest.TestCase):
         self.assertIn("fatias por quadro 1", resumo[0])
         self.assertIn("pior segundo 441 kbps em 38 pacotes (300 quadros, 48 quadros-chave)", resumo[0])
         self.assertNotIn("150 quadros", resumo[0])
+
+    def test_a_troca_do_de_software_para_o_do_celular_aparece_na_linha_do_tempo(self):
+        t, linhas = lido(stream("10:00:03.000", EM_USO_SW), stream("10:04:21.500", TROCA))
+        self.assertIn("10:04:21.500  o codificador de software falhou: daqui em diante o do celular, até o fim da sessão", t)
+        self.assertEqual([], ler_registro.problemas(linhas))
+
+    def test_a_sessao_com_a_troca_diz_na_linha_resumo_que_a_forma_mistura_os_dois(self):
+        t, _ = lido(stream("10:00:03.000", EM_USO_SW), stream("10:04:21.500", TROCA), stream("10:08:59.000", FORMA))
+        resumo = [x for x in t.splitlines() if "codificador: c2." in x]
+        self.assertEqual(1, len(resumo), t)
+        self.assertIn("c2.android.avc.encoder (software; pedido: o de software do Android; caiu para o do celular às 10:04:21)", resumo[0])
+        self.assertTrue(resumo[0].endswith("o `video shape` desta sessão mistura os dois codificadores e não serve para comparar"), resumo[0])
+
+    def test_a_sessao_sem_a_troca_nao_leva_o_aviso_e_a_troca_sem_a_linha_de_uso_ainda_marca(self):
+        t, _ = lido(stream("10:00:03.000", EM_USO_SW), stream("10:08:59.000", FORMA))
+        self.assertNotIn("caiu para o do celular", t)
+        self.assertNotIn("mistura os dois", t)
+        t, _ = lido(stream("10:04:21.500", TROCA), stream("10:08:59.000", FORMA))
+        resumo = [x for x in t.splitlines() if "codificador: o de software caiu" in x]
+        self.assertEqual(1, len(resumo), t)
+        self.assertIn("caiu para o do celular às 10:04:21", resumo[0])
 
     def test_a_forma_com_mais_de_uma_fatia_diz_quantos_quadros(self):
         forma = FORMA.replace("slices=1", "slices=3 multi=7/300")
