@@ -4597,8 +4597,6 @@ MUTATIONS += [
      "DashCompositor.Pace(if (firstFrameConfirmed) activeMs else idleMs, idleMs, clockSlowPercent)", "DashCompositor.Pace(if (firstFrameConfirmed) idleMs else activeMs, idleMs, clockSlowPercent)", ["PaceGovernorTest"]),
     ("P32G bitrate: o bitrate sai pela metade", MAIN + "stream/StreamGovernor.kt",
      "        bitrateBps = activeBitrateBps\n", "        bitrateBps = activeBitrateBps / 2\n", ["PaceGovernorTest", "GovernadorOuroTest"]),
-    ("P32G bitrate: o bitrate é mandado de novo a cada passada", MAIN + "stream/StreamGovernor.kt",
-     "if (activeBitrateBps == bitrateBps) return emptyList()", "if (activeBitrateBps == 0) return emptyList()", ["PaceGovernorTest", "GovernadorOuroTest"]),
     ("P32G bitrate: o teto não é levantado para os bits por quadro", MAIN + "stream/StreamGovernor.kt",
      "val activeBitrateBps: Int get() = DashLogic.effectiveActiveBitrate(bitrateCeilingBps, encoderFps)", "val activeBitrateBps: Int get() = bitrateCeilingBps", ["StreamGovernorConservativeTest", "EscadaInalcancavelTest"]),
     ("P32G governador: o laço não tem o B na linha do rótulo", MAIN + "stream/StreamGovernor.kt",
@@ -5718,6 +5716,16 @@ MUTATIONS += [
     # Plano 35, passo F (26/11/2026): o pedido de rede não espera as leituras só de registro; o quadro-chave de 1 s na rampa de largada.
     ("plano35/F Pedido de rede: as leituras da linha do pedido (lista de Wi-Fi, tela, chaveiro) voltam à thread que manda o pedido", MAIN + "dash/DashWifiManager.kt",
      "scope.launch { runCatching { logRequestContextLine(head) } }", "runCatching { logRequestContextLine(head) }", ["ScanLooksTest"]),
+]
+
+MUTATIONS += [
+    # Plano 35, passo G (26/11/2026): o governador manda o bitrate uma vez, na partida; o teste que perguntava a cada passada se ele mudou saiu (nunca disparava).
+    ("plano35/G Governador: a passada volta a mandar o bitrate (o que o ramo cortado fazia se o teto mudasse)", MAIN + "stream/StreamGovernor.kt",
+     "        actions += paceChange(p.firstFrameConfirmed)\n", "        actions += paceChange(p.firstFrameConfirmed)\n        actions += listOf(startBitrate())\n",
+     ["BitrateIsSetOnceTest", "PaceGovernorTest", "GovernadorOuroTest"]),
+    ("plano35/G Governador: a partida não manda o bitrate ao codificador", MAIN + "stream/StreamGovernor.kt",
+     "paceChange(firstFrameConfirmed = false) + startBitrate() + sync(\"stream start\", nowMs)", "paceChange(firstFrameConfirmed = false) + listOf(startBitrate()).drop(1) + sync(\"stream start\", nowMs)",
+     ["BitrateIsSetOnceTest", "PaceGovernorTest", "GovernadorOuroTest"]),
 ]
 
 

@@ -19,8 +19,9 @@ import java.util.Locale
  *   it in the REDUCED tier, the light screens' pace on a light screen (never above the full pace). Nothing raises or lowers it by what a window measured
  *   (the ladder that did, `AutoFpsController`, could not be reached with the fixed ceiling and was cut on 14/11/2026).
  * - **Bitrate.** The ceiling ([bitrateCeilingBps], 400 kbps in the app, raised as needed so the rate keeps [DashLogic.MIN_BITS_PER_FRAME]) is the
- *   bitrate at every moment: a REDUCED tier, a still picture and the start ramp change the pace, never the bits (the owner found 200 kbps bad on the dash,
- *   and a ceiling that is fixed at 400 has nothing to halve; plan 32, 20/11/2026).
+ *   bitrate at every moment, set once by [start] and never again (no poll returns an [Action.SetBitrate]): a REDUCED tier, a still picture and the
+ *   start ramp change the pace, never the bits (the owner found 200 kbps bad on the dash, and a ceiling that is fixed at 400 has nothing to halve;
+ *   plan 32, 20/11/2026).
  * - **Keyframes.** Every [keyframeSec] seconds, fixed for the whole stream (1 in the app). Nothing a window measured changes it (the
  *   interval that chose 1 or 2 s by itself, `AutoKeyframeController`, was never reached with the fixed 1 s and was cut on 14/11/2026).
  * - **Keyframes while still.** One every [DashLogic.IDLE_SYNC_EVERY_MS], when the encoder's own would be further
@@ -282,7 +283,7 @@ internal class StreamGovernor(
         lastPictureAtMs = null
         window = null
         statsStartMs = -1L
-        return paceChange(firstFrameConfirmed = false) + bitrateChange() + sync("stream start", nowMs)
+        return paceChange(firstFrameConfirmed = false) + startBitrate() + sync("stream start", nowMs)
     }
 
     /** A keyframe was asked for by someone else (a stream restart): it counts in the window's line. */
@@ -305,7 +306,6 @@ internal class StreamGovernor(
         testChange?.let { actions += it }
         actions += encoderIntervalChange()
         actions += paceChange(p.firstFrameConfirmed)
-        actions += bitrateChange()
         // A tier change, a light screen and a profile switched on or off move the pace only: what the
         // encoder is built for ([encoderFps]) never moves, so no poll asks for a new encoder here.
         actions += idleSync(full, p.nowMs)
@@ -437,11 +437,15 @@ internal class StreamGovernor(
         return listOf(Action.SetPace(wanted))
     }
 
-    /** The bitrate is the ceiling at every moment (see the class comment): one [Action.SetBitrate] when the stream starts, and none after. */
-    private fun bitrateChange(): List<Action> {
-        if (activeBitrateBps == bitrateBps) return emptyList()
+    /**
+     * The bitrate is the ceiling at every moment (see the class comment): the one [Action.SetBitrate] of the stream, made by [start]. [onPoll] has none: [activeBitrateBps]
+     * is made of [bitrateCeilingBps], [encoderFps] ([fullFps]) and a constant, all fixed when the governor is made, so after [start] it can never differ from [bitrateBps]
+     * (the guard that asked every poll whether it did never fired in any ride log of 25/11/2026, on the 6 fps CBR phone or on the 4 fps MediaTek VBR pilots, and was cut
+     * on 26/11/2026, plan 35 step G). The encoder is already built for this bitrate ([VideoLoop]), so the action only repeats it and writes `bitrate=` in the log.
+     */
+    private fun startBitrate(): Action.SetBitrate {
         bitrateBps = activeBitrateBps
-        return listOf(Action.SetBitrate(bitrateBps))
+        return Action.SetBitrate(bitrateBps)
     }
 
     /**

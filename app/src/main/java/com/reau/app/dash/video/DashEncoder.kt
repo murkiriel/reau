@@ -332,9 +332,10 @@ class DashEncoder(
     }
 
     /**
-     * Change the target bitrate live, without rebuilding the encoder — the stream switches between the
-     * 400 kbps (profile 1) and 200 kbps (profile 2) this way. MediaCodec applies
-     * PARAMETER_KEY_VIDEO_BITRATE to the running session; no IDR or reconfigure needed.
+     * Change the target bitrate live, without rebuilding the encoder. MediaCodec applies
+     * PARAMETER_KEY_VIDEO_BITRATE to the running session; no IDR or reconfigure needed. Today the stream
+     * calls it ONCE, with the bitrate the encoder was built for (the governor's SetBitrate at the start); the 400/200 kbps
+     * switch between profiles that this once served left with plan 32 (20/11/2026), and the dead poll-time path was cut on 26/11/2026.
      */
     fun requestBitrate(bps: Int) {
         val c = codec ?: return
