@@ -87,6 +87,19 @@ class OutrasRedesEMacTest(unittest.TestCase):
             with self.subTest(linha=linha):
                 self.assertEqual(linha, mascarar.mascarar(linha))
 
+    def test_the_dates_that_stay_and_the_mac_after_a_year_and_a_month_that_does_not_leak(self):
+        # Revisão de 26/11/2026, S5: `2026-12-<mac>` vazava (a borda recusava "dois dígitos e hífen" depois de qualquer não-letra). Montados na hora.
+        with_hyphens = MAC_FF.replace(":", "-")
+        for linha in ("2026-11-26-10-30-15", "2026-11-26-10-30-15-45", "2026-11-26-10-30-15-123", "reau-2026-11-26-10-30-15-123.log",
+                      "2026-11-26 10-30-15", "x 2026-11-26-10-30-15-45-59 ok", "log-2026-11-26-10-30-15-45"):
+            with self.subTest(linha=linha):
+                self.assertEqual(linha, mascarar.mascarar(linha))
+        for texto, esperado in ((f"2026-12-{with_hyphens}", f"2026-{mascarar.MASK_MAC}"), (f"x 2026-12-{with_hyphens.upper()} up", f"x 2026-{mascarar.MASK_MAC} up"),
+                                (f"2026-{with_hyphens}", f"2026-{mascarar.MASK_MAC}"), (f"2026-11-{with_hyphens}-gg", f"2026-{mascarar.MASK_MAC}-gg")):
+            with self.subTest(texto=texto):
+                self.assertEqual(esperado, mascarar.mascarar(texto))
+                self.assertNotIn("bb-cc", mascarar.mascarar(texto))
+
     def test_the_pair_after_a_mac_is_hidden_only_when_it_is_two_whole_hex_digits(self):
         with_hyphens = MAC_FF.replace(":", "-")
         self.assertEqual(f"x {mascarar.MASK_MAC}-123", mascarar.mascarar(f"x {with_hyphens}-123"))

@@ -35,11 +35,12 @@ object LogMask {
     private val OTHER = Regex("""(?:(?<=%[0-9A-Fa-f]{2})|\b)RE_[A-Za-z0-9_]{4,}""")
     private val DASH = Regex("""RE_[A-Za-z0-9]{4}_\d{6}""")
     // A MAC has no edge, like the script's (53d3ad2, 25/11/2026; the `\b` here was left behind): glued to a letter or a digit it is hidden too. The hyphen form has a
-    // left edge, because a date and time holds six pairs split by hyphens (26/11/2026, review B4): it does not start right after a hex digit, nor after two DIGITS and a hyphen
-    // that are not the end of a word (`2026-` of a year, `11-` of a month). A hex LETTER or a single digit before the hyphen (`bssid-`, `wlan0-`, `feed-`, `id-1a-`) is a word,
-    // and the MAC after it is hidden (review of 26/11/2026, C5; it was refused for any hex digit before the hyphen). With no separator it is hidden only after its keyword, and only
-    // when it is exactly twelve digits (a longer run is a hash).
-    private val MAC = Regex("""(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<!^\d\d-)(?<![^A-Za-z]\d\d-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}""")
+    // left edge, because a date and time holds six pairs split by hyphens (26/11/2026, review B4): it does not start right after a hex digit, and a run of SIX PAIRS OF DIGITS
+    // does not start right after a year (`2026-`) or a year and a month (`2026-11-`), where the date's own pairs begin. Only digits: a pair with a hex LETTER cannot be part of a
+    // date, so `2026-12-aa-bb-cc-dd-ee-ff` is hidden (review of 26/11/2026, S5; the edge used to be any two digits and a hyphen, which left it whole). A hex LETTER or a single
+    // digit before the hyphen (`bssid-`, `wlan0-`, `feed-`, `id-1a-`) is a word, and the MAC after it is hidden (review of 26/11/2026, C5). With no separator it is hidden only after
+    // its keyword, and only when it is exactly twelve digits (a longer run is a hash).
+    private val MAC = Regex("""(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<!^\d\d-)(?!(?:(?<=\d{4}-)|(?<=\d{4}-\d\d-))(?:\d\d-){5}\d\d)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}""")
     // A word that ends in two hex digits glued to a MAC (`mac-aa-bb-cc-dd-ee-ff`, `device-00-11-22-33-44-55`) makes [MAC] match one position early (the `ac` of `mac` is a pair)
     // and leave the last pair out, which leaked. The pair that follows the MAC after the same kind of sign, whole, is hidden with it: it hides too much, never too little
     // (review of the plan 34, A5, 26/11/2026). The date `2026-11-26-10-30-15-45` is left as it was: the left edge of the hyphen form refuses it before.

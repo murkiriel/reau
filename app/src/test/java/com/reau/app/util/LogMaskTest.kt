@@ -22,6 +22,7 @@ class LogMaskTest {
     private val macA = mac("aa", "bb", "cc", "dd", "ee", "ff")
     private val macB = mac("12", "34", "56", "78", "9A", "bc")
     private val macHyphen = macA.replace(":", "-")
+    private val macShort = listOf("10", "aa", "bb", "cc", "dd", "ee").joinToString("-")
     private val macBare = macA.replace(":", "")
     private val dash = "RE_" + "AB12" + "_" + "345678"
 
@@ -160,6 +161,17 @@ class LogMaskTest {
             "mac=${macBare}0" to "mac=${macBare}0",
             "2026-11-26-10-30-15 ok" to "2026-11-26-10-30-15 ok",
             "2026-11-26-10-30-15-45 ok" to "2026-11-26-10-30-15-45 ok",
+            // review of 26/11/2026, S5: a MAC after a year and a month does not leak (the pair of a month is a digit pair, the MAC's own pairs have letters), the dates stay
+            "2026-12-$macHyphen" to "2026-${LogMask.MASK_MAC}",
+            "x 2026-12-${macHyphen.uppercase()} up" to "x 2026-${LogMask.MASK_MAC} up",
+            "mac=$macShort" to "mac=${LogMask.MASK_MAC}",
+            "($macShort)" to "(${LogMask.MASK_MAC})",
+            "1-$macShort" to "1-${LogMask.MASK_MAC}",
+            "x 12-$macHyphen" to "x ${LogMask.MASK_MAC}",
+            "2026-11-26-10-30-15-123" to "2026-11-26-10-30-15-123",
+            "reau-2026-11-26-10-30-15-123.log" to "reau-2026-11-26-10-30-15-123.log",
+            "2026-11-26 10-30-15" to "2026-11-26 10-30-15",
+            "log-2026-11-26-10-30-15-45" to "log-2026-11-26-10-30-15-45",
         )
     }
 

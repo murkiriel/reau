@@ -61,6 +61,17 @@ CASOS = [
     ("ts2026-11-26-10-30-15-45 ok", "ts2026-11-26-10-30-15-45 ok"),
     ("x 2026-11-26-10-30-15-45-59 ok", "x 2026-11-26-10-30-15-45-59 ok"),
     ("2026-11-26-10-30-15-45 ok", "2026-11-26-10-30-15-45 ok"),
+    # revisão de 26/11/2026, S5: MAC depois de ano e mês não vaza (o par do mês é de dígitos, os pares do MAC têm letras); as datas continuam
+    (f"2026-12-{MAC_FF.replace(':', '-')}", f"2026-{mascarar.MASK_MAC}"),
+    (f"x 2026-12-{MAC_FF.replace(':', '-').upper()} up", f"x 2026-{mascarar.MASK_MAC} up"),
+    ("mac=" + "-".join(["10", "aa", "bb", "cc", "dd", "ee"]), f"mac={mascarar.MASK_MAC}"),
+    ("(" + "-".join(["10", "aa", "bb", "cc", "dd", "ee"]) + ")", f"({mascarar.MASK_MAC})"),
+    ("1-" + "-".join(["10", "aa", "bb", "cc", "dd", "ee"]), f"1-{mascarar.MASK_MAC}"),
+    (f"x 12-{MAC_FF.replace(':', '-')}", f"x {mascarar.MASK_MAC}"),
+    ("2026-11-26-10-30-15-123", "2026-11-26-10-30-15-123"),
+    ("reau-2026-11-26-10-30-15-123.log", "reau-2026-11-26-10-30-15-123.log"),
+    ("2026-11-26 10-30-15", "2026-11-26 10-30-15"),
+    ("log-2026-11-26-10-30-15-45", "log-2026-11-26-10-30-15-45"),
 ]
 
 
