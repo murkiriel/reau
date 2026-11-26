@@ -107,4 +107,14 @@ class ScreenKeepPolicyTest {
         assertEquals(61L, ScreenKeepPolicy.secondsOff(offSinceMs = 1_000L, nowMs = 62_999L))
         assertEquals("a clock that went back is zero", 0L, ScreenKeepPolicy.secondsOff(offSinceMs = 5_000L, nowMs = 1_000L))
     }
+
+    @Test
+    fun `a moment after a light the log says when the app's activity was not in front, or had no lock screen to show over`() {
+        assertEquals("lockui not-front", ScreenKeepPolicy.frontLine(activityResumed = false, keyguardLocked = true))
+        assertEquals("not resumed counts first, locked or not", "lockui not-front", ScreenKeepPolicy.frontLine(activityResumed = false, keyguardLocked = false))
+        assertEquals("lockui no-keyguard", ScreenKeepPolicy.frontLine(activityResumed = true, keyguardLocked = false))
+        assertNull("in front over the lock screen: the activity says shown itself", ScreenKeepPolicy.frontLine(activityResumed = true, keyguardLocked = true))
+        assertEquals("lockui armed", ScreenKeepPolicy.ARMED_LINE)
+        assertEquals("lockui shown", ScreenKeepPolicy.SHOWN_LINE)
+    }
 }

@@ -82,4 +82,26 @@ internal object ScreenKeepPolicy {
 
     const val SKIP_LINE = "skip proximity"
     const val OFF_LINE = "off"
+
+    /** The app's activity set showWhenLocked and turnScreenOn (the function and its lock-screen choice are on and the projection runs). */
+    const val ARMED_LINE = "lockui armed"
+
+    /** The app's activity was resumed over the lock screen and showed its screen of the function. */
+    const val SHOWN_LINE = "lockui shown"
+
+    /** The screen was lit with the phone locked but REau was not the activity in front (the rider was in another app): nothing could show. */
+    const val NOT_FRONT_LINE = "lockui not-front"
+
+    /** The screen was lit and REau was in front, but the phone had no lock screen up: nothing to show it over. */
+    const val NO_KEYGUARD_LINE = "lockui no-keyguard"
+
+    /**
+     * What a moment after a light of the screen says of the lock screen choice: [NOT_FRONT_LINE] when the app's activity is not the resumed one, [NO_KEYGUARD_LINE] when it
+     * is and the phone is not locked, and null when it is in front over the lock screen (the activity itself says [SHOWN_LINE] then).
+     */
+    fun frontLine(activityResumed: Boolean, keyguardLocked: Boolean): String? = when {
+        !activityResumed -> NOT_FRONT_LINE
+        !keyguardLocked -> NO_KEYGUARD_LINE
+        else -> null
+    }
 }

@@ -1,5 +1,6 @@
 package com.reau.app.service
 
+import android.app.KeyguardManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -15,13 +16,13 @@ import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import com.reau.app.settings.REauSettings
 import com.reau.app.settings.ScreenKeepMode
-import com.reau.app.ui.ScreenKeepActivity
 
 /**
  * "Tela acesa com o celular bloqueado (teste)": while the projection runs and the rider's switch is on, the screen is lit again when it goes off
  * (a short screen wake lock that wakes it up), so the phone's own task killer (realme, Xiaomi) never finds REau in the background with the screen off.
  * The decisions are [ScreenKeepPolicy]'s; this holds the Android parts: the screen broadcasts, the timer, the proximity sensor, the wake lock and, if the
- * rider asked, [ScreenKeepActivity] over the lock screen. Every call and every callback is on the main thread, so nothing here needs a lock.
+ * rider asked, the arming of the app's own activity over the lock screen ([ScreenKeepFront], [com.reau.app.ui.LockOverHost]): the service never starts an activity.
+ * Every call and every callback is on the main thread, so nothing here needs a lock.
  *
  * It lights with a wake lock that always has a timeout and is never held past it, and it never asks for KEEP_SCREEN_ON. The proximity sensor is read
  * only at the moment of lighting, by a listener that lives at most [PROBE_MS].
@@ -44,6 +45,7 @@ internal class ScreenKeeper(
     private var lastWakeMs: Long? = null
     private var tick: Runnable? = null
     private var probe: ProximityRead? = null
+    private var frontCheck: Runnable? = null
 
     /** Bumped at each screen change and at each stop: an answer of the sensor that comes after is of a moment that is gone. */
     private var generation = 0
@@ -65,10 +67,11 @@ internal class ScreenKeeper(
         val changed = s.screenKeepMode != mode || s.screenKeepLockUi != lockUi
         mode = s.screenKeepMode
         lockUi = s.screenKeepLockUi
+        // The app's activity shows over the lock screen from now on, as the maker's own app does (it is the activity in front when the rider locks the phone).
+        ScreenKeepFront.arm(lockUi)
         if (receiver != null) {
             if (!changed) return
             log(ScreenKeepPolicy.onLine(mode, lockUi))
-            if (!lockUi) ScreenKeepActivity.close()
             if (!power().isInteractive) armTimer()
             return
         }
@@ -90,6 +93,7 @@ internal class ScreenKeeper(
     }
 
     private fun turnOff() {
+        ScreenKeepFront.arm(false)
         val heard = receiver ?: return
         receiver = null
         runCatching { app.unregisterReceiver(heard) }
@@ -98,7 +102,8 @@ internal class ScreenKeeper(
         probe?.cancel()
         probe = null
         lock?.takeIf { it.isHeld }?.release()
-        ScreenKeepActivity.close()
+        frontCheck?.let { main.removeCallbacks(it) }
+        frontCheck = null
         log(ScreenKeepPolicy.OFF_LINE)
     }
 
@@ -111,6 +116,7 @@ internal class ScreenKeeper(
         if (!s.screenKeep) return turnOff()
         mode = s.screenKeepMode
         lockUi = s.screenKeepLockUi
+        ScreenKeepFront.arm(lockUi)
         if (mode == ScreenKeepMode.ON_SCREEN_OFF) ask(ScreenKeepPolicy.Trigger.SCREEN_OFF) else armTimer()
     }
 
@@ -176,26 +182,22 @@ internal class ScreenKeeper(
         val at = now()
         lastWakeMs = at
         log(ScreenKeepPolicy.wakeLine(trigger, ScreenKeepPolicy.secondsOff(offSinceMs, at)))
-        if (lockUi) showLockUi()
+        if (lockUi) checkFront()
     }
 
     /**
-     * Tries to bring [ScreenKeepActivity] over the lock screen. Android may refuse an activity started from the background without saying so (it neither
-     * throws nor calls back), so after a moment the log says whether the activity really reached the screen: that is what the test wants to learn.
+     * A moment after lighting the screen with the lock screen choice on: was the app's activity the one in front? The service starts nothing; the activity is already
+     * there (or not: the rider may be in another app) and says `lockui shown` itself when it resumes over the lock screen. The log here says the cases where it did not.
      */
-    private fun showLockUi() {
-        val before = ScreenKeepActivity.resumes
-        try {
-            app.startActivity(
-                Intent(app, ScreenKeepActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION),
-            )
-        } catch (e: RuntimeException) {
-            log("lockui error=${e.javaClass.simpleName}")
-            return
+    private fun checkFront() {
+        frontCheck?.let { main.removeCallbacks(it) }
+        val check = Runnable {
+            frontCheck = null
+            val locked = app.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true
+            ScreenKeepPolicy.frontLine(ScreenKeepFront.resumed, locked)?.let(log)
         }
-        main.postDelayed({
-            log(if (ScreenKeepActivity.resumes > before || ScreenKeepActivity.resumed) "lockui shown" else "lockui blocked")
-        }, SHOWN_CHECK_MS)
+        frontCheck = check
+        main.postDelayed(check, FRONT_CHECK_MS)
     }
 
     private fun power() = app.getSystemService(PowerManager::class.java)
@@ -255,7 +257,7 @@ internal class ScreenKeeper(
         /** The longest the proximity sensor is listened to for one reading. */
         internal const val PROBE_MS = 400L
 
-        /** How long after asking for the activity the log says whether it reached the screen. */
-        internal const val SHOWN_CHECK_MS = 1_500L
+        /** How long after a light of the screen the log says whether the app's activity was in front. */
+        internal const val FRONT_CHECK_MS = 1_500L
     }
 }

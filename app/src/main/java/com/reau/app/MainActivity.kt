@@ -217,10 +217,14 @@ class MainActivity : ComponentActivity() {
 
     private var resumedAtMs = 0L
 
+    // "Mostrar o REau sobre o bloqueio" (0.3.90 test build): this activity is shown over the lock screen, as the maker's own app does (LockOverHost).
+    private val lockOver = com.reau.app.ui.LockOverHost(this)
+
     @Suppress("LongMethod") // one straight run of setup/serialization; cutting it adds indirection and no clarity
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         com.reau.app.util.FrameJank.watch(this, com.reau.app.util.MonotonicClock.nowMs()) { resumedAtMs }
+        lockOver.attach()
         lifecycle.addObserver(dashSearch)
         if (savedInstanceState == null) quickStart(intent)
         setContent {
@@ -262,7 +266,9 @@ class MainActivity : ComponentActivity() {
             val termsStore = remember { com.reau.app.settings.TermsStore.open(this) }
             var termsAccepted by remember { mutableStateOf(!com.reau.app.settings.Terms.needsAcceptance(termsStore.accepted())) }
             androidx.compose.runtime.CompositionLocalProvider(com.reau.app.ui.theme.LocalREauNight provides rememberNight(this, settings)) {
-            if (!termsAccepted) {
+            if (lockOver.over) {
+                com.reau.app.ui.LockOverScreen(lockOver)
+            } else if (!termsAccepted) {
                 com.reau.app.ui.TermsScreen(
                     gate = true,
                     onAccept = {
@@ -500,6 +506,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         onScreen = false
+        lockOver.paused()
         super.onPause()
     }
 
@@ -510,6 +517,7 @@ class MainActivity : ComponentActivity() {
 
     private fun resume() {
         onScreen = true
+        lockOver.resumed()
         resumedAtMs = com.reau.app.util.MonotonicClock.nowMs()
         if (leftForAaSettingsAtMs != 0L) {
             val away = (android.os.SystemClock.elapsedRealtime() - leftForAaSettingsAtMs) / 1_000

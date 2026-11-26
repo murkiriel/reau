@@ -4284,6 +4284,12 @@ MUTATIONS = [
      "distanceCm < maxRangeCm && distanceCm < NEAR_CM", "distanceCm < maxRangeCm", ["ScreenKeepPolicyTest"]),
     ("ProjectionService: a tela acesa não é solta quando a projeção desliga", MAIN + "service/ProjectionService.kt",
      "            locks.release()\n            screenKeeper.stop()\n", "            locks.release()\n", ["ScreenKeepIsWiredTest"]),
+    ("ScreenKeepPolicy: o celular sem a atividade do REau na frente não é dito no registro", MAIN + "service/ScreenKeepPolicy.kt",
+     "!activityResumed -> NOT_FRONT_LINE", "activityResumed -> NOT_FRONT_LINE", ["ScreenKeepPolicyTest"]),
+    ("ScreenKeeper: a tela sobre o bloqueio fica armada depois de a função desligar", MAIN + "service/ScreenKeeper.kt",
+     "        ScreenKeepFront.arm(false)\n        val heard = receiver ?: return\n", "        val heard = receiver ?: return\n", ["ScreenKeepIsWiredTest"]),
+    ("LockOverHost: a tela sobre o bloqueio aparece também com o celular desbloqueado", MAIN + "ui/ScreenKeepOver.kt",
+     "over = ScreenKeepFront.armed.value && locked()", "over = ScreenKeepFront.armed.value", ["ScreenKeepIsWiredTest"]),
     # Registro e diagnóstico portados da 0.4.0 (estado de fundo, versão do sistema do fabricante).
     ('fable/A4 Cabeçalho: um rótulo de imagem de engenharia (`eng.<quem fez>`) é escrito com o nome de quem a fez', MAIN + 'data/SystemBuild.kt',
      'text.contains(ENGINEERING_MARK, ignoreCase = true) || text.contains(BUILDER_MARK) -> ENGINEERING_LABEL', 'text.startsWith("xeng.") -> ENGINEERING_LABEL', ['SystemBuildTest']),
