@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.text.format.DateFormat
+import android.view.ViewGroup
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -27,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -63,8 +65,15 @@ internal class LockOverHost(private val activity: ComponentActivity) {
         }
     }
 
-    /** From the activity's onCreate: follows [ScreenKeepFront.armed] for as long as the activity lives, and hears the unlock by any other way. */
+    /**
+     * From the activity's onPostCreate (after its setContent): adds the layer of [LockOverScreen] on top of the activity's screens (it draws and takes touches only while
+     * [over]), follows [ScreenKeepFront.armed] for as long as the activity lives, and hears the unlock by any other way.
+     */
     fun attach() {
+        activity.addContentView(
+            ComposeView(activity).apply { setContent { if (over) LockOverScreen(this@LockOverHost) } },
+            ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
+        )
         activity.lifecycleScope.launch { ScreenKeepFront.armed.collect { apply(it) } }
         ContextCompat.registerReceiver(activity, unlocked, IntentFilter(Intent.ACTION_USER_PRESENT), ContextCompat.RECEIVER_NOT_EXPORTED)
         activity.lifecycle.addObserver(object : DefaultLifecycleObserver {

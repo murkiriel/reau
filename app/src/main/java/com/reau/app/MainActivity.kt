@@ -224,7 +224,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         com.reau.app.util.FrameJank.watch(this, com.reau.app.util.MonotonicClock.nowMs()) { resumedAtMs }
-        lockOver.attach()
         lifecycle.addObserver(dashSearch)
         if (savedInstanceState == null) quickStart(intent)
         setContent {
@@ -266,9 +265,7 @@ class MainActivity : ComponentActivity() {
             val termsStore = remember { com.reau.app.settings.TermsStore.open(this) }
             var termsAccepted by remember { mutableStateOf(!com.reau.app.settings.Terms.needsAcceptance(termsStore.accepted())) }
             androidx.compose.runtime.CompositionLocalProvider(com.reau.app.ui.theme.LocalREauNight provides rememberNight(this, settings)) {
-            if (lockOver.over) {
-                com.reau.app.ui.LockOverScreen(lockOver)
-            } else if (!termsAccepted) {
+            if (!termsAccepted) {
                 com.reau.app.ui.TermsScreen(
                     gate = true,
                     onAccept = {
@@ -502,6 +499,12 @@ class MainActivity : ComponentActivity() {
                 this, if (installed) R.string.aa_settings_failed else R.string.aa_store_none, android.widget.Toast.LENGTH_LONG,
             ).show()
         }
+    }
+
+    // After onCreate's setContent: the layer over the lock screen is added on top of the screens (LockOverHost).
+    override fun onPostCreate(savedInstanceState: Bundle?) {
+        super.onPostCreate(savedInstanceState)
+        lockOver.attach()
     }
 
     override fun onPause() {

@@ -4288,7 +4288,7 @@ MUTATIONS = [
      "!activityResumed -> NOT_FRONT_LINE", "activityResumed -> NOT_FRONT_LINE", ["ScreenKeepPolicyTest"]),
     ("ScreenKeeper: a tela sobre o bloqueio fica armada depois de a função desligar", MAIN + "service/ScreenKeeper.kt",
      "        ScreenKeepFront.arm(false)\n        val heard = receiver ?: return\n", "        val heard = receiver ?: return\n", ["ScreenKeepIsWiredTest"]),
-    ("LockOverHost: a tela sobre o bloqueio aparece também com o celular desbloqueado", MAIN + "ui/ScreenKeepOver.kt",
+    ("LockOverHost: a tela sobre o bloqueio aparece também com o celular desbloqueado", MAIN + "ui/LockOverHost.kt",
      "over = ScreenKeepFront.armed.value && locked()", "over = ScreenKeepFront.armed.value", ["ScreenKeepIsWiredTest"]),
     ("ScreenKeepPolicy: a pausa do piloto não impede a luz", MAIN + "service/ScreenKeepPolicy.kt",
      "        pausedByRider -> Decision.NOTHING\n", "", ["ScreenKeepPolicyTest"]),
