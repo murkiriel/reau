@@ -212,7 +212,7 @@ class ProjectionResumeIsWiredTest {
         assertTrue("latestCommand = ForegroundHandover.latestForStop(latestCommand, startId, takesForeground = intent == null || action in START_ACTIONS)" in
             body.between("val action = intent?.action", "noteTapDuringStop(action)"))
         val release = body.between("override fun release() {", "override fun startAndroidAuto()")
-        assertTrue(release, "stopSelf(ForegroundHandover.stopId(command, lastStart, latestCommand))" in release)
+        assertTrue(release, "stopSelf(ForegroundHandover.stopId(command, lastStart, latest))" in release)
         assertFalse("no bare stopSelf(command) left", "stopSelf(command)" in release)
         assertEquals("written in one place", 1, Regex("latestCommand = ForegroundHandover.latestForStop").findAll(body).count())
     }

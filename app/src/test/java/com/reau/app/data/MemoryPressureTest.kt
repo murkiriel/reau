@@ -1,5 +1,6 @@
 package com.reau.app.data
 
+import com.reau.app.util.MonotonicClock
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -244,6 +245,36 @@ class MemoryPressureTest {
         assertTrue(service, "device.force(" in service && "signals.attach(onSign)" in service && "signals.detach(it)" in service)
         // The look runs on the worker, where the reader lives: the main thread only hands it over.
         assertTrue(service, "worker.execute { look(why) }" in service)
+    }
+
+    // The two clocks of the review of 26/11/2026: the Application wrote the sign with MonotonicClock (ms since the process began) and the service asked
+    // with SystemClock.elapsedRealtime (ms since the phone booted), so the minute of faster lines never came.
+    private fun String.between(start: String, end: String): String {
+        assertTrue("the anchor is gone: $start", contains(start))
+        val rest = substringAfter(start)
+        assertTrue("the end anchor is gone after '$start': $end", rest.contains(end))
+        return rest.substringBefore(end)
+    }
+
+    @Test
+    fun `the sign and the look use the same clock, the monotonic one`() {
+        val app = code("REauApp.kt")
+        assertEquals(app, 2, Regex("""MemoryPressure\.signals\.\w+\([^)]*MonotonicClock\.nowMs\(\)""").findAll(app).count())
+        val look = code("service/ProjectionService.kt").between("val look = { why: String? ->", "deviceLook?.cancel(false)")
+        assertTrue(look, "val nowMs = com.reau.app.util.MonotonicClock.nowMs()" in look)
+        assertTrue(look, "device.offer(nowMs, state)" in look && "device.force(nowMs, state, why)" in look)
+        assertFalse("the look must not read the boot clock", "SystemClock" in look)
+    }
+
+    @Test
+    fun `with the real objects and one clock the faster lines come, with two clocks they never do`() {
+        val sign = MonotonicClock.nowMs()
+        val real = PressureSignals { }
+        real.trimmed(10, sign)
+        assertEquals(5_000L, real.periodAt(MonotonicClock.nowMs()))
+        // What the service did before: the phone's uptime (hours) against the process's age (seconds).
+        val bootClock = sign + 36_000_000L
+        assertNull(real.periodAt(bootClock))
     }
 
     @Test

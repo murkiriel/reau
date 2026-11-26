@@ -751,6 +751,8 @@ class ProjectionService : Service() {
             }
             stopLookingAtTheDevice()
             ProjectionNotification.clearPhoneHot(this@ProjectionService)
+            // The low-battery notice is about this ride: it goes with it (26/11/2026; a resume after a death by the system is the same ride and keeps it).
+            ProjectionNotification.clearBatteryLow(this@ProjectionService)
             // The Wi-Fi notice goes with the projection, and the voice lets its engine and the audio focus go (a next projection starts clean).
             ProjectionNotification.clearWifiOff(this@ProjectionService)
             // The notices about the dash that stay for the rider to read go with the projection.
@@ -775,7 +777,11 @@ class ProjectionService : Service() {
             }
             RideDiagnostics.stop("projection")
             // With the id of the latest command, not only the stop's own: a mark or a refit that came after it would leave the service started and idle (25/11/2026).
-            stopSelf(ForegroundHandover.stopId(command, lastStart, latestCommand))
+            // latestCommand is read BEFORE lastStart (26/11/2026): the main thread may handle a Ligar (lastStart rises) and then a refit (latestCommand rises) between the
+            // two reads. Read in this order the worst pair is a new lastStart with an old latestCommand, whose stopSelf does nothing (the Ligar's service stays up); read the
+            // other way round, the old lastStart with the refit's id would end the service of the new Ligar.
+            val latest = latestCommand
+            stopSelf(ForegroundHandover.stopId(command, lastStart, latest))
         }
 
         override fun startAndroidAuto() = sides?.startAndroidAuto() ?: Unit
@@ -807,8 +813,11 @@ class ProjectionService : Service() {
         val standby = AppStandbyLog { RideDiagnostics.log("device", it) }
         // Armed for this projection: one warning when the battery passes 44 C, another only after it fell under 41 C (BatteryHeatWatch).
         val heat = BatteryHeatWatch()
-        // Armed for this projection: one warning when the battery is at 10 % or under with no charger, never a second one (BatteryLowWatch, 26/11/2026).
-        val low = BatteryLowWatch()
+        // Armed for this trip: one warning when the battery is at 10 % or under with no charger, never a second one (BatteryLowWatch, 26/11/2026); a projection resumed
+        // after a death by the system is the same trip, and the mark says whether the warning was already given.
+        val told = runCatching { resumeBook.batteryTold() }.getOrDefault(false)
+        val low = BatteryLowWatch(alreadyTold = told)
+        if (told) RideDiagnostics.log("battery", "the low-battery notice was given before the system closed REau: not given again in this ride")
         // Said once for this projection: the reader does not ask for the thermal headroom in this build (the lines have no headroom=).
         RideDiagnostics.log("device", com.reau.app.data.ThermalHeadroomNote.LINE)
         // Said once for this projection: the alert channel muted or blocked in Android (the main screen says it too).
@@ -820,7 +829,10 @@ class ProjectionService : Service() {
                 resumeBook.beat(System.currentTimeMillis(), dashUp = ProjectionResume.dashUp(controller.state.dash))
                 val state = reader.read()
                 standby.offer(reader.appStandby())
-                if (why == null) device.offer(SystemClock.elapsedRealtime(), state) else device.force(SystemClock.elapsedRealtime(), state, why)
+                // The same clock as the memory signs' (REauApp writes PressureSignals with MonotonicClock): with SystemClock.elapsedRealtime here the minute of
+                // faster lines never came, the two readings being hours apart (found in the review of 26/11/2026).
+                val nowMs = com.reau.app.util.MonotonicClock.nowMs()
+                if (why == null) device.offer(nowMs, state) else device.force(nowMs, state, why)
                 ProjectionSummary.current.device(state.thermal, state.batteryPct)
                 warnIfHot(heat, state)
                 warnIfBatteryLow(low, state)
@@ -865,7 +877,7 @@ class ProjectionService : Service() {
     }
 
     /**
-     * The rider's notice that the battery is nearly out with no charger ([BatteryLowWatch]), once per projection, and its line in the ride log: the level, and
+     * The rider's notice that the battery is nearly out with no charger ([BatteryLowWatch]), once per trip, and its line in the ride log: the level, and
      * whether the notice was posted or the rider has the app's notifications off (26/11/2026; the ride of 25/11 went from 12 % to 4 % in 2 minutes).
      */
     private fun warnIfBatteryLow(low: BatteryLowWatch, state: com.reau.app.data.DeviceState) {
@@ -874,6 +886,7 @@ class ProjectionService : Service() {
         val dashUp = ProjectionResume.dashUp(controller.state.dash)
         if (low.offer(pct, state.charging)) {
             val shown = ProjectionNotification.showBatteryLow(this, pct)
+            runCatching { resumeBook.recordBatteryTold() }
             val onDash = low.pillDue(dashUp) && sides?.showBatteryLow(pct) == true
             val pill = if (onDash) "asked" else if (low.pillPending) "waiting for the dash" else "none"
             RideDiagnostics.warn(

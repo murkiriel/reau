@@ -17,7 +17,7 @@ class BatteryLowIsWiredTest {
     fun `the service makes a watch per projection, offers it each look with the level and the charger, and tells the rider on the phone and the dash`() {
         val service = source("service/ProjectionService.kt")
         val look = service.substringAfter("private fun lookAtTheDevice()").substringBefore("private fun warnIfHot")
-        assertTrue(look, "val low = BatteryLowWatch()" in look)
+        assertTrue(look, "val low = BatteryLowWatch(alreadyTold = told)" in look)
         assertTrue(look, "warnIfBatteryLow(low, state)" in look)
         val warn = service.substringAfter("private fun warnIfBatteryLow").substringBefore("/**")
         assertTrue(warn, "if (low.offer(pct, state.charging)) {" in warn && "low.pillDue(dashUp)" in warn)

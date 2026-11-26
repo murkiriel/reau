@@ -40,4 +40,12 @@ class SystemBuildTest {
         assertEquals("eng-build", SystemBuild.label("ENG.someone.20250101.120000"))
         assertEquals("engine.1", SystemBuild.label("engine.1"))
     }
+
+    @Test
+    fun `the engineering mark is found anywhere in the label, and a user at host too`() {
+        assertEquals("eng-build", SystemBuild.label("AP1A.240405.002_eng.alice.20240610.12121"))
+        assertEquals("eng-build", SystemBuild.label("AP1A.240405.002 eng.alice.20240610 test-keys"))
+        assertEquals("eng-build", SystemBuild.label("AP1A.240405.002.alice@buildhost"))
+        assertEquals("a label that only has the letters is kept", "AP1A.240405.002_engine.1", SystemBuild.label("AP1A.240405.002 engine.1"))
+    }
 }

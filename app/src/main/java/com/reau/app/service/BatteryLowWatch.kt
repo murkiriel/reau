@@ -9,10 +9,12 @@ package com.reau.app.service
  * battery is at [lowPct] or under with the charger out; never again in this projection, however much the percentage wobbles around the limit (10, 11, 10).
  * A projection that starts already under the limit is told at its first look. A look that does not know (a null or negative percentage, an unknown
  * charging state) says nothing and changes nothing, and a charger in says nothing and leaves the watch armed (it is the charger out that is the danger).
- * One watch per projection: a new projection is a new object, armed, as [BatteryHeatWatch].
+ * One watch per projection: a new projection is a new object, armed, as [BatteryHeatWatch]. A projection resumed after a death by the system is a new object too,
+ * but the same ride: it is made with [alreadyTold] true when the ride's mark says the notice was given, so the rider hears it once per trip, not once per process
+ * (26/11/2026, the review of the plan 35: with 8 % of battery and two deaths in 40 s the notice would have sounded again).
  */
-class BatteryLowWatch(private val lowPct: Int = LOW_PCT) {
-    private var told = false
+class BatteryLowWatch(private val lowPct: Int = LOW_PCT, alreadyTold: Boolean = false) {
+    private var told = alreadyTold
 
     /** The look at [batteryPct] with the charger [charging] (null: not known); true when the rider is to be told now. */
     fun offer(batteryPct: Int?, charging: Boolean?): Boolean {

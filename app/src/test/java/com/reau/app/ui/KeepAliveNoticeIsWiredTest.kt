@@ -90,11 +90,21 @@ class KeepAliveNoticeIsWiredTest {
     }
 
     @Test
+    fun `the page reads the battery exemption again each time the screen comes back, and lets the observer go`() {
+        val route = source("ui/KeepAliveRoute.kt").between("var exempt by remember", "var answers by remember")
+        assertTrue(route, "DisposableEffect(context) {" in route)
+        assertTrue(route, "(context as? LifecycleOwner)?.lifecycle" in route)
+        assertTrue(route, "if (event == Lifecycle.Event.ON_RESUME) exempt = BatteryWatch.read(context).exempt" in route)
+        assertTrue(route, "lifecycle?.addObserver(observer)" in route && "onDispose { lifecycle?.removeObserver(observer) }" in route)
+        assertFalse("not read once and kept", "val exempt = remember" in source("ui/KeepAliveRoute.kt"))
+    }
+
+    @Test
     fun `the page is routed with what it needs from the phone, and opening it answers the notice`() {
         val activity = source("MainActivity.kt")
         assertTrue(activity.contains("SettingsPage.KEEP_ALIVE -> com.reau.app.ui.KeepAliveRoute(activity, back)"))
         val route = source("ui/KeepAliveRoute.kt")
-        assertTrue(route, "val exempt = remember { BatteryWatch.read(context).exempt }" in route)
+        assertTrue(route, "var exempt by remember { mutableStateOf(BatteryWatch.read(context).exempt) }" in route)
         assertTrue(route, "KeepAliveChecklist.answer(context, item, checked)" in route && "answers = KeepAliveChecklist.answers(context)" in route)
         assertTrue(route, "KeepAliveOpenAndroid.openFor(context, brand)" in route)
         assertTrue(route, "onSeen = { KeepAliveNotice.answered(context, KeepAliveGuide.hasNotice(brand), \"opened the steps\") }" in route)

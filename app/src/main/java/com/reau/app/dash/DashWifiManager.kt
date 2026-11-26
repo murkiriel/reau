@@ -690,6 +690,8 @@ class DashWifiManager(
             status = WifiConnStatus.REQUESTING,
             ssid   = pendingSsid,
             error  = context.getString(com.reau.app.R.string.dash_err_wifi_lost),
+            // The log's words, in fixed English ([WifiState.cause]): the screen's text above is in the rider's language (26/11/2026).
+            cause  = "dash network unavailable mid-session: the dash's AP is missing, retrying",
         )
         reconnectActedMs = MonotonicClock.nowMs()
         noteFailedTry()
@@ -857,6 +859,8 @@ class DashWifiManager(
             status = WifiConnStatus.REQUESTING,
             ssid   = pendingSsid,
             error  = context.getString(com.reau.app.R.string.dash_err_link_lost),
+            // The log's words, in fixed English ([WifiState.cause]): the screen's text above is in the rider's language (26/11/2026).
+            cause  = "dash network lost, retrying",
         )
         reconnectActedMs = MonotonicClock.nowMs()
         if (wantConnected) {
@@ -1019,6 +1023,8 @@ class DashWifiManager(
                 status = WifiConnStatus.REQUESTING,
                 ssid   = pendingSsid,
                 error  = context.getString(com.reau.app.R.string.dash_err_link_lost),
+                // The log's words, in fixed English ([WifiState.cause]): the screen's text above is in the rider's language (26/11/2026).
+                cause  = "dash network refused the bind, retrying",
             )
             reconnectActedMs = MonotonicClock.nowMs()
             if (verdict.step == BindRefusals.Step.ASK_AGAIN) {

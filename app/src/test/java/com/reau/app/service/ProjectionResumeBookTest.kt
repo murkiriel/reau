@@ -192,4 +192,45 @@ class ProjectionResumeBookTest {
         assertEquals("the numbers it can read", listOf(12L, 34L), book.read()!!.resumedAtMs)
         assertNotNull(book.read())
     }
+
+    @Test
+    fun `the removal from the recent apps is committed, so that a manager that ends the process a moment later cannot lose it`() {
+        book.begin(t0, card = false)
+        val commitsBefore = prefs.commits
+        val appliesBefore = prefs.applies
+        book.taskRemoved(t0 + minute)
+        assertEquals("one commit for the removal", commitsBefore + 1, prefs.commits)
+        assertEquals("and no apply left behind", appliesBefore, prefs.applies)
+    }
+
+    @Test
+    fun `the low battery notice given is kept with the mark, through a resume, and the next Ligar or the erasing take it away`() {
+        assertFalse("no mark, nothing told", book.batteryTold())
+        book.recordBatteryTold()
+        assertTrue("nothing is written without a mark", prefs.map.isEmpty())
+        book.begin(t0, card = false)
+        assertFalse(book.batteryTold())
+        book.recordBatteryTold()
+        assertTrue(book.batteryTold())
+        // The system ends the process and the service comes back: the same ride, so the notice is still given.
+        book.recordResume(t0 + 5 * minute, listOf(t0 + 5 * minute))
+        assertTrue("kept by a resume", book.batteryTold())
+        assertTrue("and by a beat", book.beat(t0 + 7 * minute, dashUp = true) && book.batteryTold())
+        // The rider's next Ligar is a new trip.
+        book.begin(t0 + 20 * minute, card = false)
+        assertFalse("a new Ligar starts without it", book.batteryTold())
+        book.recordBatteryTold()
+        book.erase()
+        assertFalse("the Desligar erases it with the mark", book.batteryTold())
+        book.recordBatteryTold()
+        assertTrue("a late look after the erasing brings nothing back", prefs.map.isEmpty())
+    }
+
+    @Test
+    fun `the low battery notice given is committed, because the system may close the process again within seconds`() {
+        book.begin(t0, card = false)
+        val commitsBefore = prefs.commits
+        book.recordBatteryTold()
+        assertEquals(commitsBefore + 1, prefs.commits)
+    }
 }

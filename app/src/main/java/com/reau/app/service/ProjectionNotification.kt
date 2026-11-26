@@ -307,16 +307,22 @@ object ProjectionNotification {
      */
     fun showDashSilent(context: Context) = showAlert(context, ID_DASH_SILENT, R.string.notif_title_dash_silent, R.string.notif_text_dash_silent)
 
+    /** The projection is over: the notice of [showBatteryLow] goes. */
+    fun clearBatteryLow(context: Context) {
+        context.getSystemService(NotificationManager::class.java).cancel(ID_BATTERY_LOW)
+    }
+
     /** The dash talks again (or the projection is off): the notice of [showDashSilent] goes. */
     fun clearDashSilent(context: Context) {
         context.getSystemService(NotificationManager::class.java).cancel(ID_DASH_SILENT)
     }
 
     /**
-     * Told once per projection when the phone's battery is at [pct] percent with no charger ([BatteryLowWatch]), in the alert channel so it is heard with the
+     * Told once per trip when the phone's battery is at [pct] percent with no charger ([BatteryLowWatch]), in the alert channel so it is heard with the
      * screen off in a pocket (the ride of 25/11/2026 went from 12 % to 4 % in 2 minutes and the phone shut REau down). Nothing is posted when the rider has
-     * the app's notifications off (Android 13 and later: no POST_NOTIFICATIONS); the answer says whether it was posted, for the ride log. No clear: it is a fact
-     * of the ride, not a state that goes away. 26/11/2026.
+     * the app's notifications off (Android 13 and later: no POST_NOTIFICATIONS); the answer says whether it was posted, for the ride log. It stays while the
+     * projection runs (a resume after a death by the system keeps it, and does not post it again); [clearBatteryLow] takes it away when the projection ends, so a
+     * notice about a ride that is over (and a phone that may be charging by now) is not left in the bar (26/11/2026).
      */
     fun showBatteryLow(context: Context, pct: Int): Boolean {
         val manager = context.getSystemService(NotificationManager::class.java)

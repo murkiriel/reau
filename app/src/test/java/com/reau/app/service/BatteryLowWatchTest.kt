@@ -81,4 +81,12 @@ class BatteryLowWatchTest {
         assertFalse("only once", w.pillDue(dashUp = true))
         assertFalse(w.pillPending)
     }
+
+    @Test
+    fun `a projection resumed after the system closed REau does not tell again what the ride's mark says was told`() {
+        val resumed = BatteryLowWatch(alreadyTold = true)
+        assertEquals("the same low battery, the same ride: nothing", listOf(false, false, false), resumed.run(9 to false, 7 to false, 4 to false))
+        assertFalse("and no pill is left waiting", resumed.pillPending)
+        assertTrue("a ride that was not told is told at its first look", BatteryLowWatch(alreadyTold = false).offer(9, false))
+    }
 }

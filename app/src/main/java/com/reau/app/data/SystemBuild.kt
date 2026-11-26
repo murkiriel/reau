@@ -8,8 +8,13 @@ package com.reau.app.data
 object SystemBuild {
     private const val MAX_LENGTH = 40
 
-    /** A label an engineering build stamps with the name of whoever built it (`eng.<user>.<date>`): never written out. */
-    private const val ENGINEERING_PREFIX = "eng."
+    /**
+     * A label an engineering build stamps with the name of whoever built it (`eng.<user>.<date>`): never written out. Anywhere in the text, not only at its start
+     * (26/11/2026): a home-made or userdebug ROM writes `<ID> eng.<user>.<date>` or `<ID>_eng.<user>...`, and 40 characters can still hold the name. An `@` (the
+     * `user@host` of a build machine) is the same sign.
+     */
+    private const val ENGINEERING_MARK = "eng."
+    private const val BUILDER_MARK = "@"
     private const val ENGINEERING_LABEL = "eng-build"
     private const val UNKNOWN = "?"
 
@@ -18,13 +23,13 @@ object SystemBuild {
 
     /**
      * One label on one line: printable ASCII only (the rest, and every space, becomes `_`), at most [MAX_LENGTH] characters, `?` when empty or null, and
-     * [ENGINEERING_LABEL] for a label that starts as an engineering build's does.
+     * [ENGINEERING_LABEL] for a label that has an engineering build's mark (`eng.`) or a `user@host` in it.
      */
     internal fun label(raw: String?): String {
         val text = raw?.trim().orEmpty()
         return when {
             text.isEmpty() -> UNKNOWN
-            text.startsWith(ENGINEERING_PREFIX, ignoreCase = true) -> ENGINEERING_LABEL
+            text.contains(ENGINEERING_MARK, ignoreCase = true) || text.contains(BUILDER_MARK) -> ENGINEERING_LABEL
             else -> text.map { if (it in '!'..'~') it else '_' }.joinToString("").take(MAX_LENGTH)
         }
     }

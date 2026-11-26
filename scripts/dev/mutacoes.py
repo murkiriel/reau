@@ -5619,7 +5619,7 @@ MUTATIONS += [
     ("plano35/R1.4b Release: um Ligar vira o id do stopSelf e um Desligar no meio dele encerra a projeção nova", MAIN + "service/ForegroundHandover.kt",
      "if (takesForeground) latest else startId", "startId", ["ForegroundHandoverTest"]),
     ("plano35/R1.4 Release: o serviço não usa o id do último comando de qualquer tipo", MAIN + "service/ProjectionService.kt",
-     "stopSelf(ForegroundHandover.stopId(command, lastStart, latestCommand))", "stopSelf(command)", ["ProjectionResumeIsWiredTest"]),
+     "stopSelf(ForegroundHandover.stopId(command, lastStart, latest))", "stopSelf(command)", ["ProjectionResumeIsWiredTest"]),
     ("plano35/R1.6 Retomada: reabrir o app não limpa o aviso de que o piloto tirou o app dos recentes", MAIN + "service/ProjectionResumeBook.kt",
      "if (prefs.contains(REMOVED)) prefs.edit { remove(REMOVED) }", "", ["ProjectionResumeBookTest"]),
     ("plano35/R1.6 Retomada: a tela principal não avisa a marca de que o piloto voltou ao app", MAIN + "MainActivity.kt",
@@ -5659,8 +5659,8 @@ MUTATIONS += [
      "fun isPressure(level: Int): Boolean = level == RUNNING_LOW || level == RUNNING_CRITICAL || level == COMPLETE",
      "fun isPressure(level: Int): Boolean = level == RUNNING_CRITICAL || level == COMPLETE", ["MemoryPressureTest"]),
     ("plano35/B1 Pressão de memória: o sinal do sistema não escreve a linha [device] na hora (só espera o período)", MAIN + "service/ProjectionService.kt",
-     "if (why == null) device.offer(SystemClock.elapsedRealtime(), state) else device.force(SystemClock.elapsedRealtime(), state, why)",
-     "device.offer(SystemClock.elapsedRealtime(), state)", ["MemoryPressureTest"]),
+     "if (why == null) device.offer(nowMs, state) else device.force(nowMs, state, why)",
+     "device.offer(nowMs, state)", ["MemoryPressureTest"]),
     ("plano35/B1 Pressão de memória: o Application não ouve o onTrimMemory", MAIN + "REauApp.kt",
      "runCatching { com.reau.app.data.MemoryPressure.signals.trimmed(level, com.reau.app.util.MonotonicClock.nowMs()) }", "runCatching { Unit }", ["MemoryPressureTest"]),
     ("plano35/B1 Pressão de memória: o psi do kernel não entra na linha [device]", MAIN + "service/DeviceStateReader.kt",
@@ -5754,7 +5754,7 @@ MUTATIONS += [
 MUTATIONS += [
     # A4 do plano dos pilotos Xiaomi e realme (26/11/2026): o registro diz a versão do sistema do fabricante, o balde de uso e a restrição de segundo plano.
     ("fable/A4 Cabeçalho: um rótulo de imagem de engenharia (`eng.<quem fez>`) é escrito com o nome de quem a fez", MAIN + "data/SystemBuild.kt",
-     "text.startsWith(ENGINEERING_PREFIX, ignoreCase = true) -> ENGINEERING_LABEL", 'text.startsWith("xeng.") -> ENGINEERING_LABEL', ["SystemBuildTest"]),
+     "text.contains(ENGINEERING_MARK, ignoreCase = true) || text.contains(BUILDER_MARK) -> ENGINEERING_LABEL", 'text.startsWith("xeng.") -> ENGINEERING_LABEL', ["SystemBuildTest"]),
     ("fable/A4 Cabeçalho: o rótulo da versão do sistema não é cortado", MAIN + "data/SystemBuild.kt",
      "private const val MAX_LENGTH = 40", "private const val MAX_LENGTH = 4000", ["SystemBuildTest"]),
     ("fable/A4 Cabeçalho: a linha de início do processo não traz a versão do sistema", MAIN + "data/RideDiagnostics.kt",
@@ -5789,6 +5789,43 @@ MUTATIONS += [
      '        if (said) log("voice: $cue said")\n', "", ["RiderVoiceTest"]),
     ("fable/A8 Fala: o serviço não fala quando a projeção volta", MAIN + "service/ProjectionService.kt",
      "            ProjectionResume.voiceCueFor(resumedAttempt)?.let { RiderVoice.speak(it) }\n", "", ["ResumeVoiceIsWiredTest"]),
+]
+
+
+MUTATIONS += [
+    # A revisão do plano 35 e dos itens do Fable (26/11/2026): os relógios do reforço de memória, a remoção dos recentes gravada de fato, a ordem das leituras do stopSelf,
+    # o aviso de bateria uma vez por viagem, o rótulo de engenharia em qualquer ponto, a causa em inglês nos quatro estados do Wi-Fi e a isenção relida ao voltar.
+    ("revisao35/1 Relógio: o serviço consulta o reforço de memória com o relógio do celular e não com o do app (o minuto de linhas rápidas nunca vem)", MAIN + "service/ProjectionService.kt",
+     "val nowMs = com.reau.app.util.MonotonicClock.nowMs()\n                if (why == null)", "val nowMs = SystemClock.elapsedRealtime()\n                if (why == null)", ["MemoryPressureTest"]),
+    ("revisao35/2.3 Remoção dos recentes: a marca é gravada com apply e um kill logo depois a perde", MAIN + "service/ProjectionResumeBook.kt",
+     "prefs.edit(commit = true) { putLong(REMOVED, nowMs) }", "prefs.edit { putLong(REMOVED, nowMs) }", ["ProjectionResumeBookTest", "Revisao35IsWiredTest"]),
+    ("revisao35/2.4 stopSelf: o último start é lido antes do último comando", MAIN + "service/ProjectionService.kt",
+     "            val latest = latestCommand\n            stopSelf(ForegroundHandover.stopId(command, lastStart, latest))\n",
+     "            stopSelf(ForegroundHandover.stopId(command, lastStart, latestCommand))\n", ["Revisao35IsWiredTest"]),
+    ("revisao35/2.6 Bateria fraca: uma projeção retomada depois da morte pelo sistema avisa de novo", MAIN + "service/BatteryLowWatch.kt",
+     "private var told = alreadyTold", "private var told = false", ["BatteryLowWatchTest"]),
+    ("revisao35/2.6 Bateria fraca: o novo Ligar herda o aviso da viagem anterior", MAIN + "service/ProjectionResumeBook.kt",
+     "            remove(BATTERY_TOLD)\n", "", ["ProjectionResumeBookTest"]),
+    ("revisao35/2.6 Bateria fraca: o serviço não pergunta à marca se o aviso já saiu", MAIN + "service/ProjectionService.kt",
+     "val low = BatteryLowWatch(alreadyTold = told)", "val low = BatteryLowWatch()", ["Revisao35IsWiredTest", "BatteryLowIsWiredTest"]),
+    ("revisao35/2.6 Bateria fraca: o aviso dado não fica na marca", MAIN + "service/ProjectionService.kt",
+     "            runCatching { resumeBook.recordBatteryTold() }\n", "", ["Revisao35IsWiredTest"]),
+    ("revisao35/2.6 Bateria fraca: a notificação fica na barra depois do fim da projeção", MAIN + "service/ProjectionService.kt",
+     "            ProjectionNotification.clearBatteryLow(this@ProjectionService)\n", "", ["Revisao35IsWiredTest"]),
+    ("revisao35/2.7 Rótulo: o `eng.` no meio do texto do sistema é escrito com o nome de quem compilou", MAIN + "data/SystemBuild.kt",
+     "text.contains(ENGINEERING_MARK, ignoreCase = true) || text.contains(BUILDER_MARK) -> ENGINEERING_LABEL",
+     "text.startsWith(ENGINEERING_MARK, ignoreCase = true) || text.contains(BUILDER_MARK) -> ENGINEERING_LABEL", ["SystemBuildTest"]),
+    ("revisao35/2.7 Rótulo: o `usuário@máquina` no texto do sistema é escrito", MAIN + "data/SystemBuild.kt",
+     "text.contains(ENGINEERING_MARK, ignoreCase = true) || text.contains(BUILDER_MARK) -> ENGINEERING_LABEL",
+     "text.contains(ENGINEERING_MARK, ignoreCase = true) -> ENGINEERING_LABEL", ["SystemBuildTest"]),
+    ("revisao35/nota Wi-Fi: a perda no meio da sessão manda o texto do piloto para o registro (sem causa em inglês)", MAIN + "dash/DashWifiManager.kt",
+     '            cause  = "dash network lost, retrying",\n', "", ["DashWifiCauseIsWiredTest"]),
+    ("revisao35/nota Wi-Fi: a recusa do bind manda o texto do piloto para o registro (sem causa em inglês)", MAIN + "dash/DashWifiManager.kt",
+     '                cause  = "dash network refused the bind, retrying",\n', "", ["DashWifiCauseIsWiredTest"]),
+    ("revisao35/nota Wi-Fi: o ponto do painel ausente no meio da sessão manda o texto do piloto (sem causa em inglês)", MAIN + "dash/DashWifiManager.kt",
+     '            cause  = "dash network unavailable mid-session: the dash\'s AP is missing, retrying",\n', "", ["DashWifiCauseIsWiredTest"]),
+    ("revisao35/2.5 Manter vivo: a página lê a isenção uma vez e não ao voltar à tela", MAIN + "ui/KeepAliveRoute.kt",
+     "if (event == Lifecycle.Event.ON_RESUME) exempt", "if (event == Lifecycle.Event.ON_PAUSE) exempt", ["KeepAliveNoticeIsWiredTest"]),
 ]
 
 
