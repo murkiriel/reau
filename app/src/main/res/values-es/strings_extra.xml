@@ -6,6 +6,7 @@
     <string name="problem_compositor">el compositor de video (OpenGL) no arrancó: no hay imagen para el tablero</string>
     <!-- The notification's line after the Mark button: the number of the mark and the time it was taken. -->
     <string name="notif_mark_done">Guardada a las %2$s como marca %1$d</string>
+    <string name="notif_resumed">Retomado después de que el sistema cerró REau</string>
     <!-- The sample street on the legibility card sent to the dash; the text size is written before it. -->
     <string name="card_legibility_sample">Calle 300 m</string>
     <!-- The sixteen points of the compass for the wind, from north in steps of 22.5 degrees. -->

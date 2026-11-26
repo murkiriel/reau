@@ -97,7 +97,9 @@ interface ProjectionSides {
  * (never the main thread: stopping Android Auto's receiver may wait a few seconds).
  *
  * [start] and [stop] are all the screen needs; [projection] is where things stand, for the screen and the
- * notification. Nothing starts by itself: not after a reboot, not when the process is killed.
+ * notification. Nothing starts by itself after a reboot. One thing comes back by itself: the projection the rider had on when the system ended the
+ * process (not a force stop) is resumed once, as if Ligar had been tapped, within the limits of [ProjectionResume]; the service answers START_STICKY only
+ * while the projection is the rider's and running, and every way the rider (or the dash's absence) turns it off erases the mark that lets it come back.
  */
 @Suppress("TooManyFunctions") // one small function per case; splitting them would only scatter the same thing
 class ProjectionService : Service() {
@@ -291,6 +293,15 @@ class ProjectionService : Service() {
     // The start id of the last start that took the foreground; written on the main thread, read by the worker.
     @Volatile private var lastStart = 0
 
+    // The mark that lets the projection come back after the system ended the process (ProjectionResume); read on the main thread at a restart, written on the worker.
+    private val resumeBook by lazy { ProjectionResumeBook.open(this) }
+
+    // Whether the projection is the rider's and running with the resume switched on: the service then answers START_STICKY; written on the main thread, read by the worker.
+    @Volatile private var resumable = false
+
+    // Which resume of the window this projection is (1 to 3), 0 when the rider tapped Ligar: for the log line and the notification's sub text; main thread and worker.
+    @Volatile private var resumedAttempt = 0
+
     // When the rider's Desligar reached the service, until its effects are done (0: none going on). The stop is carried
     // out on the one worker and may take seconds (the receiver's bye); a Ligar tapped meanwhile waits behind it, with
     // the screen already saying "parado". Only for the log, to see that wait.
@@ -304,6 +315,7 @@ class ProjectionService : Service() {
 
     /** What the notification says after a mark (the service's context: the language the rider chose); null before the first. */
     private fun markNote(): String? = marks.markedAt?.let { getString(R.string.notif_mark_done, marks.count, it) }
+        ?: resumedAttempt.takeIf { it > 0 }?.let { getString(R.string.notif_resumed) }
 
     // The phone's state looked at while the projection is on; only the worker reads and writes it.
     private var deviceLook: ScheduledFuture<*>? = null
@@ -380,12 +392,18 @@ class ProjectionService : Service() {
         when (action) {
             ACTION_START, ACTION_START_CARD -> if (goForeground()) {
                 lastStart = startId
+                resumedAttempt = 0
+                resumable = resumeSwitchOn()
                 val card = intent.action == ACTION_START_CARD
                 handle(startId, if (card) ProjectionEvent.StartCard else ProjectionEvent.Start, sidesFor = card)
             } else {
                 stopSelf(startId)
             }
-            ACTION_STOP -> handle(startId, ProjectionEvent.Stop)
+            ACTION_STOP -> {
+                // Not sticky from the moment the rider's Desligar arrives: a process killed during the stop is not brought back.
+                resumable = false
+                handle(startId, ProjectionEvent.Stop)
+            }
             ACTION_MARK -> worker.execute {
                 if (!markApplies(controller.state.phase)) {
                     stopSelf(startId)
@@ -403,10 +421,69 @@ class ProjectionService : Service() {
                     stopSelf(startId)
                 }
             }
-            // A restart by the system (no intent): the projection is not resumed by itself.
-            else -> stopSelf(startId)
+            // A restart by the system (no intent): the projection comes back only when ProjectionResume says so; any other command stays stopped.
+            else -> if (intent != null || !resumeAfterRestart(startId)) stopSelf(startId)
         }
-        return START_NOT_STICKY
+        return ProjectionResume.returnFor(resumable)
+    }
+
+    /** Whether the rider's switch for resuming is on (read at each Ligar; a failure reads as off). */
+    private fun resumeSwitchOn(): Boolean = runCatching { SettingsStore.open(this).load().resumeAfterKill }.getOrDefault(false)
+
+    /**
+     * A restart by the system, with no intent: the process was ended with the projection on. If [ProjectionResume.decide] says yes, the projection starts
+     * as Ligar would start it, the foreground with the connected device type alone; if not, or if anything goes wrong, the mark is erased and the service stops.
+     * True when it was resumed.
+     */
+    @Suppress("TooGenericExceptionCaught") // whatever a resume throws ends here: a restart that crashes the process would be started again by the system
+    private fun resumeAfterRestart(startId: Int): Boolean {
+        val resumed = try {
+            val enabled = SettingsStore.open(this).load().resumeAfterKill
+            when (val verdict = ProjectionResume.decide(resumeBook.read(), enabled, System.currentTimeMillis())) {
+                is ProjectionResume.Verdict.Drop -> false.also { logResume(ProjectionResume.notResumedLine(verdict.why)) }
+                is ProjectionResume.Verdict.Resume -> resumeNow(verdict, startId)
+            }
+        } catch (e: Exception) {
+            logResume(ProjectionResume.notResumedLine("${e.javaClass.simpleName} while resuming"))
+            false
+        }
+        if (!resumed) forgetResume()
+        return resumed
+    }
+
+    /** The resume of [verdict], counted before anything else is tried, so a process that dies again at once is stopped by the limit. */
+    private fun resumeNow(verdict: ProjectionResume.Verdict.Resume, startId: Int): Boolean {
+        resumeBook.recordResume(System.currentTimeMillis(), verdict.resumedAtMs)
+        if (!goForeground(restart = true)) {
+            logResume(ProjectionResume.notResumedLine("the foreground start was refused (the lines above say how)"))
+            return false
+        }
+        lastStart = startId
+        resumable = true
+        resumedAttempt = verdict.attempt
+        handle(startId, if (verdict.card) ProjectionEvent.StartCard else ProjectionEvent.Start, sidesFor = verdict.card, fresh = false)
+        return true
+    }
+
+    /** The rider's projection is over (turned off, stopped for the dash's absence, or refused to start), or cannot be resumed: nothing is left to bring back. */
+    private fun forgetResume() {
+        resumable = false
+        resumedAttempt = 0
+        runCatching { resumeBook.erase() }.onFailure { logResume("the resume mark could not be erased: ${it.javaClass.simpleName}") }
+    }
+
+    private fun logResume(line: String) {
+        runCatching { RideDiagnostics.log("projection", line) }
+    }
+
+    /**
+     * The rider took the app off the recent apps. Android keeps the service going, and the projection with it; but a maker's manager may end the process
+     * right then, and the restart that follows is not to bring the projection back against what the rider just did: the mark says so until the rider's next
+     * Ligar ([ProjectionResume.decide]). Nothing else changes: the projection goes on, and it still stops where it always did.
+     */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        runCatching { resumeBook.taskRemoved(System.currentTimeMillis()) }
+        super.onTaskRemoved(rootIntent)
     }
 
     override fun onDestroy() {
@@ -463,8 +540,10 @@ class ProjectionService : Service() {
      * The machine takes [event] on the worker. [commandId] is the start id of the command that brought it: the
      * service is stopped with it, so a stop never ends a service that has meanwhile been asked to start again.
      */
-    private fun handle(commandId: Int, event: ProjectionEvent, sidesFor: Boolean? = null) = worker.execute {
+    private fun handle(commandId: Int, event: ProjectionEvent, sidesFor: Boolean? = null, fresh: Boolean = true) = worker.execute {
         command = commandId
+        // The rider's Ligar leaves its mark here, on the worker, after any stop still being carried out (whose release erases the mark): a resume keeps the one it has.
+        if (fresh && sidesFor != null && resumable) runCatching { resumeBook.begin(System.currentTimeMillis(), card = sidesFor) }
         if (sidesFor != null && buildsSides(sidesFor, controller.state.phase)) buildSides(card = sidesFor)
         controller.submit(event)
         if (event == ProjectionEvent.Stop && stopTappedAtMs != 0L) {
@@ -513,9 +592,10 @@ class ProjectionService : Service() {
 
     /**
      * Android expects startForeground() after every startForegroundService(). The types are tried richest first
-     * ([ForegroundTypes]: the microphone too with Gemini); false if every one was refused.
+     * ([ForegroundTypes]: the microphone too with Gemini); false if every one was refused. With [restart] (the system started the service again
+     * with no intent) the connected device type alone is asked for ([ProjectionResume.typesFor]).
      */
-    private fun goForeground(): Boolean {
+    private fun goForeground(restart: Boolean = false): Boolean {
         var why = ""
         // Gemini switched on and the permission to record given: the microphone type. The precise location permission given: the location type,
         // for the dash's Wi-Fi list with the app behind another one (and the info ring's GPS), whatever the ring or "Usar a localização".
@@ -525,7 +605,7 @@ class ProjectionService : Service() {
             recordAudioGranted = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED,
             fineLocationGranted = fineLocationGranted,
         )
-        for (types in ForegroundTypes.ladder(microphone = needs.microphone, location = needs.location)) {
+        for (types in ProjectionResume.typesFor(restart, microphone = needs.microphone, location = needs.location)) {
             val refusal = try {
                 ProjectionNotification.createChannel(this)
                 ProjectionNotification.refreshAlertChannel(this)
@@ -534,7 +614,7 @@ class ProjectionService : Service() {
                 worker.execute { pacer.alreadyShown(Headline.PREPARING) }
                 // What Android really accepted, not what was asked for (minSdk 29 has foregroundServiceType).
                 acceptedTypes = foregroundServiceType
-                foregroundNotes(acceptedTypes, needs, fineLocationGranted).forEach(::log)
+                (if (restart) ProjectionResume.foregroundNotes(acceptedTypes) else foregroundNotes(acceptedTypes, needs, fineLocationGranted)).forEach(::log)
                 return true
             } catch (e: IllegalStateException) {
                 e
@@ -553,6 +633,8 @@ class ProjectionService : Service() {
         override fun prepare(): String? {
             // One ride log per projection, in <external files>/diag, where `adb pull` reaches it.
             RideDiagnostics.start("projection")
+            // After the session's own start, so the reader finds it inside the projection it belongs to.
+            resumedAttempt.takeIf { it > 0 }?.let { logResume(ProjectionResume.resumedLine(it)) }
             val inUse = SettingsStore.open(this@ProjectionService).load().sanitized()
             RideDiagnostics.log("settings", SettingsInUse.line(inUse))
             marks.reset()
@@ -599,6 +681,8 @@ class ProjectionService : Service() {
         }
 
         override fun release() {
+            // The rider's Desligar, the stop for the dash's absence, a refused start: nothing is left to resume. Not when a start came after this stop (it has, or will make, its own mark).
+            if (ForegroundHandover.dropsForeground(command, lastStart)) forgetResume()
             publish { started.value = null }
             // The browser switch goes off with the projection and stays off until the rider turns it on again.
             // Not when a start came after this stop: that run is the rider's now (it turned the switch off itself when it began).
@@ -669,6 +753,8 @@ class ProjectionService : Service() {
         deviceLook?.cancel(false)
         deviceLook = worker.scheduleWithFixedDelay({
             runCatching {
+                // The sign of life the resume's mark is renewed with, once a minute at most (ProjectionResumeBook).
+                resumeBook.beat(System.currentTimeMillis())
                 val state = reader.read()
                 device.offer(SystemClock.elapsedRealtime(), state)
                 ProjectionSummary.current.device(state.thermal, state.batteryPct)

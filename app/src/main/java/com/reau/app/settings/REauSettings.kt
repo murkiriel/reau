@@ -106,6 +106,13 @@ data class REauSettings(
      */
     val noDashStopMinutes: Int = DEFAULT_NO_DASH_STOP_MINUTES,
     /**
+     * If the phone's system ends REau's process in the middle of a ride (a maker's battery manager) and starts the projection's service again, the projection
+     * comes back by itself, as if the rider had tapped Ligar ([com.reau.app.service.ProjectionResume]: at most 3 times in 30 minutes, and never after
+     * the rider's Desligar). It cannot come back from a force stop, which no app survives. On by default; read when the system restarts the service,
+     * so a change counts from the next kill.
+     */
+    val resumeAfterKill: Boolean = true,
+    /**
      * The joystick answers and ends calls; on by default, but it does nothing until the phone permissions are given (they are asked
      * on the permissions page, or when the rider switches it on again after turning it off).
      */

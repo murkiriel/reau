@@ -110,6 +110,11 @@ Desde 25/11/2026 (0.4.0): o app vigia a thread principal enquanto a projeção r
 de 3 s ou mais, com a pilha, e diz quando a volta não foi registrada (o app fechado, p. ex. pelo Android por ANR). As linhas `device …` trazem também `lowat=<N>MB` (o limite de memória baixa do
 Android) e, quando o app pode ler `/proc/loadavg`, `load=<1 min>/<5 min>/<15 min>` (`thread_principal.py`; registro de antes não traz nada disso).
 
+Desde 25/11/2026 (0.4.0): se o sistema do celular encerra o processo do REau com a projeção ligada (não um «force stop») e reinicia o serviço, a projeção volta sozinha, no máximo 3 vezes em
+30 minutos, e o app escreve `[projection] resumed after the system ended the process (attempt N of 3)` já dentro da projeção nova (a que o app que recomeçou abre). A linha do tempo diz
+«projeção retomada depois de o sistema fechar o REau, tentativa N de 3»; a projeção de antes continua a acabar em «o app recomeçou», com o motivo da saída. Uma retomada que não houve
+(o ajuste desligado, o limite, a marca velha) fica fora de qualquer projeção e só está no arquivo bruto: `not resumed after the system ended the process: <motivo>`.
+
 Em registros de versões até a 0.2.0 (o serviço que ligava o servidor sozinho não existe mais), por Ligar, o bloco `servidor do AA:` conta a caminhada que liga o servidor do Android Auto (toque, início
 da caminhada, clique em Iniciar, Voltar, fim, primeira conexão, em ms) e acusa a causa: porta fechada 5 s depois do clique, servidor
 que só atendeu quando a tela do Android Auto abriu, menu lido pela metade (Android Auto frio?). Sem linhas `aa-server` (o serviço desligado, o caso comum) não diz nada.
@@ -148,6 +153,7 @@ PROCESSO_RECOMECOU = (tempo.PROCESSO_COMECOU, "o app recomeçou")
 # `[exit] past exit: package updated (16) at 2026-11-25 06:02:24.550, process …` (or `… (16) ×2 from <a> to 2026-11-25 06:02:24.550, …`): the app tells, at the start of the
 # next process, why Android ended the previous one (`ExitReasons`). The reader says it in these words, by the number in the parentheses.
 SAIDA_DO_PROCESSO = re.compile(r"^past exit: .*? \((\d+)\) (?:at|×\d+ from \S+ \S+ to) \d{4}-\d\d-\d\d (\d\d:\d\d:\d\d(?:\.\d+)?)")
+RETOMADA = re.compile(r"^resumed after the system ended the process \(attempt (\d+) of (\d+)\)$")  # the app's own line when the projection came back by itself (0.4.0)
 SAIDA_DO_PROCESSO_LINHAS = 60  # how far after the `process start` the app tells its past exits
 MOTIVO_DA_SAIDA = {0: "motivo desconhecido", 1: "o app saiu sozinho", 2: "morto por sinal", 3: "falta de memória", 4: "falha", 5: "falha nativa", 6: "app sem resposta (ANR)",
                    7: "falha ao iniciar", 8: "permissão mudou", 9: "uso excessivo de recursos", 10: "pedido do usuário",
@@ -2602,6 +2608,9 @@ def _eventos_novos(x, bloco):
         return []
     if x.etiqueta == "audio":
         return _eventos_do_bluetooth(t)
+    retomada = RETOMADA.match(t) if x.etiqueta == "projection" else None
+    if retomada:
+        return [f"projeção retomada depois de o sistema fechar o REau, tentativa {retomada.group(1)} de {retomada.group(2)}"]
     if x.etiqueta == thread_principal.ETIQUETA:
         return thread_principal.eventos(t)
     if x.etiqueta == "dash":

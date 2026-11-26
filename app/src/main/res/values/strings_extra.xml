@@ -6,6 +6,7 @@
     <string name="problem_compositor">the video compositor (OpenGL) did not start: no picture for the dash</string>
     <!-- The notification's line after the Mark button: the number of the mark and the time it was taken. -->
     <string name="notif_mark_done">Saved at %2$s as mark %1$d</string>
+    <string name="notif_resumed">Resumed after the system closed REau</string>
     <!-- The sample street on the legibility card sent to the dash; the text size is written before it. -->
     <string name="card_legibility_sample">Street 300 m</string>
     <!-- The sixteen points of the compass for the wind, from north in steps of 22.5 degrees. -->

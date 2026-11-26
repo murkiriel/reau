@@ -21,3 +21,13 @@ internal fun NoDashStop(s: REauSettings, change: (REauSettings) -> Unit) {
         now = true, info = Info(stringResource(R.string.no_dash_stop_title), stringResource(R.string.no_dash_stop_info)), tag = "no_dash_stop",
     )
 }
+
+/** The projection comes back by itself when the phone's system ends REau in the middle of a ride; on by default. */
+@Composable
+internal fun ResumeAfterKill(s: REauSettings, change: (REauSettings) -> Unit) {
+    SettingSwitch(
+        R.string.resume_after_kill_title, R.string.resume_after_kill_sub, R.string.resume_after_kill, s.resumeAfterKill, "resume_after_kill", now = true,
+    ) {
+        change(s.copy(resumeAfterKill = it))
+    }
+}

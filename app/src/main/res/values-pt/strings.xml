@@ -287,6 +287,9 @@
     <string name="no_dash_stop_info">Quando o Wi-Fi do painel some e não volta (a moto foi desligada), o REau continua pedindo por ele, com o Android Auto, o vídeo e as travas do celular ligados, até você tocar em Desligar. Com isto ligado, a projeção se desliga sozinha depois do tempo escolhido sem o painel, como o botão Desligar faria, e uma notificação diz o motivo. A contagem recomeça sempre que o painel volta; \"Sem limite\" mantém o jeito antigo.</string>
     <string name="no_dash_stop_minutes">%1$d min</string>
     <string name="no_dash_stop_never">Sem limite</string>
+    <string name="resume_after_kill_title">Retomar se o sistema fechar o REau</string>
+    <string name="resume_after_kill_sub">Se o sistema do celular encerrar o REau no meio da viagem, a projeção volta sozinha</string>
+    <string name="resume_after_kill">Quando o sistema do celular fecha o REau no meio da viagem e inicia o serviço dele de novo, a projeção se liga sozinha outra vez, como se você tivesse tocado em Ligar: até 3 vezes em 30 minutos, nunca depois de você mesmo desligar. Não volta depois de uma parada forçada (alguns Xiaomi fazem uma) e, retomada, fica sem microfone (Gemini) e sem localização para a lista de Wi-Fi. Vem ligado.</string>
     <string name="action_view_logs">Ver o registro</string>
     <string name="log_viewer_title">Registro</string>
     <string name="log_viewer_none">Ainda não há registros.</string>

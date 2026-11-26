@@ -299,6 +299,9 @@
     <string name="no_dash_stop_info">When the dash’s Wi-Fi goes away and does not come back (the bike was switched off), REau keeps asking for it, with Android Auto, the video and the phone’s locks held, until you tap Turn off. With this on, the projection turns itself off after the time chosen without the dash, as the Turn off button would, and a notification says why. The count starts again whenever the dash comes back; \"No limit\" keeps the old behavior.</string>
     <string name="no_dash_stop_minutes">%1$d min</string>
     <string name="no_dash_stop_never">No limit</string>
+    <string name="resume_after_kill_title">Resume if the system closes REau</string>
+    <string name="resume_after_kill_sub">If the phone’s system ends REau in the middle of a ride, the projection comes back by itself</string>
+    <string name="resume_after_kill">When the phone’s system closes REau in the middle of a ride and starts its service again, the projection turns itself on again, as if you had tapped Turn on: up to 3 times in 30 minutes, never after you turned it off yourself. It cannot come back after a force stop (some Xiaomi phones do one), and while resumed it has no microphone (Gemini) and no location for the Wi-Fi list. On by default.</string>
     <string name="action_view_logs">View the log</string>
     <string name="log_viewer_title">Log</string>
     <string name="log_viewer_none">No logs yet.</string>

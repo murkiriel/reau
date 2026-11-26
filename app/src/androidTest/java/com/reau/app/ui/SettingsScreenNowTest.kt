@@ -62,6 +62,7 @@ class SettingsScreenNowTest {
         Row("detailed_log", "Registro detalhado", "Detailed log"),
         Row("log_keep", "Apagar sozinho os mais velhos que", "Automatically delete those older than"),
         Row("no_dash_stop", "Desligar sozinho sem o painel", "Turn off by itself without the dash"),
+        Row("resume_after_kill", "Retomar se o sistema fechar o REau", "Resume if the system closes REau"),
         Row("video_pace", "Ritmo do vídeo", "Video pace"),
         Row("driving_side", "Lado da via", "Driving side"),
     )

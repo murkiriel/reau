@@ -5561,6 +5561,24 @@ MUTATIONS += [
 ]
 
 
+# Plano 34, item 4 (25/11/2026): a projeção volta sozinha quando o sistema fecha o processo do REau (a regra pura, os tipos do reinício, a resposta do serviço e a marca que os Desligares apagam).
+MUTATIONS += [
+    ("p34/4 Retomada: a quarta retomada em 30 min também passa", MAIN + "service/ProjectionResume.kt",
+     "recent.size >= MAX_ATTEMPTS ->", "recent.size > MAX_ATTEMPTS ->", ["ProjectionResumeTest"]),
+    ("p34/4 Retomada: o reinício pede o microfone e a localização, que o Android recusa a um serviço iniciado do fundo", MAIN + "service/ProjectionResume.kt",
+     "ForegroundTypes.ladder(microphone = false, location = false, sdk = sdk)", "ForegroundTypes.ladder(microphone = microphone, location = location, sdk = sdk)",
+     ["ProjectionResumeTest"]),
+    ("p34/4 Retomada: o serviço fica sticky também com a projeção desligada", MAIN + "service/ProjectionResume.kt",
+     "if (resumable) Service.START_STICKY else Service.START_NOT_STICKY", "if (resumable || Service.START_STICKY > 0) Service.START_STICKY else Service.START_NOT_STICKY",
+     ["ProjectionResumeTest", "ProjectionResumeIsWiredTest"]),
+    ("p34/4 Retomada: o Desligar (e a parada por falta do painel) não apaga a marca", MAIN + "service/ProjectionService.kt",
+     "if (ForegroundHandover.dropsForeground(command, lastStart)) forgetResume()", "if (ForegroundHandover.dropsForeground(command, lastStart)) Unit",
+     ["ProjectionResumeIsWiredTest"]),
+    ("p34/4 Retomada: o foreground recusado a uma retomada não apaga a marca", MAIN + "service/ProjectionService.kt",
+     "if (!resumed) forgetResume()", "if (!resumed) Unit", ["ProjectionResumeIsWiredTest"]),
+]
+
+
 def command_for(classes):
     """The command that runs a mutation's tests: Python test files (`test_*.py`) with unittest, JVM unit test classes with Gradle. A bare name (`test_apk_audit.py`) is found
     in scripts/; one with a folder (`registro/test_chaves.py`, `dev/test_teste_cego.py`) in that folder of scripts/ (the folders are not packages, so discover does not go

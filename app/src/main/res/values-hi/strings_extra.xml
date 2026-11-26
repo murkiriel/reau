@@ -4,6 +4,7 @@
     <string name="caller_private">निजी</string>
     <string name="problem_compositor">वीडियो कंपोज़िटर (OpenGL) शुरू नहीं हुआ: डैश के लिए कोई तस्वीर नहीं</string>
     <string name="notif_mark_done">%2$s पर सहेजा गया, निशान %1$d के रूप में</string>
+    <string name="notif_resumed">सिस्टम के REau को बंद करने के बाद फिर शुरू हुआ</string>
     <string name="card_legibility_sample">सड़क 300 m</string>
     <string name="weather_air_pm25">PM2.5 %1$d</string>
     <string name="stats_dash">डैश</string>
