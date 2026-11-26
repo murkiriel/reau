@@ -119,4 +119,33 @@ class VideoEncoderSettingTest {
         assertTrue(string("values-pt", "video_encoder_info").let { "codificador de software do Android" in it && "se o celular não tiver um, fica o dele" in it && "próxima vez que o vídeo abrir" in it })
         assertTrue(string("values-es", "video_encoder_info").let { "codificador de software de Android" in it && "si el teléfono no tiene uno, se queda el suyo" in it && "próxima vez que se abra el video" in it })
     }
+
+    @Test
+    fun `no text and no KDoc says as a fact that the software encoder makes smaller keyframes, which is what the test is for`() {
+        // Review of 26/11/2026, S7: it is the hypothesis of the test, so it is "should" and "tends to", never "keeps" and "makes".
+        assertTrue("should keep the bitrate steady and tends to make smaller keyframes" in string("values", "video_encoder_info"))
+        assertTrue("deve manter a taxa estável e costuma fazer quadros-chave menores" in string("values-pt", "video_encoder_info"))
+        assertTrue("debe mantener la tasa estable y suele hacer cuadros clave más pequeños" in string("values-es", "video_encoder_info"))
+        assertTrue("आम तौर पर छोटे कीफ़्रेम" in string("values-hi", "video_encoder_info") && "स्थिर रखना चाहिए" in string("values-hi", "video_encoder_info"))
+        val facts = listOf("keeps the bitrate steady", "mantém a taxa estável", "mantiene la tasa estable", "बिटरेट को स्थिर रखता है", "makes smaller keyframes", "faz quadros-chave menores",
+            "hace cuadros clave más pequeños")
+        for (folder in listOf("values", "values-pt", "values-es", "values-hi")) {
+            val info = string(folder, "video_encoder_info")
+            for (fact in facts) assertFalse("$folder: $fact", fact in info)
+        }
+        val changelogs = mapOf(
+            "CHANGELOG.md" to ("should keep a constant bitrate and tends to make smaller keyframes" to "makes much smaller keyframes"),
+            "CHANGELOG.pt-br.md" to ("deve manter a taxa constante e costuma fazer quadros-chave menores" to "faz quadros-chave bem menores"),
+            "CHANGELOG.es.md" to ("debe mantener la tasa constante y suele hacer fotogramas clave más pequeños" to "hace fotogramas clave mucho más pequeños"),
+        )
+        for ((name, pair) in changelogs) {
+            val text = File("..", name).readText()
+            assertTrue("$name says it as a hypothesis", pair.first in text)
+            assertFalse("$name no longer says it as a fact", pair.second in text)
+        }
+        val kdoc = File("src/main/java/com/reau/app/dash/video/VideoEncoder.kt").readText()
+        assertTrue(kdoc, "which should keep a constant bitrate and tends to make smaller keyframes" in kdoc && "(constant bitrate, small keyframes)" !in kdoc)
+        val settings = File("src/main/java/com/reau/app/settings/REauSettings.kt").readText()
+        assertFalse("which keeps constant bitrate and makes small keyframes" in settings)
+    }
 }

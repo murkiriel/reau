@@ -71,4 +71,16 @@ class FrameJankTest {
         assertTrue("and the ordinary frames keep their five a minute", (1..FrameJank.MAX_PER_MINUTE).all { limiter.allow(200) })
         assertFalse(limiter.allow(200))
     }
+
+    @Test
+    fun `the ceiling lets the first long frame of the second through and drops a longer one that comes after it, and the text says so`() {
+        var now = 10_000L
+        val limiter = FrameJank.Limiter { now }
+        assertTrue("the first, short of the long ones", limiter.allow(FrameJank.ALWAYS_TOLD_MS))
+        now += 300
+        assertFalse("the worst of the second comes later and is dropped", limiter.allow(9_000))
+        val source = java.io.File("src/main/java/com/reau/app/util/FrameJank.kt").readText()
+        assertTrue("the KDoc says the first one", "lets through the FIRST long frame of each second, not the worst" in source)
+        assertFalse("the KDoc no longer promises the worst one", "keeps the worst frame of each second" in source)
+    }
 }

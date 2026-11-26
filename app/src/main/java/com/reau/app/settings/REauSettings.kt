@@ -121,7 +121,7 @@ data class REauSettings(
     val pacePackets: Boolean = true,
     /**
      * The experimental test of the video's encoder (the owner's decision of 26/11/2026): [VideoEncoder.PHONE], the encoder the phone's own list puts first (the hardware one, as
-     * always), or [VideoEncoder.SOFTWARE], the one Android ships, which keeps constant bitrate and makes small keyframes; the phone's own when it lists none.
+     * always), or [VideoEncoder.SOFTWARE], the one Android ships, which should keep constant bitrate and tends to make smaller keyframes (the test will show); the phone's own when it lists none.
      * The phone's own by default. Read when the video opens, so a change counts from the next stream, never live.
      */
     val videoEncoder: VideoEncoder = VideoEncoder.PHONE,

@@ -274,6 +274,7 @@ internal class VideoLoop(
             if (rebuildDue(failedPolls)) {
                 failedPolls = 0
                 log("${RideDiagnostics.WARN}encoder failed for ${REBUILD_AFTER_FAILED_POLLS * POLL_MS} ms: rebuilding it")
+                stopAskingForSoftware()
                 rebuild(g.rebuildAction())
             }
             val timed = encoded.getOrNull()
@@ -386,6 +387,18 @@ internal class VideoLoop(
         )
     }
 
+    /**
+     * The encoder that just failed while it ran: if it was Android's software one the rider asked for, the rebuild (and any later one of this session) takes the phone's
+     * own instead of the one that failed, which would otherwise be asked for again every few seconds until the rider turned the option off (review of 26/11/2026, S1).
+     * The loop is the dash session's, so the next session asks for the rider's choice again.
+     */
+    private fun stopAskingForSoftware() {
+        val next = encoderAfterFailure(settings.videoEncoder, encoder?.softwareInUse == true)
+        if (next == settings.videoEncoder) return
+        settings = settings.copy(videoEncoder = next)
+        log("${RideDiagnostics.WARN}software encoder failed: the phone's own from now on")
+    }
+
     private fun logThermal(status: Int) =
         log("thermal ${ThermalCeiling.nameOf(status)}: ceiling ${ThermalCeiling.capFor(status, settings.ceilingFps)} of ${settings.ceilingFps}")
 
@@ -412,6 +425,10 @@ internal class VideoLoop(
             val load = DashConfig.loadMbPerSec(fps, frame)
             return "fixed video $fps fps / ${bitrateBps / 1000} kbps cap / ${frame.width}x${frame.height} (load $load MB/s)"
         }
+
+        /** The encoder to ask for after [asked] failed while it ran: the software one is not asked for again ([softwareRan]: it was the one in use), the phone's own is kept. */
+        internal fun encoderAfterFailure(asked: VideoEncoder, softwareRan: Boolean): VideoEncoder =
+            if (asked == VideoEncoder.SOFTWARE && softwareRan) VideoEncoder.PHONE else asked
 
         /** The WARN line of the fall back to the dash's own frame, with the pace and ceiling that are kept. */
         internal fun fallbackLine(frame: DashConfig.FrameSize, fps: Int, bitrateBps: Int): String =

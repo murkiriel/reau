@@ -6,7 +6,8 @@ package com.reau.app.dash.video
  *
  * Why it exists: the two pilots whose dash restarts a minute into the transmission both have the MediaTek hardware encoder, which does not take
  * constant bitrate and makes keyframes 4 to 10 times bigger than the Qualcomm one; the dash decodes H.264 in software, so a bigger frame is more
- * work for it. Asking the same phone for Android's software encoder (constant bitrate, small keyframes) tells whether the encoder matters at all.
+ * work for it. Asking the same phone for Android's software encoder (which should keep a constant bitrate and tends to make smaller keyframes; whether it does is
+ * what the test will show: review of 26/11/2026, S7) tells whether the encoder matters at all.
  * Read when the video opens, so a change counts from the next stream.
  */
 enum class VideoEncoder { PHONE, SOFTWARE }

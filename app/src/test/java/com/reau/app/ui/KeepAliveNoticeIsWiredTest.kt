@@ -67,13 +67,25 @@ class KeepAliveNoticeIsWiredTest {
     fun `the activity reads whether it is due at the opening and at each return, follows the flow and hands the flag to the state`() {
         val activity = source("MainActivity.kt")
         assertTrue(activity.between("override fun onCreate(", "setContent {").contains("com.reau.app.data.KeepAliveNotice.refresh(applicationContext, keepAliveEligible)"))
-        assertTrue(activity.between("private fun resume() {", "private fun forgetRemovalFromRecents").contains("com.reau.app.data.KeepAliveNotice.refresh(this, keepAliveEligible)"))
+        assertTrue(activity.between("private fun resume() {", "private fun forgetRemovalFromRecents").contains("com.reau.app.data.KeepAliveNotice.refresh(context, keepAliveEligible)"))
         assertTrue(activity.contains("val keepAliveDue = com.reau.app.data.KeepAliveNotice.isDue.collectAsStateWithLifecycle().value"))
         assertTrue(activity.contains(".withKeepAliveDue(keepAliveDue),"))
         assertTrue(
             "the phone's family decides",
             activity.contains("com.reau.app.ui.KeepAliveGuide.hasNotice(com.reau.app.ui.KeepAliveGuide.current())"),
         )
+    }
+
+    @Test
+    fun `the refresh at each return runs on an IO coroutine and never on the main thread`() {
+        val activity = source("MainActivity.kt")
+        val resume = activity.between("private fun resume() {", "private fun forgetRemovalFromRecents")
+        val call = "com.reau.app.data.KeepAliveNotice.refresh(context, keepAliveEligible)"
+        assertEquals("one refresh in the return", 1, Regex(Regex.escape("KeepAliveNotice.refresh(")).findAll(resume).count())
+        val line = resume.lines().single { call in it }
+        assertTrue(line, "lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) { runCatching { $call } }" in line)
+        assertTrue("the application context, not the activity, goes into the coroutine", "val context = applicationContext" in resume.substringBefore(call))
+        assertFalse("not on the main thread", "KeepAliveNotice.refresh(this," in resume)
     }
 
     @Test

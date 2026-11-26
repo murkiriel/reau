@@ -12,8 +12,8 @@ import kotlinx.coroutines.launch
  * What the dash cannot draw, written in the Latin alphabet before it is cut down to Latin-1 (decision of 25/11/2026, test on the dash of 26/11/2026). The dash reads one
  * byte a character (ISO-8859-1) and has no font for Devanagari, Arabic, Cyrillic or Chinese: the owner's street-name test showed no letter at all, so a street, a title,
  * a song or a contact in another script came out as a row of question marks. Now each RUN of characters past Latin-1 is transliterated by ICU
- * (`Any-Latin; Latin-ASCII`, API 24+, which the app's minSdk 29 has) and the letters Latin-1 already has are not touched: "Rua José" stays byte for byte, and "José चौक"
- * becomes "José cauka", not "Jose cauka". What the transliteration cannot do (an emoji, a mark) is left for [DashCommands.legible] to turn into a question mark, as before.
+ * (`Any-Latin; Latin-ASCII`, API 24+, which the app's minSdk 29 has) and the letters Latin-1 already has are not touched: "Rua José" stays byte for byte, and "José \u091A\u094C\u0915"
+ * (written with escapes: no Devanagari letter may be in the main source, review of 26/11/2026, D2) becomes "José cauka", not "Jose cauka". What the transliteration cannot do (an emoji, a mark) is left for [DashCommands.legible] to turn into a question mark, as before.
  *
  * The [Transliterator] is made once (making one is costly) and used under a lock (an instance is not for two threads at once). It is warmed up at the start of each dash
  * session on an IO coroutine, so the first title in another script does not make the thread that reads Android Auto pay for it (review of 26/11/2026, S1). A failure to make

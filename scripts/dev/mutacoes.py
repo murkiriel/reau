@@ -6095,6 +6095,29 @@ MUTATIONS += [
 ]
 
 
+# Revisão de 26/11/2026 dos commits aa371b4 e 2638d58 (revisao-testeA): o aviso único fora da thread principal ao voltar à tela, nenhuma letra devanágari no Kotlin, os dois comentários
+# que não batiam com o código, a linha "encoder rate" quando o último degrau abre sem modo, o codificador de software que falha na saída e os textos que davam a hipótese como fato.
+MUTATIONS += [
+    ("revisao-tA/D1 Aviso único: ao voltar à tela ele volta a ser lido na thread principal", MAIN + "MainActivity.kt",
+     "lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) { runCatching { com.reau.app.data.KeepAliveNotice.refresh(context, keepAliveEligible) } }",
+     "com.reau.app.data.KeepAliveNotice.refresh(context, keepAliveEligible)", ["KeepAliveNoticeIsWiredTest"]),
+    ("revisao-tA/D2 Kotlin: o exemplo do KDoc da transliteração volta a ter letras devanágaris", MAIN + "dash/protocol/DashTransliteration.kt",
+     '"José \\u091A\\u094C\\u0915"', '"José \u091a\u094c\u0915"', ["NoDevanagariInKotlinTest"]),
+    ("revisao-tA/D3 Quadro lento: o KDoc volta a prometer o pior quadro de cada segundo", MAIN + "util/FrameJank.kt",
+     "lets through the FIRST long frame of each second, not the worst", "keeps the worst frame of each second", ["FrameJankTest"]),
+    ("revisao-tA/D3 Codificador: o comentário do CBR volta a prometer CBR seja qual for o modo pedido", MAIN + "dash/video/DashEncoder.kt",
+     "asked for constant bitrate only when the caller named no mode", "asked for constant bitrate whatever the caller said", ["EncoderSessionLinesTest"]),
+    ("revisao-tA/D4 Codificador: a linha encoder rate diz CBR -> CBR mesmo quando o último degrau abriu sem modo", MAIN + "dash/video/EncoderReport.kt",
+     '${if (rate.constant != null && sentMode == null) "none (refused)" else rate.label}', "${rate.label}", ["EncoderSessionLinesTest"]),
+    ("revisao-tA/S1 Vídeo: depois de uma falha do codificador de software a reconstrução volta a pedir o de software", MAIN + "stream/VideoLoop.kt",
+     "                stopAskingForSoftware()\n", "", ["VideoEncoderChoiceTest"]),
+    ("revisao-tA/S1 Vídeo: a escolha de software não passa para a do celular depois da falha do de software", MAIN + "stream/VideoLoop.kt",
+     "if (asked == VideoEncoder.SOFTWARE && softwareRan) VideoEncoder.PHONE else asked", "asked", ["VideoEncoderChoiceTest"]),
+    ("revisao-tA/S7 Texto do (i): o codificador de software volta a ser dito como fato que faz quadros-chave menores", "app/src/main/res/values/strings.xml",
+     "which should keep the bitrate steady and tends to make smaller keyframes, at the cost", "which keeps the bitrate steady and makes smaller keyframes, at the cost", ["VideoEncoderSettingTest"]),
+]
+
+
 def command_for(classes):
     """The command that runs a mutation's tests: Python test files (`test_*.py`) with unittest, JVM unit test classes with Gradle. A bare name (`test_apk_audit.py`) is found
     in scripts/; one with a folder (`registro/test_chaves.py`, `dev/test_teste_cego.py`) in that folder of scripts/ (the folders are not packages, so discover does not go

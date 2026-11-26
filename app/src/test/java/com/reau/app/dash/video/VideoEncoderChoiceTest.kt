@@ -1,6 +1,7 @@
 package com.reau.app.dash.video
 
 import com.reau.app.dash.video.EncoderOrder.Candidate
+import com.reau.app.stream.VideoLoop
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -81,7 +82,7 @@ class VideoEncoderChoiceTest {
         assertTrue(encoder.contains("var preference: VideoEncoder = VideoEncoder.PHONE"))
         assertTrue(encoder.contains("val pick = encoderNames()"))
         assertTrue("the names tried are the pick's, the system's own pick last", encoder.contains("val names: List<String?> = pick.names + null"))
-        assertTrue(encoder.contains("EncoderOrder.pick(preference, names(phone), names(software))"))
+        assertTrue(encoder.contains("EncoderOrder.pick(preference, names(phone), softwareNames)"))
         assertTrue("the list of the phone is still looked up once per process, by the same key", encoder.contains("CodecNames.pick(\"dash encoders \${frame.width}x\${frame.height} baseline\")"))
         val loop = File("src/main/java/com/reau/app/stream/VideoLoop.kt").readText()
         // buildEncoder is the one place an encoder is made, for the start and for a rebuild alike.
@@ -99,5 +100,29 @@ class VideoEncoderChoiceTest {
         assertEquals(DashEncoder.RateMode(2, "CBR"), DashEncoder.rateMode(com.reau.app.dash.BitrateMode.CBR) { true })
         // A hardware encoder that does not offer it (the pilots' MediaTek) is sent VBR, and the line says so.
         assertEquals(DashEncoder.RateMode(1, "VBR (CBR not offered)"), DashEncoder.rateMode(com.reau.app.dash.BitrateMode.CBR) { it != 2 })
+    }
+
+    @Test
+    fun `a software encoder that opened and then failed is not asked for again in the session, the phone's own is`() {
+        assertEquals(VideoEncoder.PHONE, VideoLoop.encoderAfterFailure(VideoEncoder.SOFTWARE, softwareRan = true))
+        assertEquals("the phone's own stays", VideoEncoder.PHONE, VideoLoop.encoderAfterFailure(VideoEncoder.PHONE, softwareRan = false))
+        assertEquals("the phone's own failing says nothing of the software one", VideoEncoder.PHONE, VideoLoop.encoderAfterFailure(VideoEncoder.PHONE, softwareRan = true))
+        assertEquals("the software one asked, but the phone's own was the one running (no software in the list)", VideoEncoder.SOFTWARE,
+            VideoLoop.encoderAfterFailure(VideoEncoder.SOFTWARE, softwareRan = false))
+    }
+
+    @Test
+    fun `the loop drops the software choice only when the failed encoder makes the rebuild, and says so in the log`() {
+        val loop = File("src/main/java/com/reau/app/stream/VideoLoop.kt").readText()
+        val failed = loop.substringAfter("if (rebuildDue(failedPolls)) {").substringBefore("val timed = ")
+        assertTrue(failed, failed.indexOf("stopAskingForSoftware()") in 0 until failed.indexOf("rebuild(g.rebuildAction())"))
+        assertEquals("only the failure path drops it, not the governor's rebuild", 1, Regex("""stopAskingForSoftware\(\)""").findAll(loop.substringBefore("private fun stopAskingForSoftware")).count())
+        val drop = loop.substringAfter("private fun stopAskingForSoftware() {").substringBefore("private fun logThermal")
+        assertTrue(drop, "encoderAfterFailure(settings.videoEncoder, encoder?.softwareInUse == true)" in drop)
+        assertTrue(drop, "settings = settings.copy(videoEncoder = next)" in drop)
+        assertTrue(drop, "software encoder failed: the phone's own from now on" in drop)
+        val encoder = File("src/main/java/com/reau/app/dash/video/DashEncoder.kt").readText()
+        assertTrue("the encoder tells whether the one that opened is a software one", "softwareInUse = c.name in softwareNames" in encoder)
+        assertTrue("the list it checks is the phone's list of software encoders", "softwareNames = names(software)" in encoder)
     }
 }

@@ -311,7 +311,7 @@
     <string name="video_encoder_sub">Who makes the video for the dash</string>
     <string name="video_encoder_phone">Phone’s</string>
     <string name="video_encoder_software">Android software</string>
-    <string name="video_encoder_info">By default the phone’s own chip makes the video to the dash. This test uses Android’s software encoder instead, which keeps the bitrate steady and makes smaller keyframes, at the cost of more processor use; if the phone has none, its own stays. It counts from the next time the video opens; it is a test and may be removed in a later version.</string>
+    <string name="video_encoder_info">By default the phone’s own chip makes the video to the dash. This test uses Android’s software encoder instead, which should keep the bitrate steady and tends to make smaller keyframes, at the cost of more processor use; if the phone has none, its own stays. It counts from the next time the video opens; it is a test and may be removed in a later version.</string>
     <string name="action_view_logs">View the log</string>
     <string name="log_viewer_title">Log</string>
     <string name="log_viewer_none">No logs yet.</string>

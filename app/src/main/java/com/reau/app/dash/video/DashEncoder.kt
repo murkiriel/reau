@@ -165,6 +165,16 @@ class DashEncoder(
     private var outputPump: EncoderOutputPump? = null
     private var codecName: String? = null
 
+    // Android's software encoders of the phone's list (EncoderOrder.softwareNames), looked up with the order, to tell whether the one that opened is one of them.
+    @Volatile private var softwareNames: List<String> = emptyList()
+
+    /**
+     * Whether the codec in use is one of Android's software encoders ([prepare] sets it). The video loop reads it when this encoder fails while it runs: a software one that
+     * opened and then failed is not asked for again in the same session (review of 26/11/2026, S1).
+     */
+    @Volatile var softwareInUse = false
+        private set
+
     // What was asked of the rate control and what was sent to the codec (`CBR -> VBR (CBR not offered)`), for the line the codec's output format completes.
     @Volatile private var rateSent = ""
 
@@ -226,17 +236,22 @@ class DashEncoder(
         val names: List<String?> = pick.names + null
         val failures = mutableListOf<String>()
         for (name in names) {
-            // The software encoder is asked for constant bitrate whatever the caller said (the app always says CBR; the point of the test is a stream that keeps its ceiling).
+            // The software encoder is asked for constant bitrate only when the caller named no mode (a null becomes CBR; a mode the caller named, VBR for one, is kept). The app always
+            // says CBR today, and the point of the test is a stream that keeps its ceiling (the comment said "whatever the caller said", which the code never did: review of 26/11/2026, D3).
             val wanted = if (preference == VideoEncoder.SOFTWARE) bitrateMode ?: BitrateMode.CBR else bitrateMode
             val rate = rateMode(wanted) { mode -> modeOffered(name, mode) }
             val detail = "size=${frame.width}x${frame.height} fpsHint=$fpsHint bitrateBps=$bitrateBps profile=baseline " +
                 "iFrameIntervalSec=${iFrameIntervalText(iFrameIntervalSec, fpsHint)} repeatAfterUs=$REPEAT_AFTER_US bitrateMode=${rate.label}"
-            // Set before the codec starts: the line that tells what it accepted comes from its output thread.
-            rateSent = "${wanted?.name ?: "default"} -> ${rate.label}"
-            val started = startNamed(name, rate, detail) { n, spec, d -> startCodec(n, buildFormat(ask, spec), d) }
+            val started = startNamed(name, rate, detail) { n, spec, d ->
+                // Set before each try, before the codec starts (the line that tells what it accepted comes from its output thread): the last rung of the ladder sends no
+                // mode at all, and the line must say so, not "CBR -> CBR" (review of 26/11/2026, D4).
+                rateSent = EncoderReport.rateSentText(wanted?.name, rate, spec.bitrateMode)
+                startCodec(n, buildFormat(ask, spec), d)
+            }
             started.onSuccess { c ->
                 lastPrepareError = null
                 codec = c
+                softwareInUse = c.name in softwareNames
                 if (reportCodecs) EncoderReport.choice(c, candidateReport, frame)
                 if (reportCodecs) EncoderReport.pick(preference, pick.note, c, rateSent)
                 return true
@@ -277,7 +292,8 @@ class DashEncoder(
         }
         val (phone, software) = joined.orEmpty().split('#').let { it.first() to it.getOrElse(1) { "" } }
         val names = { text: String -> text.split('|').filter { it.isNotEmpty() } }
-        return EncoderOrder.pick(preference, names(phone), names(software))
+        softwareNames = names(software)
+        return EncoderOrder.pick(preference, names(phone), softwareNames)
     }
 
     /** Creates, configures and starts one codec instance; releases it again if any step throws. */

@@ -58,6 +58,14 @@ internal object EncoderReport {
     fun rateLine(rateSent: String, mode: Int?): String = "encoder rate: $rateSent, codec says ${CodecReport.bitrateModeName(mode)}"
 
     /**
+     * What the encoder sent of the rate control, for [rateLine] and [pickLine]: `CBR -> CBR`, `CBR -> VBR (CBR not offered)`, and `CBR -> none (refused)` when the codec
+     * refused the mode it was offered and the last rung of [DashEncoder.startNamed] opened it without one ([sentMode] null while [rate] had a mode: review of 26/11/2026, D4).
+     * [asked] is the mode the caller named (null: none).
+     */
+    fun rateSentText(asked: String?, rate: DashEncoder.RateMode, sentMode: Int?): String =
+        "${asked ?: "default"} -> ${if (rate.constant != null && sentMode == null) "none (refused)" else rate.label}"
+
+    /**
      * The line of the choice of the encoder of a session, told once with the `codecs:` line (26/11/2026): what the rider asked ([preference]), what came of it
      * ([note], null when the phone's own was asked) and the codec in use, with its rate control as the encoder sent it ([rateSent]).
      */

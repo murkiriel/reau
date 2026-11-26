@@ -34,6 +34,36 @@ class EncoderSessionLinesTest {
     }
 
     @Test
+    fun `the rate sent says none when the last rung of the ladder opened the codec without a mode, and the line follows it`() {
+        val cbr = DashEncoder.RateMode(2, "CBR")
+        val vbr = DashEncoder.RateMode(1, "VBR (CBR not offered)")
+        assertEquals("CBR -> CBR", EncoderReport.rateSentText("CBR", cbr, 2))
+        assertEquals("CBR -> VBR (CBR not offered)", EncoderReport.rateSentText("CBR", vbr, 1))
+        assertEquals("CBR -> none (refused)", EncoderReport.rateSentText("CBR", cbr, null))
+        assertEquals("CBR -> none (refused)", EncoderReport.rateSentText("CBR", vbr, null))
+        assertEquals("no mode asked, none sent: nothing was refused", "default -> default", EncoderReport.rateSentText(null, DashEncoder.RateMode(null, "default"), null))
+        assertEquals("encoder rate: CBR -> none (refused), codec says not echoed", EncoderReport.rateLine(EncoderReport.rateSentText("CBR", cbr, null), null))
+        // The ladder itself: every rung says what it sends, and a codec that refuses the first two is opened with none.
+        val said = mutableListOf<String>()
+        DashEncoder.startNamed("c2.android.avc.encoder", cbr, "x") { _, spec, _ ->
+            said += EncoderReport.rateSentText("CBR", cbr, spec.bitrateMode)
+            if (said.size < 3) throw IllegalArgumentException("refused") else "started"
+        }.getOrThrow()
+        assertEquals(listOf("CBR -> CBR", "CBR -> CBR", "CBR -> none (refused)"), said)
+    }
+
+    @Test
+    fun `the encoder sets the rate sent at each try of the ladder and not once before it, and the comment about the constant bitrate says what the code does`() {
+        val encoder = java.io.File("src/main/java/com/reau/app/dash/video/DashEncoder.kt").readText()
+        val tries = encoder.substringAfter("val started = startNamed(name, rate, detail) { n, spec, d ->").substringBefore("started.onSuccess")
+        assertTrue(tries, "rateSent = EncoderReport.rateSentText(wanted?.name, rate, spec.bitrateMode)" in tries && "startCodec(n, buildFormat(ask, spec), d)" in tries)
+        assertEquals("one assignment of rateSent in prepare, inside the ladder", 1, Regex("""\brateSent = """).findAll(encoder.substringAfter("fun prepare(").substringBefore("private fun encoderNames")).count())
+        assertTrue("only a null is filled with CBR", "bitrateMode ?: BitrateMode.CBR" in encoder)
+        assertTrue("the comment says only when the caller named no mode", "asked for constant bitrate only when the caller named no mode" in encoder)
+        assertFalse("and no longer promises CBR whatever the caller said", "asked for constant bitrate whatever the caller said" in encoder)
+    }
+
+    @Test
     fun `the rate line says what was asked and sent, and the mode the codec echoed`() {
         assertEquals("encoder rate: CBR -> VBR (CBR not offered), codec says VBR", EncoderReport.rateLine("CBR -> VBR (CBR not offered)", 1))
         assertEquals("encoder rate: CBR -> CBR, codec says CBR", EncoderReport.rateLine("CBR -> CBR", 2))

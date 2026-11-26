@@ -21,8 +21,9 @@ object FrameJank {
 
     /**
      * At most one line a second for the frames of [ALWAYS_TOLD_MS] or more (review of 26/11/2026, C6). A main thread stuck for minutes ends a frame every half second or so, and
-     * that is exactly the case the log is read for, yet two lines a second for minutes is a flood: one a second keeps the worst frame of each second (so the length of the
-     * stall is still there, in 60 lines a minute at most) and halves the rest.
+     * that is exactly the case the log is read for, yet two lines a second for minutes is a flood: one a second lets through the FIRST long frame of each second, not the worst
+     * (a later one of the same second is dropped, even if it is longer), so the length of the stall is still there, in 60 lines a minute at most, and the rest is halved
+     * (this said "the worst" before, which the code never did: review of 26/11/2026, D3).
      */
     const val LONG_EVERY_MS = 1_000L
     const val COLD_START_MS = 5_000L

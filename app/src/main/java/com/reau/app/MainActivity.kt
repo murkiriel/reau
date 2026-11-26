@@ -573,7 +573,9 @@ class MainActivity : ComponentActivity() {
         readAlertLevel()
         permissionRows = PermissionRows.read(this)
         // The phone may have joined the dash for the first time while REau was behind another app: the notice before the first ride is due from then (KeepAliveNotice).
-        com.reau.app.data.KeepAliveNotice.refresh(this, keepAliveEligible)
+        // Off the main thread like the one at the opening: on a Xiaomi or realme phone `refresh` reads the keystore-backed pairing and the kept file, the disk (review of 26/11/2026, D1).
+        val context = applicationContext
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) { runCatching { com.reau.app.data.KeepAliveNotice.refresh(context, keepAliveEligible) } }
         learnDashName()
         learnSunPlace(this, thenWeather = true)
         forgetRemovalFromRecents()

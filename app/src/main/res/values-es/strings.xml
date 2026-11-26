@@ -300,7 +300,7 @@
     <string name="video_encoder_sub">Quién hace el video para el tablero</string>
     <string name="video_encoder_phone">Del teléfono</string>
     <string name="video_encoder_software">Software de Android</string>
-    <string name="video_encoder_info">De forma predeterminada, el chip del propio teléfono hace el video para el tablero. Esta prueba usa en su lugar el codificador de software de Android, que mantiene la tasa estable y hace cuadros clave más pequeños, con más uso del procesador; si el teléfono no tiene uno, se queda el suyo. Vale desde la próxima vez que se abra el video; es una prueba y puede salir en una próxima versión.</string>
+    <string name="video_encoder_info">De forma predeterminada, el chip del propio teléfono hace el video para el tablero. Esta prueba usa en su lugar el codificador de software de Android, que debe mantener la tasa estable y suele hacer cuadros clave más pequeños, con más uso del procesador; si el teléfono no tiene uno, se queda el suyo. Vale desde la próxima vez que se abra el video; es una prueba y puede salir en una próxima versión.</string>
     <string name="action_view_logs">Ver el registro</string>
     <string name="log_viewer_title">Registro</string>
     <string name="log_viewer_none">Aún no hay registros.</string>
