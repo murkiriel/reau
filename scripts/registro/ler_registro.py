@@ -120,6 +120,12 @@ o motivo é do sistema (2, 3, 9, 10, 11, 12, 13 ou 14), a importância é de ser
 de `SystemClosedRide.kt`). A subida de temperatura é medida dentro de um trecho de uso que um processo novo, ou um buraco de 15 min entre duas olhadas em uso (`USO_BURACO_S`), também
 fecham; e a gravação vai para a projeção que estava em curso na hora do nome dela (a folga de 60 s só vale quando nenhuma estava), sem roubar a de uma projeção que começa logo depois.
 
+Desde 26/11/2026 (A5): cada «o sistema fechou o REau» traz, do registro do processo que morreu (`mortes.py`), há quanto tempo a tela apagou (as olhadas `[device] … screen=` e as linhas
+`[system] screen on|off`), há quanto tempo a projeção estava ligada, quanto tempo depois de uma retomada da 0.4.0 (`resumed after the system ended the process`) o processo morreu, o display do logcat
+do próprio processo (`DisplayState`, quando a coleta o traz) e a descrição INTEIRA da saída, com a origem que o texto de um «Forçar parada» deixa ver (a razão `due to UserDefined:` é do gerenciador;
+sem ela pode ser o piloto nos Ajustes: suposição, dita como tal). Duas ou mais mortes com a mesma espera de tela apagada (dentro de 15 s; as de processo que já começou com a tela apagada e as que
+podem ser do piloto não entram) dão «as mortes vieram N s depois de a tela apagar (padrão)»: no realme de 25/11/2026, 298 a 303 s, o relógio de 5 min do sistema.
+
 Em registros de versões até a 0.2.0 (o serviço que ligava o servidor sozinho não existe mais), por Ligar, o bloco `servidor do AA:` conta a caminhada que liga o servidor do Android Auto (toque, início
 da caminhada, clique em Iniciar, Voltar, fim, primeira conexão, em ms) e acusa a causa: porta fechada 5 s depois do clique, servidor
 que só atendeu quando a tela do Android Auto abriu, menu lido pela metade (Android Auto frio?). Sem linhas `aa-server` (o serviço desligado, o caso comum) não diz nada.
@@ -138,6 +144,7 @@ import detalhes  # noqa: E402
 import gps_chave  # noqa: E402
 import gravacoes  # noqa: E402
 import logcat_sistema  # noqa: E402
+import mortes  # noqa: E402
 import olhadas  # noqa: E402
 import quedas  # noqa: E402
 import tempo  # noqa: E402
@@ -158,7 +165,7 @@ PROCESSO_RECOMECOU = (tempo.PROCESSO_COMECOU, "o app recomeçou")
 # `[exit] past exit: package updated (16) at 2026-11-25 06:02:24.550, process …` (or `… (16) ×2 from <a> to 2026-11-25 06:02:24.550, …`): the app tells, at the start of the
 # next process, why Android ended the previous one (`ExitReasons`). The reader says it in these words, by the number in the parentheses.
 SAIDA_DO_PROCESSO = re.compile(r"^past exit: .*? \((\d+)\) (?:at|×\d+ from \S+ \S+ to) \d{4}-\d\d-\d\d (\d\d:\d\d:\d\d(?:\.\d+)?)")
-RETOMADA = re.compile(r"^resumed after the system ended the process \(attempt (\d+) of (\d+)(?:; [^)]*)?\)$")  # the app's own line when the projection came back by itself (0.4.0)
+RETOMADA = mortes.RETOMADA  # the app's own line when the projection came back by itself (0.4.0)
 SAIDA_DO_PROCESSO_LINHAS = 60  # how far after the `process start` the app tells its past exits
 # O sistema fechou o REau (25/11/2026: o Android matou o processo às 16:10:18 e às 16:10:55, `low memory (3)` e `was foreground service (125)`, e o leitor só
 # dizia «o app recomeçou» na linha do tempo, sem nenhum problema). A regra espelha a de `SystemClosedRide.kt` (o aviso que o app dá ao piloto): o motivo é um
@@ -900,32 +907,46 @@ def _motivo_da_saida(linhas, i, ultima):
     return ""
 
 
-def _sistema_fechou(linhas):
+def _sistema_fechou(linhas, caminhos=()):
     """Os problemas «o sistema fechou o REau»: uma linha `past exit` (o processo seguinte conta como o anterior acabou) cujo motivo é do sistema, com a
     importância de um serviço em primeiro plano ou melhor e sem a descrição de o piloto ter tirado o app dos recentes (a regra de `SystemClosedRide.decide`,
     sem a idade: o leitor lê registros de qualquer dia). Diz a hora da morte (a da saída, não a da linha: o app só a conta ao recomeçar), o motivo e o que o
     processo era. Uma saída contada em dois arquivos vale uma vez. Uma saída sem importância (o app de antes da linha trazer isso) não vale: não se sabe se
-    projetava."""
-    saida, vistas = [], set()
-    for x in linhas:
+    projetava.
+    Desde 26/11/2026 (A5): cada morte traz também o que o registro do processo que morreu diz (`mortes.py`): há quanto tempo a tela apagou, há quanto tempo projetava, quanto tempo
+    depois de uma retomada da 0.4.0 e a descrição inteira da saída (que separa, no Xiaomi, o «Forçar parada» do gerenciador do que pode ser o piloto); com `caminhos`, o display do logcat
+    do processo. Duas ou mais mortes com o mesmo tempo de tela apagada (dentro de 15 s) dão a linha do padrão: no realme de 25/11, 298 a 303 s, o relógio de 5 min do sistema."""
+    saida, vistas, intervalos = [], set(), []
+    entradas_do_app = None
+    for i, x in enumerate(linhas):
         m = SAIDA_DO_PROCESSO.match(x.texto)
         importancia = SAIDA_IMPORTANCIA.search(x.texto)
         if not m or not importancia:
             continue
         motivo, grau = int(m.group(1)), int(importancia.group(2))
-        descricao = SAIDA_DESCRICAO.search(x.texto)
+        achada = SAIDA_DESCRICAO.search(x.texto)
+        descricao = achada.group(1) if achada else ""
         if (motivo not in SAIDA_PELO_SISTEMA or not 1 <= grau <= SAIDA_IMPORTANCIA_MAX
-                or any(p in (descricao.group(1) if descricao else "").lower() for p in SAIDA_PELO_PILOTO)):
+                or any(p in descricao.lower() for p in SAIDA_PELO_PILOTO)):
             continue
         quando = m.group(2)[:8]
         chave = (x.texto.split(", was ")[0], quando)
         if chave in vistas:
             continue
         vistas.add(chave)
+        if entradas_do_app is None:
+            entradas_do_app = logcat_sistema.ler(caminhos, so_do_app=True) if caminhos else []
+        data = mortes.SAIDA_QUANDO.search(x.texto)
+        pid = mortes.SAIDA_PID.search(x.texto)
+        sobre, intervalo, do_piloto = mortes.detalhes(
+            linhas, i, mortes.segundos_do_dia(m.group(2)), LIGOU, DESLIGOU, descricao, motivo, entradas_do_app,
+            int(pid.group(1)) if pid else None, (int(data.group(2)), int(data.group(3))) if data else None)
+        if intervalo is not None and not do_piloto:
+            intervalos.append((intervalo, quando))
         nome = IMPORTANCIA_DO_APP.get(grau, importancia.group(1))
         saida.append(f"{quando}: o sistema fechou o REau — {MOTIVO_DA_SAIDA.get(motivo, f'motivo {motivo}')} ({motivo}), com o app como {nome} ({grau}); "
-                     f"o app só soube ao recomeçar, às {x.hora[:8]} ({x.arquivo})")
-    return saida
+                     f"o app só soube ao recomeçar, às {x.hora[:8]} ({x.arquivo}); {sobre}")
+    return saida + ([padrao] if (padrao := mortes.padrao(intervalos)) else [])
 
 
 def _do_desligamento(x, bloco):
@@ -1723,7 +1744,7 @@ def _painel_visto_tarde(bloco):
     return saida
 
 
-def problemas(linhas):
+def problemas(linhas, caminhos=()):
     saida = []
     for bloco in projecoes(linhas):
         inicio = f"{bloco[0].hora} ({bloco[0].arquivo})"
@@ -1756,7 +1777,7 @@ def problemas(linhas):
         saida += _envio_por_politica(bloco) + thread_principal.problemas(bloco)
         saida += _apps_sem_tecla(bloco) + _quadros_chave_altos(bloco) + _painel_visto_tarde(bloco) + _apps_recorte_errado_problemas(bloco)
         saida += [f"projeção de {inicio}: servidor do AA — {causa}" for causa in _servidor_aa(bloco)[1]]
-    saida += _sistema_fechou(linhas)
+    saida += _sistema_fechou(linhas, caminhos)
     # The test of item 1a (the Wi-Fi list with the app behind) fails here, with the reasons; its whole account is in `teste_1a`.
     return saida + varredura.problemas_do_teste(varredura.teste_1a(linhas)) + olhadas.problemas(projecoes(linhas))
 
@@ -2850,7 +2871,7 @@ def main(argv):
         print(f"por data e build — {g}")
     print("\n".join(linha_do_tempo(linhas)) or "nenhuma projeção nos arquivos")
     janela = (desde, ate) if desde is not None or ate is not None else None
-    achados = problemas(linhas) + do_sistema(caminhos, linhas, janela) + do_dumpsys_wifi(caminhos, linhas, janela) + da_escrita_no_painel(caminhos, linhas)
+    achados = problemas(linhas, caminhos) + do_sistema(caminhos, linhas, janela) + do_dumpsys_wifi(caminhos, linhas, janela) + da_escrita_no_painel(caminhos, linhas)
     achados += [a for a, do_app in _crash_da_coleta(caminhos, linhas) if do_app]
     achados = explicar_pedidos_expirados(achados, caminhos, linhas, janela)
     moto = [a for a in achados if MOTO_DESLIGADA in a]

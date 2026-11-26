@@ -15,6 +15,7 @@ import android.os.IBinder
 import android.os.SystemClock
 import com.reau.app.R
 import com.reau.app.aa.AaLinkState
+import com.reau.app.data.AppStandbyLog
 import com.reau.app.data.CrashHandler
 import com.reau.app.data.DeviceStateLog
 import com.reau.app.data.ProjectionSummary
@@ -795,6 +796,8 @@ class ProjectionService : Service() {
         // After a sign of memory pressure the line comes at every look for a minute (PressureSignals.periodAt), then back to the 30 s.
         val signals = com.reau.app.data.MemoryPressure.signals
         val device = DeviceStateLog(DEVICE_PERIOD_MS, signals::periodAt) { RideDiagnostics.log("device", it) }
+        // The standby bucket and the background restriction: one line at the first look of the projection, another only when one of them changes (26/11/2026).
+        val standby = AppStandbyLog { RideDiagnostics.log("device", it) }
         // Armed for this projection: one warning when the battery passes 44 C, another only after it fell under 41 C (BatteryHeatWatch).
         val heat = BatteryHeatWatch()
         // Armed for this projection: one warning when the battery is at 10 % or under with no charger, never a second one (BatteryLowWatch, 26/11/2026).
@@ -809,6 +812,7 @@ class ProjectionService : Service() {
                 // The sign of life the resume's mark is renewed with, once a minute at most (ProjectionResumeBook).
                 resumeBook.beat(System.currentTimeMillis(), dashUp = ProjectionResume.dashUp(controller.state.dash))
                 val state = reader.read()
+                standby.offer(reader.appStandby())
                 if (why == null) device.offer(SystemClock.elapsedRealtime(), state) else device.force(SystemClock.elapsedRealtime(), state, why)
                 ProjectionSummary.current.device(state.thermal, state.batteryPct)
                 warnIfHot(heat, state)

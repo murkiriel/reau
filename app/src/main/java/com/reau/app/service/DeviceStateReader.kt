@@ -1,6 +1,7 @@
 package com.reau.app.service
 
 import android.app.ActivityManager
+import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -15,6 +16,7 @@ import android.os.Process
 import android.os.SystemClock
 import android.view.Display
 import androidx.core.content.ContextCompat
+import com.reau.app.data.AppStandby
 import com.reau.app.data.CpuWindow
 import com.reau.app.data.DeviceState
 import com.reau.app.data.LoadAverage
@@ -33,12 +35,22 @@ class DeviceStateReader(private val context: Context, private val bikeNetwork: (
     private val connectivity = context.getSystemService(ConnectivityManager::class.java)
     private val display = context.getSystemService(DisplayManager::class.java)
     private val batteryManager = context.getSystemService(BatteryManager::class.java)
+    private val usageStats = context.getSystemService(UsageStatsManager::class.java)
     private val cpu = CpuWindow()
     private val load = LoadAverage { RideDiagnostics.log("device", LoadAverage.UNREADABLE_LINE) }
     private val procMemory = MemoryProc(onPressureUnreadable = { RideDiagnostics.log("device", MemoryProc.UNREADABLE_LINE) })
 
     /** The state now; what it says of the charger, the screen and doze is also kept for the line on a link's end. */
     fun read(): DeviceState = readNow().also { com.reau.app.data.PhoneNow.update(it.charging, it.screenOn, it.dozing, it.batteryTempC) }
+
+    /**
+     * REau's standby bucket and whether its background use is restricted (both API 28, own package, no permission); each one that fails is unknown, never a throw
+     * (26/11/2026: what the system had decided about the app was not in any log).
+     */
+    fun appStandby(): AppStandby.Reading = AppStandby.Reading(
+        bucket = runCatching { usageStats.appStandbyBucket }.getOrNull(),
+        backgroundRestricted = runCatching { activity.isBackgroundRestricted }.getOrNull(),
+    )
 
     private fun readNow(): DeviceState {
         val battery = runCatching {

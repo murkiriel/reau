@@ -5680,7 +5680,7 @@ MUTATIONS += [
      "{tempo.dec(ms / 1000)}", "{tempo.dec(ms / 100)}", ["registro/test_a4_a10_leitor.py"]),
     ("plano35/B3 Leitor: a linha do primeiro quadro não impede o problema de falta de confirmação", "scripts/registro/ler_registro.py",
      '"first frame confirmed by the dash", "dash notice 09 06 55"', '"dash notice 09 06 55"', ["registro/test_a4_a10_leitor.py"]),
-    ("plano35/B2 Leitor: a linha da retomada com a nota da bateria não é reconhecida", "scripts/registro/ler_registro.py",
+    ("plano35/B2 Leitor: a linha da retomada com a nota da bateria não é reconhecida", "scripts/registro/mortes.py",
      "(\\d+)(?:; [^)]*)?\\)$\")", "(\\d+)\\)$\")", ["registro/test_retomada.py"]),
     ("plano35/B1 Leitor: o aviso de pouca memória do Android não entra na linha do tempo", "scripts/registro/ler_registro.py",
      'if x.etiqueta == "memory" and ": memory is short" in t:', 'if x.etiqueta == "memory" and ": memory is shorter" in t:', ["registro/test_retomada.py"]),
@@ -5748,6 +5748,25 @@ MUTATIONS += [
     ("plano35/G Governador: a partida não manda o bitrate ao codificador", MAIN + "stream/StreamGovernor.kt",
      "paceChange(firstFrameConfirmed = false) + startBitrate() + sync(\"stream start\", nowMs)", "paceChange(firstFrameConfirmed = false) + listOf(startBitrate()).drop(1) + sync(\"stream start\", nowMs)",
      ["BitrateIsSetOnceTest", "PaceGovernorTest", "GovernadorOuroTest"]),
+]
+
+
+MUTATIONS += [
+    # A4 do plano dos pilotos Xiaomi e realme (26/11/2026): o registro diz a versão do sistema do fabricante, o balde de uso e a restrição de segundo plano.
+    ("fable/A4 Cabeçalho: um rótulo de imagem de engenharia (`eng.<quem fez>`) é escrito com o nome de quem a fez", MAIN + "data/SystemBuild.kt",
+     "text.startsWith(ENGINEERING_PREFIX, ignoreCase = true) -> ENGINEERING_LABEL", 'text.startsWith("xeng.") -> ENGINEERING_LABEL', ["SystemBuildTest"]),
+    ("fable/A4 Cabeçalho: o rótulo da versão do sistema não é cortado", MAIN + "data/SystemBuild.kt",
+     "private const val MAX_LENGTH = 40", "private const val MAX_LENGTH = 4000", ["SystemBuildTest"]),
+    ("fable/A4 Cabeçalho: a linha de início do processo não traz a versão do sistema", MAIN + "data/RideDiagnostics.kt",
+     "SystemBuild.line(Build.DISPLAY, Build.VERSION.INCREMENTAL)", '"?"', ["AppStandbyIsWiredTest"]),
+    ("fable/A4 Balde: o balde restrito (45) sai com o nome do raro", MAIN + "data/AppStandby.kt",
+     'RESTRICTED -> "restricted"', 'RESTRICTED -> "rare"', ["AppStandbyTest"]),
+    ("fable/A4 Balde: a mesma leitura é escrita de novo a cada olhada", MAIN + "data/AppStandby.kt",
+     "        if (reading == last) return\n", "        if (reading == last && reading.bucket == null) return\n", ["AppStandbyTest"]),
+    ("fable/A4 Balde: a projeção não oferece a leitura do balde ao registro", MAIN + "service/ProjectionService.kt",
+     "                standby.offer(reader.appStandby())\n", "", ["AppStandbyIsWiredTest"]),
+    ("fable/A4 Balde: a leitura do balde de uso não tolera falha", MAIN + "service/DeviceStateReader.kt",
+     "bucket = runCatching { usageStats.appStandbyBucket }.getOrNull(),", "bucket = usageStats.appStandbyBucket,", ["AppStandbyIsWiredTest"]),
 ]
 
 
