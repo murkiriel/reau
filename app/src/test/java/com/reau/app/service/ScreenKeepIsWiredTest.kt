@@ -41,7 +41,7 @@ class ScreenKeepIsWiredTest {
         assertEquals("one acquire, with its timeout", 1, Regex("""\.acquire\(""").findAll(keeper).count())
         assertTrue("held.acquire(if (trigger == ScreenKeepPolicy.Trigger.SCREEN_OFF) SCREEN_OFF_LOCK_MS else TIMER_LOCK_MS)" in keeper)
         assertTrue("SCREEN_OFF_LOCK_MS = 10_000L" in keeper && "TIMER_LOCK_MS = 5_000L" in keeper)
-        for (file in listOf("service/ScreenKeeper.kt", "ui/ScreenKeepOver.kt")) {
+        for (file in listOf("service/ScreenKeeper.kt", "ui/LockOverHost.kt")) {
             val comment = Regex("""^\s*(\*|//|/\*)""")
             val code = source(file).lines().filterNot { comment.containsMatchIn(it) }.joinToString("\n")
             assertFalse("$file: KEEP_SCREEN_ON", "KEEP_SCREEN_ON" in code)
@@ -60,7 +60,7 @@ class ScreenKeepIsWiredTest {
     @Test
     fun `the proximity sensor is read only at the moment of lighting, by a listener that gives itself up`() {
         val keeper = source("service/ScreenKeeper.kt")
-        assertEquals("one registration, in the one-reading class", 1, Regex("""registerListener\(""").findAll(keeper).count())
+        assertEquals("one registration, in the one-reading class", 1, Regex("""\bregisterListener\(""").findAll(keeper).count())
         assertTrue("PROBE_MS = 400L" in keeper)
         val read = keeper.substringAfter("private class ProximityRead")
         assertTrue("main.postDelayed(timeout, PROBE_MS)" in read && "manager?.unregisterListener(this)" in read)
@@ -85,7 +85,7 @@ class ScreenKeepIsWiredTest {
 
     @Test
     fun `the app's activity is shown over the lock screen from its own screen, with showWhenLocked and turnScreenOn only while armed`() {
-        val over = source("ui/ScreenKeepOver.kt")
+        val over = source("ui/LockOverHost.kt")
         val apply = over.substringAfter("private fun apply(armed: Boolean)").substringBefore("/** The activity is resumed")
         assertTrue(apply, "activity.setShowWhenLocked(armed)" in apply && "activity.setTurnScreenOn(armed)" in apply)
         assertTrue(apply, "RideDiagnostics.log(ScreenKeepPolicy.TAG, ScreenKeepPolicy.ARMED_LINE)" in apply)
@@ -98,9 +98,11 @@ class ScreenKeepIsWiredTest {
         assertTrue("it goes when the phone is unlocked another way", "Intent.ACTION_USER_PRESENT" in over)
         val main = source("MainActivity.kt")
         assertTrue("private val lockOver = com.reau.app.ui.LockOverHost(this)" in main && "lockOver.attach()" in main)
+        assertTrue("the layer goes on after setContent", "override fun onPostCreate" in main && "lockOver.attach()" in main.substringAfter("override fun onPostCreate"))
+        assertTrue("the layer is added on top, and draws only while over", "activity.addContentView(" in over && "setContent { if (over) LockOverScreen(this@LockOverHost) }" in over)
         assertTrue("lockOver.resumed()" in main.substringAfter("private fun resume()").substringBefore("resumedAtMs"))
         assertTrue("lockOver.paused()" in main.substringAfter("override fun onPause()").substringBefore("super.onPause()"))
-        assertTrue("if (lockOver.over) {\n                com.reau.app.ui.LockOverScreen(lockOver)" in main)
+        assertFalse("onCreate has no branch of it", "LockOverScreen" in main)
     }
 
     @Test
@@ -110,7 +112,7 @@ class ScreenKeepIsWiredTest {
         assertTrue(on, "lock?.takeIf { it.isHeld }?.release()" in on)
         assertTrue("pausedByRider = ScreenKeepFront.paused" in keeper.substringAfter("private fun decide("))
         assertTrue("ScreenKeepFront.clearPause()" in keeper.substringAfter("private fun turnOff()").substringBefore("val heard"))
-        val over = source("ui/ScreenKeepOver.kt")
+        val over = source("ui/LockOverHost.kt")
         val pause = over.substringAfter("fun pauseByRider()").substringBefore("private fun locked()")
         assertTrue(pause, "RideDiagnostics.log(ScreenKeepPolicy.TAG, ScreenKeepPolicy.PAUSED_LINE)" in pause && "ScreenKeepFront.pauseByRider()" in pause)
         assertTrue("TextButton(onClick = host::pauseByRider)" in over && "R.string.screen_keep_lock_pause" in over)
@@ -120,7 +122,7 @@ class ScreenKeepIsWiredTest {
 
     @Test
     fun `the screen of the function draws nothing animated`() {
-        val code = source("ui/ScreenKeepOver.kt").lines().filterNot { it.trimStart().startsWith("*") || it.trimStart().startsWith("//") }.joinToString("\n")
+        val code = source("ui/LockOverHost.kt").lines().filterNot { it.trimStart().startsWith("*") || it.trimStart().startsWith("//") }.joinToString("\n")
         for (animated in listOf("animate", "infiniteTransition", "rememberInfiniteTransition", "Animatable", "AnimatedVisibility", "Canvas", "Image(", "painterResource")) {
             assertFalse(animated, animated in code)
         }
