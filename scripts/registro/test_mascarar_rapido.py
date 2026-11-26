@@ -53,6 +53,13 @@ CASOS = [
     (f"macro={MAC_FF.replace(':', '')}", f"macro={MAC_FF.replace(':', '')}"),
     (f"mac={MAC_FF.replace(':', '')}0", f"mac={MAC_FF.replace(':', '')}0"),
     ("2026-11-26-10-30-15 ok", "2026-11-26-10-30-15 ok"),
+    # revisão de 26/11/2026, C5: palavra terminada em hexadecimal + hífen antes do MAC; a data continua
+    (f"bssid-{MAC_FF.replace(':', '-')}", f"bssid-{mascarar.MASK_MAC}"),
+    (f"wlan0-{MAC_FF.replace(':', '-')}", f"wlan0-{mascarar.MASK_MAC}"),
+    (f"feed-{MAC_FF.replace(':', '-')}", f"feed-{mascarar.MASK_MAC}"),
+    ("id-" + "-".join(["1a", "2b", "3c", "4d", "5e", "6f"]), f"id-{mascarar.MASK_MAC}"),
+    ("ts2026-11-26-10-30-15-45 ok", "ts2026-11-26-10-30-15-45 ok"),
+    ("x 2026-11-26-10-30-15-45-59 ok", "x 2026-11-26-10-30-15-45-59 ok"),
     ("2026-11-26-10-30-15-45 ok", "2026-11-26-10-30-15-45 ok"),
 ]
 

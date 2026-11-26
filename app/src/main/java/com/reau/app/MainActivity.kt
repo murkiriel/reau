@@ -230,9 +230,12 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) quickStart(intent)
         // What the last opening found about the system closing REau during a ride, still not dismissed (the opening's thread may add to it: SystemClosedRide.note).
         // Off the main thread: the first read of the kept preference is the disk (review of the plan 34, B3, 26/11/2026; the notice shows a moment later, as the Android Auto one does).
-        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) { runCatching { com.reau.app.data.SystemClosedRide.load(applicationContext) } }
-        // The one notice before the first ride on a Xiaomi or realme phone (KeepAliveNotice): due or not, as of now; read again at each return to the screen.
-        com.reau.app.data.KeepAliveNotice.refresh(applicationContext, keepAliveEligible)
+        // The one notice before the first ride on a Xiaomi or realme phone (KeepAliveNotice): due or not, as of now; read again at each return to the screen. It reads the SAME
+        // file (SystemClosedRide.lastNotedAt), so it goes in the same IO coroutine, after the load: on the main thread it would take the disk back (review of 26/11/2026, C4).
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching { com.reau.app.data.SystemClosedRide.load(applicationContext) }
+            runCatching { com.reau.app.data.KeepAliveNotice.refresh(applicationContext, keepAliveEligible) }
+        }
         setContent {
             val projection by ProjectionService.projection.collectAsStateWithLifecycle()
             val startedAt by ProjectionService.startedAt.collectAsStateWithLifecycle()

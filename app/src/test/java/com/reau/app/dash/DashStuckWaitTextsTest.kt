@@ -17,8 +17,8 @@ class DashStuckWaitTextsTest {
         Regex("""<string name="$name">(.*?)</string>""").find(File(res, "$folder/strings.xml").readText())?.groupValues?.get(1) ?: error("no $name in $folder")
 
     @Test
-    fun `the notification, the error line and the phrase of the stuck dash say to wait 20 seconds in the four languages`() {
-        for (folder in folders) for (name in listOf("notif_text_dash_stuck", "dash_err_dash_stuck", "voice_dash_gone")) {
+    fun `the notification, the error line, the phrase and the silent-dash notice say to wait 20 seconds in the four languages`() {
+        for (folder in folders) for (name in listOf("notif_text_dash_stuck", "dash_err_dash_stuck", "voice_dash_gone", "notif_text_dash_silent")) {
             val body = text(folder, name)
             assertTrue("$folder $name: $body", Regex("""(?<!\d)20(?!\d)""").containsMatchIn(body))
             assertFalse("$folder $name still says 30: $body", Regex("""(?<!\d)30(?!\d)""").containsMatchIn(body))

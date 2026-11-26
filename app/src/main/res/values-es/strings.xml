@@ -55,7 +55,7 @@
     <string name="notif_text_dash_taken">Apaga la transmisión de la otra app; REau lo intenta de nuevo sola</string>
     <string name="notif_text_dash_taken_alert">Otra app está usando la conexión del tablero. Ciérrala para que REau vuelva.</string>
     <string name="notif_title_dash_silent">Tablero sin respuesta</string>
-    <string name="notif_text_dash_silent">El tablero dejó de responder. Si no vuelve, apaga y enciende el contacto.</string>
+    <string name="notif_text_dash_silent">El tablero dejó de responder. Si no vuelve, apaga el contacto, espera unos 20 segundos y vuelve a encenderlo.</string>
     <string name="notif_title_card">Fondo en el tablero</string>
     <string name="notif_text_card">Imagen fija, sin Android Auto</string>
     <string name="notif_text_stopping">Apagando</string>

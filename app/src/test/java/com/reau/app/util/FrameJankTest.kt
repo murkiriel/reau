@@ -48,7 +48,27 @@ class FrameJankTest {
         repeat(FrameJank.MAX_PER_MINUTE) { assertTrue(limiter.allow(200)); now += 1_000 }
         assertFalse("the count is used up for ordinary slow frames", limiter.allow(499))
         assertTrue("823 ms on 26/11/2026 was hidden behind the cold start", limiter.allow(823))
+        now += FrameJank.LONG_EVERY_MS
         assertTrue("exactly the limit", limiter.allow(FrameJank.ALWAYS_TOLD_MS))
         assertFalse("and it does not open the count for the others", limiter.allow(300))
+    }
+
+    @Test
+    fun `the frames of half a second or more have a ceiling of one a second, and the next second is open again`() {
+        var now = 10_000L
+        val limiter = FrameJank.Limiter { now }
+        assertTrue("the first stuck frame", limiter.allow(2_000))
+        now += 500
+        assertFalse("another half a second later, in the same second", limiter.allow(900))
+        now += 499
+        assertFalse("999 ms after the first", limiter.allow(5_000))
+        now += 1
+        assertTrue("a second after the first", limiter.allow(700))
+        // a stall of one minute, a frame every half second: 120 frames, 60 lines
+        now = 100_000L
+        val written = (0 until 120).count { now += 500; limiter.allow(600) }
+        assertEquals("one a second, never two", 60, written)
+        assertTrue("and the ordinary frames keep their five a minute", (1..FrameJank.MAX_PER_MINUTE).all { limiter.allow(200) })
+        assertFalse(limiter.allow(200))
     }
 }

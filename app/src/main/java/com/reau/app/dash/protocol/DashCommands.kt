@@ -596,7 +596,8 @@ object DashCommands {
     /**
      * [text] made of characters the dash can draw: composed (NFC, so "e" + an accent is the one Latin-1 letter), the
      * typographic quotes and dashes as their ASCII, what is past Latin-1 in another script written in the Latin alphabet
-     * ([DashTransliteration], 26/11/2026: the dash has no font for Devanagari and the like), and each character that is still past
+     * ([DashTransliteration], 26/11/2026: the dash has no font for Devanagari and the like; the characters that draw nothing, such as a zero-width joiner or a direction
+     * mark, are dropped there first, so they do not turn into question marks), and each character that is still past
      * Latin-1 (an emoji, or any script when the transliteration is not there) one question mark, counted by code point so a
      * surrogate pair is never split or doubled. Text that is Latin-1 already comes out unchanged.
      */

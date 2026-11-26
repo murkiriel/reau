@@ -38,7 +38,7 @@ class SystemClosedRideIsWiredTest {
 
     @Test
     fun `noting an exit asks the rule, keeps the time, tells the screen and writes one line in the ride log`() {
-        val note = source("data/SystemClosedRide.kt").between("fun note(", "/** The rider dismissed")
+        val note = source("data/SystemClosedRide.kt").between("fun note(", "fun dismiss(context: Context)")
         assertTrue(note, "val exit = pick(exits, book.toldUpTo(), nowMs) ?: return" in note)
         assertTrue(note, "if (!book.note(exit.timestampMs)) return" in note)
         assertTrue(note, "told.value = book.pendingAt()" in note)
@@ -60,10 +60,24 @@ class SystemClosedRideIsWiredTest {
         val create = activity.between("override fun onCreate(", "setContent {")
         assertTrue(create.contains("com.reau.app.data.SystemClosedRide.load(applicationContext)"))
         // review of the plan 34, B3 (26/11/2026): the first read of the kept preference is the disk, so not the main thread
-        assertTrue(create, create.contains("lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) { runCatching { com.reau.app.data.SystemClosedRide.load(applicationContext) } }"))
+        val launch = create.between("lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {", "\n        }\n")
+        assertTrue(create, launch.contains("runCatching { com.reau.app.data.SystemClosedRide.load(applicationContext) }"))
+        // review of 26/11/2026, C4: the one-time notice reads the same file, so it is in the same IO coroutine, after the load, and not on the main thread after it
+        assertTrue(launch, launch.indexOf("SystemClosedRide.load(") in 0 until launch.indexOf("KeepAliveNotice.refresh(applicationContext, keepAliveEligible)"))
+        assertEquals("the refresh is not outside the coroutine", 1, Regex("KeepAliveNotice\\.refresh\\(").findAll(create).count())
         assertTrue(activity.contains("val systemClosedAt = com.reau.app.data.SystemClosedRide.pendingAt.collectAsStateWithLifecycle().value"))
         // The flag of the one-time notice (KeepAliveNotice) follows it in the same chain (KeepAliveNoticeIsWiredTest).
         assertTrue(activity.contains("mainState(projection, settings, startedAt, pairing.ssid).withNetwork(networkOn).withSystemClosed(systemClosedAt)\n"))
+    }
+
+    @Test
+    fun `dismissing writes the book and clears the flow under the same lock as the load`() {
+        val file = source("data/SystemClosedRide.kt")
+        val dismiss = file.between("fun dismiss(context: Context) {", "\n    }\n")
+        assertTrue(dismiss, "synchronized(told) {" in dismiss)
+        assertTrue(dismiss, dismiss.indexOf("Book.open(context).dismiss()") in dismiss.indexOf("synchronized(told) {")..dismiss.indexOf("told.value = null"))
+        val load = file.between("fun load(context: Context) {", "\n    }\n")
+        assertTrue("the load takes the same lock", "synchronized(told) { told.value = book.pendingAt() }" in load)
     }
 
     @Test

@@ -1080,8 +1080,9 @@ class DashSession(
                 beginAuthState(network)
                 loggedFirstAck = false
                 firstFrame.reset()
-                // A new session says again, once, that a text was written in the Latin alphabet for the dash (26/11/2026).
-                com.reau.app.dash.protocol.DashTransliteration.newSession()
+                // A new session says again, once, that a text was written in the Latin alphabet for the dash (26/11/2026), and warms ICU up on the IO pool, not on the
+                // thread that reads Android Auto (review of 26/11/2026, S1).
+                com.reau.app.dash.protocol.DashTransliteration.newSession(scope)
                 aliveWithoutAck = false
                 streamingStartMs = 0L
                 lastRxMs = 0L

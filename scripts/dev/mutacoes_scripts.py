@@ -41,7 +41,7 @@ MUTATIONS_SCRIPTS = [
      "{sum(e[0] for e in contas['subteto'])} arquivos", "{sum(e[1] for e in contas['subteto'])} arquivos", ["registro/test_gravacoes.py"]),
     # ── mascarar.py ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────
     ("leva2/mascarar: o MAC de cinco grupos também é escondido", REG + "mascarar.py",
-     'MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<![0-9A-Fa-f]-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}")', 'MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){4}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<![0-9A-Fa-f]-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}")', ["registro/test_mascarar.py"]),
+     'MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<!^\\d\\d-)(?<![^A-Za-z]\\d\\d-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}")', 'MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){4}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<!^\\d\\d-)(?<![^A-Za-z]\\d\\d-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}")', ["registro/test_mascarar.py"]),
     ("leva2/mascarar: o nome de duas letras vale em qualquer lugar", REG + "mascarar.py",
      "NOME_MINIMO = 3", "NOME_MINIMO = 2", ["registro/test_mascarar.py"]),
     ("leva2/mascarar: o nome mais curto é escondido antes do mais longo", REG + "mascarar.py",
@@ -489,11 +489,11 @@ MUTATIONS_SCRIPTS = [
      '_economia(bloco) + _temperatura_sem_painel(bloco)', '_economia(bloco)', ["registro/test_a2_saida_e_calor.py"]),
     # Leitor 25/11 (A3, C16): o nome do painel e o MAC escondidos em qualquer posição (colados a letra ou dígito) nas linhas do sistema que o leitor conta.
     ("p33/A3 o MAC volta a exigir borda à esquerda", REG + "mascarar.py",
-     'MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<![0-9A-Fa-f]-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}")', 'MAC = re.compile(r"\\b(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<![0-9A-Fa-f]-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}")', ["registro/test_mascarar.py", "registro/test_logcat_sistema.py"]),
+     'MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<!^\\d\\d-)(?<![^A-Za-z]\\d\\d-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}")', 'MAC = re.compile(r"\\b(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<!^\\d\\d-)(?<![^A-Za-z]\\d\\d-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}")', ["registro/test_mascarar.py", "registro/test_logcat_sistema.py"]),
     ("p33/A3 o MAC volta a exigir borda à direita", REG + "mascarar.py",
-     'MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<![0-9A-Fa-f]-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}")', 'MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}\\b|(?<![0-9A-Fa-f])(?<![0-9A-Fa-f]-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}")', ["registro/test_mascarar.py", "registro/test_logcat_sistema.py"]),
+     'MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<!^\\d\\d-)(?<![^A-Za-z]\\d\\d-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}")', 'MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}\\b|(?<![0-9A-Fa-f])(?<!^\\d\\d-)(?<![^A-Za-z]\\d\\d-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}")', ["registro/test_mascarar.py", "registro/test_logcat_sistema.py"]),
     ("p33/A3 o MAC aceita só cinco pares", REG + "mascarar.py",
-     'MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<![0-9A-Fa-f]-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}")', 'MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){3}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<![0-9A-Fa-f]-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}")', ["registro/test_mascarar.py", "registro/test_logcat_sistema.py"]),
+     'MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<!^\\d\\d-)(?<![^A-Za-z]\\d\\d-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}")', 'MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){3}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<!^\\d\\d-)(?<![^A-Za-z]\\d\\d-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}")', ["registro/test_mascarar.py", "registro/test_logcat_sistema.py"]),
     ("p33/A3 o nome do painel colado à letra deixa de ser achado", REG + "mascarar.py",
      'DASH_QUALQUER = re.compile(_OTHER.pattern + "|" + _DASH.pattern)', 'DASH_QUALQUER = re.compile(_OTHER.pattern)', ["registro/test_mascarar.py", "registro/test_logcat_sistema.py"]),
     ("p33/A3 o nome do painel exige só RE_ e 4 caracteres", REG + "mascarar.py",
@@ -560,11 +560,11 @@ MUTATIONS_SCRIPTS = [
      'FALA_NO_FONE = re.compile(r"^voice: (\\w+) said$")', 'FALA_NO_FONE = re.compile(r"^voice: (\\w+) ")', ["registro/test_a3_a8_leitor.py"]),
     # Revisão do plano 33 (26/11/2026), B4: a máscara de MAC cobre o hífen e o MAC sem separador depois da palavra que o diz.
     ("revisao33/B4 mascarar: o MAC com hífen passa", REG + "mascarar.py",
-     "|(?<![0-9A-Fa-f])(?<![0-9A-Fa-f]-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}\")", "\")", ["registro/test_mascarar.py"]),
+     "|(?<![0-9A-Fa-f])(?<!^\\d\\d-)(?<![^A-Za-z]\\d\\d-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}\")", "\")", ["registro/test_mascarar.py"]),
     ("revisao33/B4 mascarar: a data com hora e hífens é tomada por MAC", REG + "mascarar.py",
-     "|(?<![0-9A-Fa-f])(?<![0-9A-Fa-f]-)(?:[0-9A-Fa-f]{2}-){5}", "|(?:[0-9A-Fa-f]{2}-){5}", ["registro/test_mascarar.py"]),
+     "|(?<![0-9A-Fa-f])(?<!^\\d\\d-)(?<![^A-Za-z]\\d\\d-)(?:[0-9A-Fa-f]{2}-){5}", "|(?:[0-9A-Fa-f]{2}-){5}", ["registro/test_mascarar.py"]),
     ("revisao33/B4 mascarar: o MAC com hífen também vale depois de um hexadecimal e de um hífen", REG + "mascarar.py",
-     "(?<![0-9A-Fa-f])(?<![0-9A-Fa-f]-)(?:[0-9A-Fa-f]{2}-){5}", "(?<![0-9A-Fa-f])(?:[0-9A-Fa-f]{2}-){5}", ["registro/test_mascarar.py"]),
+     "(?<![0-9A-Fa-f])(?<!^\\d\\d-)(?<![^A-Za-z]\\d\\d-)(?:[0-9A-Fa-f]{2}-){5}", "(?<![0-9A-Fa-f])(?:[0-9A-Fa-f]{2}-){5}", ["registro/test_mascarar.py"]),
     ("revisao33/B4 mascarar: a sequência de doze dígitos de um hash é tomada por MAC", REG + "mascarar.py",
      "[0-9a-f]{12}(?![0-9a-f])\")", "[0-9a-f]{12}\")", ["registro/test_mascarar.py"]),
     ("revisao33/B4 mascarar: o MAC sem separador vale sem a palavra que o diz", REG + "mascarar.py",
@@ -609,4 +609,9 @@ MUTATIONS_SCRIPTS = [
      "MUSICA_COBRE_DO_TRECHO = 0.5", "MUSICA_COBRE_DO_TRECHO = 0.01", ["registro/test_ler_registro.py"]),
     ("dia26/item9 leitor: o modo música desligado não fecha o trecho de música", REG + "ler_registro.py",
      'elif not abre(m) and inicio is not None:', 'elif False:', ["registro/test_ler_registro.py"]),
+    # ── Revisão de 26/11/2026 dos quatro commits sem revisor ──────────────────────────────────
+    ("revisao-rec2/C5 mascarar: o MAC depois de palavra terminada em hexadecimal e hífen volta a passar inteiro", REG + "mascarar.py",
+     "(?<!^\\d\\d-)(?<![^A-Za-z]\\d\\d-)(?:[0-9A-Fa-f]{2}-){5}", "(?<![0-9A-Fa-f]-)(?:[0-9A-Fa-f]{2}-){5}", ["registro/test_mascarar.py"]),
+    ("revisao-rec2/C5 mascarar: a data depois de letras (ts2026-...) volta a ser tomada por MAC", REG + "mascarar.py",
+     "(?<!^\\d\\d-)(?<![^A-Za-z]\\d\\d-)(?:[0-9A-Fa-f]{2}-){5}", "(?:[0-9A-Fa-f]{2}-){5}", ["registro/test_mascarar.py"]),
 ]

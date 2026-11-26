@@ -360,14 +360,23 @@ class DashCommandsTest {
         assertEquals(listOf("A Really Quite Long", "Dois", "Legião Urbana"), splitOnNul(value))
     }
 
-    /** The music text goes one byte a character (Latin-1), as the caller's name does. */
+    /**
+     * The music text goes one byte a character (Latin-1), as the caller's name does. The engine is pinned to "knows nothing" so the test does not depend on the machine: the
+     * real ICU on a device turns the arrow into "->" (Latin-ASCII), the JVM has no ICU, and neither is what this test is about (review of 26/11/2026, S5; the real engine is
+     * checked on a device by `DashTransliterationDeviceTest`).
+     */
     @Test
-    fun `nowPlaying writes accents as one Latin-1 byte, and what Latin-1 lacks as a question mark`() {
-        val pkt = DashCommands.nowPlaying(title = "Coração", album = "Mãe → Terra", artist = "João")
-        val value = outgoingTlvs(pkt).single { it.type == 5 && it.sub == 0x0D }.value
-        assertEquals("one byte a character", "Coração".length + 1 + "Mãe ? Terra".length + 1 + "João".length, value.size)
-        assertEquals(listOf("Coração", "Mãe ? Terra", "João"), splitOnNul(value))
-        assertEquals("ç is one byte, 0xE7", 0xE7, value[value.indexOf(0xE7.toByte())].toInt() and 0xFF)
+    fun `nowPlaying writes accents as one Latin-1 byte, and what Latin-1 lacks as a question mark when no engine knows it`() {
+        DashTransliteration.engine = DashTransliteration.Engine { null }
+        try {
+            val pkt = DashCommands.nowPlaying(title = "Coração", album = "Mãe → Terra", artist = "João")
+            val value = outgoingTlvs(pkt).single { it.type == 5 && it.sub == 0x0D }.value
+            assertEquals("one byte a character", "Coração".length + 1 + "Mãe ? Terra".length + 1 + "João".length, value.size)
+            assertEquals(listOf("Coração", "Mãe ? Terra", "João"), splitOnNul(value))
+            assertEquals("ç is one byte, 0xE7", 0xE7, value[value.indexOf(0xE7.toByte())].toInt() and 0xFF)
+        } finally {
+            DashTransliteration.engine = null
+        }
     }
 
     @Test

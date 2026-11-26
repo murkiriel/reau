@@ -13,8 +13,8 @@ import java.io.Reader
  * - The dash's Wi-Fi name, `RE_<4 letters or digits>_<6 digits>`, even glued to other text or escaped in an address (`%22RE_…%22`), and any other
  *   name that starts the way a dash's does (at the start of a word, after a character that is not of a word, or after a `%XX` escape; `MODE_RE_ABCD`
  *   is left), become [MASK].
- * - Every MAC address (six pairs of hex digits split by colons or by hyphens, even glued to a letter or a digit; the hyphen form not after a hex digit, which a
- *   date and time `2026-11-26-10-30-15` would be; and twelve hex digits with no separator, after `bssid`, `mac`, `macaddr` or `hwaddr` and `=` or `:`) becomes [MASK_MAC].
+ * - Every MAC address (six pairs of hex digits split by colons or by hyphens, even glued to a letter or a digit; the hyphen form not after a hex digit nor after two digits and a hyphen,
+ *   which a date and time `2026-11-26-10-30-15` would be; and twelve hex digits with no separator, after `bssid`, `mac`, `macaddr` or `hwaddr` and `=` or `:`) becomes [MASK_MAC].
  * - The names of the Wi-Fi networks that are not the dash's (home, work): the name that follows `SSID`, `ssid=`, `configKey=` or `SSID:`, quoted or
  *   not, becomes [MASK_NETWORK]. A name found that way is also hidden everywhere else in the same export (where a line says it without the
  *   keyword), and [extraNames] (the paired dash's own, which may not start with `RE_`) are hidden wherever they stand. A name of fewer than
@@ -35,9 +35,11 @@ object LogMask {
     private val OTHER = Regex("""(?:(?<=%[0-9A-Fa-f]{2})|\b)RE_[A-Za-z0-9_]{4,}""")
     private val DASH = Regex("""RE_[A-Za-z0-9]{4}_\d{6}""")
     // A MAC has no edge, like the script's (53d3ad2, 25/11/2026; the `\b` here was left behind): glued to a letter or a digit it is hidden too. The hyphen form has a
-    // left edge, because a date and time holds six pairs split by hyphens (26/11/2026, review B4). With no separator it is hidden only after its keyword, and only
+    // left edge, because a date and time holds six pairs split by hyphens (26/11/2026, review B4): it does not start right after a hex digit, nor after two DIGITS and a hyphen
+    // that are not the end of a word (`2026-` of a year, `11-` of a month). A hex LETTER or a single digit before the hyphen (`bssid-`, `wlan0-`, `feed-`, `id-1a-`) is a word,
+    // and the MAC after it is hidden (review of 26/11/2026, C5; it was refused for any hex digit before the hyphen). With no separator it is hidden only after its keyword, and only
     // when it is exactly twelve digits (a longer run is a hash).
-    private val MAC = Regex("""(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<![0-9A-Fa-f]-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}""")
+    private val MAC = Regex("""(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<!^\d\d-)(?<![^A-Za-z]\d\d-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}""")
     // A word that ends in two hex digits glued to a MAC (`mac-aa-bb-cc-dd-ee-ff`, `device-00-11-22-33-44-55`) makes [MAC] match one position early (the `ac` of `mac` is a pair)
     // and leave the last pair out, which leaked. The pair that follows the MAC after the same kind of sign, whole, is hidden with it: it hides too much, never too little
     // (review of the plan 34, A5, 26/11/2026). The date `2026-11-26-10-30-15-45` is left as it was: the left edge of the hyphen form refuses it before.

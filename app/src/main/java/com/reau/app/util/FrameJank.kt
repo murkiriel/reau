@@ -16,11 +16,19 @@ object FrameJank {
     const val THRESHOLD_MS = 100L
     const val MAX_PER_MINUTE = 5
 
-    /** A slow frame this long is always written, past [MAX_PER_MINUTE]: it is rare and it is the one to look at. */
+    /** A slow frame this long is written past [MAX_PER_MINUTE]: it is rare and it is the one to look at (but with a ceiling of its own, [LONG_EVERY_MS]). */
     const val ALWAYS_TOLD_MS = 500L
+
+    /**
+     * At most one line a second for the frames of [ALWAYS_TOLD_MS] or more (review of 26/11/2026, C6). A main thread stuck for minutes ends a frame every half second or so, and
+     * that is exactly the case the log is read for, yet two lines a second for minutes is a flood: one a second keeps the worst frame of each second (so the length of the
+     * stall is still there, in 60 lines a minute at most) and halves the rest.
+     */
+    const val LONG_EVERY_MS = 1_000L
     const val COLD_START_MS = 5_000L
     const val RESUME_MS = 3_000L
     private const val MINUTE_MS = 60_000L
+    private const val NEVER = Long.MIN_VALUE
     private const val NS_PER_MS = 1_000_000L
 
     /** The settings screens are open: set by the screen, read by the frame callback. */
@@ -43,19 +51,30 @@ object FrameJank {
     /** At most [MAX_PER_MINUTE] lines in any minute. */
     class Limiter(private val clock: () -> Long = MonotonicClock::nowMs) {
         private val told = ArrayDeque<Long>()
+        private var lastLongAt = NEVER
 
         /**
-         * Whether a slow frame of [totalMs] is written. A frame of [ALWAYS_TOLD_MS] or more always is, past the count (26/11/2026: the five lines of a
-         * minute had gone to the frames of the cold start, and a frame of 823 ms a few seconds later was only in the system's logcat).
+         * Whether a slow frame of [totalMs] is written. A frame of [ALWAYS_TOLD_MS] or more is written past the count, at most once in [LONG_EVERY_MS] (26/11/2026: the
+         * five lines of a minute had gone to the frames of the cold start, and a frame of 823 ms a few seconds later was only in the system's logcat; and a stall of minutes
+         * must not write without a ceiling, review C6).
          */
         @Synchronized
         fun allow(totalMs: Long = 0L): Boolean {
             val now = clock()
             while (told.isNotEmpty() && now - told.first() >= MINUTE_MS) told.removeFirst()
-            val counted = totalMs < ALWAYS_TOLD_MS
-            if (counted && told.size >= MAX_PER_MINUTE) return false
-            if (counted) told.addLast(now)
+            return if (totalMs < ALWAYS_TOLD_MS) takeCounted(now) else takeLong(now)
+        }
+
+        private fun takeCounted(now: Long): Boolean {
+            if (told.size >= MAX_PER_MINUTE) return false
+            told.addLast(now)
             return true
+        }
+
+        private fun takeLong(now: Long): Boolean {
+            val due = lastLongAt == NEVER || now - lastLongAt >= LONG_EVERY_MS
+            if (due) lastLongAt = now
+            return due
         }
     }
 

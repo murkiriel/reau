@@ -73,6 +73,20 @@ class OutrasRedesEMacTest(unittest.TestCase):
             with self.subTest(texto=texto):
                 self.assertEqual(esperado, mascarar.mascarar(texto))
 
+    def test_a_mac_after_a_word_that_ends_in_a_hex_digit_and_a_hyphen_is_hidden_whole(self):
+        # Revisão de 26/11/2026, C5: `bssid-<mac>`, `wlan0-<mac>`, `feed-<mac>`, `id-1a-...` saíam SEM máscara (o caractere antes do hífen é hexadecimal). Montados na hora.
+        with_hyphens = MAC_FF.replace(":", "-")
+        small = "-".join(["1a", "2b", "3c", "4d", "5e", "6f"])
+        for texto, esperado in ((f"bssid-{with_hyphens}", f"bssid-{mascarar.MASK_MAC}"), (f"wlan0-{with_hyphens}", f"wlan0-{mascarar.MASK_MAC}"),
+                                (f"feed-{with_hyphens}", f"feed-{mascarar.MASK_MAC}"), (f"id-{small}", f"id-{mascarar.MASK_MAC}")):
+            with self.subTest(texto=texto):
+                self.assertEqual(esperado, mascarar.mascarar(texto))
+
+    def test_a_date_with_hyphens_is_still_not_a_mac_after_the_new_left_edge(self):
+        for linha in ("2026-11-26-10-30-15", "ts2026-11-26-10-30-15-45 ok", "x 2026-11-26-10-30-15-45-59 ok", "v0.4.0-12-34-56 build"):
+            with self.subTest(linha=linha):
+                self.assertEqual(linha, mascarar.mascarar(linha))
+
     def test_the_pair_after_a_mac_is_hidden_only_when_it_is_two_whole_hex_digits(self):
         with_hyphens = MAC_FF.replace(":", "-")
         self.assertEqual(f"x {mascarar.MASK_MAC}-123", mascarar.mascarar(f"x {with_hyphens}-123"))

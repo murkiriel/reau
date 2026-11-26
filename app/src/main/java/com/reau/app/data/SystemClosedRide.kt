@@ -105,10 +105,15 @@ object SystemClosedRide {
         }
     }
 
-    /** The rider dismissed the notice (or opened the guide it points to): it is not shown again for that exit. */
+    /**
+     * The rider dismissed the notice (or opened the guide it points to): it is not shown again for that exit. The write and the clearing of the flow are one step under the
+     * lock of [load] and [note]: a slow [load] that read before this write cannot hand the old time over afterwards and open the notice again (review of 26/11/2026, C4).
+     */
     fun dismiss(context: Context) {
-        Book.open(context).dismiss()
-        told.value = null
+        synchronized(told) {
+            Book.open(context).dismiss()
+            told.value = null
+        }
         runCatching { RideDiagnostics.log("ui", "the rider dismissed the notice that the system closed REau") }
     }
 

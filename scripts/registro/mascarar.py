@@ -30,8 +30,10 @@ DASH_QUALQUER = re.compile(_OTHER.pattern + "|" + _DASH.pattern)
 # A MAC has no edge either, like the dash's own pattern: glued to a letter or a digit (`bssid=xaa:bb:cc:dd:ee:ff`, `…:ffx`) it is hidden too. Six pairs of hex digits split by colons
 # are not an ordinary word, so there is nothing common to leave (a clock has three groups). With hyphens (`aa-bb-cc-dd-ee-ff`, the way Windows and some
 # vendors write it) there IS something to leave: a date and time `2026-11-26-10-30-15` holds six pairs split by hyphens, from its last two year digits on. So
-# the hyphen form has a left edge: it does not start right after a hex digit or after a hex digit and a hyphen (26/11/2026, review B4).
-MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<![0-9A-Fa-f]-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}")
+# the hyphen form has a left edge: it does not start right after a hex digit, nor right after dois DÍGITOS e um hífen que não sejam o fim de uma palavra (o `2026-` do ano, o
+# `11-` do mês) (26/11/2026, review B4). Uma LETRA hexadecimal ou um dígito sozinho antes do hífen (`bssid-`, `wlan0-`, `feed-`, `id-1a-`) é palavra, e o MAC depois dela é
+# escondido (revisão de 26/11/2026, C5: antes era recusado com qualquer hexadecimal antes do hífen, e o MAC inteiro vazava).
+MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<!^\d\d-)(?<![^A-Za-z]\d\d-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}")
 # A palavra que termina em dois dígitos hexadecimais e vem colada num MAC (`mac-aa-bb-cc-dd-ee-ff`, `device-00-11-22-33-44-55`) faz o MAC acima casar uma posição antes do
 # certo (o `ac` de `mac` conta como um par) e deixar o último par de fora, que vazava. O que vem logo depois do MAC, separado pelo mesmo tipo de sinal, e é de dois dígitos
 # hexadecimais inteiros, entra na máscara: esconde de mais (errar para esconder), nunca de menos (revisão do plano 34, A5, 26/11/2026). A data `2026-11-26-10-30-15-45`
