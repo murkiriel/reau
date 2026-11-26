@@ -5,8 +5,11 @@ import com.reau.app.aa.proto.NavigationStatus
 import com.reau.app.aa.proto.NavigationStatus.NavigationClusterStatus.NavigationStatusEnum
 import com.reau.app.aa.proto.NavigationStatus.NavigationManeuver.NavigationType
 import com.reau.app.aa.proto.NavigationStatus.NextTurnDetail
+import com.reau.app.dash.nav.AaManeuvers
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -106,6 +109,33 @@ class AapControlNavigationTest {
         assertFalse("a cluster stop is no recalculation", seen.last().endedByStatus)
         assertFalse(NavGuidance.INACTIVE.endedByStatus)
         assertFalse(NavGuidance(active = true).endedByStatus)
+    }
+
+    /**
+     * The "inactive" status when the destination is a few meters away (C15 of the pending list; the hold of recalculations that looked at those 100 m went
+     * with the experimental switches): nothing special happens near the destination, it ends the guidance like anywhere else, so the card goes and no
+     * distance of the old route is left for the next one.
+     */
+    @Test
+    fun `the status inactive under 100 m from the destination ends the guidance like anywhere else and leaves no distance behind`() {
+        for (toDestinationM in listOf(3_200, 100, 99, 40, 0)) {
+            seen.clear()
+            status(NavigationStatusEnum.ACTIVE)
+            state(NavigationType.DESTINATION, road = "Rua Augusta")
+            position(toDestinationM, toDestinationM)
+            assertEquals("$toDestinationM m: the route was on", toDestinationM, seen.last().distanceRemainingMeters)
+            assertNotNull("$toDestinationM m: the dash had a card", AaManeuvers.toDash(seen.last()))
+            status(NavigationStatusEnum.INACTIVE)
+            val ended = seen.last()
+            assertTrue("$toDestinationM m: told by the status", ended.endedByStatus)
+            assertFalse(ended.active)
+            assertEquals("$toDestinationM m: nothing of the route is held", NavGuidance.INACTIVE, ended)
+            assertEquals(-1, ended.distanceRemainingMeters)
+            assertEquals(-1, ended.distanceToManeuverMeters)
+            assertNull("$toDestinationM m: the dash has no card", AaManeuvers.toDash(ended))
+            state(NavigationType.TURN_NORMAL_LEFT)
+            assertEquals("$toDestinationM m: a new route starts without the old distance", -1, seen.last().distanceRemainingMeters)
+        }
     }
 
     @Test
