@@ -140,7 +140,8 @@ Desde 26/11/2026 (0.4.0, teste A/B dos pilotos): `--ab` troca a leitura inteira 
 (do zip só entram os `ride-*.log`, o `logcat-sistema*.txt` e o `dumpsys-wifi*.txt`; lê tudo, sem o corte da coleta anterior, e `--desde`/`--ate` valem). Separa as sessões (uma por projeção) pelos dois
 experimentos, o espaçamento do envio (`pacePackets` da linha `settings in use:`) ligado ou desligado e o codificador do vídeo (`videoEncoder`) do celular ou de software, e imprime, por sessão, o
 tempo em STREAMING, se o painel reiniciou (as quedas «Wi-Fi do painel reiniciou» e «painel desligou e religou» da leitura normal), o maior silêncio de vídeo (`gap max` do resumo), a idade do painel
-na volta (não existe a idade do quadro no registro), o `pace-waited`, o `tickwait` e o quadro-chave médio e máximo; e, por braço, as sessões, os minutos em STREAMING, os reinícios por hora, as medianas e o
+na volta (não existe a idade do quadro no registro), o `pace-waited`, o `tickwait`, o quadro-chave médio e máximo, a CPU do REau (`cpu=` das linhas `device`, mediana e máximo, em % de um
+núcleo) e o calor (`temp=` da bateria, o máximo); e, por braço, as sessões, os minutos em STREAMING, os reinícios por hora, as medianas e o
 aviso «amostra pequena» com menos de 10 sessões. A sessão em que o codificador de software falhou e cedeu ao do celular, a que pediu o de software num celular que não lista um e a que tem dois codificadores
 nas linhas de uso ficam num grupo «à parte», que não serve para comparar os braços. Os critérios estão em `ab.py`. Sai com 0.
 

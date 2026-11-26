@@ -154,6 +154,43 @@ class OsNumerosDaSessao(unittest.TestCase):
         self.assertEqual(68.0, s["escuro_s"])
 
 
+class ACpuEOCalor(unittest.TestCase):
+    OLHADA = "device battery=80% charging=no temp={temp} volt=4.000V thermal=none current=-310mA charge=2840mAh cpu={cpu} mem=120/512MB phone=2000MB low=no screen=on [30 s]"
+
+    def olhadas(self, *pares):
+        return [linha(f"10:0{1 + k}:00.000", "device", self.OLHADA.format(temp=temp, cpu=cpu)) for k, (temp, cpu) in enumerate(pares)]
+
+    def test_a_cpu_mediana_e_o_calor_maximo_de_cada_sessao_entram_no_braco(self):
+        # Duas sessões do mesmo braço: CPU 10/20/60 % (mediana 20, máx 60) e 40/52 % (mediana 46, máx 52); calor até 33,0 e até 37,5 °C.
+        a = sessao(True, "PHONE", EM_USO_PHONE, *self.olhadas(("31.0C", "10%"), ("33.0C", "20%"), ("32.5C", "60%")))
+        b = sessao(True, "PHONE", EM_USO_PHONE, *self.olhadas(("35.0C", "40%"), ("37.5C", "52%")))
+        _, sessoes = lido(a, b)
+        self.assertEqual([(20, 60, 33.0), (46, 52, 37.5)], [(s["cpu_mediano"], s["cpu_max"], s["temp_max_c"]) for s in sessoes])
+        t = "\n".join(ab.texto(sessoes))
+        self.assertIn("CPU do REau mediana/máx 20/60 %; calor máx da bateria 33,0 °C", t)
+        braco = [x for x in t.split("POR BRAÇO")[1].splitlines() if x.startswith("      medianas por sessão")]
+        self.assertEqual(1, len(braco))
+        self.assertIn("CPU do REau mediana 33 % (maior máx 60 %;", braco[0])  # a mediana de 20 e 46
+        self.assertIn("calor máx da bateria 37,5 °C (o celular inteiro)", braco[0])
+
+    def test_o_valor_que_o_aparelho_nao_deu_nao_conta_nem_vira_zero(self):
+        _, [s] = lido(sessao(True, "PHONE", EM_USO_PHONE, *self.olhadas(("?", "-"), ("30.0C", "-"), ("?", "8%"))))
+        self.assertEqual((8, 8, 30.0), (s["cpu_mediano"], s["cpu_max"], s["temp_max_c"]))
+
+    def test_sem_linha_device_cpu_e_calor_ficam_sem_registro(self):
+        _, [s] = lido(sessao())
+        self.assertEqual((None, None, None), (s["cpu_mediano"], s["cpu_max"], s["temp_max_c"]))
+        self.assertIn("CPU do REau mediana/máx -; calor máx da bateria -", ab._por_sessao(s))
+        t = "\n".join(ab.texto([s]))
+        self.assertIn("CPU do REau mediana - % (maior máx - %;", t)
+        self.assertIn("calor máx da bateria - °C", t)
+
+    def test_so_as_linhas_device_da_sessao_contam(self):
+        fora = [linha("09:00:00.000", "device", self.OLHADA.format(temp="45.0C", cpu="99%"))]
+        _, [s] = lido(fora[0] + "\n" + sessao(True, "PHONE", EM_USO_PHONE, *self.olhadas(("30.0C", "12%"))))
+        self.assertEqual((12, 12, 30.0), (s["cpu_mediano"], s["cpu_max"], s["temp_max_c"]))
+
+
 class OsReiniciosDoPainel(unittest.TestCase):
     def queda_que_volta(self, canal_antes="bike=-55dBm/2447MHz/58Mbps", canal_depois="bike=-50dBm/2427MHz/72Mbps"):
         olhada = "device battery=80% charging=no temp=31.0C thermal=none screen=on {} [30 s]"

@@ -23,9 +23,13 @@ O que sai por sessão (só o que o registro tem):
 - pace-waited: o total que o `SendPacer` esperou (` pace-waited=Nms` no fim das linhas `dash-stats`, que só existe com o espaçamento ligado; a soma dos totais de cada conexão: o contador
   volta a zero em outra conexão);
 - tickwait: o quanto cada imagem nova esperou pelo próximo quadro (`tickwait=média/p95/máx` das linhas `video fps`): a média das médias das janelas e o maior máximo;
-- quadro-chave: o tamanho médio e o máximo, em bytes, da última linha `video shape:` (a mistura dos dois codificadores nas sessões à parte é dita).
+- quadro-chave: o tamanho médio e o máximo, em bytes, da última linha `video shape:` (a mistura dos dois codificadores nas sessões à parte é dita);
+- CPU do REau: a mediana e o máximo do `cpu=N%` das linhas `device` (a cada 30 s) durante a sessão. É o uso do PROCESSO do REau, em % de UM núcleo (passa de 100 com mais de um núcleo
+  ocupado), e inclui o codificador de software, que roda dentro do processo; `cpu=-` (o aparelho não deu o valor) não conta;
+- calor: o maior `temp=` (°C) das linhas `device` durante a sessão. É a temperatura da BATERIA, o calor do celular inteiro (não só do REau), então diz o quanto o celular esquentou, nos dois braços
+  do mesmo jeito; `temp=?` não conta.
 
-Por braço: as sessões, os minutos de STREAMING, os reinícios e os reinícios por hora, as medianas dos números acima, e o AVISO «amostra pequena» com menos de `AMOSTRA_MINIMA` (10) sessões.
+Por braço: as sessões, os minutos de STREAMING, os reinícios e os reinícios por hora, as medianas dos números acima (da CPU, a mediana das medianas e o maior máximo; do calor, o maior), e o AVISO «amostra pequena» com menos de `AMOSTRA_MINIMA` (10) sessões.
 
 Puro: recebe as linhas de cada projeção (qualquer objeto com `arquivo`, `hora`, `etiqueta`, `texto`) e os números que só o `ler_registro.py` sabe fazer (as quedas); não lê arquivo.
 """
@@ -48,6 +52,8 @@ PACE_DO_DASH_STATS = re.compile(r"\bpace=(on|off)\b")
 PACE_ESPERADO = re.compile(r" pace-waited=(\d+)ms\b")
 TICKWAIT = re.compile(r"\btickwait=(\d+)/(\d+)/(\d+)ms\b")
 GAP = re.compile(r"\bgap max=([\d.]+)s\b")
+CPU = re.compile(r"\bcpu=(\d+)%")
+TEMP = re.compile(r"\btemp=(-?\d+(?:\.\d+)?)C\b")
 
 PACE_LIGADO, PACE_DESLIGADO, PACE_SEM = "espaçamento ligado", "espaçamento desligado", "espaçamento sem registro"
 CELULAR, SOFTWARE = "codificador do celular", "codificador de software"
@@ -126,6 +132,9 @@ def fatos(bloco, configuracao, quedas, reiniciou, religou, idades):
     folga = next((m for x in bloco if x.texto.startswith("resumo ") for m in [GAP.search(x.texto)] if m), None)
     escuro = next((m for x in bloco if x.texto.startswith("resumo ") for m in [chaves.DARK.search(x.texto)] if m), None)
     janelas = [m for x in bloco if x.etiqueta == "stream" for m in [TICKWAIT.search(x.texto)] if m and x.texto.startswith("video fps target=")]
+    aparelho = [x.texto for x in bloco if x.texto.startswith("device ")]
+    cpus = [int(m.group(1)) for t in aparelho for m in [CPU.search(t)] if m]
+    temps = [float(m.group(1)) for t in aparelho for m in [TEMP.search(t)] if m]
     forma = next((m for x in reversed(bloco) if x.etiqueta == codificador.ETIQUETA for m in [codificador.FORMA.match(x.texto)] if m), None)
     codif, trocou = _braco_do_codificador(bloco, configuracao["codificador"])
     pace = _braco_do_pace(bloco, configuracao["pace"])
@@ -141,6 +150,9 @@ def fatos(bloco, configuracao, quedas, reiniciou, religou, idades):
         "tickwait_max_ms": max(int(m.group(3)) for m in janelas) if janelas else None,
         "chave_medio_b": int(forma.group(3)) if forma and int(forma.group(2)) else None,
         "chave_max_b": int(forma.group(4)) if forma and int(forma.group(2)) else None,
+        "cpu_mediano": statistics.median(cpus) if cpus else None,
+        "cpu_max": max(cpus) if cpus else None,
+        "temp_max_c": max(temps) if temps else None,
     }
 
 
@@ -177,9 +189,11 @@ def _por_sessao(s):
     streaming = _min(s["streaming_s"]) if s["streaming_s"] is not None else "sem resumo"
     painel = (f"painel reiniciou {s['reinicios']}x (reiniciou {s['reiniciou']}, religou {s['religou']}; {s['quedas']} quedas)" if s["reinicios"]
               else f"painel não reiniciou ({s['quedas']} quedas)")
+    cpu = f"{_n(s['cpu_mediano'], 0)}/{_n(s['cpu_max'], 0)} %" if s["cpu_mediano"] is not None else "-"
+    calor = f"{_n(s['temp_max_c'])} °C" if s["temp_max_c"] is not None else "-"
     return (f"{s['arquivo']} {s['hora'][:8]}  [{rotulo(braco(s))}]  STREAMING {streaming}; {painel}; maior silêncio de vídeo {_n(s['silencio_s'])} s; "
             f"idade do painel na volta {_n(s['idade_painel_s'], 0) + ' s' if s['idade_painel_s'] is not None else '-'}; pace-waited {pace}; "
-            f"tickwait média/máx {tick}; quadro-chave médio/máx {chave}")
+            f"tickwait média/máx {tick}; quadro-chave médio/máx {chave}; CPU do REau mediana/máx {cpu}; calor máx da bateria {calor}")
 
 
 def _do_braco(chave, sessoes):
@@ -195,6 +209,9 @@ def _do_braco(chave, sessoes):
         f"pace-waited {_n(_mediana([s['pace_esperado_ms'] for s in sessoes]), 0)} ms",
         f"tickwait médio {_n(_mediana([s['tickwait_medio_ms'] for s in sessoes]), 0)} ms (maior máx {_n(max((s['tickwait_max_ms'] for s in sessoes if s['tickwait_max_ms'] is not None), default=None), 0)} ms)",
         f"quadro-chave médio {_n(_mediana([s['chave_medio_b'] for s in sessoes]), 0)} B (maior máx {_n(max((s['chave_max_b'] for s in sessoes if s['chave_max_b'] is not None), default=None), 0)} B)",
+        f"CPU do REau mediana {_n(_mediana([s['cpu_mediano'] for s in sessoes]), 0)} % (maior máx {_n(max((s['cpu_max'] for s in sessoes if s['cpu_max'] is not None), default=None), 0)} %; "
+        "em % de um núcleo, com o codificador de software dentro)",
+        f"calor máx da bateria {_n(max((s['temp_max_c'] for s in sessoes if s['temp_max_c'] is not None), default=None))} °C (o celular inteiro)",
     ]
     cabeca = (f"{rotulo(chave)}: {len(sessoes)} {'sessão' if len(sessoes) == 1 else 'sessões'}, {_n(horas * 60)} min em STREAMING"
               f"{f' ({sem_resumo} sem resumo, fora da conta)' if sem_resumo else ''}, {reinicios} reinícios do painel ({por_hora}; {com} sessões com algum)")
