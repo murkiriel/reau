@@ -130,7 +130,7 @@ internal class ScreenKeeper(
     }
 
     private fun cancelTimer() {
-        tick?.let(main::removeCallbacks)
+        tick?.let { main.removeCallbacks(it) }
         tick = null
     }
 

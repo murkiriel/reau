@@ -11,6 +11,14 @@ Português (pt-BR): [CHANGELOG.pt-br.md](CHANGELOG.pt-br.md) · Español: [CHANG
 
 ## [Unreleased]
 
+## [0.3.90] - 2026-11-26
+
+> **Test version for pilots, on top of 0.3.1** (0.3.9x series: test builds, not published). It only adds one test feature and more logging; everything else is 0.3.1.
+
+### Added
+- **Test setting "Screen on with the phone locked (test)"** (off by default, **not yet tested on the bike**): some phones (realme, Xiaomi) close REau when the screen stays off with the projection on. With the switch on, REau lights the screen again, for a few seconds, each time it goes off (or every 60 or 30 seconds since it went off), with a screen wake lock that always has a timeout; with the proximity sensor covered (phone in a pocket) the screen does not light. With "Show REau over the lock screen", the screen that lights shows REau instead of the system lock screen (Android may refuse; the log says whether it showed). It only works with the projection on and uses more battery.
+- **More logging, to learn why the system closes REau**: the maker's system version in the header, the app's standby bucket and background restriction, whether USB debugging and the developer options are on, the summary of the process state that Android hands back in the `exit` line of a death, the system's low-memory signs (`onTrimMemory`, `onLowMemory`), the kernel's free memory, the memory pressure and the system load in the `device` lines.
+
 ## [0.3.1] - 2026-11-25
 
 ### Added
