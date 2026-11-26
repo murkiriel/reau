@@ -686,6 +686,11 @@ class ProjectionService : Service() {
             }
             val inUse = SettingsStore.open(this@ProjectionService).load().sanitized()
             RideDiagnostics.log("settings", SettingsInUse.line(inUse))
+            // What the rider says he did on phones of the two makers with their own steps (26/11/2026): his word, not a reading; nothing on any other phone.
+            runCatching {
+                val brand = com.reau.app.ui.KeepAliveGuide.current()
+                com.reau.app.data.KeepAliveChecklist.logAtStart(this@ProjectionService, com.reau.app.ui.KeepAliveGuide.hasNotice(brand))
+            }
             marks.reset()
             // A new summary for this projection, written when it is switched off.
             ProjectionSummary.current = RideSummary().apply { start(SystemClock.elapsedRealtime(), batteryPct = null) }
@@ -693,6 +698,8 @@ class ProjectionService : Service() {
             // Sides that could not be built, or with no compositor, cannot project; the start fails here, with the reason, and the
             // machine gives the service back (Release) instead of connecting a dash that would never get video.
             refusal()?.let { return it }
+            // The projection is back by itself and not refused: said in the headset, if the rider has the voice on (26/11/2026; the voice writes its own line when it speaks).
+            ProjectionResume.voiceCueFor(resumedAttempt)?.let { RiderVoice.speak(it) }
             // The earlier runs' reports and the locks (together once 0.4 to 0.8 s on a phone) follow Android Auto's side, so
             // the start is not slow. On this same worker, so they come before any stop asked for after this start.
             worker.execute { housekeeping() }

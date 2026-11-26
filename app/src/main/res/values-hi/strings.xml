@@ -876,6 +876,7 @@
     <string name="voice_dash_back">डैश वापस आ गया।</string>
     <string name="voice_phone_hot">फ़ोन गर्म है। उसे धूप या बंद जेब से निकालें।</string>
     <string name="voice_wifi_off">फ़ोन का वाई-फ़ाई बंद है।</string>
+    <string name="voice_app_back">REau वापस आ गया।</string>
     <string name="echo_wheel_previous">पिछला आइटम</string>
     <string name="echo_wheel_next">अगला आइटम</string>
     <string name="echo_confirm">पुष्टि करें</string>
@@ -949,4 +950,16 @@
     <string name="action_keepalive_guide">क़दम देखें</string>
     <string name="warn_system_closed_title">फ़ोन ने REau को बंद कर दिया</string>
     <string name="warn_system_closed">फ़ोन के सिस्टम ने सफ़र के दौरान (%1$s) REau को बंद कर दिया, जब वह प्रोजेक्ट कर रहा था। यह फ़ोन की ओर से हुआ, डैश की ओर से नहीं। देखें कि इसके दोबारा होने की संभावना कैसे घटाएँ।</string>
+    <string name="keepalive_open_autostart">ऑटोस्टार्ट की स्क्रीन खोलें</string>
+    <string name="keepalive_battery_exempt">REau को बैटरी ऑप्टिमाइज़ेशन से छूट पहले से मिली हुई है, जो वह सबसे पहले माँगता है। नीचे के क़दम फ़ोन बनाने वाली कंपनी के अपने हैं, और वह छूट उनकी जगह नहीं लेती।</string>
+    <string name="keepalive_battery_not_exempt">REau को बैटरी ऑप्टिमाइज़ेशन से अभी छूट नहीं मिली है: पहले यह करें (मुख्य स्क्रीन इसे माँगती है, और अनुमतियों वाला पेज इसे दिखाता है)। फिर नीचे के क़दम करें, जो फ़ोन बनाने वाली कंपनी के अपने हैं।</string>
+    <string name="keepalive_check_title">आपने क्या कर लिया</string>
+    <string name="keepalive_check_hint">जो आपने किया है उस पर निशान लगाएँ। REau इसे जाँच नहीं सकता: आपका जवाब इसी फ़ोन में रहता है और यह पता लगाने में मदद के लिए सफ़र के लॉग में जाता है कि सफ़र क्यों बंद हुआ।</string>
+    <string name="keepalive_item_autostart">ऑटोस्टार्ट चालू है</string>
+    <string name="keepalive_item_background">बैकग्राउंड गतिविधि की अनुमति है</string>
+    <string name="keepalive_item_lock">हाल के ऐप्स में REau पर ताला</string>
+    <string name="keepalive_item_battery">बैटरी \"कोई प्रतिबंध नहीं\" पर है</string>
+    <string name="warn_keepalive_title">इस फ़ोन पर REau को चालू रखें</string>
+    <string name="warn_keepalive">आपके फ़ोन की कंपनी सफ़र के बीच में REau को बंद कर सकती है। कुछ सेटिंग, एक बार करने पर, इसकी संभावना घटा देती हैं। अगले सफ़र से पहले उन्हें देख लें।</string>
+    <string name="keepalive_open_failed">फ़ोन की सेटिंग नहीं खुल सकी। सेटिंग, फिर ऐप्स, फिर REau खोलें और वहीं से क़दम पूरे करें।</string>
 </resources>

@@ -6,6 +6,7 @@ import com.reau.app.service.ProjectionResume.Mark
 import com.reau.app.service.ProjectionResume.Verdict
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -197,5 +198,12 @@ class ProjectionResumeTest {
         assertEquals("the unknown is said too", "resumed after the system ended the process (attempt 2 of 3; battery optimization: unknown)", ProjectionResume.resumedLine(2, ProjectionResume.exemptionNote(null)))
         assertEquals("no note: the line as it was", "resumed after the system ended the process (attempt 2 of 3)", ProjectionResume.resumedLine(2, null))
         assertEquals("battery optimization: unknown", ProjectionResume.exemptionNote(null))
+    }
+
+    @Test
+    fun `a resumed projection says in the headset that REau is back, one the rider switched on says nothing`() {
+        assertEquals(VoiceCue.APP_BACK, ProjectionResume.voiceCueFor(1))
+        assertEquals(VoiceCue.APP_BACK, ProjectionResume.voiceCueFor(ProjectionResume.MAX_ATTEMPTS))
+        assertNull(ProjectionResume.voiceCueFor(0))
     }
 }

@@ -11,7 +11,8 @@ import java.lang.reflect.Modifier
 
 /**
  * The guide of what keeps the system from closing REau in the middle of a ride (plan 34, item 5): which steps a phone gets by its maker, what the texts say in
- * each language, and that the guide reaches only Android's standard page of the app (no component of a maker, no new permission).
+ * each language, and that the guide itself reaches only Android's standard page of the app (no component of a maker, no new permission: the Xiaomi button's
+ * components are in KeepAliveOpen alone, KeepAliveOpenTest's, and its chain ends at that same page).
  */
 class KeepAliveGuideTest {
     private val src = File("src/main")
@@ -90,7 +91,10 @@ class KeepAliveGuideTest {
     @Test
     fun `every step and title is in the four languages`() {
         val ids = Brand.entries.flatMap { KeepAliveGuide.steps(it) + KeepAliveGuide.title(it) }.distinct().map(::idName) +
-            listOf("keepalive_title", "keepalive_intro", "keepalive_honest", "keepalive_open_app_info", "permissions_keep_alive", "action_keepalive_guide")
+            listOf("keepalive_title", "keepalive_intro", "keepalive_honest", "keepalive_open_app_info", "permissions_keep_alive", "action_keepalive_guide") +
+            // The ticks and the advice of the page (26/11/2026, A3).
+            Brand.entries.flatMap { KeepAliveGuide.items(it) }.map { idName(KeepAliveGuide.label(it)) } +
+            listOf(true, false).map { idName(KeepAliveGuide.batteryAdvice(it)) } + listOf("keepalive_check_title", "keepalive_check_hint", "keepalive_open_autostart")
         for (folder in folders) for (name in ids) assertFalse("$folder: $name", text(folder, name).isNullOrBlank())
     }
 

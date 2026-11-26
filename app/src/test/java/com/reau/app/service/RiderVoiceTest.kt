@@ -82,6 +82,34 @@ class RiderVoiceTest {
     }
 
     @Test
+    fun `a phrase really said is a line in the log, and one not said is not`() {
+        val v = voice()
+        v.say(VoiceCue.APP_BACK)
+        assertEquals("nothing is written while the phrase is being said", emptyList<String>(), log)
+        engines.single().pending.removeAt(0).invoke(true, null)
+        assertEquals(listOf("voice: APP_BACK said"), log)
+        now += 5_000
+        v.say(VoiceCue.PHONE_HOT)
+        engines.single().pending.removeAt(0).invoke(false, "the speech engine is not ready")
+        assertEquals("a phrase that could not be said has its own line, not the said one", 2, log.size)
+        assertTrue(log.toString(), "PHONE_HOT not said" in log[1])
+    }
+
+    @Test
+    fun `the app being back is said in the words of its cue, and with the switch off it is silent and writes nothing`() {
+        val v = voice()
+        v.say(VoiceCue.APP_BACK)
+        assertEquals(listOf("words of APP_BACK"), engines.single().spoken.map { it.first })
+        switchOn = false
+        now += 120_000
+        events.clear()
+        log.clear()
+        v.say(VoiceCue.APP_BACK)
+        assertTrue("the rider's switch is the rider's: $events", events.isEmpty())
+        assertTrue(log.toString(), log.isEmpty())
+    }
+
+    @Test
     fun `the phrase is the words of the cue in the language of the app`() {
         val v = voice(Locale.forLanguageTag("es"))
         v.say(VoiceCue.WIFI_OFF)

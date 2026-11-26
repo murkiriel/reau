@@ -35,6 +35,8 @@ data class MainUiState(
     val aaUpdatedServerOff: Boolean = false,
     /** When the system closed REau during the last ride, until the rider dismisses the notice ([com.reau.app.data.SystemClosedRide]); null with none to tell. */
     val systemClosedAtMs: Long? = null,
+    /** The one notice before the first ride, on a Xiaomi or realme phone, is due ([com.reau.app.data.KeepAliveNotice]). */
+    val keepAliveDue: Boolean = false,
 ) {
     /** Whether Android Auto is installed; when not, its buttons lead to the store instead of to its settings. */
     val androidAutoInstalled: Boolean get() = androidAutoVersion != null
@@ -56,6 +58,9 @@ fun MainUiState.withNetwork(on: Boolean): MainUiState = copy(server = server.cop
 
 /** The state with the time of the exit the system caused, for the notice on the main screen. */
 fun MainUiState.withSystemClosed(atMs: Long?): MainUiState = copy(systemClosedAtMs = atMs)
+
+/** The state with whether the one notice before the first ride on a Xiaomi or realme phone is due. */
+fun MainUiState.withKeepAliveDue(due: Boolean): MainUiState = copy(keepAliveDue = due)
 
 /** What the main screen shows of the servers. */
 data class ServerUi(
@@ -88,6 +93,8 @@ data class MainExtras(
     /** The guide of what keeps REau from being closed by the system, and the dismissing of the notice that the system closed it. */
     val onOpenKeepAlive: () -> Unit = {},
     val onDismissSystemClosed: () -> Unit = {},
+    /** The one notice before the first ride: "Entendi" (the other button, "Ver os passos", is [onOpenKeepAlive]). */
+    val onDismissKeepAliveAdvice: () -> Unit = {},
 )
 
 /** What the settings screen shows of the dash pairing. */

@@ -115,6 +115,11 @@ Desde 25/11/2026 (0.4.0): se o sistema do celular encerra o processo do REau com
 «projeção retomada depois de o sistema fechar o REau, tentativa N de 3»; a projeção de antes continua a acabar em «o app recomeçou», com o motivo da saída. Uma retomada que não houve
 (o ajuste desligado, o limite, a marca velha) fica fora de qualquer projeção e só está no arquivo bruto: `not resumed after the system ended the process: <motivo>`.
 
+Desde 26/11/2026 (A3 e A8 do plano dos pilotos Xiaomi e realme): num Xiaomi ou realme o app escreve, no início de cada projeção e quando o piloto muda um item da lista de «Manter o REau vivo»,
+`keepalive: rider says autostart=yes background=no lock=yes battery=?` (declaração do piloto, não leitura; `?` é item que ele nunca tocou). A linha do tempo diz «o piloto diz ter feito (sem conferência): …».
+O botão do ajuste do fabricante escreve `keepalive: opened <tela> (alternative N of M)` ou `… did not open …`, e o aviso único `keepalive: the one-time notice was answered (…)`; saem como «ajuste do fabricante: …».
+Quando o app fala no fone escreve `[audio] voice: <FRASE> said`; a linha do tempo diz «fala no fone: …» e, para `APP_BACK` («O REau voltou»), vem depois da linha da retomada.
+
 Desde 25/11/2026 (plano 35, passo A): a linha `[exit] past exit: …` que o processo seguinte escreve vira o problema «o sistema fechou o REau», com a hora da morte e o motivo, quando
 o motivo é do sistema (2, 3, 9, 10, 11, 12, 13 ou 14), a importância é de serviço em primeiro plano ou melhor (1 a 125) e a descrição não diz «remove task» nem «swipeupclean» (a regra
 de `SystemClosedRide.kt`). A subida de temperatura é medida dentro de um trecho de uso que um processo novo, ou um buraco de 15 min entre duas olhadas em uso (`USO_BURACO_S`), também
@@ -2696,6 +2701,29 @@ def _eventos_do_bluetooth(t):
     return []
 
 
+KEEPALIVE_DIZ = re.compile(r"^keepalive: rider says autostart=(\S+) background=(\S+) lock=(\S+) battery=(\S+)$")
+KEEPALIVE_PALAVRAS = {"yes": "sim", "no": "não", "?": "?"}
+FALA_NO_FONE = re.compile(r"^voice: (\w+) said$")
+
+
+def _keepalive(t):
+    """As linhas `keepalive:` do app (26/11/2026, A3): o que o piloto diz ter feito no celular (sem conferência: é a palavra dele) e o que o botão do ajuste do fabricante abriu."""
+    m = KEEPALIVE_DIZ.match(t)
+    if m:
+        nomes = ("inicialização automática", "atividade em segundo plano", "cadeado nos recentes", "bateria sem restrições")
+        itens = ", ".join(f"{n}={KEEPALIVE_PALAVRAS.get(v, v)}" for n, v in zip(nomes, m.groups()))
+        return [f"o piloto diz ter feito (sem conferência): {itens}"]
+    return ["ajuste do fabricante: " + t[len("keepalive: "):]]
+
+
+def _fala_no_fone(t):
+    """A linha que o app escreve quando uma frase foi mesmo dita no fone (`voice: APP_BACK said`; A8, 26/11/2026)."""
+    m = FALA_NO_FONE.match(t)
+    if not m:
+        return []
+    return ["fala no fone: o app voltou sozinho, «O REau voltou» (APP_BACK)" if m.group(1) == "APP_BACK" else f"fala no fone: {m.group(1)}"]
+
+
 def _eventos_novos(x, bloco):
     """As linhas de linha do tempo para o que o leitor não contava antes: `has not joined`, as chamadas (`[call]`), o doze e a economia de bateria."""
     t = x.texto
@@ -2710,7 +2738,9 @@ def _eventos_novos(x, bloco):
             return [f"chamada encerrada pelo joystick ({t[5:60]})"]
         return []
     if x.etiqueta == "audio":
-        return _eventos_do_bluetooth(t)
+        return _fala_no_fone(t) or _eventos_do_bluetooth(t)
+    if x.etiqueta in ("ui", "settings") and t.startswith("keepalive: "):
+        return _keepalive(t)
     retomada = RETOMADA.match(t) if x.etiqueta == "projection" else None
     if retomada:
         return [f"projeção retomada depois de o sistema fechar o REau, tentativa {retomada.group(1)} de {retomada.group(2)}"]

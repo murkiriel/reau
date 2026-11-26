@@ -44,6 +44,7 @@ import com.reau.app.ui.MainScreen
 import com.reau.app.ui.MainUiState
 import com.reau.app.ui.PairingUi
 import com.reau.app.ui.ServerUi
+import com.reau.app.ui.withKeepAliveDue
 import com.reau.app.ui.withNetwork
 import com.reau.app.ui.withSystemClosed
 import com.reau.app.ui.SettingsActions
@@ -218,6 +219,9 @@ class MainActivity : ComponentActivity() {
 
     private var resumedAtMs = 0L
 
+    /** The phone is a Xiaomi or a realme (a family with steps of its own): the only phones the one notice before the first ride is for. */
+    private val keepAliveEligible: Boolean get() = com.reau.app.ui.KeepAliveGuide.hasNotice(com.reau.app.ui.KeepAliveGuide.current())
+
     @Suppress("LongMethod") // one straight run of setup/serialization; cutting it adds indirection and no clarity
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -226,6 +230,8 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) quickStart(intent)
         // What the last opening found about the system closing REau during a ride, still not dismissed (the opening's thread may add to it: SystemClosedRide.note).
         com.reau.app.data.SystemClosedRide.load(applicationContext)
+        // The one notice before the first ride on a Xiaomi or realme phone (KeepAliveNotice): due or not, as of now; read again at each return to the screen.
+        com.reau.app.data.KeepAliveNotice.refresh(applicationContext, keepAliveEligible)
         setContent {
             val projection by ProjectionService.projection.collectAsStateWithLifecycle()
             val startedAt by ProjectionService.startedAt.collectAsStateWithLifecycle()
@@ -233,6 +239,7 @@ class MainActivity : ComponentActivity() {
             val networkOn = com.reau.app.web.WebAccess.state.collectAsStateWithLifecycle().value != null
             // The system closed REau during the last ride, until the rider dismisses the notice (SystemClosedRide, told at the opening).
             val systemClosedAt = com.reau.app.data.SystemClosedRide.pendingAt.collectAsStateWithLifecycle().value
+            val keepAliveDue = com.reau.app.data.KeepAliveNotice.isDue.collectAsStateWithLifecycle().value
             var inSettings by rememberSaveable { mutableStateOf(false) }
             var inAndroidAuto by rememberSaveable { mutableStateOf(false) }
             var inJoystick by rememberSaveable { mutableStateOf(false) }
@@ -318,7 +325,8 @@ class MainActivity : ComponentActivity() {
             } else {
                 kept.SaveableStateProvider(MAIN_SCREEN) {
                     MainScreen(
-                        mainState(projection, settings, startedAt, pairing.ssid).withNetwork(networkOn).withSystemClosed(systemClosedAt),
+                        mainState(projection, settings, startedAt, pairing.ssid).withNetwork(networkOn).withSystemClosed(systemClosedAt)
+                            .withKeepAliveDue(keepAliveDue),
                         onToggle = { toggle(projection) },
                         onOpenAndroidAutoSettings = { openAndroidAutoSettings() },
                         onOpenSettings = { reload(); inSettings = true },
@@ -328,12 +336,7 @@ class MainActivity : ComponentActivity() {
                             onOpenWeather = { page = SettingsPage.WEATHER },
                             onOpenServer = { page = SettingsPage.SERVER },
                             onOpenTips = { page = SettingsPage.TIPS },
-                            onOpenKeepAlive = {
-                                com.reau.app.data.SystemClosedRide.dismiss(this@MainActivity)
-                                page = SettingsPage.KEEP_ALIVE
-                            },
-                            onDismissSystemClosed = { com.reau.app.data.SystemClosedRide.dismiss(this@MainActivity) },
-                        ),
+                        ).withKeepAliveTaps(systemClosedAt) { page = SettingsPage.KEEP_ALIVE },
                     )
                 }
             }
@@ -374,6 +377,24 @@ class MainActivity : ComponentActivity() {
         onViewLogs = { open(SettingsPage.LOGS) },
         onAskWifiList = { askWifiList.launch(StartAsks.LOCATION.toTypedArray()) },
         onDeleteLogs = { withRecordings, done -> deleteLogs(this, withRecordings, done) },
+    )
+
+    /**
+     * What the cards about the system closing REau and the one-time notice do with the rider's taps (26/11/2026; in a function of its own so onCreate stays simple):
+     * "Ver os passos" goes to the page with [open], and dismisses the card of the closing when there is one ([systemClosedAt]); "Entendi" on either card answers the
+     * one-time notice, so it does not come on top of a closing just told.
+     */
+    private fun MainExtras.withKeepAliveTaps(systemClosedAt: Long?, open: () -> Unit): MainExtras = copy(
+        onOpenKeepAlive = {
+            // The card of the system closing REau goes away with it; the one-time notice has no such card to dismiss (the page answers it).
+            if (systemClosedAt != null) com.reau.app.data.SystemClosedRide.dismiss(this@MainActivity)
+            open()
+        },
+        onDismissSystemClosed = {
+            com.reau.app.data.SystemClosedRide.dismiss(this@MainActivity)
+            com.reau.app.data.KeepAliveNotice.answered(this@MainActivity, keepAliveEligible, "understood, after the system closed REau")
+        },
+        onDismissKeepAliveAdvice = { com.reau.app.data.KeepAliveNotice.answered(this@MainActivity, keepAliveEligible, "understood") },
     )
 
     /** What the main screen shows: the projection, its start, the card's picture, the server, battery, dash and permissions. */
@@ -542,6 +563,8 @@ class MainActivity : ComponentActivity() {
         locationOff = com.reau.app.ui.LocationSwitch.read(this)
         readAlertLevel()
         permissionRows = PermissionRows.read(this)
+        // The phone may have joined the dash for the first time while REau was behind another app: the notice before the first ride is due from then (KeepAliveNotice).
+        com.reau.app.data.KeepAliveNotice.refresh(this, keepAliveEligible)
         learnDashName()
         learnSunPlace(this, thenWeather = true)
         forgetRemovalFromRecents()
@@ -685,10 +708,7 @@ private fun SettingsPageFromSettings(
             onBack, onOpenCredits = { goTo(SettingsPage.CREDITS) }, onOpenTerms = { goTo(SettingsPage.TERMS) },
         )
         SettingsPage.TIPS -> com.reau.app.ui.TipsScreen(onBack)
-        SettingsPage.KEEP_ALIVE -> com.reau.app.ui.KeepAliveScreen(back, onOpenAppInfo = {
-            RideDiagnostics.log("ui", "the rider opened REau's app info from the keep-alive guide")
-            PermissionRows.openAppSettings(activity)
-        })
+        SettingsPage.KEEP_ALIVE -> com.reau.app.ui.KeepAliveRoute(activity, back)
         SettingsPage.CREDITS -> com.reau.app.ui.CreditsScreen(back) { copyAddress(activity, it) }
         SettingsPage.TERMS -> com.reau.app.ui.TermsScreen(gate = false, onAccept = {}, onDecline = {}, onBack = back)
         SettingsPage.LOGS -> com.reau.app.ui.LogViewerScreen(RideDiagnostics.logDir(), onBack) {

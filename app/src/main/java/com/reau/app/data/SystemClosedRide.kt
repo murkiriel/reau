@@ -78,6 +78,9 @@ object SystemClosedRide {
     /** The time of the exit the main screen tells the rider about, or null with none to tell (or once dismissed). */
     val pendingAt: StateFlow<Long?> get() = told
 
+    /** The time of the newest exit ever told (0 with none), dismissed or not: [KeepAliveNotice] shows itself again when a later one comes. */
+    fun lastNotedAt(context: Context): Long = Book.open(context).notedAt()
+
     /** Reads what is kept on the phone into [pendingAt]; the activity calls it when it opens. */
     fun load(context: Context) {
         told.value = Book.open(context).pendingAt()
@@ -111,6 +114,9 @@ object SystemClosedRide {
 
         /** The time of the exit told and not dismissed yet; null when none. */
         fun pendingAt(): Long? = at(NOTED).takeIf { it > at(DISMISSED) }
+
+        /** The time of the newest exit told, whether dismissed since or not; 0 with none. */
+        fun notedAt(): Long = at(NOTED)
 
         /** The newest time that is not to be told again: told already, or dismissed. */
         fun toldUpTo(): Long = maxOf(at(NOTED), at(DISMISSED))

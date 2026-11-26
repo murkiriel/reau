@@ -121,6 +121,12 @@ object ProjectionResume {
         null -> "battery optimization: unknown"
     }
 
+    /**
+     * What the voice says once the resumed projection has started (26/11/2026, A8 of the Xiaomi and realme plan): a resume ([attempt] of 1 or more) says that REau
+     * is back; a projection the rider switched on (0) says nothing.
+     */
+    fun voiceCueFor(attempt: Int): VoiceCue? = if (attempt > 0) VoiceCue.APP_BACK else null
+
     /** The line for a restart that does not resume. */
     fun notResumedLine(why: String): String = "not resumed after the system ended the process: $why"
 }

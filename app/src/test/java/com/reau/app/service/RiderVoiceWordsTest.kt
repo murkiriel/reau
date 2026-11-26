@@ -25,6 +25,7 @@ class RiderVoiceWordsTest {
         assertEquals(R.string.voice_dash_back, VoiceWords.of(VoiceCue.DASH_BACK))
         assertEquals(R.string.voice_phone_hot, VoiceWords.of(VoiceCue.PHONE_HOT))
         assertEquals(R.string.voice_wifi_off, VoiceWords.of(VoiceCue.WIFI_OFF))
+        assertEquals(R.string.voice_app_back, VoiceWords.of(VoiceCue.APP_BACK))
     }
 
     @Test
@@ -32,9 +33,13 @@ class RiderVoiceWordsTest {
         assertEquals("Painel desconectado. Desligue e ligue a moto.", text("values-pt", "voice_dash_gone"))
         assertEquals("Painel de volta.", text("values-pt", "voice_dash_back"))
         assertEquals("Wi-Fi do celular desligado.", text("values-pt", "voice_wifi_off"))
+        // 26/11/2026 (A8): said when the app came back by itself after the phone's system ended it.
+        assertEquals("O REau voltou.", text("values-pt", "voice_app_back"))
+        assertEquals("REau is back.", text("values", "voice_app_back"))
+        assertEquals("REau volvió.", text("values-es", "voice_app_back"))
         // The existing notice does not say the video is lowered (it says to take the phone out of the sun), so the phrase says what the notice says.
         assertTrue(text("values-pt", "voice_phone_hot").startsWith("Celular quente."))
-        for (name in listOf("voice_dash_gone", "voice_dash_back", "voice_phone_hot", "voice_wifi_off")) {
+        for (name in listOf("voice_dash_gone", "voice_dash_back", "voice_phone_hot", "voice_wifi_off", "voice_app_back")) {
             val said = folders.map { text(it, name) }
             assertEquals("$name is different in the three languages: $said", 3, said.toSet().size)
             for (s in said) assertTrue("$name is a short sentence: $s", s.isNotBlank() && s.length < 80 && s.endsWith("."))
@@ -43,9 +48,15 @@ class RiderVoiceWordsTest {
 
     @Test
     fun `no phrase carries a placeholder, since the voice says the words as they are`() {
-        for (folder in folders) for (name in listOf("voice_dash_gone", "voice_dash_back", "voice_phone_hot", "voice_wifi_off")) {
+        for (folder in folders) for (name in listOf("voice_dash_gone", "voice_dash_back", "voice_phone_hot", "voice_wifi_off", "voice_app_back")) {
             assertFalse("$folder $name", "%" in text(folder, name))
         }
+    }
+
+    @Test
+    fun `the phrase of the app coming back is short, has no placeholder, and is in Hindi too`() {
+        val hindi = text("values-hi", "voice_app_back")
+        assertTrue(hindi, hindi.contains("REau") && hindi.endsWith("।") && "%" !in hindi && hindi.length < 80)
     }
 
     @Test

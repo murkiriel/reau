@@ -916,6 +916,7 @@
     <string name="voice_dash_back">Painel de volta.</string>
     <string name="voice_phone_hot">Celular quente. Tire-o do sol ou do bolso fechado.</string>
     <string name="voice_wifi_off">Wi-Fi do celular desligado.</string>
+    <string name="voice_app_back">O REau voltou.</string>
     <!-- O eco da ação e a legenda do joystick: os mesmos nomes curtos (até 19 caracteres, Latin-1, como o painel lê o nome da rua) na faixa dourada e no vídeo do painel -->
     <string name="echo_wheel_previous">Item anterior</string>
     <string name="echo_wheel_next">Próximo item</string>
@@ -994,4 +995,16 @@
     <string name="action_keepalive_guide">Ver os passos</string>
     <string name="warn_system_closed_title">O celular fechou o REau</string>
     <string name="warn_system_closed">O sistema do celular fechou o REau durante a viagem (%1$s), enquanto ele projetava. Isso vem do celular, não do painel. Veja como diminuir a chance de acontecer de novo.</string>
+    <string name="keepalive_open_autostart">Abrir a tela de Inicialização automática</string>
+    <string name="keepalive_battery_exempt">O REau já está fora da otimização de bateria, que é a primeira coisa que ele pede. Os passos abaixo são os do fabricante do celular, e essa isenção não os substitui.</string>
+    <string name="keepalive_battery_not_exempt">O REau ainda não está fora da otimização de bateria: faça isso primeiro (a tela principal pede, e a página de permissões mostra). Depois faça os passos abaixo, que são os do fabricante do celular.</string>
+    <string name="keepalive_check_title">O que você já fez</string>
+    <string name="keepalive_check_hint">Marque o que você fez. O REau não consegue conferir: a sua resposta fica neste celular e vai para o registro da viagem, para ajudar a descobrir por que uma viagem foi encerrada.</string>
+    <string name="keepalive_item_autostart">Inicialização automática ligada</string>
+    <string name="keepalive_item_background">Atividade em segundo plano liberada</string>
+    <string name="keepalive_item_lock">Cadeado no REau nos apps recentes</string>
+    <string name="keepalive_item_battery">Bateria em \"Sem restrições\"</string>
+    <string name="warn_keepalive_title">Mantenha o REau vivo neste celular</string>
+    <string name="warn_keepalive">O fabricante do seu celular pode fechar o REau no meio de uma viagem. Alguns ajustes, feitos uma vez, diminuem essa chance. Veja-os antes da próxima viagem.</string>
+    <string name="keepalive_open_failed">Não foi possível abrir as configurações do celular. Abra Configurações, depois Apps, depois REau, e siga os passos a partir de lá.</string>
 </resources>

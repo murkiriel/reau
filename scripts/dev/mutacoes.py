@@ -5770,6 +5770,28 @@ MUTATIONS += [
 ]
 
 
+MUTATIONS += [
+    # A3 e A8 do plano dos pilotos Xiaomi e realme (26/11/2026): o aviso único antes da primeira viagem, a lista do que o piloto diz ter feito e a fala "o REau voltou".
+    ("fable/A3 Aviso: ele aparece antes de o celular ter unido o painel pela primeira vez", MAIN + "data/KeepAliveNotice.kt",
+     "if (!eligible || !paired) return false", "if (!eligible) return false", ["KeepAliveNoticeTest"]),
+    ("fable/A3 Aviso: uma morte pelo sistema depois da resposta não o traz de novo", MAIN + "data/KeepAliveNotice.kt",
+     "return answeredAtMs <= 0L || lastClosedMs > answeredClosedMs", "return answeredAtMs <= 0L", ["KeepAliveNoticeTest"]),
+    ("fable/A3 Aviso: o cartão aparece junto do cartão da morte pelo sistema", MAIN + "ui/MainLook.kt",
+     "Warning.KEEP_ALIVE_ADVICE.takeIf { due && !systemClosedPending }", "Warning.KEEP_ALIVE_ADVICE.takeIf { due }", ["KeepAliveNoticeIsWiredTest"]),
+    ("fable/A3 Botão: quando nenhuma alternativa abre, o registro fica calado", MAIN + "ui/KeepAliveOpen.kt",
+     '        log("keepalive: none of the ${alternatives.size} alternatives opened")\n', "", ["KeepAliveOpenTest"]),
+    ("fable/A3 Lista: o item que o piloto nunca tocou sai como `no` e não como `?`", MAIN + "data/KeepAliveChecklist.kt",
+     "                    else -> Answer.UNKNOWN\n", "                    else -> Answer.NO\n", ["KeepAliveChecklistTest"]),
+    ("fable/A8 Fala: a projeção que o piloto ligou também diz que o REau voltou", MAIN + "service/ProjectionResume.kt",
+     "fun voiceCueFor(attempt: Int): VoiceCue? = if (attempt > 0) VoiceCue.APP_BACK else null", "fun voiceCueFor(attempt: Int): VoiceCue? = if (attempt >= 0) VoiceCue.APP_BACK else null",
+     ["ProjectionResumeTest"]),
+    ("fable/A8 Fala: a frase dita não deixa linha no registro", MAIN + "service/RiderVoice.kt",
+     '        if (said) log("voice: $cue said")\n', "", ["RiderVoiceTest"]),
+    ("fable/A8 Fala: o serviço não fala quando a projeção volta", MAIN + "service/ProjectionService.kt",
+     "            ProjectionResume.voiceCueFor(resumedAttempt)?.let { RiderVoice.speak(it) }\n", "", ["ResumeVoiceIsWiredTest"]),
+]
+
+
 def command_for(classes):
     """The command that runs a mutation's tests: Python test files (`test_*.py`) with unittest, JVM unit test classes with Gradle. A bare name (`test_apk_audit.py`) is found
     in scripts/; one with a folder (`registro/test_chaves.py`, `dev/test_teste_cego.py`) in that folder of scripts/ (the folders are not packages, so discover does not go

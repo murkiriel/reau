@@ -551,4 +551,11 @@ MUTATIONS_SCRIPTS = [
      "    if motivo not in (10, 11) or FORCAR_PARADA", "    if FORCAR_PARADA", ["registro/test_mortes.py"]),
     ("fable/A5 leitor: o display em modo de espera conta como apagado de vez", REG + "mortes.py",
      "        elif novo == DISPLAY_ESPERA:\n            de_vez = None\n", "        elif novo == DISPLAY_ESPERA:\n            pass\n", ["registro/test_mortes.py"]),
+    # A3 e A8 (26/11/2026): as linhas `keepalive:` e a fala no fone entram na linha do tempo.
+    ("fable/A3 leitor: o item que o piloto nunca tocou sai como `não` e não como `?`", REG + "ler_registro.py",
+     'KEEPALIVE_PALAVRAS = {"yes": "sim", "no": "não", "?": "?"}', 'KEEPALIVE_PALAVRAS = {"yes": "sim", "no": "não", "?": "não"}', ["registro/test_a3_a8_leitor.py"]),
+    ("fable/A3 leitor: a linha `keepalive:` com a etiqueta de outro lugar também vale", REG + "ler_registro.py",
+     'if x.etiqueta in ("ui", "settings") and t.startswith("keepalive: "):', 'if t.startswith("keepalive: "):', ["registro/test_a3_a8_leitor.py"]),
+    ("fable/A8 leitor: a frase que não foi dita também vira fala", REG + "ler_registro.py",
+     'FALA_NO_FONE = re.compile(r"^voice: (\\w+) said$")', 'FALA_NO_FONE = re.compile(r"^voice: (\\w+) ")', ["registro/test_a3_a8_leitor.py"]),
 ]

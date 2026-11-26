@@ -2,11 +2,15 @@ package com.reau.app.ui
 
 import androidx.annotation.StringRes
 import com.reau.app.R
+import com.reau.app.data.KeepAliveChecklist.Item
 
 /**
  * What to do on the phone so the system does not close REau in the middle of a ride, by the phone's maker: the steps are the makers' own settings (a padlock in
  * the recent apps, the app's battery line, the automatic start), reached from Android's standard page of the app's details, so no component of a maker is
  * called. The steps lower the chance and do not guarantee it, and the page says so. No Android in it: tested on the JVM.
+ *
+ * Since 26/11/2026 (A3 of the Xiaomi and realme plan) the page also has what the rider says he did ([items]) and, on Xiaomi, a button to the Autostart screen
+ * ([KeepAliveOpen]: the components of the maker are there, kept out of this file).
  */
 object KeepAliveGuide {
     /** The families of makers that have their own steps; any other maker gets the general ones. */
@@ -27,6 +31,33 @@ object KeepAliveGuide {
             else -> Brand.OTHER
         }
     }
+
+    /** Whether the maker's family has a notice of its own before the first ride (the two with steps of their own; any other phone is left as it was). */
+    fun hasNotice(brand: Brand): Boolean = brand != Brand.OTHER
+
+    /** What the rider may tick for the family, in the order of the steps; empty for another maker (it has no list). */
+    fun items(brand: Brand): List<Item> = when (brand) {
+        Brand.XIAOMI -> listOf(Item.AUTOSTART, Item.BATTERY, Item.LOCK)
+        Brand.OPPO -> listOf(Item.AUTOSTART, Item.BACKGROUND, Item.LOCK)
+        Brand.OTHER -> emptyList()
+    }
+
+    /** The words of one tick. */
+    @StringRes
+    fun label(item: Item): Int = when (item) {
+        Item.AUTOSTART -> R.string.keepalive_item_autostart
+        Item.BACKGROUND -> R.string.keepalive_item_background
+        Item.LOCK -> R.string.keepalive_item_lock
+        Item.BATTERY -> R.string.keepalive_item_battery
+    }
+
+    /**
+     * What the page says of the battery optimization, by whether REau is exempt (null: Android did not say, which reads as not exempt): the exemption is the one
+     * thing the app asks for itself, so a rider who has it is told that the maker's steps are still his, and one who does not is told to do that first.
+     */
+    @StringRes
+    fun batteryAdvice(exempt: Boolean?): Int =
+        if (exempt == true) R.string.keepalive_battery_exempt else R.string.keepalive_battery_not_exempt
 
     /** The family of this phone. */
     fun current(): Brand = brandOf(android.os.Build.MANUFACTURER, android.os.Build.BRAND)

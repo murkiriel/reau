@@ -4,7 +4,7 @@ import com.reau.app.R
 import com.reau.app.util.MonotonicClock
 import java.util.Locale
 
-/** What the voice may say to the rider in the headset: the four situations that already have a notice of their own. */
+/** What the voice may say to the rider in the headset: the situations that already have a notice of their own, and the app coming back by itself. */
 enum class VoiceCue {
     /** The dash is gone or stuck, and the bike has to be switched off and on (the notice of the stuck dash). */
     DASH_GONE,
@@ -17,6 +17,12 @@ enum class VoiceCue {
 
     /** The phone's Wi-Fi radio is off, so the dash cannot be joined. */
     WIFI_OFF,
+
+    /**
+     * REau came back by itself after the phone's system ended it ([ProjectionResume]). 26/11/2026 (A8 of the Xiaomi and realme plan): a dead app says nothing, and with the phone in a
+     * pocket the rider hears nothing either way, so the one thing worth a phrase is that the projection is up again.
+     */
+    APP_BACK,
 }
 
 /**
@@ -58,6 +64,7 @@ object VoiceWords {
         VoiceCue.DASH_BACK -> R.string.voice_dash_back
         VoiceCue.PHONE_HOT -> R.string.voice_phone_hot
         VoiceCue.WIFI_OFF -> R.string.voice_wifi_off
+        VoiceCue.APP_BACK -> R.string.voice_app_back
     }
 }
 
@@ -146,6 +153,8 @@ class RiderVoice(
         } else {
             log("voice: $cue not said, ${why ?: "the speech engine could not"}")
         }
+        // One line for each phrase really said (26/11/2026), so the log of a ride tells that the rider was told, and not only that the app tried.
+        if (said) log("voice: $cue said")
     }
 
     /** The projection ended: the engine and the focus are let go, and what was said is forgotten (the next projection starts clean). */

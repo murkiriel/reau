@@ -927,6 +927,7 @@
     <string name="voice_dash_back">Dash is back.</string>
     <string name="voice_phone_hot">Phone is hot. Take it out of the sun or a closed pocket.</string>
     <string name="voice_wifi_off">Phone Wi-Fi is off.</string>
+    <string name="voice_app_back">REau is back.</string>
     <!-- The action echo and the joystick legend: the same short names (at most 19 characters, Latin-1, as the dash reads the street name) in the dash’s gold band and on its video -->
     <string name="echo_wheel_previous">Previous item</string>
     <string name="echo_wheel_next">Next item</string>
@@ -1005,4 +1006,16 @@
     <string name="action_keepalive_guide">See the steps</string>
     <string name="warn_system_closed_title">The phone closed REau</string>
     <string name="warn_system_closed">The phone’s system closed REau during the ride (%1$s), while it was projecting. That comes from the phone, not from the dash. See how to lower the chance of it happening again.</string>
+    <string name="keepalive_open_autostart">Open the Autostart screen</string>
+    <string name="keepalive_battery_exempt">REau is already exempt from battery optimization, which is the first thing it asks. The steps below are the phone maker’s own, and that exemption does not replace them.</string>
+    <string name="keepalive_battery_not_exempt">REau is not yet exempt from battery optimization: do that first (the main screen asks for it, and the permissions page shows it). Then do the steps below, which are the phone maker’s own.</string>
+    <string name="keepalive_check_title">What you have done</string>
+    <string name="keepalive_check_hint">Tick what you did. REau cannot check it: your answer stays on this phone and goes into the ride log, to help find out why a ride was closed.</string>
+    <string name="keepalive_item_autostart">Autostart is on</string>
+    <string name="keepalive_item_background">Background activity is allowed</string>
+    <string name="keepalive_item_lock">Padlock on REau in the recent apps</string>
+    <string name="keepalive_item_battery">Battery is set to \"No restrictions\"</string>
+    <string name="warn_keepalive_title">Keep REau running on this phone</string>
+    <string name="warn_keepalive">Your phone’s maker may close REau in the middle of a ride. A few settings, done once, lower the chance of that. See them before the next ride.</string>
+    <string name="keepalive_open_failed">Could not open the phone’s settings. Open Settings, then Apps, then REau, and follow the steps from there.</string>
 </resources>

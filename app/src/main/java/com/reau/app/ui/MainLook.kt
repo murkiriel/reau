@@ -16,7 +16,7 @@ object MainLook {
     /** The warnings, in display order; each is shown only while its trouble lasts. */
     enum class Warning {
         SERVER_OFF, UNRESPONSIVE, CLOSING_PREVIOUS, NOT_CALLING, NO_VIDEO,
-        BATTERY_EXEMPTION, BATTERY_SAVER, WIFI_OFF, DASH_TAKEN, NAME_NEEDED, VPN, LOCATION_OFF, ALERTS_MUTED, ALERTS_BLOCKED, SYSTEM_CLOSED,
+        BATTERY_EXEMPTION, BATTERY_SAVER, WIFI_OFF, DASH_TAKEN, NAME_NEEDED, VPN, LOCATION_OFF, ALERTS_MUTED, ALERTS_BLOCKED, SYSTEM_CLOSED, KEEP_ALIVE_ADVICE,
     }
 
     fun androidAutoKind(p: Projection): StatusKind = when {
@@ -97,6 +97,13 @@ object MainLook {
 
     /** The card that the system closed REau during the last ride, until the rider dismisses it ([com.reau.app.data.SystemClosedRide]); after the others, as it is about the past. */
     fun systemClosedWarnings(pending: Boolean): List<Warning> = listOfNotNull(Warning.SYSTEM_CLOSED.takeIf { pending })
+
+    /**
+     * The one notice before the first ride on a Xiaomi or realme phone ([com.reau.app.data.KeepAliveNotice]), last of all. Not while the card of the system having
+     * closed REau is up (26/11/2026): that card leads to the same page, and two cards for one subject are one too many.
+     */
+    fun keepAliveWarnings(due: Boolean, systemClosedPending: Boolean): List<Warning> =
+        listOfNotNull(Warning.KEEP_ALIVE_ADVICE.takeIf { due && !systemClosedPending })
 
     /**
      * Why the "Tela do Android Auto" cannot open now; null when it can: with the projection on, outside the card mode,

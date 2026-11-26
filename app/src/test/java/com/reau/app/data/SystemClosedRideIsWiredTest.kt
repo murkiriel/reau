@@ -59,15 +59,19 @@ class SystemClosedRideIsWiredTest {
         val activity = source("MainActivity.kt")
         assertTrue(activity.between("override fun onCreate(", "setContent {").contains("com.reau.app.data.SystemClosedRide.load(applicationContext)"))
         assertTrue(activity.contains("val systemClosedAt = com.reau.app.data.SystemClosedRide.pendingAt.collectAsStateWithLifecycle().value"))
-        assertTrue(activity.contains("mainState(projection, settings, startedAt, pairing.ssid).withNetwork(networkOn).withSystemClosed(systemClosedAt),"))
+        // The flag of the one-time notice (KeepAliveNotice) follows it in the same chain (KeepAliveNoticeIsWiredTest).
+        assertTrue(activity.contains("mainState(projection, settings, startedAt, pairing.ssid).withNetwork(networkOn).withSystemClosed(systemClosedAt)\n"))
     }
 
     @Test
     fun `the notice's two buttons dismiss it, and the one that opens the guide dismisses it too`() {
         val activity = source("MainActivity.kt")
         val open = activity.between("onOpenKeepAlive = {", "onDismissSystemClosed")
-        assertTrue(open, "com.reau.app.data.SystemClosedRide.dismiss(this@MainActivity)" in open && "page = SettingsPage.KEEP_ALIVE" in open)
-        assertTrue(activity.contains("onDismissSystemClosed = { com.reau.app.data.SystemClosedRide.dismiss(this@MainActivity) },"))
+        assertTrue(open, "com.reau.app.data.SystemClosedRide.dismiss(this@MainActivity)" in open && "open()" in open)
+        assertTrue(activity.contains(").withKeepAliveTaps(systemClosedAt) { page = SettingsPage.KEEP_ALIVE },"))
+        // "Entendi" also answers the one-time notice for the phones of the two makers (KeepAliveNotice), so it does not come on top of the closing just told.
+        val understood = activity.between("onDismissSystemClosed = {", "onDismissKeepAliveAdvice")
+        assertTrue(understood, "com.reau.app.data.SystemClosedRide.dismiss(this@MainActivity)" in understood)
         val dismiss = source("data/SystemClosedRide.kt").between("fun dismiss(", "/** What is kept")
         assertTrue(dismiss, "Book.open(context).dismiss()" in dismiss && "told.value = null" in dismiss)
     }
@@ -76,8 +80,10 @@ class SystemClosedRideIsWiredTest {
     fun `the guide's page is routed, with the back button, and its button opens the app's details page`() {
         val activity = source("MainActivity.kt")
         assertTrue(activity.contains("TIPS, KEEP_ALIVE }"))
-        val route = activity.between("SettingsPage.KEEP_ALIVE -> com.reau.app.ui.KeepAliveScreen(", "SettingsPage.CREDITS ->")
-        assertTrue(route, "PermissionRows.openAppSettings(activity)" in route && route.startsWith("back, "))
+        assertTrue(activity.contains("SettingsPage.KEEP_ALIVE -> com.reau.app.ui.KeepAliveRoute(activity, back)"))
+        // The route owns the page's buttons now (the app's details by the chain that logs and tells when it fails: KeepAliveOpen).
+        val route = source("ui/KeepAliveRoute.kt")
+        assertTrue(route, "KeepAliveOpenAndroid.openFor(context, KeepAliveGuide.Brand.OTHER)" in route && "KeepAliveScreen(\n        back," in route)
         // The permissions page reaches it too, near the battery line.
         assertTrue(activity.contains("onOpenKeepAlive = { goTo(SettingsPage.KEEP_ALIVE) },"))
         val way = source("ui/PermissionsScreen.kt")
@@ -90,7 +96,8 @@ class SystemClosedRideIsWiredTest {
         assertTrue(source("ui/MainScreen.kt").contains("MainLook.alertWarnings(state.alertLevel) +\n                        MainLook.systemClosedWarnings(state.systemClosedAtMs != null)"))
         val parts = source("ui/MainParts.kt")
         assertTrue(parts.contains("Warning.SYSTEM_CLOSED -> SystemClosedWarning(state.systemClosedAtMs, extras)"))
-        val card = parts.between("private fun SystemClosedWarning(", "/** \"Permitir os avisos\"")
+        // The card itself is in KeepAliveCard.kt since 26/11/2026 (MainParts.kt had reached the most functions detekt allows).
+        val card = source("ui/KeepAliveCard.kt").between("internal fun SystemClosedWarning(", "/**")
         assertTrue(card, "SystemClosedRide.stamp(it, System.currentTimeMillis())" in card)
         assertTrue(card, "stringResource(R.string.warn_system_closed, at)" in card)
         assertTrue(card, "CardAction(stringResource(R.string.action_keepalive_guide), \"open_keepalive\", extras.onOpenKeepAlive)" in card)

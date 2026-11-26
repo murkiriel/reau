@@ -100,7 +100,8 @@ fun MainScreen(
                 ) {
                     val warnings = MainLook.warnings(p, state.battery, state.vpnHoldsREau, state.locationOff) +
                         MainLook.alertWarnings(state.alertLevel) +
-                        MainLook.systemClosedWarnings(state.systemClosedAtMs != null)
+                        MainLook.systemClosedWarnings(state.systemClosedAtMs != null) +
+                        MainLook.keepAliveWarnings(state.keepAliveDue, state.systemClosedAtMs != null)
                     for (warning in warnings) {
                         Warning(warning, state, onOpenAndroidAutoSettings, extras)
                     }
@@ -123,12 +124,7 @@ fun MainScreen(
                     }
                     GroupLabel(null, stringResource(R.string.shortcuts_label))
                     Shortcuts(state, onOpenAndroidAutoSettings, onOpenSettings, extras, say)
-                    Column(Modifier.fillMaxWidth().padding(top = 2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        val androidAuto = state.androidAutoVersion?.let { stringResource(R.string.aa_version, it) }
-                        FootLine(androidAuto ?: stringResource(R.string.aa_not_installed), "aa_version")
-                        // REau's own version under Android Auto's.
-                        FootLine(stringResource(R.string.reau_version, state.reauVersion), "reau_version")
-                    }
+                    FootLines(state)
                 }
                 SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter)) {
                     Snackbar(it, Modifier.testTag("snackbar"), shape = MaterialTheme.shapes.small)
@@ -140,15 +136,6 @@ fun MainScreen(
             }
         }
     }
-}
-
-/** One line of the foot: the installed Android Auto, REau's own version. */
-@Composable
-private fun FootLine(text: String, tag: String) {
-    Text(
-        text, style = REauMono.copy(fontSize = MaterialTheme.typography.labelMedium.fontSize), color = MaterialTheme.colorScheme.onSurfaceVariant,
-        textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().testTag(tag),
-    )
 }
 
 /**
