@@ -299,6 +299,9 @@ class ProjectionService : Service() {
     // The phone's state looked at while the projection is on; only the worker reads and writes it.
     private var deviceLook: ScheduledFuture<*>? = null
 
+    // What the system's memory signs call ([com.reau.app.data.PressureSignals]): a look at the phone on the worker, with the reason it is written for.
+    private var pressureLook: ((String) -> Unit)? = null
+
     // The summary of this process's state kept for the system (ProcessStateSummary); only the worker reads and writes it.
     private var stateSummary: com.reau.app.data.ProcessStateSummaryKeeper? = null
 
@@ -662,7 +665,9 @@ class ProjectionService : Service() {
      */
     private fun lookAtTheDevice() {
         val reader = DeviceStateReader(this) { sides?.bikeNetwork }
-        val device = DeviceStateLog(DEVICE_PERIOD_MS) { RideDiagnostics.log("device", it) }
+        // After a sign of memory pressure the line comes at every look for a minute (PressureSignals.periodAt), then back to the 30 s.
+        val signals = com.reau.app.data.MemoryPressure.signals
+        val device = DeviceStateLog(DEVICE_PERIOD_MS, signals::periodAt) { RideDiagnostics.log("device", it) }
         // The standby bucket and the background restriction: one line at the first look of the projection, another only when one of them changes (26/11/2026).
         val standby = AppStandbyLog { RideDiagnostics.log("device", it) }
         // The summary of this process's state the system hands back with its death (ProcessStateSummary, 26/11/2026): given only when it changes, not at every look.
@@ -674,8 +679,8 @@ class ProjectionService : Service() {
         RideDiagnostics.log("device", com.reau.app.data.ThermalHeadroomNote.LINE)
         // Said once for this projection: the alert channel muted or blocked in Android (the main screen says it too).
         AlertChannelState.line(AlertChannelState.read(this))?.let { RideDiagnostics.warn("projection", it) }
-        deviceLook?.cancel(false)
-        deviceLook = worker.scheduleWithFixedDelay({
+        // [why] null: the look of every 5 s (the line only when its period is due or something relevant changed); else a memory sign's reason, and the line at once.
+        val look = { why: String? ->
             runCatching {
                 val state = reader.read()
                 standby.offer(reader.appStandby())
@@ -685,19 +690,31 @@ class ProjectionService : Service() {
                         true, controller.state.dash == DashLink.READY, state.screenOn, 0, state.batteryPct, state.charging,
                     ),
                 )
-                device.offer(SystemClock.elapsedRealtime(), state)
+                // The same clock as the memory signs' (REauApp writes PressureSignals with MonotonicClock): with SystemClock.elapsedRealtime here the minute of
+                // faster lines never came, the two readings being hours apart (found in the review of 26/11/2026).
+                val nowMs = com.reau.app.util.MonotonicClock.nowMs()
+                if (why == null) device.offer(nowMs, state) else device.force(nowMs, state, why)
                 ProjectionSummary.current.device(state.thermal, state.batteryPct)
                 warnIfHot(heat, state)
             }
                 .onFailure { log("${RideDiagnostics.WARN}projection: reading the device state failed: $it") }
-        }, 0, DEVICE_LOOK_MS, TimeUnit.MILLISECONDS)
+        }
+        deviceLook?.cancel(false)
+        deviceLook = worker.scheduleWithFixedDelay({ look(null) }, 0, DEVICE_LOOK_MS, TimeUnit.MILLISECONDS)
+        // A memory sign comes on the main thread: the look is handed to the worker, which is where the reader (and its state) lives.
+        val onSign: (String) -> Unit = { why -> runCatching { worker.execute { look(why) } } }
+        pressureLook = onSign
+        signals.attach(onSign)
     }
 
-    /** The projection no longer looks at the phone: the summary of the process says the projection is over (the process may live on with the app open). */
+    /** The projection no longer looks at the phone: the memory signs go back to writing their own line only, and the summary of the process says it is over. */
     private fun stopLookingAtTheDevice() {
         deviceLook?.cancel(false)
+        // The process may live on with the app open: its summary says the projection is over.
         stateSummary?.ended()
         stateSummary = null
+        pressureLook?.let { com.reau.app.data.MemoryPressure.signals.detach(it) }
+        pressureLook = null
     }
 
     /** The rider's notice that the phone is hot ([BatteryHeatWatch]), and its line in the ride log; the notice goes when the phone has cooled. */

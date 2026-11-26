@@ -4338,6 +4338,23 @@ MUTATIONS = [
      '        stateSummary?.ended()\n', '', ['ProcessStateSummaryIsWiredTest']),
     ('revisao34/B1 Resumo do processo: uma olhada depois do fim da projeção volta a escrever p=1', MAIN + 'data/ProcessStateSummary.kt',
      '        if (over) return\n', '', ['ProcessStateSummaryTest']),
+    # A pressão de memória e a carga do sistema no registro (portado da 0.4.0).
+    ('p34/10 Carga do sistema: o /proc/loadavg que falhou é tentado de novo', MAIN + 'data/LoadAverage.kt',
+     '            unreadable = true\n', '            unreadable = false\n', ['LoadAverageTest']),
+    ('plano35/B1 Pressão de memória: a linha [device] depois de um sinal sai a cada 30 s (o período mais curto some)', MAIN + 'data/MemoryPressure.kt',
+     'const val BOOST_PERIOD_MS = 5_000L', 'const val BOOST_PERIOD_MS = 30_000L', ['MemoryPressureTest']),
+    ('plano35/B1 Pressão de memória: o RUNNING_LOW não conta como pressão', MAIN + 'data/MemoryPressure.kt',
+     'fun isPressure(level: Int): Boolean = level == RUNNING_LOW || level == RUNNING_CRITICAL || level == COMPLETE', 'fun isPressure(level: Int): Boolean = level == RUNNING_CRITICAL || level == COMPLETE', ['MemoryPressureTest']),
+    ('plano35/B1 Pressão de memória: o sinal do sistema não escreve a linha [device] na hora (só espera o período)', MAIN + 'service/ProjectionService.kt',
+     'if (why == null) device.offer(nowMs, state) else device.force(nowMs, state, why)', 'device.offer(nowMs, state)', ['MemoryPressureTest']),
+    ('plano35/B1 Pressão de memória: o Application não ouve o onTrimMemory', MAIN + 'REauApp.kt',
+     'runCatching { com.reau.app.data.MemoryPressure.signals.trimmed(level, com.reau.app.util.MonotonicClock.nowMs()) }', 'runCatching { Unit }', ['MemoryPressureTest']),
+    ('plano35/B1 Pressão de memória: o psi do kernel não entra na linha [device]', MAIN + 'service/DeviceStateReader.kt',
+     'memPressure = procMemory.pressure(),', 'memPressure = null,', ['MemoryPressureTest']),
+    ('plano35/B1 Pressão de memória: o arquivo de pressão que o app não pode ler é tentado a cada olhada', MAIN + 'data/MemoryProc.kt',
+     '        if (pressureUnreadable) return null\n', '', ['MemoryPressureTest']),
+    ('revisao35/1 Relógio: o serviço consulta o reforço de memória com o relógio do celular e não com o do app (o minuto de linhas rápidas nunca vem)', MAIN + 'service/ProjectionService.kt',
+     'val nowMs = com.reau.app.util.MonotonicClock.nowMs()\n                if (why == null)', 'val nowMs = SystemClock.elapsedRealtime()\n                if (why == null)', ['MemoryPressureTest']),
 ]
 
 
