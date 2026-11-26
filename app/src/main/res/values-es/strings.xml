@@ -968,4 +968,17 @@
     <string name="tip_gemini_swap_text">Gemini conversa por voz y necesita un intercomunicador en el casco. Si no tienes uno, en la pantalla Joystick del tablero (Control multimedia, botón “Abajo”) puedes cambiar la acción de Gemini por “Alternar mapa y música”: un toque lleva del mapa a la app de música y de vuelta.</string>
     <string name="tip_video_fps_title">Por qué el video no pasa de 6 fps</string>
     <string name="tip_video_fps_text">El tablero acepta más cuadros por segundo, pero el mismo procesador que muestra el video también dibuja la pantalla y atiende los botones. En las pruebas en la moto, a 8 fps el ícono de la reserva empezó a parpadear y a 12 fps el tablero empezó a ignorar los botones. A 6 fps todo funcionó sin fallas, por eso REau nunca pasa de ahí. Aun así, la app viene con el ritmo Original (4 fps en el A, 2 en el B), más liviano para el tablero; para una imagen más fluida, elige REau (6 fps en el A, 3 en el B) en el ajuste \"Ritmo del video\".</string>
+    <!-- "Tela acesa com o celular bloqueado" (0.3.5 test build): ScreenKeeper, ScreenKeepActivity, ui/SettingsScreenKeep. -->
+    <string name="group_screen_keep">Teléfono bloqueado</string>
+    <string name="screen_keep_title">Pantalla encendida con el teléfono bloqueado (prueba)</string>
+    <string name="screen_keep_sub">En el viaje, REau enciende la pantalla cuando se apaga, para que el teléfono no lo cierre. Gasta más batería</string>
+    <string name="screen_keep_info">Algunos teléfonos (realme, Xiaomi) cierran REau cuando la pantalla queda apagada con la proyección encendida. Con esto activado, REau vuelve a encender la pantalla, por unos segundos, cada vez que se apaga (o cada 60 o 30 segundos desde que se apagó), para que el teléfono no crea que la app quedó olvidada en segundo plano. Con el sensor de proximidad cubierto (teléfono en el bolsillo) la pantalla no se enciende. Solo vale con la proyección encendida y gasta más batería. Viene apagado, es una prueba y puede cambiar o salir.</string>
+    <string name="screen_keep_mode_title">Cuándo encender la pantalla</string>
+    <string name="screen_keep_mode_off">Cada vez que la pantalla se apague</string>
+    <string name="screen_keep_mode_60">Cada 60 segundos</string>
+    <string name="screen_keep_mode_30">Cada 30 segundos</string>
+    <string name="screen_keep_lock_ui_title">Mostrar REau sobre el bloqueo</string>
+    <string name="screen_keep_lock_ui_sub">La pantalla que se enciende muestra REau, y no la pantalla de bloqueo del sistema. Android puede rechazarlo</string>
+    <string name="screen_keep_lock_projecting">Proyectando en el tablero</string>
+    <string name="screen_keep_lock_swipe">Desliza hacia arriba para desbloquear</string>
 </resources>

@@ -4268,6 +4268,22 @@ MUTATIONS = [
      "if (ofTheDash && counts(state)) {", "if (counts(state)) {", ["AssociationInFlightTest"]),
     ("DashJoin: o vigia da varredura volta a olhar a cada 2 s", MAIN + "dash/DashJoin.kt",
      "const val WATCH_PERIOD_MS = 500L", "const val WATCH_PERIOD_MS = 2_000L", ["AssociationInFlightTest", "AssociationHoldIsWiredTest"]),
+    # 0.3.5 (teste para pilotos, sobre a 0.3.1): "Tela acesa com o celular bloqueado".
+    ("ScreenKeepPolicy: um sensor de proximidade sem resposta também pula a luz", MAIN + "service/ScreenKeepPolicy.kt",
+     "proximityCovered == true -> Decision.SKIP_PROXIMITY", "proximityCovered != false -> Decision.SKIP_PROXIMITY", ["ScreenKeepPolicyTest"]),
+    ("ScreenKeepPolicy: a folga mínima entre duas luzes vale um instante a mais", MAIN + "service/ScreenKeepPolicy.kt",
+     "sinceLastWakeMs in 0L until MIN_GAP_MS", "sinceLastWakeMs in 0L..MIN_GAP_MS", ["ScreenKeepPolicyTest"]),
+    ("ScreenKeepPolicy: o temporizador acende também a tela que já está acesa", MAIN + "service/ScreenKeepPolicy.kt",
+     "trigger == Trigger.TIMER && screenOn -> Decision.NOTHING", "trigger == Trigger.TIMER && !screenOn -> Decision.NOTHING", ["ScreenKeepPolicyTest"]),
+    ("ScreenKeepPolicy: o modo de 60 segundos acende na hora em que a tela apaga", MAIN + "service/ScreenKeepPolicy.kt",
+     "trigger == Trigger.SCREEN_OFF && mode != ScreenKeepMode.ON_SCREEN_OFF -> Decision.NOTHING",
+     "trigger == Trigger.SCREEN_OFF && mode == ScreenKeepMode.EVERY_30_S -> Decision.NOTHING", ["ScreenKeepPolicyTest"]),
+    ("ScreenKeepPolicy: o próximo acendimento conta do último e não de quando a tela apagou", MAIN + "service/ScreenKeepPolicy.kt",
+     "return interval - elapsed % interval", "return interval - elapsed.coerceAtMost(interval - 1)", ["ScreenKeepPolicyTest"]),
+    ("ScreenKeepPolicy: o sensor de uma faixa de 10 cm acusa tampado de longe", MAIN + "service/ScreenKeepPolicy.kt",
+     "distanceCm < maxRangeCm && distanceCm < NEAR_CM", "distanceCm < maxRangeCm", ["ScreenKeepPolicyTest"]),
+    ("ProjectionService: a tela acesa não é solta quando a projeção desliga", MAIN + "service/ProjectionService.kt",
+     "            locks.release()\n            screenKeeper.stop()\n", "            locks.release()\n", ["ScreenKeepIsWiredTest"]),
 ]
 
 

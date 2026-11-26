@@ -99,6 +99,17 @@
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity>
 
+        <!-- "Mostrar o REau sobre o bloqueio" (test build): a light screen over the lock screen that also turns the screen on, started by ScreenKeeper
+             when it lights the screen. Its own task, out of the recents, so it never mixes with the main screen's. Uses WAKE_LOCK only (already above). -->
+        <activity
+            android:name=".ui.ScreenKeepActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:showWhenLocked="true"
+            android:taskAffinity="${applicationId}.screenkeep"
+            android:turnScreenOn="true" />
+
         <!-- The Quick Settings tile that opens REau and switches the projection on (QuickStart). -->
         <service
             android:name=".service.QuickStartTile"

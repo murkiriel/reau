@@ -272,6 +272,9 @@ class ProjectionService : Service() {
     private var sidesFailure: String? = null
     private val locks = ProjectionLocks(this)
 
+    // "Tela acesa com o celular bloqueado (teste)": made in onCreate (it needs the context); it runs on the main thread and is told from the worker.
+    private lateinit var screenKeeper: ScreenKeeper
+
     // The start id of the command the worker is carrying out; only the worker reads and writes it.
     private var command = 0
 
@@ -305,6 +308,7 @@ class ProjectionService : Service() {
     override fun onCreate() {
         super.onCreate()
         RideDiagnostics.init(this)
+        screenKeeper = ScreenKeeper(this, { SettingsStore.open(this).load() })
         worker = Executors.newSingleThreadScheduledExecutor { Thread(it, "projection") }
         pacer = HeadlinePacer(
             NOTIFICATION_PACE_MS,
@@ -386,6 +390,8 @@ class ProjectionService : Service() {
             }
             ACTION_REFIT -> worker.execute {
                 if (refitApplies(controller.state.phase)) {
+                    // The switches of the screen kept lit count at once.
+                    screenKeeper.sync()
                     val settings = SettingsStore.open(this).load()
                     log("projection: refit from the settings: ${settings.mapping}")
                     runCatching { sides?.retune(settings) }.onFailure { log("${RideDiagnostics.WARN}projection: refit failed: $it") }
@@ -423,6 +429,7 @@ class ProjectionService : Service() {
                         log("projection: the sides were let go in ${SystemClock.elapsedRealtime() - begun} ms, off the main thread")
                     },
                     "locks" to { locks.release() },
+                    "screen-keep" to { screenKeeper.stop() },
                     // Also a stop left half-way ("Desligando"): the screen never stays on it once the service is gone. What went wrong with a
                     // start that was refused (no compositor, no sides) stays to be read: the service leaves at once, and the reason would go with it.
                     "state" to {
@@ -585,6 +592,7 @@ class ProjectionService : Service() {
             locks.acquire()
             val took = "earlier runs read in ${reported - begun} ms, locks in ${SystemClock.elapsedRealtime() - reported} ms"
             log("projection: foreground with wake and Wi-Fi locks ($took)")
+            screenKeeper.sync()
             lookAtTheDevice()
         }
 
@@ -615,6 +623,7 @@ class ProjectionService : Service() {
             )
             deviceLook = null
             locks.release()
+            screenKeeper.stop()
             // A start that came while this stop was carried out has taken the foreground; it stays.
             if (ForegroundHandover.dropsForeground(command, lastStart)) {
                 stopForeground(STOP_FOREGROUND_REMOVE)

@@ -263,6 +263,9 @@ class SettingsStore(private val prefs: SharedPreferences) {
             webTouch = prefs.getBoolean(KEY_WEB_TOUCH, defaults.webTouch),
             webAudio = WebAudioMode.entries.firstOrNull { it.name == prefs.getString(KEY_WEB_AUDIO, null) } ?: defaults.webAudio,
             announceMotorcycle = prefs.getBoolean(KEY_ANNOUNCE_MOTORCYCLE, defaults.announceMotorcycle),
+            screenKeep = prefs.getBoolean(KEY_SCREEN_KEEP, defaults.screenKeep),
+            screenKeepMode = enumOr(prefs.getString(KEY_SCREEN_KEEP_MODE, null), defaults.screenKeepMode),
+            screenKeepLockUi = prefs.getBoolean(KEY_SCREEN_KEEP_LOCK_UI, defaults.screenKeepLockUi),
             updateNotice = prefs.getBoolean(KEY_UPDATE_NOTICE, defaults.updateNotice),
         ).sanitized()
     }
@@ -371,6 +374,9 @@ class SettingsStore(private val prefs: SharedPreferences) {
             putBoolean(KEY_WEB_TOUCH, s.webTouch)
             putString(KEY_WEB_AUDIO, s.webAudio.name)
             putBoolean(KEY_ANNOUNCE_MOTORCYCLE, s.announceMotorcycle)
+            putBoolean(KEY_SCREEN_KEEP, s.screenKeep)
+            putString(KEY_SCREEN_KEEP_MODE, s.screenKeepMode.name)
+            putBoolean(KEY_SCREEN_KEEP_LOCK_UI, s.screenKeepLockUi)
             putBoolean(KEY_UPDATE_NOTICE, s.updateNotice)
         }
     }
@@ -486,6 +492,9 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val KEY_GEMINI = "gemini"
         /** "Anunciar como moto" (20/11/2026). The key of the debug build's experiment it came from, `experiment_motorcycle`, is ignored: everyone starts with it on. */
         private const val KEY_ANNOUNCE_MOTORCYCLE = "announce_motorcycle"
+        private const val KEY_SCREEN_KEEP = "screen_keep"
+        private const val KEY_SCREEN_KEEP_MODE = "screen_keep_mode"
+        private const val KEY_SCREEN_KEEP_LOCK_UI = "screen_keep_lock_ui"
         private const val KEY_UPDATE_NOTICE = "update_notice"
         private const val OLD_KEY_AA_SLOW_PACE = "aa_slow_pace"
         private const val OLD_KEY_AA_SLOW_PACE_FPS = "aa_slow_pace_fps"
