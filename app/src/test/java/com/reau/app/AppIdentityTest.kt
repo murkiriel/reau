@@ -24,8 +24,8 @@ class AppIdentityTest {
     }
 
     @Test
-    fun `this is the 0 3 line of releases`() {
-        assertTrue(BuildConfig.VERSION_NAME, BuildConfig.VERSION_NAME.startsWith("0.3."))
+    fun `this is the 0 4 line of releases`() {
+        assertTrue(BuildConfig.VERSION_NAME, BuildConfig.VERSION_NAME.startsWith("0.4."))
     }
 
     @Test

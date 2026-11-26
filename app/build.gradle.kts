@@ -7,7 +7,7 @@ plugins {
     jacoco
 }
 
-// Semantic version 0.y.z: versionName is "0.3.1" on a release build and "0.3.1-dev+yy.MM.dd-HH.mm" on a debug build, whose
+// Semantic version 0.y.z: versionName is "0.4.0" on a release build and "0.4.0-dev+yy.MM.dd-HH.mm" on a debug build, whose
 // timestamp tells one debug build from another.
 //
 // versionCode of a RELEASE is fixed in this file, so that two builds of one commit give the same APK (it used to be the minutes of the
@@ -17,8 +17,8 @@ plugins {
 // 30_030_100, 0.4.0 is 30_040_000, 1.0.0 is 31_000_000. Changing the version means changing the two lines below together:
 // VersionCodeSchemeTest checks that they agree, that the number grows and that it stays above the published ones.
 // versionCode of a DEBUG build is still the minutes since the Unix epoch, so each debug build installs over the previous one.
-val appVersionName = "0.3.1"
-val releaseVersionCode = 30_030_100
+val appVersionName = "0.4.0"
+val releaseVersionCode = 30_040_000
 val buildTimestamp: String = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yy.MM.dd-HH.mm"))
 val debugVersionCode = (System.currentTimeMillis() / 60_000L).toInt()
 // The commit the APK was built from, for the ride log header; "?" outside a git checkout (so a check of the published APK needs a clone with

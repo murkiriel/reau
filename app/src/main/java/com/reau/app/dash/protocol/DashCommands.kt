@@ -595,24 +595,26 @@ object DashCommands {
 
     /**
      * [text] made of characters the dash can draw: composed (NFC, so "e" + an accent is the one Latin-1 letter), the
-     * typographic quotes and dashes as their ASCII, and each remaining character past Latin-1 (a letter of another
-     * script, an emoji) one question mark, counted by code point so a surrogate pair is never split or doubled.
+     * typographic quotes and dashes as their ASCII, what is past Latin-1 in another script written in the Latin alphabet
+     * ([DashTransliteration], 26/11/2026: the dash has no font for Devanagari and the like), and each character that is still past
+     * Latin-1 (an emoji, or any script when the transliteration is not there) one question mark, counted by code point so a
+     * surrogate pair is never split or doubled. Text that is Latin-1 already comes out unchanged.
      */
     internal fun legible(text: String): String {
-        val out = StringBuilder(text.length)
-        val composed = Normalizer.normalize(text, Normalizer.Form.NFC)
+        val composed = DashTransliteration.toLatin(typographic(Normalizer.normalize(text, Normalizer.Form.NFC)))
+        val out = StringBuilder(composed.length)
         var i = 0
         while (i < composed.length) {
             val cp = composed.codePointAt(i)
             i += Character.charCount(cp)
-            val swap = if (cp < 0x10000) TYPOGRAPHIC[cp.toChar()] else null
-            when {
-                swap != null -> out.append(swap)
-                cp < 0x100 -> out.append(cp.toChar())
-                else -> out.append('?')
-            }
+            out.append(if (cp < 0x100) cp.toChar() else '?')
         }
         return out.toString()
+    }
+
+    private fun typographic(text: String): String {
+        if (text.none { it in TYPOGRAPHIC }) return text
+        return buildString(text.length) { for (c in text) append(TYPOGRAPHIC[c] ?: c.toString()) }
     }
 
     /**
@@ -647,7 +649,10 @@ object DashCommands {
 
     // ── Media now-playing (05 0d) + telephony (05 22) ─────────────────────
     // The packet layout:
-    //   05 0d value = three NUL-separated text fields [album]\0[title]\0[artist], each cut at 19 characters,
+    //   05 0d value = three NUL-separated text fields [title]\0[album]\0[artist], each cut at 19 characters; the dash draws the
+    //   1st and the 3rd, so the song's name goes first. Until 26/11/2026 the order was [album]\0[title]\0[artist], and the owner's photo
+    //   that day (Spotify: song "COUNT UP", artist "Gunna", album "Grand Theft Auto VI") showed the album and the artist, not the song;
+    //   another app that drives this dash reached the same order independently,
     //   with the flags 05 17 (music on / none), 05 19 (playing / paused) and 05 58 (album art follows / none) around it.
     //   05 22 value = caller display name, NUL-terminated, re-sent ~1 Hz while ringing.
     // K1GPacket.build emits the exact captured frame: [len][segcount][..]"K1G "[seq] TT SS LL value.
@@ -658,11 +663,14 @@ object DashCommands {
     // Latin-1: each character in one byte, as the dash reads it; UTF-8 gave "ç" two bytes.
     private fun mediaField(s: String): ByteArray = latin1(s, MEDIA_FIELD_MAX)
 
-    /** 05 0d now-playing card: album / title / artist, NUL-separated, in that order. */
+    /**
+     * 05 0d now-playing card: title / album / artist, NUL-separated, in that order (26/11/2026: the dash draws the 1st and the 3rd field, so the song's
+     * name is first; the album, which came first before, is only kept in the middle).
+     */
     fun nowPlaying(title: String, album: String, artist: String): ByteArray {
         val out = ByteArrayOutputStream()
-        out.write(mediaField(album)); out.write(0x00)
         out.write(mediaField(title)); out.write(0x00)
+        out.write(mediaField(album)); out.write(0x00)
         out.write(mediaField(artist))
         return K1GPacket.build(K1GPacket.tlv(0x05, 0x0D, out.toByteArray()))
     }

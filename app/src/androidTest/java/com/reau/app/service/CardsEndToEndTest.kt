@@ -123,8 +123,8 @@ class CardsEndToEndTest {
         startStreaming(media = true, phone = true)
 
         androidAuto.sendInPieces(Channel.ID_MPB, AapCards.MEDIA_PLAYBACK_METADATA, song(), pieces = 3)
-        // Album, title, artist, in that order; changed on purpose.
-        await("the music card", 10_000) { "0D:Album|Song|Band" in cards() }
+        // Title, album, artist, in that order (26/11/2026: the dash draws the 1st and the 3rd).
+        await("the music card", 10_000) { "0D:Song|Album|Band" in cards() }
 
         androidAuto.send(Channel.ID_PHONE, AapCards.PHONE_STATUS, phoneStatus(AapCards.STATE_INCOMING))
         await("the call card", 5_000) { "22:Ana|" in cards() }

@@ -2906,16 +2906,16 @@ MUTATIONS = [
     # Leva 8a (13/11/2026): the fixed versionCode of the release, the signature shown in "Verificar atualização", the attestation of the APK in the workflow and the
     # check of the site's unused files, each one proof that the new tests catch it.
     ('Leva 8a 13/11 versionCode: o código fixo da release cai abaixo do maior já publicado', 'app/build.gradle.kts',
-     'val releaseVersionCode = 30_030_100', 'val releaseVersionCode = 29_887_215',
+     'val releaseVersionCode = 30_040_000', 'val releaseVersionCode = 29_887_215',
      ['VersionCodeSchemeTest']),
     ('Leva 8a 13/11 versionCode: o código fixo não é o que o esquema dá à versão', 'app/build.gradle.kts',
-     'val releaseVersionCode = 30_030_100', 'val releaseVersionCode = 30_040_000',
+     'val releaseVersionCode = 30_040_000', 'val releaseVersionCode = 30_030_100',
      ['VersionCodeSchemeTest']),
     ('Leva 8a 13/11 versionCode: a versão muda e o código fica', 'app/build.gradle.kts',
-     'val appVersionName = "0.3.1"', 'val appVersionName = "0.3.2"',
+     'val appVersionName = "0.4.0"', 'val appVersionName = "0.4.1"',
      ['VersionCodeSchemeTest']),
     ('Leva 8a 13/11 versionCode: o código fixo volta a ser os minutos do relógio', 'app/build.gradle.kts',
-     'val releaseVersionCode = 30_030_100', 'val releaseVersionCode = (System.currentTimeMillis() / 60_000L).toInt()',
+     'val releaseVersionCode = 30_040_000', 'val releaseVersionCode = (System.currentTimeMillis() / 60_000L).toInt()',
      ['VersionCodeSchemeTest']),
     ('Leva 8a 13/11 versionCode: o defaultConfig (a release) lê o relógio', 'app/build.gradle.kts',
      '        versionCode = releaseVersionCode\n', '        versionCode = debugVersionCode\n',
@@ -5764,6 +5764,25 @@ MUTATIONS += [
 ]
 
 MUTATIONS += [
+    # Pedido do dono de 26/11/2026: o texto que não é Latin-1 vai ao painel em alfabeto latino (o painel não tem fonte para devanágari), e a versão sobe para 0.4.0.
+    ("dono/translit Painel: o texto de outro alfabeto volta a virar só pontos de interrogação (legible não transliterou)", MAIN + "dash/protocol/DashCommands.kt",
+     "val composed = DashTransliteration.toLatin(typographic(Normalizer.normalize(text, Normalizer.Form.NFC)))",
+     "val composed = typographic(Normalizer.normalize(text, Normalizer.Form.NFC))", ["DashTransliterationTest"]),
+    ("dono/translit Painel: o texto Latin-1 também passa pelo transliterador (a conta de português não pode mudar)", MAIN + "dash/protocol/DashTransliteration.kt",
+     "val latin = if (outside) latinOf(piece) else null", "val latin = latinOf(piece)", ["DashTransliterationTest"]),
+    ("dono/translit Painel: a linha do registro sai a cada texto e não uma vez por sessão", MAIN + "dash/protocol/DashTransliteration.kt",
+     "if (changed && told.compareAndSet(false, true)) runCatching", "if (changed) runCatching", ["DashTransliterationTest"]),
+    ("dono/translit Painel: uma sessão nova do painel não deixa a linha ser dita de novo", MAIN + "dash/DashSession.kt",
+     "                com.reau.app.dash.protocol.DashTransliteration.newSession()\n", "", ["DashTransliterationTest"]),
+    ("dono/musica Cartão de música: o álbum volta ao 1º campo e o painel desenha o álbum no lugar do nome da música", MAIN + "dash/protocol/DashCommands.kt",
+     "        out.write(mediaField(title)); out.write(0x00)\n        out.write(mediaField(album)); out.write(0x00)\n",
+     "        out.write(mediaField(album)); out.write(0x00)\n        out.write(mediaField(title)); out.write(0x00)\n",
+     ["DashCommandsTest", "DashTransliterationTest", "DashSessionMusicModeCardTest"]),
+    ("dono/versao Versão 0.4.0: o nome da versão fica em 0.3.1 com o código da 0.4.0", "app/build.gradle.kts",
+     'val appVersionName = "0.4.0"', 'val appVersionName = "0.3.1"', ["VersionCodeSchemeTest"]),
+]
+
+MUTATIONS += [
     # Plano 35, passo F (26/11/2026): o pedido de rede não espera as leituras só de registro; o quadro-chave de 1 s na rampa de largada.
     ("plano35/F Pedido de rede: as leituras da linha do pedido (lista de Wi-Fi, tela, chaveiro) voltam à thread que manda o pedido", MAIN + "dash/DashWifiManager.kt",
      "scope.launch { runCatching { logRequestContextLine(head) } }", "runCatching { logRequestContextLine(head) }", ["ScanLooksTest"]),
@@ -6025,6 +6044,9 @@ def parse(argv):
             if not 1 <= index <= total:
                 raise SystemExit(f"--fatia {index}/{total}: the index goes from 1 to {total}")
             part = (index, total)
+        elif a.startswith("--"):
+            # 26/11/2026: "--list" (a typo of --lista) was taken as a filter and ran mutations, Gradle included, twice; an unknown option stops here.
+            raise SystemExit(f"{a}: unknown option (the options are --lista and --fatia N/T; anything else is a filter of names)")
         else:
             filters.append(a)
     return part, only_list, filters

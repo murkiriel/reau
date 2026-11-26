@@ -338,7 +338,7 @@ class DashCommandsTest {
     }
 
     /**
-     * The music card: album, title and artist, 19 characters each, and around the text three flags, each a 1-byte
+     * The music card: title, album and artist (the dash draws the 1st and the 3rd, so the song's name is first; 26/11/2026), 19 characters each, and around the text three flags, each a 1-byte
      * TLV: 05 17 music on (0x55) or none (0xAA), 05 19 playing (0x55) or paused (0xAA), 05 58 album art follows (0x55)
      * or none (0xAA). These are the dash's packets byte for byte.
      */
@@ -354,10 +354,10 @@ class DashCommandsTest {
     }
 
     @Test
-    fun `nowPlaying sends album, title and artist, 19 characters each`() {
+    fun `nowPlaying sends title, album and artist, 19 characters each`() {
         val pkt = DashCommands.nowPlaying(title = "A Really Quite Long Song Title", album = "Dois", artist = "Legião Urbana")
         val value = outgoingTlvs(pkt).single { it.type == 5 && it.sub == 0x0D }.value
-        assertEquals(listOf("Dois", "A Really Quite Long", "Legião Urbana"), splitOnNul(value))
+        assertEquals(listOf("A Really Quite Long", "Dois", "Legião Urbana"), splitOnNul(value))
     }
 
     /** The music text goes one byte a character (Latin-1), as the caller's name does. */
@@ -365,8 +365,8 @@ class DashCommandsTest {
     fun `nowPlaying writes accents as one Latin-1 byte, and what Latin-1 lacks as a question mark`() {
         val pkt = DashCommands.nowPlaying(title = "Coração", album = "Mãe → Terra", artist = "João")
         val value = outgoingTlvs(pkt).single { it.type == 5 && it.sub == 0x0D }.value
-        assertEquals("one byte a character", "Mãe ? Terra".length + 1 + "Coração".length + 1 + "João".length, value.size)
-        assertEquals(listOf("Mãe ? Terra", "Coração", "João"), splitOnNul(value))
+        assertEquals("one byte a character", "Coração".length + 1 + "Mãe ? Terra".length + 1 + "João".length, value.size)
+        assertEquals(listOf("Coração", "Mãe ? Terra", "João"), splitOnNul(value))
         assertEquals("ç is one byte, 0xE7", 0xE7, value[value.indexOf(0xE7.toByte())].toInt() and 0xFF)
     }
 
@@ -374,7 +374,7 @@ class DashCommandsTest {
     fun `nowPlaying cuts at 19 characters, not 19 bytes, with accents`() {
         val pkt = DashCommands.nowPlaying(title = "ãããããããããããããããããããã", album = "", artist = "")
         val value = outgoingTlvs(pkt).single { it.type == 5 && it.sub == 0x0D }.value
-        assertEquals(19, splitOnNul(value)[1].length)
+        assertEquals(19, splitOnNul(value)[0].length)
     }
 
     @Test
@@ -400,10 +400,10 @@ class DashCommandsTest {
         val parts = splitOnNul(value)
 
         assertEquals(3, parts.size)
-        // 19 characters and the album first; changed on purpose.
-        assertEquals("Album", parts[0])
-        assertTrue(parts[1].length <= 19)
-        assertEquals("A Really Quite Long", parts[1]) // first 19 chars of the title, truncated
+        // 19 characters, and the title first (26/11/2026: the dash draws the 1st and the 3rd field).
+        assertTrue(parts[0].length <= 19)
+        assertEquals("A Really Quite Long", parts[0]) // first 19 chars of the title, truncated
+        assertEquals("Album", parts[1])
         assertEquals("Artist", parts[2])
     }
 

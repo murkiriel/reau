@@ -1080,6 +1080,8 @@ class DashSession(
                 beginAuthState(network)
                 loggedFirstAck = false
                 firstFrame.reset()
+                // A new session says again, once, that a text was written in the Latin alphabet for the dash (26/11/2026).
+                com.reau.app.dash.protocol.DashTransliteration.newSession()
                 aliveWithoutAck = false
                 streamingStartMs = 0L
                 lastRxMs = 0L

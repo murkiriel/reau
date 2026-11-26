@@ -62,7 +62,7 @@ class DashSessionMusicModeCardTest {
         s.musicModePlaying = true
         pause(600)
         assertTrue("the card came at once, not at the next round", fake.cards() >= 1)
-        assertArrayEquals("album, title, artist", "Album\u0000Song\u0000Band".toByteArray(Charsets.UTF_8), fake.received.last { it.type == 0x05 && it.sub == 0x0D }.value)
+        assertArrayEquals("title, album, artist", "Song\u0000Album\u0000Band".toByteArray(Charsets.UTF_8), fake.received.last { it.type == 0x05 && it.sub == 0x0D }.value)
         assertEquals("music on", listOf(0x55.toByte()), fake.last(0x17))
         assertEquals("playing, which the dash draws as the pause button", listOf(0x55.toByte()), fake.last(0x19))
     }
