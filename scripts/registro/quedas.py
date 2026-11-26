@@ -27,6 +27,8 @@ JANELA_IDADE_S = 30.0
 # The dash in a scan (`the dash: 'RE_****30' -48 dBm 2452 MHz seen 269 s ago`: the Android saw its Wi-Fi up to then) and the scans that did not find it.
 PAINEL_VISTO = re.compile(r"the dash: '[^']*' -?\d+ dBm \d+ MHz seen (\d+) s ago")
 PAINEL_AUSENTE = ("the dash not among them", "→ not found")
+# `(newest result N s old)` in the same line: the scan can be N s older than the line that tells of it (Android throttles the apps' scans), so the proof of «the dash was off» is from N s earlier.
+RESULTADO_VELHO = re.compile(r"newest result (\d+) s old")
 
 
 def _com_o_painel(fim_s, perda_s, idade_s, depois_da_queda_s):
@@ -127,14 +129,17 @@ def _quem_uniu(texto):
 def _volta_do_contador(janela, linha_idade, n):
     """Se a idade `n` do primeiro pacote pode ter dado a volta aos 256 s: `("certa", segundos_visto)` se o painel foi visto ligado (`seen N s ago` da varredura) há mais tempo
     que a idade diz, e então a idade vale só como resto; `("exata", None)` se o último sinal do painel ausente (varredura sem ele) é de 256 s ou menos antes do pacote (o painel
-    ligou depois dele); `("possivel", None)` se o registro não diz nem uma coisa nem outra. `janela`: as linhas desde a união anterior até a da idade; o painel visto antes do
+    ligou depois dele), contando a idade da varredura (`newest result N s old`: a prova é de N s antes da linha, então a distância da linha ao pacote mais N tem de caber nos 256 s;
+    `→ not found` não traz idade e vale pela hora da linha); `("possivel", None)` se o registro não diz nem uma coisa nem outra. `janela`: as linhas desde a união anterior até a da idade; o painel visto antes do
     último sinal de ausente é de outra vez que ele ligou."""
     ausente = max((k for k, y in enumerate(janela) if any(a in y.texto for a in PAINEL_AUSENTE)), default=-1)
     vistos = [tempo.assinado(linha_idade.segundos, y.segundos) + int(m.group(1)) for y in janela[ausente + 1:] for m in [PAINEL_VISTO.search(y.texto)] if m]
     if vistos and max(vistos) > n + 1:  # +1: the age and the `seen N s ago` are whole seconds
         return "certa", max(vistos)
-    if ausente >= 0 and tempo.assinado(linha_idade.segundos, janela[ausente].segundos) <= CONTADOR_VOLTA_S:
-        return "exata", None
+    if ausente >= 0:
+        velho = RESULTADO_VELHO.search(janela[ausente].texto)
+        if tempo.assinado(linha_idade.segundos, janela[ausente].segundos) + (int(velho.group(1)) if velho else 0) <= CONTADOR_VOLTA_S:
+            return "exata", None
     return "possivel", None
 
 

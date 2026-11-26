@@ -587,6 +587,21 @@ class PainelLigadoUnido(unittest.TestCase):
         t = self.textos(self.bloco(self.FORA("10:01:00.000"), self.UNIDO("10:06:00.000"), self.IDADE("10:06:00.100", 20), self.STREAM("10:06:02.000")))
         self.assertIn("módulo 256 s", t[0])
 
+    def test_a_varredura_sem_o_painel_com_resultado_velho_nao_prova_a_idade_exata(self):
+        # A linha das 10:03:00 diz `newest result 200 s old`: a varredura é de 09:59:40 (330 s antes do pacote das 10:05:30), então o painel ligado às 10:00:00 não estava nela.
+        # A linha está a 150 s do pacote (<= 256), mas a prova é de 350 s: a idade de 74 s não é exata (a real é 330 s) e o leitor diz «módulo 256 s».
+        velha = lambda hora, idade: pedido(hora, 1, f"scan of 9 networks, the dash not among them (newest result {idade} s old)")
+        t = self.textos(self.bloco(velha("10:03:00.000", 200), self.UNIDO("10:05:29.000"), self.IDADE("10:05:30.000", 74), self.STREAM("10:05:32.000")))
+        self.assertIn("módulo 256 s", t[0])
+        self.assertNotIn("(idade 74 s no primeiro pacote)", t[0])
+
+    def test_a_varredura_sem_o_painel_com_resultado_velho_que_cabe_nos_256_s_continua_exata(self):
+        # Linha a 150 s do pacote e resultado de 100 s: a prova é de 250 s antes do pacote, cabe.
+        velha = lambda hora, idade: pedido(hora, 1, f"scan of 9 networks, the dash not among them (newest result {idade} s old)")
+        t = self.textos(self.bloco(velha("10:03:00.000", 100), self.UNIDO("10:05:29.000"), self.IDADE("10:05:30.000", 74), self.STREAM("10:05:32.000")))
+        self.assertIn("(idade 74 s no primeiro pacote)", t[0])
+        self.assertNotIn("módulo", t[0])
+
     def test_o_painel_visto_antes_da_varredura_sem_ele_e_de_outra_vez_que_ligou(self):
         # visto 300 s antes, depois uma varredura sem ele 30 s antes do pacote (o painel desligou e religou): a idade de 20 s é exata.
         t = self.textos(self.bloco(self.VISTO("10:01:00.000", 0), self.FORA("10:05:00.000"), self.UNIDO("10:05:30.000"), self.IDADE("10:05:30.100", 20), self.STREAM("10:05:32.000")))
