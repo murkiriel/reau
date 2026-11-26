@@ -140,12 +140,25 @@ object DebugTriggers {
 
     private fun arm(fault: Fault) = FaultInjection.arm(fault)
 
-    /** Posts the notice named [what]; false for a name that is none of them. */
-    internal fun fire(context: Context, what: String): Boolean {
+    /** The three real notices [fire] posts; a JVM test puts its own in their place, since posting one needs a phone. */
+    internal interface Notices {
+        fun dashStuck(context: Context)
+        fun phoneHot(context: Context, tempC: Int)
+        fun stoppedNoDash(context: Context, minutes: Int)
+    }
+
+    private object RealNotices : Notices {
+        override fun dashStuck(context: Context) = ProjectionNotification.showDashStuck(context)
+        override fun phoneHot(context: Context, tempC: Int) = ProjectionNotification.showPhoneHot(context, tempC)
+        override fun stoppedNoDash(context: Context, minutes: Int) = ProjectionNotification.showStoppedNoDash(context, minutes)
+    }
+
+    /** Posts the notice named [what] (through [notices]); false for a name that is none of them, which posts nothing and writes no line. */
+    internal fun fire(context: Context, what: String, notices: Notices = RealNotices): Boolean {
         when (what) {
-            "dash stuck" -> ProjectionNotification.showDashStuck(context)
-            "phone hot" -> ProjectionNotification.showPhoneHot(context, HOT_TEMP_C)
-            "no dash stop" -> ProjectionNotification.showStoppedNoDash(context, 1)
+            "dash stuck" -> notices.dashStuck(context)
+            "phone hot" -> notices.phoneHot(context, HOT_TEMP_C)
+            "no dash stop" -> notices.stoppedNoDash(context, 1)
             STREET_TEST -> ArrowTrial.sendStreet()
             else -> return false
         }

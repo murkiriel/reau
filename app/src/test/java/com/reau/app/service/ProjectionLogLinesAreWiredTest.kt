@@ -76,9 +76,11 @@ class ProjectionLogLinesAreWiredTest {
     @Test
     fun `the debug warnings fire the real notices, and the phone hot one fires above its threshold`() {
         val debug = File("src/debug/java/com/reau/app/devtools/DebugTriggers.kt").readText()
-        assertTrue("\"dash stuck\" -> ProjectionNotification.showDashStuck(context)" in debug)
-        assertTrue("\"phone hot\" -> ProjectionNotification.showPhoneHot(context, HOT_TEMP_C)" in debug)
-        assertTrue("\"no dash stop\" -> ProjectionNotification.showStoppedNoDash(context, 1)" in debug)
+        // Which name reaches which call is proved by DebugTriggersFireTest; here, that the real ones are the notices of the app.
+        assertTrue("override fun dashStuck(context: Context) = ProjectionNotification.showDashStuck(context)" in debug)
+        assertTrue("override fun phoneHot(context: Context, tempC: Int) = ProjectionNotification.showPhoneHot(context, tempC)" in debug)
+        assertTrue("override fun stoppedNoDash(context: Context, minutes: Int) = ProjectionNotification.showStoppedNoDash(context, minutes)" in debug)
+        assertTrue("private object RealNotices : Notices" in debug && "notices: Notices = RealNotices" in debug)
         assertTrue("the alert channel's page", "Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS" in debug && "ProjectionNotification.ALERT_CHANNEL_ID" in debug)
         assertTrue("the hot notice is above the threshold", com.reau.app.devtools.DebugTriggers.HOT_TEMP_C >= BatteryHeatWatch.HOT_C)
     }

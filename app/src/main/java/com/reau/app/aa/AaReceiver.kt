@@ -493,11 +493,10 @@ internal class AaReceiver(
         // the stop's interrupt swallowed by the video decoder waiting on its own thread).
         if (!isCurrent(mine)) return
         // Android Auto closes its sessions at every change of the USB: said, and (when the handshake had been answered) dialled again at once.
-        val ending = usb.noteEnd { AaLog.i(it) }
-        if (handshook) musicResume.sessionEnded(ending.sinceMs != null, playingAtEnd)
-        if (!unanswered.after(handshook)) {
+        val drop = SessionEnd.settle(usb, unanswered, handshook, say = { AaLog.i(it) }, musicEnded = { musicResume.sessionEnded(it, playingAtEnd) })
+        if (drop != null) {
             report(mine, AaLinkState.DROPPED)
-            ending.pauseAfterDrop(timing.afterDropMs) { Thread.sleep(it) }
+            drop.pauseAfterDrop(timing.afterDropMs) { Thread.sleep(it) }
             return
         }
         // Right after REau's own stop, or from where this process began to dial when a session it did not see may have just
