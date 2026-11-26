@@ -66,6 +66,14 @@ object KeepAliveNotice {
 
         fun answeredClosed(): Long = prefs.getLong(CLOSED, 0L)
 
+        /** Forgets the answer, so the notice is due again (only the debug build's "show the card again" calls it, 26/11/2026; nothing of a release does). */
+        fun forget() {
+            prefs.edit {
+                remove(ANSWERED)
+                remove(CLOSED)
+            }
+        }
+
         fun answer(nowMs: Long, closedMs: Long) {
             prefs.edit {
                 putLong(ANSWERED, nowMs)

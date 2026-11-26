@@ -2696,7 +2696,7 @@ MUTATIONS = [
      'shape = release_shape(manifest_text(aapt2, args.apk), apk_classes(args.apk), entries, dex_texts)', 'shape = release_shape(manifest_text(aapt2, args.apk), apk_classes(args.apk), entries)',
      ['test_apk_audit.py']),
     ('Leva 6 11/11 apk_audit: o stub FaultInjection da release é recusado', 'scripts/apk_audit.py',
-     'DEVTOOLS_PREFIX + "ArrowTrial", DEVTOOLS_PREFIX + "DebugTriggers", DEVTOOLS_PREFIX + "FaultInjection"', 'DEVTOOLS_PREFIX + "ArrowTrial", DEVTOOLS_PREFIX + "DebugTriggers"',
+     'DEVTOOLS_PREFIX + "DebugTriggers", DEVTOOLS_PREFIX + "FaultInjection"', 'DEVTOOLS_PREFIX + "DebugTriggers"',
      ['test_apk_audit.py']),
     # Leva 7 (12/11/2026): the four interface changes ("Voltar ao padrão" in sight and asked first, the "own network only" notice of the network server,
     # the numbers of the video profiles behind "Detalhes", the info ring starting with rain, wind and thunder), each one proof that the new tests catch it.
@@ -5856,6 +5856,35 @@ MUTATIONS += [
     ("revisao35/2.5 Manter vivo: a página lê a isenção uma vez e não ao voltar à tela", MAIN + "ui/KeepAliveRoute.kt",
      "if (event == Lifecycle.Event.ON_RESUME) exempt", "if (event == Lifecycle.Event.ON_PAUSE) exempt", ["KeepAliveNoticeIsWiredTest"]),
 ]
+
+MUTATIONS += [
+    # Pedido do dono de 26/11/2026: um gatilho só da versão dev que finge a marca do celular (Xiaomi ou realme), para ele ver o cartão e a página de "Manter o REau vivo" num Motorola.
+    ("dono/marca A marca fingida vaza para a release (o stub responde Xiaomi)", "app/src/release/java/com/reau/app/devtools/BrandFake.kt",
+     "fun maker(): String? = null", 'fun maker(): String? = "xiaomi"', ["BrandFakeAbsenceInReleaseTest"]),
+    ("dono/marca A marca fingida não chega ao cartão (o guia ignora a marca fingida)", MAIN + "ui/KeepAliveGuide.kt",
+     "if (faked != null) brandOf(faked, faked) else brandOf(manufacturer, brand)", "brandOf(manufacturer, brand)", ["BrandFakeTest"]),
+    ("dono/marca A marca fingida não chega ao cartão (o guia atual não pergunta ao gatilho)", MAIN + "ui/KeepAliveGuide.kt",
+     "android.os.Build.BRAND, com.reau.app.devtools.BrandFake.maker())", "android.os.Build.BRAND, null)", ["BrandFakeAbsenceInReleaseTest", "KeepAliveGuideTest"]),
+    ("dono/marca O realme fingido vira Xiaomi", "app/src/debug/java/com/reau/app/devtools/BrandFake.kt",
+     'REALME("realme")', 'REALME("xiaomi")', ["BrandFakeTest"]),
+    ("dono/marca A linha do registro não sai quando a marca é escolhida", "app/src/debug/java/com/reau/app/devtools/BrandFake.kt",
+     "if (next == Choice.REAL) RideDiagnostics.log(\"debug\", ENDED_LINE) else logWhenActive()", "if (next == Choice.REAL) RideDiagnostics.log(\"debug\", ENDED_LINE)", ["BrandFakeTest"]),
+    ("dono/marca A linha da marca fingida sai também com a marca real", "app/src/debug/java/com/reau/app/devtools/BrandFake.kt",
+     "maker()?.let { RideDiagnostics.log(\"debug\", line(it)) }", "RideDiagnostics.log(\"debug\", line(maker() ?: \"real\"))", ["BrandFakeTest"]),
+    ("dono/marca Escolher a marca não faz o cartão ser julgado de novo", "app/src/debug/java/com/reau/app/devtools/BrandFakeRows.kt",
+     "        BrandFake.choose(choice)\n        KeepAliveNotice.refresh(context, eligible())\n", "        BrandFake.choose(choice)\n", ["BrandFakeTest"]),
+    ("dono/marca Mostrar o cartão de novo não esquece a resposta", "app/src/debug/java/com/reau/app/devtools/BrandFakeRows.kt",
+     "        KeepAliveNotice.Book.open(context).forget()\n", "", ["BrandFakeTest"]),
+    ("dono/marca Esquecer a resposta deixa o momento da morte guardada", MAIN + "data/KeepAliveNotice.kt",
+     "                remove(ANSWERED)\n                remove(CLOSED)\n", "                remove(ANSWERED)\n", ["BrandFakeTest"]),
+    ("dono/marca A página aberta com a marca fingida não diz isso no registro", MAIN + "ui/KeepAliveRoute.kt",
+     "    LaunchedEffect(Unit) { com.reau.app.devtools.BrandFake.logWhenActive() }\n", "", ["BrandFakeTest"]),
+    ("dono/marca A linha dos itens do início da projeção sai sem dizer que a marca é fingida", MAIN + "data/KeepAliveChecklist.kt",
+     "        com.reau.app.devtools.BrandFake.logWhenActive()\n", "", ["BrandFakeTest"]),
+    ("dono/marca A release traz um quarto stub a mais: a linha dos stubs do APK não o conhece", "scripts/apk_audit.py",
+     'DEVTOOLS_PREFIX + "BrandFake", ', "", ["test_apk_audit.py"]),
+]
+
 
 
 def command_for(classes):

@@ -3,6 +3,7 @@ package com.reau.app.ui
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,6 +22,8 @@ import com.reau.app.data.RideDiagnostics
 @Composable
 internal fun KeepAliveRoute(context: Context, back: () -> Unit) {
     val brand = KeepAliveGuide.current()
+    // With the brand faked (debug build only) the log says so as the page opens, before the lines of its buttons (26/11/2026); a release writes nothing.
+    LaunchedEffect(Unit) { com.reau.app.devtools.BrandFake.logWhenActive() }
     var exempt by remember { mutableStateOf(BatteryWatch.read(context).exempt) }
     // Read again at each return to the screen (26/11/2026): the rider goes to Android's battery screen from here, sets "unrestricted" and comes back, and the page read
     // the exemption once and went on saying "not yet". The activity is the lifecycle owner; the plain observer of the lifecycle library in use has no compose effect for it.

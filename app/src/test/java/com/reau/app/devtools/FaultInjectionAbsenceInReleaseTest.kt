@@ -21,18 +21,18 @@ class FaultInjectionAbsenceInReleaseTest {
     private fun mainSources(): List<File> = File(root, "main").walkTopDown().filter { it.isFile && it.extension == "kt" }.toList()
 
     @Test
-    fun `the release source set has the three stubs and nothing else`() {
+    fun `the release source set has the four stubs and nothing else`() {
         val names = File(root, releaseDir).list()!!.sorted()
-        assertEquals(listOf("ArrowTrial.kt", "DebugTriggers.kt", "FaultInjection.kt"), names)
+        assertEquals(listOf("ArrowTrial.kt", "BrandFake.kt", "DebugTriggers.kt", "FaultInjection.kt"), names)
         val all = File(root, "release").walkTopDown().filter { it.isFile }.map { it.relativeTo(root).path }.sorted().toList()
-        assertEquals(all.toString(), 3, all.size)
+        assertEquals(all.toString(), 4, all.size)
     }
 
     @Test
     fun `the release stubs are in the devtools package, not in the debug one that the APK audit refuses`() {
         // The first CI run failed here: the stubs were in com.reau.app.debug, and apk_audit.py refuses every class of that package in a release.
-        // The three classes sit in com.reau.app.devtools (empty stubs in a release; the audit lets through those three names and no other class of it).
-        for (name in listOf("ArrowTrial", "DebugTriggers", "FaultInjection")) {
+        // The four classes sit in com.reau.app.devtools (empty stubs in a release; the audit lets through those four names and no other class of it).
+        for (name in listOf("ArrowTrial", "BrandFake", "DebugTriggers", "FaultInjection")) {
             val stub = text("$releaseDir/$name.kt")
             assertTrue("$name: ${stub.lines().first()}", stub.lines().first() == "package com.reau.app.devtools")
             assertTrue(text("$debugDir/$name.kt").lines().first() == "package com.reau.app.devtools")
@@ -68,6 +68,7 @@ class FaultInjectionAbsenceInReleaseTest {
         assertTrue(members("$debugDir/FaultInjection.kt").containsAll(members("$releaseDir/FaultInjection.kt")))
         assertTrue(members("$debugDir/DebugTriggers.kt").containsAll(members("$releaseDir/DebugTriggers.kt")))
         assertTrue(members("$debugDir/ArrowTrial.kt").containsAll(members("$releaseDir/ArrowTrial.kt")))
+        assertTrue(members("$debugDir/BrandFake.kt").containsAll(members("$releaseDir/BrandFake.kt")))
     }
 
     @Test

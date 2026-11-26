@@ -28,4 +28,12 @@
     <string name="debug_street_sub_sending">Enviando a rua em devanágari. Olhe o painel e depois aperte Parar.</string>
     <string name="debug_street_send">Enviar</string>
     <string name="debug_street_stop">Parar</string>
+    <string name="debug_brand_title">Fingir a marca do celular</string>
+    <string name="debug_brand_sub">Faz o app ler outra marca, para ver o cartão e a página \"Manter o REau vivo\" como um piloto de Xiaomi ou realme veria. O celular precisa ter unido o painel uma vez. O registro diz quando uma marca está fingida. Reiniciar o app devolve a marca real.</string>
+    <string name="debug_brand_real">A real</string>
+    <string name="debug_brand_xiaomi">Como Xiaomi</string>
+    <string name="debug_brand_realme">Como realme</string>
+    <string name="debug_brand_again_title">Cartão de manter vivo</string>
+    <string name="debug_brand_again_sub">Esquece a resposta ao aviso, e o cartão volta à tela principal (precisa de uma marca Xiaomi ou realme, fingida ou real). Num Motorola fingindo Xiaomi, o botão da Inicialização automática falha nas duas telas da fabricante e cai nos detalhes do app: é a cadeia funcionando, e o registro diz isso.</string>
+    <string name="debug_brand_again">Mostrar o cartão de novo</string>
 </resources>

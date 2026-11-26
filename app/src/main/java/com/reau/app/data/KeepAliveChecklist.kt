@@ -36,6 +36,8 @@ object KeepAliveChecklist {
      */
     fun logAtStart(context: Context, eligible: Boolean) {
         if (!eligible) return
+        // A debug build with the brand faked says so first (26/11/2026), so the line of the ticks below is never taken for a real Xiaomi's; nothing in a release.
+        com.reau.app.devtools.BrandFake.logWhenActive()
         RideDiagnostics.log("settings", line(answers(context)))
     }
 

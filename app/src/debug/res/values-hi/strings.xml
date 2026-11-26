@@ -29,4 +29,12 @@
     <string name="debug_street_sub_sending">देवनागरी वाली सड़क भेजी जा रही है। डैश देखें, फिर रोकें दबाएँ।</string>
     <string name="debug_street_send">भेजें</string>
     <string name="debug_street_stop">रोकें</string>
+    <string name="debug_brand_title">फ़ोन का ब्रांड नकली दिखाएँ</string>
+    <string name="debug_brand_sub">ऐप को दूसरा ब्रांड पढ़वाता है, ताकि \"REau को चालू रखें\" का कार्ड और पेज वैसा दिखे जैसा Xiaomi या realme वाले राइडर को दिखेगा। फ़ोन का डैश से एक बार जुड़ा होना ज़रूरी है। लॉग बताता है कि कब ब्रांड नकली है। ऐप दोबारा शुरू करने पर असली ब्रांड लौट आता है।</string>
+    <string name="debug_brand_real">असली वाला</string>
+    <string name="debug_brand_xiaomi">Xiaomi जैसा</string>
+    <string name="debug_brand_realme">realme जैसा</string>
+    <string name="debug_brand_again_title">ज़िंदा रखने वाला कार्ड</string>
+    <string name="debug_brand_again_sub">सूचना का जवाब भुला देता है, ताकि कार्ड मुख्य स्क्रीन पर लौट आए (इसके लिए Xiaomi या realme ब्रांड चाहिए, नकली या असली)। Xiaomi के रूप में नकली Motorola पर ऑटोस्टार्ट बटन निर्माता की दोनों स्क्रीन पर विफल होकर ऐप के विवरण पर आ जाता है: यानी श्रृंखला ठीक चल रही है, और लॉग यही कहता है।</string>
+    <string name="debug_brand_again">कार्ड फिर दिखाएँ</string>
 </resources>

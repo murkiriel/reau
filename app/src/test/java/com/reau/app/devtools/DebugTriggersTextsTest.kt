@@ -29,6 +29,8 @@ class DebugTriggersTextsTest {
         "debug_arrow_title", "debug_arrow_sub_off", "debug_arrow_sub_idle", "debug_arrow_sending", "debug_arrow_previous", "debug_arrow_next",
         "debug_arrow_stop", "debug_arrow_unnamed", "debug_arrow_hidden",
         "debug_street_title", "debug_street_sub_off", "debug_street_sub_idle", "debug_street_sub_sending", "debug_street_send", "debug_street_stop",
+        "debug_brand_title", "debug_brand_sub", "debug_brand_real", "debug_brand_xiaomi", "debug_brand_realme",
+        "debug_brand_again_title", "debug_brand_again_sub", "debug_brand_again",
     )
 
     @Test
@@ -79,7 +81,7 @@ class DebugTriggersTextsTest {
         for (old in listOf("Fire a warning", "Dash stuck", "Phone hot", "Inject a fault", "Decoder stalls", "Encoder mute", "Calar o codificador", "Focus cycle", "Arrow test", "Previous", "Next", "Stop")) {
             assertFalse("still typed in: $old", text.contains("\"$old"))
         }
-        for (key in keys.filter { !it.endsWith("_what") && it != "debug_arrow_sub_off" && it != "debug_arrow_sending" && it != "debug_arrow_unnamed" && it != "debug_arrow_hidden" }) {
+        for (key in keys.filter { !it.startsWith("debug_brand") && !it.endsWith("_what") && it != "debug_arrow_sub_off" && it != "debug_arrow_sending" && it != "debug_arrow_unnamed" && it != "debug_arrow_hidden" }) {
             assertTrue("$key is not used", Regex("""R\.string\.$key(?![A-Za-z_])""").containsMatchIn(text))
         }
     }
@@ -91,12 +93,15 @@ class DebugTriggersTextsTest {
             "debug_fire_dash_stuck", "debug_fire_phone_hot", "debug_fire_no_dash", "debug_alert_channel", "debug_fire", "debug_fault_decoder",
             "debug_fault_focus", "debug_fault", "debug_arrow_previous", "debug_arrow_next", "debug_arrow_stop", "debug_arrow", "debug_arrow_off", "debug_street_send", "debug_street_stop", "debug_street", "debug_street_off",
         )) assertTrue(tag, text.contains("\"$tag\""))
+        val brand = File(root, "debug/java/com/reau/app/devtools/BrandFakeRows.kt").readText()
+        for (tag in listOf("debug_brand", "debug_brand_real", "debug_brand_xiaomi", "debug_brand_realme", "debug_brand_again", "debug_brand_card")) assertTrue(tag, brand.contains("\"$tag\""))
     }
 
     @Test
-    fun `the four groups come in this order, warnings then faults then arrows then the street name`() {
+    fun `the groups come in this order, warnings then faults then arrows then the street name then the brand`() {
         val text = File(root, "debug/java/com/reau/app/devtools/DebugTriggers.kt").readText()
-        val order = listOf("debug_warn_title", "debug_fault_title", "ArrowTestRow() }", "StreetTestRow() }").map { text.indexOf(it) }
+        val order = listOf("debug_warn_title", "debug_fault_title", "ArrowTestRow() }", "StreetTestRow() }", "BrandFakeRows.ChoiceRow() }", "BrandFakeRows.CardAgainRow() }")
+            .map { text.indexOf(it) }
         assertTrue(order.toString(), order.all { it >= 0 } && order == order.sorted())
     }
 

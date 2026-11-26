@@ -59,8 +59,15 @@ object KeepAliveGuide {
     fun batteryAdvice(exempt: Boolean?): Int =
         if (exempt == true) R.string.keepalive_battery_exempt else R.string.keepalive_battery_not_exempt
 
-    /** The family of this phone. */
-    fun current(): Brand = brandOf(android.os.Build.MANUFACTURER, android.os.Build.BRAND)
+    /**
+     * The family to use: the faked maker when there is one ([faked], from the debug build's `BrandFake`; always null in a release), else the phone's own. The one place
+     * the fake enters, so a release can only read the real brand (26/11/2026: the owner's phone is a Motorola, and he wanted to see the card and the page of a Xiaomi).
+     */
+    fun brandFor(manufacturer: String?, brand: String?, faked: String?): Brand =
+        if (faked != null) brandOf(faked, faked) else brandOf(manufacturer, brand)
+
+    /** The family of this phone (or the faked one, in a debug build). */
+    fun current(): Brand = brandFor(android.os.Build.MANUFACTURER, android.os.Build.BRAND, com.reau.app.devtools.BrandFake.maker())
 
     /** The name the page gives the family above its steps. */
     @StringRes

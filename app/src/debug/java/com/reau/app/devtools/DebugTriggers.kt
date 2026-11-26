@@ -24,8 +24,8 @@ import com.reau.app.ui.components.RowAction
 /**
  * Debug builds only: the rows at the end of Ajustes → Depuração that fire each warning of the app, to check its sound, its vibration and its
  * channel on the phone, and that arm the faults of [FaultInjection]. The release build has a [DebugTriggers] with no row (`src/release`), and
- * nothing here is in it. The texts are in `src/debug/res` (pt, en, es, hi), so a release does not carry them; the rows are in four groups: test the
- * warnings, simulate failures, test the dash arrows, test a street name in Devanagari.
+ * nothing here is in it. The texts are in `src/debug/res` (pt, en, es, hi), so a release does not carry them; the rows are in five groups: test the
+ * warnings, simulate failures, test the dash arrows, test a street name in Devanagari, fake the phone's brand (the choice, and the card shown again).
  */
 object DebugTriggers {
     /** The temperature the "phone hot" notice is fired with: above the 44 degrees that sets it off by itself. */
@@ -65,6 +65,8 @@ object DebugTriggers {
             },
             { ArrowTestRow() },
             { StreetTestRow() },
+            { BrandFakeRows.ChoiceRow() },
+            { BrandFakeRows.CardAgainRow() },
         )
     }
 

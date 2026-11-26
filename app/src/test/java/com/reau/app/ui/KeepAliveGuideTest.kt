@@ -160,6 +160,6 @@ class KeepAliveGuideTest {
         assertTrue(screen.contains("CardAction(stringResource(R.string.keepalive_open_app_info), \"keepalive_open_app_info\", onOpenAppInfo)"))
         assertTrue(screen.contains("KeepAliveGuide.steps(brand).forEachIndexed { i, step -> Step(i + 1, stringResource(step)) }"))
         assertTrue(screen.contains("brand: KeepAliveGuide.Brand = KeepAliveGuide.current()"))
-        assertTrue(File(src, "java/com/reau/app/ui/KeepAliveGuide.kt").readText().contains("brandOf(android.os.Build.MANUFACTURER, android.os.Build.BRAND)"))
+        assertTrue(File(src, "java/com/reau/app/ui/KeepAliveGuide.kt").readText().contains("brandFor(android.os.Build.MANUFACTURER, android.os.Build.BRAND, com.reau.app.devtools.BrandFake.maker())"))
     }
 }
