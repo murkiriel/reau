@@ -1432,6 +1432,25 @@ class RegrasNovas(unittest.TestCase):
                   for h in ("10:04:00.000", "10:05:00.000", "10:06:00.000", "10:07:00.000")]
         self.assertEqual([], [x for x in self.problemas(self.apps_por_imagem(*self.NAV, *teclas)) if 'tela "apps"' in x])
 
+    def test_a_tela_de_musica_com_o_spotify_na_frente_nao_alarma(self):
+        # 26/11/2026: a tela de música do Android Auto (o app disse `app spotify` e `music mode on`) foi acusada como o mapa tomado por um app.
+        musica = [self.tela("10:03:00.100", "app spotify (the picture, from none)"), linha("10:03:00.200", "dash", "music mode on: Spotify playing")]
+        self.assertEqual([], [x for x in self.problemas(self.apps_por_imagem(*musica, *self.NAV)) if 'tela "apps"' in x])
+
+    def test_so_o_modo_musica_ligado_na_maior_parte_do_trecho_tambem_nao_alarma(self):
+        musica = [linha("10:03:00.200", "dash", "music mode on: Spotify playing"), linha("10:07:30.000", "dash", "music mode off: Spotify left the screen")]
+        self.assertEqual([], [x for x in self.problemas(self.apps_por_imagem(*musica, *self.NAV)) if 'tela "apps"' in x])
+
+    def test_a_musica_que_so_tocou_um_pedaco_curto_do_trecho_ainda_alarma(self):
+        musica = [self.tela("10:03:00.100", "app spotify (the picture, from none)"), self.tela("10:03:40.000", "app none (the picture, from spotify)")]
+        p = [x for x in self.problemas(self.apps_por_imagem(*musica, *self.NAV)) if 'tela "apps"' in x]
+        self.assertEqual(1, len(p), p)
+
+    def test_so_a_linha_de_midia_sem_o_app_na_frente_nao_desculpa_o_trecho(self):
+        # Music playing in the background with the map on the screen: the picture still may have taken the map for an app.
+        midia = [linha("10:03:00.100", "aa-media", "aa-media: playing, source Spotify")]
+        self.assertEqual(1, len([x for x in self.problemas(self.apps_por_imagem(*midia, *self.NAV)) if 'tela "apps"' in x]))
+
     def test_o_toque_no_celular_e_entrada_e_o_aviso_do_painel_nao_e_tecla(self):
         toques = [linha(h, "aa", "[AA] touch down sent to Android Auto") for h in ("10:04:00.000", "10:05:00.000", "10:06:00.000", "10:07:00.000")]
         self.assertEqual([], [x for x in self.problemas(self.apps_por_imagem(*self.NAV, *toques)) if 'tela "apps"' in x])

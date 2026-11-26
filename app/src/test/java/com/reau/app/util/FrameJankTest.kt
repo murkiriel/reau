@@ -40,4 +40,15 @@ class FrameJankTest {
         assertTrue(limiter.allow())
         assertFalse("and the window is full again", limiter.allow() && limiter.allow() && limiter.allow() && limiter.allow())
     }
+
+    @Test
+    fun `a frame of half a second or more is always written, past the five of the minute`() {
+        var now = 0L
+        val limiter = FrameJank.Limiter { now }
+        repeat(FrameJank.MAX_PER_MINUTE) { assertTrue(limiter.allow(200)); now += 1_000 }
+        assertFalse("the count is used up for ordinary slow frames", limiter.allow(499))
+        assertTrue("823 ms on 26/11/2026 was hidden behind the cold start", limiter.allow(823))
+        assertTrue("exactly the limit", limiter.allow(FrameJank.ALWAYS_TOLD_MS))
+        assertFalse("and it does not open the count for the others", limiter.allow(300))
+    }
 }

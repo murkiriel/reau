@@ -1666,11 +1666,53 @@ def _tela_por_tempo(bloco):
         f"{TELA_NOME[t]} {tempo.duracao_texto(s)} ({100 * s / total:.0f}%)" for t, s in sorted(soma.items(), key=lambda p: -p[1]))
 
 
+# A música na frente (26/11/2026, 08:07:07 a 08:13:46: a tela de música do Android Auto, com o Spotify tocando, foi acusada como "o mapa tomado por um app"; o dono
+# confirmou que era música): o app diz `aa-screen: app spotify (…)` quando a imagem reconhece o Spotify na frente (até a próxima `aa-screen: app …`) e o modo música
+# diz `music mode on: Spotify playing` até o `music mode off: …`. Só vale o que o app escreveu; sem essas linhas, a regra de "apps sem tecla" continua como era.
+APP_NA_FRENTE = re.compile(r"^aa-screen: app (\w+)\b")
+MODO_MUSICA = re.compile(r"^music mode (on|off)\b")
+MUSICA_COBRE_DO_TRECHO = 0.5  # a música na frente por esta fração do trecho sem tecla basta para dizer que a tela de apps era ela
+
+
+def _musica_na_frente(bloco):
+    """Os trechos [(início, fim)] em s em que o app disse ter a música na frente: o Spotify reconhecido pela imagem (`aa-screen: app spotify` até a próxima
+    `aa-screen: app …`) ou o modo música ligado (`music mode on` até o `music mode off`); um trecho aberto vai até o fim da projeção."""
+    fim = bloco[-1].segundos
+    saida = []
+    for etiqueta, regra, abre in (("aa-screen", APP_NA_FRENTE, lambda m: m.group(1) == "spotify"), ("dash", MODO_MUSICA, lambda m: m.group(1) == "on")):
+        inicio = None
+        for x in bloco:
+            m = regra.match(x.texto) if x.etiqueta == etiqueta else None
+            if not m:
+                continue
+            if abre(m) and inicio is None:
+                inicio = x.segundos
+            elif not abre(m) and inicio is not None:
+                saida.append((inicio, x.segundos))
+                inicio = None
+        if inicio is not None:
+            saida.append((inicio, fim))
+    return saida
+
+
+def _segundos_de_musica(bloco, a, b):
+    """Quantos s do trecho [a, b] têm a música na frente (a união dos trechos, sem contar duas vezes o que os dois sinais dizem)."""
+    pedacos = sorted((max(i, a), min(f, b)) for i, f in _musica_na_frente(bloco) if min(f, b) > max(i, a))
+    total, ate = 0.0, a
+    for i, f in pedacos:
+        i = max(i, ate)
+        if f > i:
+            total += f - i
+            ate = f
+    return total
+
+
 def _apps_sem_tecla(bloco):
     """A tela "apps" que a leitura da imagem escolheu (não uma tecla do painel) e ficou por mais de 2 min com a rota ativa (mensagens
     `Nav: position|state` chegando) sem nenhuma tecla do painel (nem toque no celular) nesse tempo (01/11/2026, 18:47:36 a 19:18: o app leu o mapa como app;
     teve uma tecla do joystick sem efeito no meio, por isso vale o trecho sem tecla, não a tela inteira). Quem entrou em "apps" por tecla
-    (`apps (a select in the menu)`) é o dono num app de verdade: não conta."""
+    (`apps (a select in the menu)`) é o dono num app de verdade: não conta. Com a música na frente na maior parte do trecho (`_musica_na_frente`) também não conta
+    (26/11/2026: era a tela de música do Android Auto)."""
     teclas = [x.segundos for x in bloco if (x.etiqueta == "dash" and TECLA_DO_PAINEL.match(x.texto) and TECLA_AVISO not in x.texto)
               or TOQUE_NO_CELULAR in x.texto]
     saida = []
@@ -1683,7 +1725,8 @@ def _apps_sem_tecla(bloco):
         # The longest stretch with no key; the Nav messages that came in it.
         a, b = max(zip(pontos, pontos[1:]), key=lambda p: p[1] - p[0])
         navs = [y for y in bloco if a <= y.segundos <= b and NAV_CHEGANDO.search(y.texto)]
-        if b - a > APPS_SEM_TECLA_S and navs:
+        # The music screen is an app for real, with the route still arriving: the app said the music was in front for most of the stretch, so it is not a map taken as an app.
+        if b - a > APPS_SEM_TECLA_S and navs and _segundos_de_musica(bloco, a, b) < MUSICA_COBRE_DO_TRECHO * (b - a):
             saida.append(f"{x.hora}: tela \"apps\" por {tempo.duracao_texto(fim - inicio)}, {tempo.duracao_texto(b - a)} deles sem nenhuma tecla do painel (nem toque no celular) e com a "
                          f"rota ativa ({len(navs)} mensagens Nav:): a leitura da imagem provavelmente tomou o mapa por um app")
     return saida

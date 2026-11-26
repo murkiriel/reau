@@ -242,7 +242,7 @@ MUTATIONS = [
     ("RecentSearch: a linha de 'unavailable' a cada 4", MAIN + "dash/RecentSearch.kt",
      "n > 1 && n % UNAVAILABLE_EVERY == 0", "n > 1 && n % 4 == 0", ["RecentSearchTest"]),
     ("FrameJank: um sexto quadro por minuto", MAIN + "util/FrameJank.kt",
-     "if (told.size >= MAX_PER_MINUTE) return false", "if (told.size > MAX_PER_MINUTE) return false", ["FrameJankTest"]),
+     "if (counted && told.size >= MAX_PER_MINUTE) return false", "if (counted && told.size > MAX_PER_MINUTE) return false", ["FrameJankTest"]),
     ("AapMessageIncoming: o cartão de música perde o pedaço de 1 byte", MAIN + "aa/AapMessageIncoming.kt",
      "setOf(Channel.ID_VID, Channel.ID_MPB, Channel.ID_PHONE)", "setOf(Channel.ID_VID)", ["AapMessageTest"]),
     ("DashLostText: segundos negativos", MAIN + "ui/DashLostText.kt", "goneAtMs?.takeIf { it <= nowMs }", "goneAtMs?.takeIf { true }",
@@ -1723,7 +1723,7 @@ MUTATIONS = [
     ("Site: a página de privacidade em espanhol some do sitemap", "docs/sitemap.xml",
      "<url><loc>https://murkiriel.github.io/reau/es/privacy.html</loc><lastmod>2026-11-24</lastmod></url>", "", ["SiteIntegrityTest"]),
     ("Site: a data da FAQ em inglês fica para trás", "docs/en/faq.html",
-     "Guide of 28 Oct 2026, updated on 25 Nov 2026 for REau 0.3.1.</p>", "Guide of 28 Oct 2026, updated on 3 Nov 2026 for REau 0.3.1.</p>", ["SiteIntegrityTest"]),
+     "Guide of 28 Oct 2026, updated on 26 Nov 2026 for REau 0.3.1.</p>", "Guide of 28 Oct 2026, updated on 3 Nov 2026 for REau 0.3.1.</p>", ["SiteIntegrityTest"]),
     # O site descreve o app único, com aviso nas imagens e nos vídeos antigos e legendas em três línguas (SiteSingleAppTest, 15/11/2026).
     ("Site: o teste do app único aceita a Lite fora da lista", "app/src/test/java/com/reau/app/SiteSingleAppTest.kt",
      '"pt" to listOf("antiga REau Lite",', '"pt" to listOf("Lite", "antiga REau Lite",', ["SiteSingleAppTest"]),
@@ -5976,6 +5976,23 @@ MUTATIONS += [
      "डैश डिस्कनेक्ट हो गया। बाइक बंद करें, 20 सेकंड रुकें, फिर चालू करें।", "डैश डिस्कनेक्ट हो गया। बाइक बंद करके फिर चालू करें।", ["DashStuckWaitTextsTest"]),
 ]
 
+MUTATIONS += [
+    # Corrida de 26/11/2026, item 6: a dica de que o Android Auto não deixa digitar com a projeção ligada (página de Dicas e FAQ).
+    ("dia26/item6 Dica do destino: a dica sai da lista", MAIN + "ui/TipsScreen.kt",
+     '        Tip("destination", R.string.tip_destination_title, R.string.tip_destination_text, R.drawable.ic_ms_smartphone),\n', "", ["TipsTest"]),
+    ("dia26/item6 Dica do destino: o texto em português perde o motivo", "app/src/main/res/values-pt/strings.xml",
+     "com a projeção ligada o Android Auto não deixa digitar.", "com a projeção ligada o Android Auto deixa digitar.", ["TipsTest"]),
+    ("dia26/item6 Dica do destino: o texto em hindi perde o Google Maps", "app/src/main/res/values-hi/strings.xml",
+     "डेस्टिनेशन फ़ोन के Google Maps में चुनें", "डेस्टिनेशन फ़ोन के नक्शे में चुनें", ["TipsTest"]),
+    ("dia26/item6 FAQ: a pergunta do pesquisar que não faz nada some do site em português", "docs/pt/faq.html",
+     "o <strong>Android Auto não deixa digitar</strong>, como num carro.", "o <strong>Android Auto deixa digitar</strong>, como num carro.", ["TipsTest"]),
+]
+
+
+MUTATIONS += [
+    ("dia26/item8 Quadro lento: o quadro de meio segundo volta a ficar escondido atrás da cota de cinco por minuto", MAIN + "util/FrameJank.kt",
+     "val counted = totalMs < ALWAYS_TOLD_MS", "val counted = totalMs >= 0L", ["FrameJankTest"]),
+]
 
 def command_for(classes):
     """The command that runs a mutation's tests: Python test files (`test_*.py`) with unittest, JVM unit test classes with Gradle. A bare name (`test_apk_audit.py`) is found

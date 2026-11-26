@@ -601,4 +601,12 @@ MUTATIONS_SCRIPTS = [
     ("revisao34/A2 leitor: o detalhe fino volta a não dizer há quanto tempo o painel estava calado", REG + "ler_registro.py",
      'quando = f"nos últimos {janela} s até a última mensagem do painel (calado há {calado} s)" if calado else f"nos últimos {janela} s"',
      'quando = f"nos últimos {janela} s"', ["registro/test_ler_registro.py"]),
+
+    # Corrida de 26/11/2026, item 9: a tela de música do Android Auto não é "o mapa tomado por um app".
+    ("dia26/item9 leitor: a música na frente deixa de desculpar a tela de apps sem tecla", REG + "ler_registro.py",
+     "navs and _segundos_de_musica(bloco, a, b) < MUSICA_COBRE_DO_TRECHO * (b - a):", "navs:", ["registro/test_ler_registro.py"]),
+    ("dia26/item9 leitor: a música por pouco tempo do trecho já desculpa a tela de apps", REG + "ler_registro.py",
+     "MUSICA_COBRE_DO_TRECHO = 0.5", "MUSICA_COBRE_DO_TRECHO = 0.01", ["registro/test_ler_registro.py"]),
+    ("dia26/item9 leitor: o modo música desligado não fecha o trecho de música", REG + "ler_registro.py",
+     'elif not abre(m) and inicio is not None:', 'elif False:', ["registro/test_ler_registro.py"]),
 ]

@@ -37,6 +37,8 @@ object Tips {
         Tip("waze_zoom", R.string.tip_waze_zoom_title, R.string.tip_waze_zoom_text, R.drawable.ic_ms_map),
         Tip("gemini_swap", R.string.tip_gemini_swap_title, R.string.tip_gemini_swap_text, R.drawable.ic_ms_gamepad),
         Tip("video_fps", R.string.tip_video_fps_title, R.string.tip_video_fps_text, R.drawable.ic_ms_speed),
+        // 26/11/2026: a rider tapped search and nothing happened: with the projection on, Android Auto blocks typing (its normal rule for a car).
+        Tip("destination", R.string.tip_destination_title, R.string.tip_destination_text, R.drawable.ic_ms_smartphone),
     )
 }
 
