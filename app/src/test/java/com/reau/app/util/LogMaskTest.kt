@@ -21,6 +21,8 @@ class LogMaskTest {
     private fun mac(vararg pairs: String) = pairs.joinToString(":")
     private val macA = mac("aa", "bb", "cc", "dd", "ee", "ff")
     private val macB = mac("12", "34", "56", "78", "9A", "bc")
+    private val macHyphen = macA.replace(":", "-")
+    private val macBare = macA.replace(":", "")
     private val dash = "RE_" + "AB12" + "_" + "345678"
 
     // -- the dash's name -------------------------------------------------------------------------------------------------
@@ -134,6 +136,17 @@ class LogMaskTest {
             // a common network name and a MAC
             "SSID: \"CasaDoZe\" up" to "SSID: \"<rede>\" up",
             "bssid $macA ok" to "bssid ${LogMask.MASK_MAC} ok",
+            // a MAC glued to a letter or a digit, with hyphens, and with no separator after its keyword; a date, a hash and a longer run stay
+            "bssid=x$macA" to "bssid=x${LogMask.MASK_MAC}",
+            "${macA}x up" to "${LogMask.MASK_MAC}x up",
+            "bssid $macHyphen up" to "bssid ${LogMask.MASK_MAC} up",
+            "BSSID: $macBare" to "BSSID: ${LogMask.MASK_MAC}",
+            "wlan_mac=\"${macBare.uppercase()}\"" to "wlan_mac=\"${LogMask.MASK_MAC}\"",
+            "commit $macBare built" to "commit $macBare built",
+            "macro=$macBare" to "macro=$macBare",
+            "mac=${macBare}0" to "mac=${macBare}0",
+            "2026-11-26-10-30-15 ok" to "2026-11-26-10-30-15 ok",
+            "2026-11-26-10-30-15-45 ok" to "2026-11-26-10-30-15-45 ok",
         )
     }
 

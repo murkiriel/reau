@@ -127,10 +127,6 @@ class MainLookTest {
         assertEquals(emptyList<Warning>(), MainLook.warnings(Projection(), fine, vpn = false))
     }
 
-    /**
-     * Seen 18/10 with both editions installed and on: the second one's Android Auto "did not respond" and nothing said why.
-     * The old lite app is named only when it is installed AND Android Auto accepts and does not answer, again and again.
-     */
     @Test
     fun `the line under a mute server's headline says the menu by hand, and no other state changes with it`() {
         assertEquals(R.string.sub_unresponsive, MainLook.sub(running(aa = AaLinkState.UNRESPONSIVE)))

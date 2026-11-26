@@ -28,8 +28,9 @@ class AaUpdatedServerOffIsWiredTest {
 
     @Test
     fun `the activity asks the rule with the link and what is kept, and logs once when it turns into the case`() {
-        val read = File(main, "MainActivity.kt").readText().between("private fun readAaUpdated(", "/** Reads whether the alert channel")
-        assertTrue(read, "AaUpdatedServerOff.now(this, link)" in read)
+        val read = File(main, "MainActivity.kt").readText().between("private suspend fun readAaUpdated(", "/** Reads whether the alert channel")
+        assertTrue(read, "AaUpdatedServerOff.now(this@MainActivity, link)" in read)
+        assertTrue("the read is off the main thread: $read", "withContext(kotlinx.coroutines.Dispatchers.IO)" in read)
         assertTrue(read, "if (updated && !aaUpdatedServerOff) RideDiagnostics.log(\"aa-server\", com.reau.app.aa.AaUpdatedServerOff.LOG_LINE)" in read)
         val now = File(main, "aa/AaUpdatedServerOff.kt").readText().between("fun now(", "/** What is kept")
         assertTrue(now, "decide(link, Seen.open(context).seenOnAt(), androidAutoUpdatedAt(context))" in now)
@@ -45,13 +46,17 @@ class AaUpdatedServerOffIsWiredTest {
     }
 
     @Test
-    fun `the new line is in the three languages, says the update turns the server off and asks to turn it on again`() {
-        val words = mapOf("values" to ("updated" to "turns"), "values-pt" to ("atualizado" to "desliga"), "values-es" to ("actualiz" to "apaga"))
+    fun `the new line is in the four languages, says the update can turn the server off, does not say it did, and asks to turn it on again`() {
+        // 26/11/2026: the rider may have turned the server off by hand, so the line says what an update CAN do, and asks for no cause.
+        val words = mapOf(
+            "values" to ("updated" to "can turn"), "values-pt" to ("atualizado" to "pode desligar"),
+            "values-es" to ("actualiz" to "puede apagar"), "values-hi" to ("अपडेट" to "बंद हो सकता"),
+        )
         for ((folder, pair) in words) {
             val text = Regex("""<string name="aa_updated_note">(.*)</string>""").find(File(res, "$folder/strings.xml").readText())?.groupValues?.get(1)
             assertTrue("$folder has no aa_updated_note", text != null && text.isNotBlank())
             assertTrue("$folder: $text", pair.first in text!! && pair.second in text)
         }
-        assertEquals(3, words.size)
+        assertEquals(4, words.size)
     }
 }

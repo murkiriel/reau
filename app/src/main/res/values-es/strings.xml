@@ -105,7 +105,7 @@
     <string name="action_open_aa_settings">Abrir los ajustes de Android Auto</string>
     <string name="action_get_aa">Obtener Android Auto</string>
     <string name="aa_missing_note">Android Auto no está instalado en este teléfono. Toca \"Obtener Android Auto\" para instalarlo desde Google Play, ábrelo una vez para terminar su configuración y vuelve aquí.</string>
-    <string name="aa_updated_note">Android Auto se actualizó, y la actualización apaga el servidor de unidad principal. Vuelve a encenderlo.</string>
+    <string name="aa_updated_note">Android Auto se actualizó, y una actualización puede apagar el servidor de unidad principal. Si no lo apagaste tú, vuelve a encenderlo.</string>
     <string name="aa_store_none">Android Auto no está instalado y este teléfono no tiene tienda de apps ni navegador para obtenerlo.</string>
     <string name="aa_settings_failed">No se pudieron abrir los ajustes de Android Auto. Abre Android Auto desde tu lista de apps.</string>
     <string name="headline_card">Fondo en el tablero</string>

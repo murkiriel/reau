@@ -4,7 +4,8 @@ Three things are masked:
 - the dash's Wi-Fi name, `RE_<4 characters>_<6 digits>` (e.g. `RE_AB12_345678`), tied to one bike and its owner (the system's logcat carries it whole 51 times
   in the logs of 26/10/2026; REau's own ride log never writes it), even glued to other text or escaped in an address (`%22RE_AB12_345678%22`), and any other
   name that starts the way a dash's does (at the start of a word, after a character that is not of a word, or after a `%XX` escape; `MODE_RE_ABCD` is left);
-- every MAC address (six pairs of hex digits split by colons, `aa:bb:…:ff`: the dash's BSSID, the phone's, a router's), even glued to a letter or a digit;
+- every MAC address (six pairs of hex digits split by colons or hyphens, `aa:bb:…:ff`, `aa-bb-…-ff`: the dash's BSSID, the phone's, a router's), even glued to a letter or a digit,
+  and one with no separator (`bssid=aabbccddeeff`) after `bssid`, `mac`, `macaddr` or `hwaddr` and `=` or `:`;
 - the names of the Wi-Fi networks that are not the dash's (home, work): the name that follows `SSID`, `ssid=`, `configKey=` or `SSID:` (quoted, or unquoted up to the comma
   or the next field). A name found that way is also hidden everywhere else in the same file (where a line says it without the keyword), and `--rede NOME` hides one by hand.
 
@@ -27,8 +28,14 @@ _DASH = re.compile(r"RE_[A-Za-z0-9]{4}_\d{6}")
 # is found there too (it was not: with only `_OTHER` the reader neither chose such a line nor hid the name in it).
 DASH_QUALQUER = re.compile(_OTHER.pattern + "|" + _DASH.pattern)
 # A MAC has no edge either, like the dash's own pattern: glued to a letter or a digit (`bssid=xaa:bb:cc:dd:ee:ff`, `…:ffx`) it is hidden too. Six pairs of hex digits split by colons
-# are not an ordinary word, so there is nothing common to leave (a clock has three groups).
-MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}")
+# are not an ordinary word, so there is nothing common to leave (a clock has three groups). With hyphens (`aa-bb-cc-dd-ee-ff`, the way Windows and some
+# vendors write it) there IS something to leave: a date and time `2026-11-26-10-30-15` holds six pairs split by hyphens, from its last two year digits on. So
+# the hyphen form has a left edge: it does not start right after a hex digit or after a hex digit and a hyphen (26/11/2026, review B4).
+MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<![0-9A-Fa-f]-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}")
+# A MAC with no separator at all (`bssid=aabbccddeeff`) is twelve hex digits, which a hash or a version number can also be: it is hidden only after the word that
+# says what it is (`bssid`, `mac`, `macaddr`, `hwaddr`, then `=` or `:`), and only when it is exactly twelve (a longer run is a hash, left alone). The left edge is "not a
+# letter" so that `wlan_mac=` counts and `macro=` does not. The word and the sign stay (group 1).
+MAC_SEM_SEPARADOR = re.compile(r"(?i)(?<![a-z])((?:bssid|mac(?:addr(?:ess)?)?|hwaddr)\s*[=:]\s*[\"']?)[0-9a-f]{12}(?![0-9a-f])")
 MASK = "RE_****_******"
 MASK_MAC = "**:**:**:**:**:**"
 MASK_REDE = "<rede>"
@@ -68,11 +75,16 @@ def compilar_nomes(nomes):
     return re.compile(r"(?<![\w])(?:" + "|".join(map(re.escape, ordenados)) + r")(?![\w])")
 
 
+def esconder_mac(texto: str) -> str:
+    """[texto] with every MAC address replaced: with colons or hyphens anywhere, with no separator only after its keyword (see [MAC_SEM_SEPARADOR])."""
+    return MAC_SEM_SEPARADOR.sub(lambda m: m.group(1) + MASK_MAC, MAC.sub(MASK_MAC, texto))
+
+
 def mascarar(texto: str, nomes=()) -> str:
     """[texto] with the dash's Wi-Fi names, every MAC and the other networks' names replaced. [nomes]: more names to hide wherever they stand
     (a collection of names, or what [compilar_nomes] gave, which a caller that masks many lines makes once)."""
     texto = _DASH.sub(MASK, _OTHER.sub(MASK, texto))
-    texto = MAC.sub(MASK_MAC, texto)
+    texto = esconder_mac(texto)
 
     def entre_aspas(m):
         return m.group(0) if _e_do_painel(m.group(4)) or m.group(4) in ("", MASK_REDE) else f"{m.group(1)}{m.group(2)}{m.group(3)}{MASK_REDE}{m.group(3)}"

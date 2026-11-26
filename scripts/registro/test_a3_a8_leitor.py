@@ -82,5 +82,37 @@ class FalaDoRetorno(unittest.TestCase):
         self.assertFalse(any("fala no fone" in x for x in t), t)
 
 
+class LinhaDoBaldeEDaDepuracao(unittest.TestCase):
+    """S1 (26/11/2026): a linha `app standby:` diz também a depuração USB e as opções de desenvolvedor, e a linha do tempo as mostra."""
+
+    def test_a_depuracao_usb_e_as_opcoes_de_desenvolvedor_entram_na_linha_do_tempo(self):
+        t = lido(linha("10:00:02.000", "device", "app standby: bucket=working_set background-restricted=no adb=on devopts=off"))
+        self.assertIn(
+            "10:00:02.000  o Android pôs o app no balde de uso working_set, restrição de segundo plano: não; depuração USB ligada, opções de desenvolvedor desligadas", t)
+
+    def test_o_que_nao_foi_lido_diz_sem_leitura(self):
+        t = lido(linha("10:00:02.000", "device", "app standby: bucket=unknown background-restricted=? adb=? devopts=?"))
+        self.assertIn(
+            "10:00:02.000  o Android pôs o app no balde de uso sem leitura, restrição de segundo plano: sem leitura; depuração USB sem leitura, opções de desenvolvedor sem leitura", t)
+
+    def test_a_linha_de_antes_da_depuracao_ainda_vale_sem_as_duas_frases(self):
+        t = lido(linha("10:00:02.000", "device", "app standby: bucket=restricted background-restricted=yes"))
+        achada = next(x for x in t if "balde de uso" in x)
+        self.assertIn("balde de uso restricted, restrição de segundo plano: sim", achada)
+        self.assertNotIn("depuração", achada)
+
+    def test_a_mudanca_entra_uma_vez_cada(self):
+        t = lido(linha("10:00:02.000", "device", "app standby: bucket=active background-restricted=no adb=off devopts=on"),
+                 linha("10:30:00.000", "device", "app standby: bucket=active background-restricted=no adb=on devopts=on"))
+        achadas = [x for x in t if "balde de uso" in x]
+        self.assertEqual(2, len(achadas))
+        self.assertIn("depuração USB desligada", achadas[0])
+        self.assertIn("depuração USB ligada", achadas[1])
+
+    def test_so_a_linha_do_app_com_a_etiqueta_device_conta(self):
+        t = lido(linha("10:00:02.000", "aa", "app standby: bucket=active background-restricted=no adb=on devopts=on"))
+        self.assertFalse(any("balde de uso" in x for x in t), t)
+
+
 if __name__ == "__main__":
     unittest.main()

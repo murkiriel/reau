@@ -1359,7 +1359,9 @@ private fun DashSession.showGuidance(guidance: NavGuidance, noNetwork: Boolean, 
     } else {
         updateNavInfo(
             nav.maneuver, nav.primaryDist, nav.primaryUnit, nav.totalDist, nav.totalUnit, nav.eta, nav.road,
-            nav.remainingSeconds, nav.next,
+            // Seconds from Android Auto go as they are; without them the session takes the time left from the arrival it shows.
+            guidance.timeToArrivalSeconds.takeIf { it >= 0 } ?: com.reau.app.dash.protocol.DashCommands.REMAINING_OMIT, nav.next,
+            clock = java.time.LocalTime.now(),
         )
     }
 }

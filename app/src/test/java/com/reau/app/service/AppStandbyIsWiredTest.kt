@@ -23,6 +23,9 @@ class AppStandbyIsWiredTest {
         val read = reader.substringAfter("fun appStandby(): AppStandby.Reading").substringBefore("private fun readNow()")
         assertTrue(read, "bucket = runCatching { usageStats.appStandbyBucket }.getOrNull()," in read)
         assertTrue(read, "backgroundRestricted = runCatching { activity.isBackgroundRestricted }.getOrNull()," in read)
+        assertTrue(read, "adb = globalSwitch(android.provider.Settings.Global.ADB_ENABLED)," in read)
+        assertTrue(read, "devOptions = globalSwitch(android.provider.Settings.Global.DEVELOPMENT_SETTINGS_ENABLED)," in read)
+        assertTrue(read, "runCatching { android.provider.Settings.Global.getInt(context.contentResolver, name) != 0 }.getOrNull()" in read)
     }
 
     @Test

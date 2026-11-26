@@ -3,9 +3,10 @@
 package com.reau.app.dash
 
 import android.util.Log
-import com.reau.app.dash.protocol.DashCommands
+import com.reau.app.dash.nav.AaManeuvers
 import com.reau.app.dash.nav.ArrivalSmoother
 import com.reau.app.dash.nav.DashManeuverGlyphs
+import com.reau.app.dash.protocol.DashCommands
 import com.reau.app.util.Dbg
 import com.reau.app.dash.protocol.K1GPacket
 import com.reau.app.util.FailureStreak
@@ -399,6 +400,7 @@ class DashSession(
         totalDist: Int, totalUnit: Int, etaHHMM: String? = null, road: String = "",
         remainingSeconds: Long = DashCommands.REMAINING_OMIT, nextManeuver: Int = DashCommands.NEXT_MANEUVER_NONE,
         nowMs: Long = MonotonicClock.nowMs(),
+        clock: java.time.LocalTime? = null,
     ) {
         val shown = ringManeuver(maneuver, lastVisibleManeuver)
         if (shown != maneuver) {
@@ -419,10 +421,12 @@ class DashSession(
         }
         // The arrival time and the time left are rounded to the minute on Android Auto's side and flickered by one minute on the dash
         // (ride of 25/11/2026): a one-minute rise or move shows only after it has lasted ([ArrivalSmoother]).
-        nav = NavFigures(
-            shown, primaryDist, primaryUnit, totalDist, totalUnit, arrival.arrival(etaHHMM, nowMs), road,
-            arrival.remaining(remainingSeconds, nowMs), nextManeuver,
-        )
+        val shownEta = arrival.arrival(etaHHMM, nowMs)
+        // With no seconds from Android Auto (Waze) the time left is taken from the arrival ALREADY smoothed, never from its raw text: the raw
+        // one flickered by a minute (review of 26/11/2026, A1), and the two figures of the card must agree.
+        val left = arrival.remaining(remainingSeconds, nowMs).takeIf { it >= 0 }
+            ?: clock?.let { AaManeuvers.remainingFromEta(shownEta.orEmpty(), it) } ?: DashCommands.REMAINING_OMIT
+        nav = NavFigures(shown, primaryDist, primaryUnit, totalDist, totalUnit, shownEta, road, left, nextManeuver)
     }
 
     /** What the time left and the arrival time of the guidance in course were shown as, so a flicker of one minute does not reach the dash. */
@@ -953,6 +957,8 @@ class DashSession(
         echo.drop(); songEcho.cancel()
         cardTitleOverride = null
         nav = null
+        // The one session of the process outlives the link: the next link must not start from the figures held back before it (26/11/2026).
+        arrival.reset()
         forgetLastManeuver()
         socket?.let { sock ->
             val exit = ExitSequence(MonotonicClock::nowMs).also { exitSequence = it }

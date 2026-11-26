@@ -101,7 +101,7 @@
     <string name="action_open_aa_settings">Android Auto सेटिंग्स खोलें</string>
     <string name="action_get_aa">Android Auto पाएँ</string>
     <string name="aa_missing_note">इस फ़ोन में Android Auto इंस्टॉल नहीं है। Google Play से इंस्टॉल करने के लिए \"Android Auto पाएँ\" पर टैप करें, उसका सेटअप पूरा करने के लिए उसे एक बार खोलें, फिर यहाँ लौटें।</string>
-    <string name="aa_updated_note">Android Auto अपडेट हुआ है, और अपडेट से उसका हेड यूनिट सर्वर बंद हो जाता है। इसे फिर चालू करें।</string>
+    <string name="aa_updated_note">Android Auto अपडेट हुआ है, और अपडेट से उसका हेड यूनिट सर्वर बंद हो सकता है। अगर आपने इसे बंद नहीं किया, तो इसे फिर चालू करें।</string>
     <string name="aa_store_none">Android Auto इंस्टॉल नहीं है, और इस फ़ोन में उसे पाने के लिए कोई ऐप स्टोर या ब्राउज़र नहीं है।</string>
     <string name="aa_settings_failed">Android Auto की सेटिंग्स नहीं खुल सकीं। अपनी ऐप सूची से Android Auto खोलें।</string>
     <string name="headline_card">डैश पर वॉलपेपर</string>

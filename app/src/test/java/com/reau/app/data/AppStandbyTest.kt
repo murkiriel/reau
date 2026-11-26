@@ -24,13 +24,13 @@ class AppStandbyTest {
 
     @Test
     fun `the line says the bucket and the restriction`() {
-        assertEquals("app standby: bucket=working_set background-restricted=no", AppStandby.line(AppStandby.Reading(20, false)))
-        assertEquals("app standby: bucket=restricted background-restricted=yes", AppStandby.line(AppStandby.Reading(45, true)))
+        assertEquals("app standby: bucket=working_set background-restricted=no adb=? devopts=?", AppStandby.line(AppStandby.Reading(20, false)))
+        assertEquals("app standby: bucket=restricted background-restricted=yes adb=on devopts=off", AppStandby.line(AppStandby.Reading(45, true, adb = true, devOptions = false)))
     }
 
     @Test
     fun `what could not be read is unknown and a question mark`() {
-        assertEquals("app standby: bucket=unknown background-restricted=?", AppStandby.line(AppStandby.Reading(null, null)))
+        assertEquals("app standby: bucket=unknown background-restricted=? adb=? devopts=?", AppStandby.line(AppStandby.Reading(null, null)))
     }
 
     @Test
@@ -45,7 +45,7 @@ class AppStandbyTest {
         log.offer(AppStandby.Reading(10, false))
         log.offer(AppStandby.Reading(10, false))
         log.offer(AppStandby.Reading(10, false))
-        assertEquals(listOf("app standby: bucket=active background-restricted=no"), written)
+        assertEquals(listOf("app standby: bucket=active background-restricted=no adb=? devopts=?"), written)
     }
 
     @Test
@@ -56,8 +56,8 @@ class AppStandbyTest {
         log.offer(AppStandby.Reading(20, false))
         log.offer(AppStandby.Reading(20, true))
         assertEquals(3, written.size)
-        assertTrue(written[1], written[1].endsWith("bucket=working_set background-restricted=no"))
-        assertTrue(written[2], written[2].endsWith("bucket=working_set background-restricted=yes"))
+        assertTrue(written[1], written[1].endsWith("bucket=working_set background-restricted=no adb=? devopts=?"))
+        assertTrue(written[2], written[2].endsWith("bucket=working_set background-restricted=yes adb=? devopts=?"))
     }
 
     @Test
@@ -67,5 +67,31 @@ class AppStandbyTest {
         log.offer(AppStandby.Reading(10, false))
         log.offer(AppStandby.Reading(null, null))
         assertEquals(2, written.size)
+    }
+
+    @Test
+    fun `the line says the USB debugging and the developer options, and a switch that could not be read is a question mark`() {
+        assertEquals(
+            "app standby: bucket=active background-restricted=no adb=on devopts=on",
+            AppStandby.line(AppStandby.Reading(10, false, adb = true, devOptions = true)),
+        )
+        assertEquals(
+            "app standby: bucket=active background-restricted=no adb=off devopts=?",
+            AppStandby.line(AppStandby.Reading(10, false, adb = false, devOptions = null)),
+        )
+    }
+
+    @Test
+    fun `a change of the USB debugging or of the developer options writes a new line, the same reading writes nothing`() {
+        val written = ArrayList<String>()
+        val log = AppStandbyLog { written += it }
+        log.offer(AppStandby.Reading(10, false, adb = false, devOptions = true))
+        log.offer(AppStandby.Reading(10, false, adb = false, devOptions = true))
+        log.offer(AppStandby.Reading(10, false, adb = true, devOptions = true))
+        log.offer(AppStandby.Reading(10, false, adb = true, devOptions = false))
+        log.offer(AppStandby.Reading(10, false, adb = true, devOptions = false))
+        assertEquals(3, written.size)
+        assertTrue(written[1], written[1].endsWith("adb=on devopts=on"))
+        assertTrue(written[2], written[2].endsWith("adb=on devopts=off"))
     }
 }

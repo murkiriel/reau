@@ -19,8 +19,9 @@ from test_a8_leitor import LIGAR, cabecalho, linha, lido, pasta_de  # noqa: E402
 Entrada = namedtuple("Entrada", "mes dia hora pid tid nivel tag texto")
 
 
-def saida(quando, descricao='[UNKNOWN] o-kill(6)', motivo="other", codigo=13, hora="11:00:00.100"):
-    return linha(hora, "exit", f'past exit: {motivo} ({codigo}) at 2026-10-04 {quando}, process com.reau.app pid 4880, was foreground service (125), pss 0 MB, rss 99 MB, "{descricao}"')
+def saida(quando, descricao='[UNKNOWN] o-kill(6)', motivo="other", codigo=13, hora="11:00:00.100", estado=None):
+    resumo = f', state "{estado}"' if estado else ""
+    return linha(hora, "exit", f'past exit: {motivo} ({codigo}) at 2026-10-04 {quando}, process com.reau.app pid 4880, was foreground service (125), pss 0 MB, rss 99 MB{resumo}, "{descricao}"')
 
 
 def morte(*meio, quando="10:08:00.000", **saida_):
@@ -232,6 +233,47 @@ class DisplayDoLogcatTest(unittest.TestCase):
         texto = mortes.texto_do_display(self.MORTE, mortes.segundos_do_dia("14:46:59.649"), mortes.segundos_do_dia("14:47:14.131"))
         self.assertIn("o display apagou 96,6 s antes da morte (às 14:46:59,6) e ficou apagado de vez 82,1 s antes (às 14:47:14,1, depois do modo de espera)", texto)
         self.assertEqual("", mortes.texto_do_display(self.MORTE, None, None))
+
+
+ESTADO = "projecting=yes dash=up screen=off off-for=301s attempt=2 battery=65% charging=no"
+
+
+class ResumoDoProcessoTest(unittest.TestCase):
+    """26/11/2026 (S3): o resumo que o processo gravou de si (`processStateSummary`) vem na linha `[exit]` e o leitor o mostra em cada morte."""
+
+    def test_o_resumo_vira_palavras_na_morte_do_sistema(self):
+        [achado] = morte(TELA_APAGOU_AS_10_03, estado=ESTADO)
+        self.assertIn("o resumo que o processo gravou de si antes de morrer", achado)
+        self.assertIn("projeção ligada, painel conectado, tela apagada havia 301 s, retomada, tentativa 2, bateria 65% (em passos de 5), sem carregador", achado)
+
+    def test_a_descricao_inteira_continua_a_ser_lida_com_o_resumo_na_linha(self):
+        [achado] = morte(TELA_APAGOU_AS_10_03, estado=ESTADO, descricao="[FORCE STOP] stop com.reau.app due to UserDefined:cleanup", motivo="user requested", codigo=10)
+        self.assertIn("descrição inteira da saída: «[FORCE STOP] stop com.reau.app due to UserDefined:cleanup»", achado)
+        self.assertIn("projeção ligada", achado)
+
+    def test_sem_o_resumo_a_morte_nao_diz_nada_dele(self):
+        [achado] = morte(TELA_APAGOU_AS_10_03)
+        self.assertNotIn("resumo que o processo gravou", achado)
+
+    def test_a_tela_acesa_e_o_que_nao_foi_lido(self):
+        self.assertEqual("projeção desligada, painel desconectado, tela acesa, sem retomada, bateria sem leitura, carregador sem leitura",
+                         mortes.resumo_do_processo('x, state "projecting=no dash=down screen=on attempt=0 battery=? charging=?", "d"'))
+        self.assertIn("tela sem leitura", mortes.resumo_do_processo('x, state "screen=?"'))
+
+    def test_um_campo_que_nao_se_entende_nao_apaga_o_resto(self):
+        self.assertEqual("projeção ligada, tela turva", mortes.resumo_do_processo('x, state "projecting=yes screen=turva"'))
+        self.assertEqual("coisa nova", mortes.resumo_do_processo('x, state "coisa nova"'))
+        self.assertEqual("", mortes.resumo_do_processo('x, "sem resumo"'))
+
+    def test_o_motivo_da_linha_do_tempo_traz_o_resumo_de_qualquer_morte(self):
+        # a morte que não é do sistema (uma falha) também mostra o que o processo sabia de si, na projeção «sem fim registrado»
+        morreu = cabecalho() + LIGAR + linha("10:07:00.000", "aa", "[AA] Android Auto conectado")
+        voltou = cabecalho("11:00:00.000") + saida("10:07:01.000", motivo="crash", codigo=4, estado=ESTADO)
+        [primeira, *_] = ler_registro.projecoes(lido(pasta_de(morreu, voltou)))
+        self.assertEqual(f"o app recomeçou: falha; o app gravou de si antes de morrer: {mortes.resumo_do_processo('x, state "' + ESTADO + '"')}", primeira.sem_fim)
+        sem_resumo = cabecalho("11:00:00.000") + saida("10:07:01.000", motivo="crash", codigo=4)
+        [primeira, *_] = ler_registro.projecoes(lido(pasta_de(morreu, sem_resumo)))
+        self.assertEqual("o app recomeçou: falha", primeira.sem_fim)
 
 
 if __name__ == "__main__":

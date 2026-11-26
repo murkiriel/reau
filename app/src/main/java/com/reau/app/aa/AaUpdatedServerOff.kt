@@ -20,7 +20,7 @@ object AaUpdatedServerOff {
         link == AaLinkState.SERVER_OFF && seenOnAt != null && updatedAt != null && updatedAt > seenOnAt
 
     /** The ride log's line when it is the case; no names, no numbers of the phone. */
-    const val LOG_LINE = "Android Auto was updated since the head unit server last worked: the update turned it off, the screen says so"
+    const val LOG_LINE = "Android Auto was updated since the head unit server last worked: the update may have turned it off, the screen says so"
 
     /** When the installed Android Auto was last installed or updated (the package's `lastUpdateTime`, in epoch ms), or null when there is none. */
     fun androidAutoUpdatedAt(context: Context): Long? = try {

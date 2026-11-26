@@ -21,9 +21,11 @@ val appVersionName = "0.3.1"
 val releaseVersionCode = 30_030_100
 val buildTimestamp: String = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yy.MM.dd-HH.mm"))
 val debugVersionCode = (System.currentTimeMillis() / 60_000L).toInt()
-// The commit the APK was built from, for the ride log header; "?" outside a git checkout.
+// The commit the APK was built from, for the ride log header; "?" outside a git checkout (so a check of the published APK needs a clone with
+// its .git). Always 12 characters: a plain --short gives 7 or more by how many objects the repository has, so the same commit gave a longer
+// text in a full clone than in the CI's shallow one and the two APKs differed (review of 26/11/2026, A3).
 val buildGitCommit: String = providers.exec {
-    commandLine("git", "rev-parse", "--short", "HEAD")
+    commandLine("git", "rev-parse", "--short=12", "HEAD")
     isIgnoreExitValue = true
 }.standardOutput.asText.map { it.trim().ifEmpty { "?" } }.getOrElse("?")
 

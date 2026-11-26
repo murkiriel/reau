@@ -2,7 +2,9 @@ package com.reau.app.aa
 
 import com.reau.app.data.KeystoreBackedPrefsTest.FakePrefs
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** The server is off after an update of Android Auto: the decision is a pure rule over the link, the update time kept and the one now. */
@@ -68,5 +70,11 @@ class AaUpdatedServerOffTest {
     fun `the log line has no name, address or country of the phone`() {
         val line = AaUpdatedServerOff.LOG_LINE
         assertEquals(false, Regex("""\d{2,}|ssid|mac""", RegexOption.IGNORE_CASE).containsMatchIn(line))
+    }
+
+    @Test
+    fun `the log line does not say the update did it, because the rider may have switched the server off by hand`() {
+        assertTrue(AaUpdatedServerOff.LOG_LINE, "may have turned it off" in AaUpdatedServerOff.LOG_LINE)
+        assertFalse(AaUpdatedServerOff.LOG_LINE, "the update turned it off" in AaUpdatedServerOff.LOG_LINE)
     }
 }

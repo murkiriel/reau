@@ -34,7 +34,8 @@ class ExitReasonsTest {
         pssKb: Long = 0,
         rssKb: Long = 0,
         description: String? = "crash",
-    ) = PastExit(timestampMs, "com.reau.app", pid, reason, status, importance, pssKb, rssKb, description)
+        stateSummary: String? = null,
+    ) = PastExit(timestampMs, "com.reau.app", pid, reason, status, importance, pssKb, rssKb, description, stateSummary)
 
     @Test
     fun `every reason Android has gets a name`() {
@@ -290,5 +291,17 @@ class ExitReasonsTest {
         )) {
             assertFalse("reason $reason", ExitReasons.leftAndroidAutoHanging(exit(reason = reason), at + 13_000))
         }
+    }
+
+    @Test
+    fun `the line of a death says what the process said of itself, before the description`() {
+        val line = ExitReasons.describe(exit(reason = 13, description = "[UNKNOWN] o-kill(6)", stateSummary = "REau1;p=1;d=1;o=${at / 1000 - 301};t=2;b=65;c=0"))
+        assertTrue(line, line.contains(", state \"projecting=yes dash=up screen=off off-for=301s attempt=2 battery=65% charging=no\", \"[UNKNOWN] o-kill(6)\""))
+    }
+
+    @Test
+    fun `a death with no summary, or one that is not ours, has no state in its line`() {
+        assertFalse(ExitReasons.describe(exit()).contains("state"))
+        assertFalse(ExitReasons.describe(exit(stateSummary = "something else")).contains("state"))
     }
 }

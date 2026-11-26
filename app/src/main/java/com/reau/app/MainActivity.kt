@@ -411,9 +411,14 @@ class MainActivity : ComponentActivity() {
             aaUpdatedServerOff = aaUpdatedServerOff,
         )
 
-    /** Whether the server being off is the work of an update of Android Auto; the ride log says it once for each time it becomes so. */
-    private fun readAaUpdated(link: com.reau.app.aa.AaLinkState): Boolean {
-        val updated = com.reau.app.aa.AaUpdatedServerOff.now(this, link)
+    /**
+     * Whether the server being off may be the work of an update of Android Auto; the ride log says it once for each time it becomes so.
+     * The package query (a binder call) and the first read of the kept preference (the disk) run off the main thread (review of 26/11/2026, A5).
+     */
+    private suspend fun readAaUpdated(link: com.reau.app.aa.AaLinkState): Boolean {
+        val updated = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            com.reau.app.aa.AaUpdatedServerOff.now(this@MainActivity, link)
+        }
         if (updated && !aaUpdatedServerOff) RideDiagnostics.log("aa-server", com.reau.app.aa.AaUpdatedServerOff.LOG_LINE)
         return updated
     }

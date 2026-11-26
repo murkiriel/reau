@@ -43,6 +43,17 @@ CASOS = [
     # a common network name and a MAC
     ('SSID: "CasaDoZe" up', 'SSID: "<rede>" up'),
     (f"bssid {MAC_FF} ok", f"bssid {mascarar.MASK_MAC} ok"),
+    # a MAC glued to a letter or a digit, with hyphens, and with no separator after its keyword; a date, a hash and a longer run stay (26/11/2026)
+    (f"bssid=x{MAC_FF}", f"bssid=x{mascarar.MASK_MAC}"),
+    (f"{MAC_FF}x up", f"{mascarar.MASK_MAC}x up"),
+    (f"bssid {MAC_FF.replace(':', '-')} up", f"bssid {mascarar.MASK_MAC} up"),
+    (f"BSSID: {MAC_FF.replace(':', '')}", f"BSSID: {mascarar.MASK_MAC}"),
+    (f'wlan_mac="{MAC_FF.replace(":", "").upper()}"', f'wlan_mac="{mascarar.MASK_MAC}"'),
+    (f"commit {MAC_FF.replace(':', '')} built", f"commit {MAC_FF.replace(':', '')} built"),
+    (f"macro={MAC_FF.replace(':', '')}", f"macro={MAC_FF.replace(':', '')}"),
+    (f"mac={MAC_FF.replace(':', '')}0", f"mac={MAC_FF.replace(':', '')}0"),
+    ("2026-11-26-10-30-15 ok", "2026-11-26-10-30-15 ok"),
+    ("2026-11-26-10-30-15-45 ok", "2026-11-26-10-30-15-45 ok"),
 ]
 
 

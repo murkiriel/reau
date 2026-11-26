@@ -56,6 +56,29 @@ class OutrasRedesEMacTest(unittest.TestCase):
             with self.subTest(texto=texto):
                 self.assertEqual(esperado, mascarar.mascarar(texto))
 
+    def test_a_mac_with_hyphens_is_hidden_like_one_with_colons(self):
+        # 26/11/2026 (review B4): `aa-bb-cc-dd-ee-ff`, built here while the test runs.
+        with_hyphens = MAC_FF.replace(":", "-")
+        for texto, esperado in ((f"bssid {with_hyphens} up", f"bssid {mascarar.MASK_MAC} up"), (f"x{with_hyphens.upper()}y", f"x{mascarar.MASK_MAC}y"),
+                                (f"{with_hyphens}/{MAC_01.replace(':', '-')}", f"{mascarar.MASK_MAC}/{mascarar.MASK_MAC}")):
+            with self.subTest(texto=texto):
+                self.assertEqual(esperado, mascarar.mascarar(texto))
+
+    def test_a_mac_with_no_separator_is_hidden_only_after_its_keyword(self):
+        bare = MAC_FF.replace(":", "")
+        for texto, esperado in ((f"bssid={bare} up", f"bssid={mascarar.MASK_MAC} up"), (f"BSSID: {bare}", f"BSSID: {mascarar.MASK_MAC}"),
+                                (f'wlan_mac="{bare.upper()}"', f'wlan_mac="{mascarar.MASK_MAC}"'), (f"hwaddr = {bare},", f"hwaddr = {mascarar.MASK_MAC},"),
+                                (f"macaddr:{bare}", f"macaddr:{mascarar.MASK_MAC}")):
+            with self.subTest(texto=texto):
+                self.assertEqual(esperado, mascarar.mascarar(texto))
+
+    def test_a_hash_a_version_or_a_date_is_not_taken_for_a_mac(self):
+        bare = MAC_FF.replace(":", "")
+        for linha in (f"commit {bare} built", f"sha={bare}0123456789abcdef0123456789ab", f"mac={bare}0", f"macro={bare}", f"unmac={bare}", f"id={bare}",
+                      "0.4.0-12-34-56 build", "2026-11-26-10-30-15 ok", "2026-11-26-10-30-15-45 ok", "d3b07384-d9a0-4c9b-8b1a-aabbccddeeff"):
+            with self.subTest(linha=linha):
+                self.assertEqual(linha, mascarar.mascarar(linha))
+
     def test_every_mac_address_is_hidden_in_either_case(self):
         self.assertEqual(f"wlan0: Associated with {mascarar.MASK_MAC} and {mascarar.MASK_MAC}",
                          mascarar.mascarar(f"wlan0: Associated with {MAC_FF} and {MAC_UPPER}"))
@@ -115,7 +138,7 @@ class OutrasRedesEMacTest(unittest.TestCase):
 
     def test_the_system_log_reader_hides_with_the_same_masks(self):
         import logcat_sistema
-        self.assertIs(mascarar.MAC, logcat_sistema.MAC)
+        self.assertIs(mascarar.esconder_mac, logcat_sistema.esconder_mac)
         self.assertIs(mascarar.DASH_QUALQUER, logcat_sistema.DASH)
 
 

@@ -318,6 +318,9 @@ class ProjectionService : Service() {
     // Which resume of the window this projection is (1 to 3), 0 when the rider tapped Ligar: for the log line and the notification's sub text; main thread and worker.
     @Volatile private var resumedAttempt = 0
 
+    /** The keeper of this projection's process-state summary ([com.reau.app.data.ProcessStateSummaryKeeper]); null while no projection looks at the phone. */
+    @Volatile private var stateSummary: com.reau.app.data.ProcessStateSummaryKeeper? = null
+
     // When the rider's Desligar reached the service, until its effects are done (0: none going on). The stop is carried
     // out on the one worker and may take seconds (the receiver's bye); a Ligar tapped meanwhile waits behind it, with
     // the screen already saying "parado". Only for the log, to see that wait.
@@ -819,6 +822,9 @@ class ProjectionService : Service() {
         val device = DeviceStateLog(DEVICE_PERIOD_MS, signals::periodAt) { RideDiagnostics.log("device", it) }
         // The standby bucket and the background restriction: one line at the first look of the projection, another only when one of them changes (26/11/2026).
         val standby = AppStandbyLog { RideDiagnostics.log("device", it) }
+        // The summary of this process's state the system hands back with its death (ProcessStateSummary, 26/11/2026): given only when it changes, not at every look.
+        val summary = com.reau.app.data.ProcessStateSummaryKeeper { reader.keepSummary(it) }
+        stateSummary = summary
         // Armed for this projection: one warning when the battery passes 44 C, another only after it fell under 41 C (BatteryHeatWatch).
         val heat = BatteryHeatWatch()
         // Armed for this trip: one warning when the battery is at 10 % or under with no charger, never a second one (BatteryLowWatch, 26/11/2026); a projection resumed
@@ -838,6 +844,12 @@ class ProjectionService : Service() {
                 resumeBook.beat(System.currentTimeMillis(), dashUp = ProjectionResume.dashUp(controller.state.dash))
                 val state = reader.read()
                 standby.offer(reader.appStandby())
+                summary.offer(
+                    System.currentTimeMillis(),
+                    com.reau.app.data.ProcessStateSummary.Look(
+                        true, ProjectionResume.dashUp(controller.state.dash), state.screenOn, resumedAttempt, state.batteryPct, state.charging,
+                    ),
+                )
                 // The same clock as the memory signs' (REauApp writes PressureSignals with MonotonicClock): with SystemClock.elapsedRealtime here the minute of
                 // faster lines never came, the two readings being hours apart (found in the review of 26/11/2026).
                 val nowMs = com.reau.app.util.MonotonicClock.nowMs()
@@ -859,6 +871,9 @@ class ProjectionService : Service() {
     /** The projection no longer looks at the phone: the memory signs go back to writing their own line only. */
     private fun stopLookingAtTheDevice() {
         deviceLook?.cancel(false)
+        // The process may live on with the app open: its summary says the projection is over.
+        stateSummary?.ended()
+        stateSummary = null
         pressureLook?.let { com.reau.app.data.MemoryPressure.signals.detach(it) }
         pressureLook = null
     }

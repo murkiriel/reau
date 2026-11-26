@@ -118,6 +118,10 @@ Desde 25/11/2026 (0.4.0): se o sistema do celular encerra o processo do REau com
 Desde 26/11/2026 (A3 e A8 do plano dos pilotos Xiaomi e realme): num Xiaomi ou realme o app escreve, no início de cada projeção e quando o piloto muda um item da lista de «Manter o REau vivo»,
 `keepalive: rider says autostart=yes background=no lock=yes battery=?` (declaração do piloto, não leitura; `?` é item que ele nunca tocou). A linha do tempo diz «o piloto diz ter feito (sem conferência): …».
 O botão do ajuste do fabricante escreve `keepalive: opened <tela> (alternative N of M)` ou `… did not open …`, e o aviso único `keepalive: the one-time notice was answered (…)`; saem como «ajuste do fabricante: …».
+Na linha `[device] app standby: bucket=… background-restricted=… adb=on|off devopts=on|off` (escrita no primeiro olhar da projeção e só quando algo muda) o app diz também se a depuração USB
+(`Settings.Global.ADB_ENABLED`) e as opções de desenvolvedor estão ligadas (S1, 26/11/2026); a linha do tempo diz «depuração USB ligada, opções de desenvolvedor desligadas».
+Cada «o sistema fechou o REau» (e o fim da projeção que ele deixa sem marca) traz também o resumo que o próprio processo gravou de si antes de morrer (`, state "…"` da linha `[exit]`, vindo do
+`processStateSummary` do Android; S3): projeção, painel, tela apagada havia quantos s, tentativa de retomada, bateria e carregador.
 Quando o app fala no fone escreve `[audio] voice: <FRASE> said`; a linha do tempo diz «fala no fone: …» e, para `APP_BACK` («O REau voltou»), vem depois da linha da retomada.
 
 Desde 25/11/2026 (plano 35, passo A): a linha `[exit] past exit: …` que o processo seguinte escreve vira o problema «o sistema fechou o REau», com a hora da morte e o motivo, quando
@@ -908,7 +912,8 @@ def _motivo_da_saida(linhas, i, ultima):
             h, mi, se = m.group(2).split(":")
             saiu = int(h) * 3600 + int(mi) * 60 + float(se)
             if tempo.assinado(saiu, ultima.segundos) >= -5 and tempo.assinado(inicio.segundos, saiu) >= -5:
-                return MOTIVO_DA_SAIDA.get(int(m.group(1)), f"motivo {m.group(1)}")
+                resumo = mortes.resumo_do_processo(y.texto)
+                return MOTIVO_DA_SAIDA.get(int(m.group(1)), f"motivo {m.group(1)}") + (f"; o app gravou de si antes de morrer: {resumo}" if resumo else "")
     return ""
 
 
@@ -945,7 +950,8 @@ def _sistema_fechou(linhas, caminhos=()):
         pid = mortes.SAIDA_PID.search(x.texto)
         sobre, intervalo, do_piloto = mortes.detalhes(
             linhas, i, mortes.segundos_do_dia(m.group(2)), LIGOU, DESLIGOU, descricao, motivo, entradas_do_app,
-            int(pid.group(1)) if pid else None, (int(data.group(2)), int(data.group(3))) if data else None)
+            int(pid.group(1)) if pid else None, (int(data.group(2)), int(data.group(3))) if data else None,
+            mortes.resumo_do_processo(x.texto))
         if intervalo is not None and not do_piloto:
             intervalos.append((intervalo, quando))
         nome = IMPORTANCIA_DO_APP.get(grau, importancia.group(1))
@@ -2734,6 +2740,27 @@ def _keepalive(t):
     return ["ajuste do fabricante: " + t[len("keepalive: "):]]
 
 
+# `[device] app standby: bucket=working_set background-restricted=no adb=on devopts=off`: written at the first look of a projection and when one of them changes; the last two
+# fields (USB debugging and developer options, 26/11/2026) are not in the lines of a build before them.
+STANDBY_DIZ = re.compile(r"^app standby: bucket=(\S+) background-restricted=(\S+)(?: adb=(\S+) devopts=(\S+))?$")
+STANDBY_BALDE = {"unknown": "sem leitura"}
+STANDBY_SIM_NAO = {"yes": "sim", "no": "não", "?": "sem leitura"}
+STANDBY_LIGADO = {"on": "ligada", "off": "desligada", "?": "sem leitura"}
+STANDBY_LIGADAS = {"on": "ligadas", "off": "desligadas", "?": "sem leitura"}
+
+
+def _balde_do_app(t):
+    """A linha `app standby:` (A4 de 26/11/2026) na linha do tempo: o balde de uso e a restrição de segundo plano que o Android deu ao app e, desde a mesma noite, a depuração USB e as opções
+    de desenvolvedor (S1: a depuração USB pode mudar o trato do sistema do fabricante com o app ao bloquear a tela; o celular do dono a tem ligada e o dos pilotos talvez não, e o registro nunca dizia)."""
+    m = STANDBY_DIZ.match(t)
+    if not m:
+        return []
+    frase = f"o Android pôs o app no balde de uso {STANDBY_BALDE.get(m.group(1), m.group(1))}, restrição de segundo plano: {STANDBY_SIM_NAO.get(m.group(2), m.group(2))}"
+    if m.group(3):
+        frase += f"; depuração USB {STANDBY_LIGADO.get(m.group(3), m.group(3))}, opções de desenvolvedor {STANDBY_LIGADAS.get(m.group(4), m.group(4))}"
+    return [frase]
+
+
 def _fala_no_fone(t):
     """A linha que o app escreve quando uma frase foi mesmo dita no fone (`voice: APP_BACK said`; A8, 26/11/2026)."""
     m = FALA_NO_FONE.match(t)
@@ -2755,6 +2782,8 @@ def _eventos_novos(x, bloco):
         if t.startswith("end: "):
             return [f"chamada encerrada pelo joystick ({t[5:60]})"]
         return []
+    if x.etiqueta == "device" and t.startswith("app standby: "):
+        return _balde_do_app(t)
     if x.etiqueta == "audio":
         return _fala_no_fone(t) or _eventos_do_bluetooth(t)
     if x.etiqueta in ("ui", "settings") and t.startswith("keepalive: "):

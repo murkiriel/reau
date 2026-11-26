@@ -9,6 +9,8 @@ mostra isso. Aqui ficam as contas, todas sobre o registro do processo que morreu
 - o tempo desde a retomada que a 0.4.0 faz (`resumed after the system ended the process`), quando o processo que morreu veio de uma;
 - o que o logcat do próprio processo diz do display (`DisplayState - old: 3, new: 1`), quando a coleta o traz: no Xiaomi o display passa do apagado ao modo de espera e só depois
   fica apagado de vez, e a diferença é de 15 s (14:46:59,6 e 14:47:14,1);
+- o resumo que o próprio processo gravou de si antes de morrer (`ApplicationExitInfo.processStateSummary`, desde 26/11/2026): projeção, painel, tela apagada desde quando, retomada,
+  bateria e carregador, como o Android os guardou até a hora da morte, sem cruzar com a última olhada `[device]` (que pode estar a 5 s) e mesmo que o fim do arquivo se perca;
 - a descrição inteira da saída, e a origem que ela deixa ver num «Forçar parada» (o motivo 10 também é o do piloto nos Ajustes: o texto do gerenciador traz `due to UserDefined:`).
 
 Puro: sem arquivo e sem estado (o logcat é lido por quem chama). Tudo é leitura do texto, não prova: o que é suposição sai dito como suposição.
@@ -30,6 +32,8 @@ RAZAO_DO_GERENCIADOR = re.compile(r"due to UserDefined:(.*)$", re.IGNORECASE)
 RAZAO_ATE = 80  # characters of the manager's reason told in the line
 PADRAO_FOLGA_S = 15.0  # intervals within this of one another are the same clock (realme 25/11: 298,2 to 303,2 s)
 TOLERANCIA_MORTE_S = 5.0  # the clock of the death line and of the log differ by this much (the same one `_motivo_da_saida` uses)
+# `, state "projecting=yes dash=up screen=off off-for=301s attempt=2 battery=65% charging=no"`: what the app wrote in the `[exit]` line from the summary the dead process kept.
+RESUMO_DO_PROCESSO = re.compile(r', state "([^"]*)"')
 ORIGEM_GERENCIADOR = "o texto traz a razão que o próprio sistema deu"
 ORIGEM_SEM_RAZAO = "o texto não traz razão dada pelo sistema: pode ser o piloto nos Ajustes"
 
@@ -110,6 +114,32 @@ def retomada_ate_a_morte(trecho, morte_s):
     return achada
 
 
+def resumo_do_processo(texto):
+    """O resumo que o processo que morreu gravou de si (a parte `state "…"` da linha `[exit]`) em palavras: «projeção ligada, painel conectado, tela apagada havia 301 s, …».
+    Vazio se a linha não traz o resumo (processo de antes dele, ou que nunca o gravou). Um campo que não se entende entra como veio, para nada ser perdido."""
+    achado = RESUMO_DO_PROCESSO.search(texto)
+    if not achado:
+        return ""
+    campos = dict(p.split("=", 1) for p in achado.group(1).split() if "=" in p)
+    frases = []
+    if "projecting" in campos:
+        frases.append("projeção ligada" if campos["projecting"] == "yes" else "projeção desligada")
+    if "dash" in campos:
+        frases.append("painel conectado" if campos["dash"] == "up" else "painel desconectado")
+    tela = campos.get("screen")
+    if tela == "off":
+        frases.append("tela apagada havia " + campos.get("off-for", "?").replace("s", " s"))
+    elif tela is not None:
+        frases.append({"on": "tela acesa", "?": "tela sem leitura"}.get(tela, f"tela {tela}"))
+    if "attempt" in campos:
+        frases.append("sem retomada" if campos["attempt"] == "0" else f"retomada, tentativa {campos['attempt']}")
+    if "battery" in campos:
+        frases.append("bateria sem leitura" if campos["battery"] == "?" else f"bateria {campos['battery']} (em passos de 5)")
+    if "charging" in campos:
+        frases.append({"yes": "carregando", "no": "sem carregador"}.get(campos["charging"], "carregador sem leitura"))
+    return ", ".join(frases) if frases else achado.group(1)
+
+
 def origem_da_parada(motivo, descricao):
     """Para um «Forçar parada» (motivo 10 ou 11 com `FORCE STOP` na descrição), de quem parece ser, só pelo texto: (frase, do_piloto_provavel). Vazio para as outras saídas.
     No Xiaomi o gerenciador do sistema escreve `[FORCE STOP] stop <pacote> due to UserDefined:<razão>`; sem essa razão o texto não separa o piloto do sistema (suposição)."""
@@ -168,10 +198,10 @@ def texto_do_display(morte_s, apagou, de_vez):
     return texto
 
 
-def detalhes(linhas, i, morte_s, ligou, desligou, descricao, motivo, entradas_do_app=(), pid=None, data=None):
+def detalhes(linhas, i, morte_s, ligou, desligou, descricao, motivo, entradas_do_app=(), pid=None, data=None, resumo=""):
     """O que se sabe do processo que morreu: (texto da linha, intervalo de tela apagada em s ou None, do_piloto_provavel).
     `linhas[i]` é a linha `[exit]`; `ligou` e `desligou` as marcas de projeção do leitor (strings ou tuplas, para `startswith`); `entradas_do_app` as linhas `-v threadtime`
-    dos logcats do app, com `pid` e `data` (mes, dia) da morte, para o display."""
+    dos logcats do app, com `pid` e `data` (mes, dia) da morte, para o display; `resumo` o que `resumo_do_processo` disse da linha `[exit]` (vazio sem ele)."""
     partes = []
     intervalo, do_piloto = None, False
     limites = processo_que_morreu(linhas, i, morte_s)
@@ -192,6 +222,8 @@ def detalhes(linhas, i, morte_s, ligou, desligou, descricao, motivo, entradas_do
             do_display = texto_do_display(morte_s, *display_do_logcat(entradas_do_app, pid, data[0], data[1], morte_s))
             if do_display:
                 partes.append(do_display)
+    if resumo:
+        partes.append(f"o resumo que o processo gravou de si antes de morrer (o Android o devolveu na saída; a tela vem da olhada, até 5 s a mais): {resumo}")
     origem, do_piloto = origem_da_parada(motivo, descricao)
     partes.append(f"descrição inteira da saída: «{descricao}»" if descricao else "a saída não traz descrição")
     if origem:

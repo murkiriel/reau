@@ -19,6 +19,8 @@ data class PastExit(
     val pssKb: Long,
     val rssKb: Long,
     val description: String?,
+    /** The state summary the process kept for the system ([ProcessStateSummary], `ApplicationExitInfo.getProcessStateSummary`, Android 11+) as ASCII text; null with none. */
+    val stateSummary: String? = null,
 )
 
 /**
@@ -130,6 +132,9 @@ object ExitReasons {
             EXIT_SELF -> append(", exit code ${exit.status}")
         }
         if (exit.pssKb > 0 || exit.rssKb > 0) append(", pss ${exit.pssKb / KB_PER_MB} MB, rss ${exit.rssKb / KB_PER_MB} MB")
+        // What the process said of itself before it died (26/11/2026, S3): the state at its last change, with the screen's time counted to this death. Before the description,
+        // which the reader takes as the last quoted text of the line.
+        ProcessStateSummary.describe(exit.stateSummary, exit.timestampMs)?.let { append(", state \"$it\"") }
         exit.description?.takeIf { it.isNotBlank() }?.let { append(", \"${oneShortLine(it)}\"") }
         traceFile?.let { append(", trace in $it") }
     }

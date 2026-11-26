@@ -52,4 +52,13 @@ class ReleaseReproducibleBuildTest {
         val properties = File(root(), "gradle.properties").readText()
         assertFalse("kotlin.incremental=false would take the incremental compilation away from the debug build too", Regex("^\\s*kotlin\\.incremental\\s*=\\s*false", RegexOption.MULTILINE).containsMatchIn(properties))
     }
+
+    @Test
+    fun `the commit in the build is always 12 characters, not the length git picks for the size of the clone`() {
+        // 26/11/2026 (review A3): a plain --short is 7 characters in a shallow clone and more in a full one, so the same commit gave two different APKs.
+        val app = File(root(), "app/build.gradle.kts").readText()
+        assertTrue(app.contains("commandLine(\"git\", \"rev-parse\", \"--short=12\", \"HEAD\")"))
+        assertFalse("a --short with no length", Regex("\"--short\"").containsMatchIn(app))
+        assertTrue("outside a git checkout it stays a question mark", app.contains("it.trim().ifEmpty { \"?\" }") && app.contains(".getOrElse(\"?\")"))
+    }
 }
