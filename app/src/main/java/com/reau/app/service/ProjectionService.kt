@@ -299,6 +299,9 @@ class ProjectionService : Service() {
     // The phone's state looked at while the projection is on; only the worker reads and writes it.
     private var deviceLook: ScheduledFuture<*>? = null
 
+    // The summary of this process's state kept for the system (ProcessStateSummary); only the worker reads and writes it.
+    private var stateSummary: com.reau.app.data.ProcessStateSummaryKeeper? = null
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     // Before Android 13 the chosen language is put on the context here (from 13 the system holds it).
@@ -608,7 +611,7 @@ class ProjectionService : Service() {
                     log("projection: the browser switch went off with the projection")
                 }
             }
-            deviceLook?.cancel(false)
+            stopLookingAtTheDevice()
             ProjectionNotification.clearPhoneHot(this@ProjectionService)
             // The Wi-Fi notice goes with the projection, and the voice lets its engine and the audio focus go (a next projection starts clean).
             ProjectionNotification.clearWifiOff(this@ProjectionService)
@@ -662,6 +665,9 @@ class ProjectionService : Service() {
         val device = DeviceStateLog(DEVICE_PERIOD_MS) { RideDiagnostics.log("device", it) }
         // The standby bucket and the background restriction: one line at the first look of the projection, another only when one of them changes (26/11/2026).
         val standby = AppStandbyLog { RideDiagnostics.log("device", it) }
+        // The summary of this process's state the system hands back with its death (ProcessStateSummary, 26/11/2026): given only when it changes, not at every look.
+        val summary = com.reau.app.data.ProcessStateSummaryKeeper { reader.keepSummary(it) }
+        stateSummary = summary
         // Armed for this projection: one warning when the battery passes 44 C, another only after it fell under 41 C (BatteryHeatWatch).
         val heat = BatteryHeatWatch()
         // Said once for this projection: the reader does not ask for the thermal headroom in this build (the lines have no headroom=).
@@ -673,12 +679,25 @@ class ProjectionService : Service() {
             runCatching {
                 val state = reader.read()
                 standby.offer(reader.appStandby())
+                summary.offer(
+                    System.currentTimeMillis(),
+                    com.reau.app.data.ProcessStateSummary.Look(
+                        true, controller.state.dash == DashLink.READY, state.screenOn, 0, state.batteryPct, state.charging,
+                    ),
+                )
                 device.offer(SystemClock.elapsedRealtime(), state)
                 ProjectionSummary.current.device(state.thermal, state.batteryPct)
                 warnIfHot(heat, state)
             }
                 .onFailure { log("${RideDiagnostics.WARN}projection: reading the device state failed: $it") }
         }, 0, DEVICE_LOOK_MS, TimeUnit.MILLISECONDS)
+    }
+
+    /** The projection no longer looks at the phone: the summary of the process says the projection is over (the process may live on with the app open). */
+    private fun stopLookingAtTheDevice() {
+        deviceLook?.cancel(false)
+        stateSummary?.ended()
+        stateSummary = null
     }
 
     /** The rider's notice that the phone is hot ([BatteryHeatWatch]), and its line in the ride log; the notice goes when the phone has cooled. */

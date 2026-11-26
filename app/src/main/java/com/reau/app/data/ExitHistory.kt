@@ -65,6 +65,10 @@ object ExitHistory {
         pssKb = info.pss,
         rssKb = info.rss,
         description = info.description,
+        // API 30: the summary REau gave its own process ([ProcessStateSummary]); a build before it, or a process that never gave one, has none. Only ASCII is kept.
+        stateSummary = runCatching { info.processStateSummary }.getOrNull()
+            ?.takeIf { it.size <= ProcessStateSummary.MAX_BYTES }
+            ?.let { String(it, Charsets.US_ASCII) },
     )
 
     @RequiresApi(Build.VERSION_CODES.R)

@@ -11,6 +11,7 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.wifi.WifiInfo
 import android.os.BatteryManager
+import android.os.Build
 import android.os.PowerManager
 import android.os.Process
 import android.os.SystemClock
@@ -52,6 +53,14 @@ class DeviceStateReader(private val context: Context, private val bikeNetwork: (
     /** A system switch of `Settings.Global` (public, no permission) as on or off; null when the phone does not have it or refuses the read (26/11/2026). */
     private fun globalSwitch(name: String): Boolean? =
         runCatching { android.provider.Settings.Global.getInt(context.contentResolver, name) != 0 }.getOrNull()
+
+    /**
+     * Gives the system REau's state summary for this process (API 30, up to 128 bytes): it comes back in the `ApplicationExitInfo` of this process's death
+     * ([com.reau.app.data.ProcessStateSummary], 26/11/2026). A failure is never a throw.
+     */
+    fun keepSummary(bytes: ByteArray) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) runCatching { activity.setProcessStateSummary(bytes) }
+    }
 
     private fun readNow(): DeviceState {
         val battery = runCatching {
