@@ -16,11 +16,15 @@ plugins {
 // when it was the minutes), because Android only installs over an app whose versionCode is lower; so 0.3.0 is 30_030_000, 0.3.1 is
 // 30_030_100, 0.4.0 is 30_040_000, 1.0.0 is 31_000_000. Changing the version means changing the two lines below together:
 // VersionCodeSchemeTest checks that they agree, that the number grows and that it stays above the published ones.
-// versionCode of a DEBUG build is still the minutes since the Unix epoch, so each debug build installs over the previous one.
+// versionCode of a DEBUG build is the release code + 99, the top of the 99 numbers kept for a rebuild of the version: above the release of the
+// same version (the debug installs over 0.4.0) and below the next one (0.4.1, 30_040_100, installs over the debug). It used to be the minutes
+// since the Unix epoch, which passed the releases in February 2027 (0.3.1 on the 5th, 0.4.0 around the 12th), and from then on a debug build
+// installed blocked every release signed with the same key. Debug builds of one version share the code (Android reinstalls over an equal
+// versionCode; the time stamp of the build stays in the versionName).
 val appVersionName = "0.4.0"
 val releaseVersionCode = 30_040_000
 val buildTimestamp: String = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yy.MM.dd-HH.mm"))
-val debugVersionCode = (System.currentTimeMillis() / 60_000L).toInt()
+val debugVersionCode = releaseVersionCode + 99
 // The commit the APK was built from, for the ride log header; "?" outside a git checkout (so a check of the published APK needs a clone with
 // its .git). Always 12 characters: a plain --short gives 7 or more by how many objects the repository has, so the same commit gave a longer
 // text in a full clone than in the CI's shallow one and the two APKs differed (review of 26/11/2026, A3).
@@ -174,7 +178,7 @@ android {
     }
 }
 
-// The debug build takes its versionCode (and the BuildConfig.VERSION_CODE the ride log prints) from the clock; the release keeps the fixed one.
+// The debug build takes its own versionCode (and the BuildConfig.VERSION_CODE the ride log prints), the release code + 99; the release keeps the fixed one.
 androidComponents {
     onVariants(selector().withBuildType("debug")) { variant ->
         variant.outputs.forEach { it.versionCode.set(debugVersionCode) }
