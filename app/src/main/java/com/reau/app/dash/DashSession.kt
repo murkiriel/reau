@@ -142,6 +142,8 @@ class DashSession(
     // One-shot: the first time the dash reports it DECODED our video (09 06 55). If this never
     // appears in the ride log, the dash never accepted the stream — the likely "Timeout!" cause.
     @Volatile private var loggedFirstAck = false
+    // The line of the instant the dash first confirmed a frame of the stream, once per session (plan 35, 25/11/2026).
+    private val firstFrame = FirstFrameMark()
     // Running count of 09 06 55 + 09 04 55 decode acks — the only dash-side signal of frames it
     // actually decoded. Read as deltas per window by the stream governor (the `dash=` of its 5 s line).
     private val decodeAcks = java.util.concurrent.atomic.AtomicLong(0)
@@ -1071,6 +1073,7 @@ class DashSession(
                 authRetries = 0
                 beginAuthState(network)
                 loggedFirstAck = false
+                firstFrame.reset()
                 aliveWithoutAck = false
                 streamingStartMs = 0L
                 lastRxMs = 0L
@@ -1258,6 +1261,17 @@ class DashSession(
         return first
     }
 
+    /**
+     * The dash said it decoded a frame ([notice]): the first of the session that comes while streaming is written with the time since `→ STREAMING` (the reader
+     * had only the 5 s windows), and, after a resume by the system, with the time since the system ended the process ([ResumeClock]).
+     */
+    private fun noteFirstFrame(notice: String) {
+        val now = MonotonicClock.nowMs()
+        val ms = firstFrame.ack(_state.value, streamingStartMs, now) ?: return
+        com.reau.app.data.RideDiagnostics.log("dash", FirstFrameMark.line(ms, notice))
+        com.reau.app.data.ResumeClock.shared.confirmed(now)?.let { com.reau.app.data.RideDiagnostics.log("projection", it) }
+    }
+
     /** The dash's first heartbeat of the session: its counter (how long the dash has been on), kept for [DashReadiness]. */
     private fun noteHeartbeat(value: ByteArray) {
         val counter = DashReadiness.counterOf(value) ?: return
@@ -1430,6 +1444,7 @@ class DashSession(
                 decodeAcks.incrementAndGet()
                 noticeLine("09 06 55", ++notices0906, "answered with 06 11")
                 sock.send(DashCommands.frameDecodedIdr())
+                noteFirstFrame("09 06 55")
                 continue
             }
             // ── 09 04 55: P-frame decoded → reply ──
@@ -1439,6 +1454,7 @@ class DashSession(
                 decodeAcks.incrementAndGet()
                 noticeLine("09 04 55", ++notices0904, "answered with 06 12")
                 sock.send(DashCommands.frameDecodedP())
+                noteFirstFrame("09 04 55")
                 continue
             }
             // ── 09 00: button / joystick event → echo ack + hand it on ──

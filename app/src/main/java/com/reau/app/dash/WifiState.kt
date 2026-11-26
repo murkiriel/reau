@@ -17,6 +17,11 @@ data class WifiState(
     val error: String? = null,
     /** The dash is in Android's scan but refuses the join (stuck, or refusing): worth trying again sooner. */
     val dashVisible: Boolean = false,
+    /**
+     * Why an ERROR is one, in fixed English for the ride log (the refusal's name); null when there is none to say. [error] is what the screen shows, in the
+     * rider's language (strings.xml), and the log used to take it, so one log wrote English and Portuguese in turns (25/11/2026).
+     */
+    val cause: String? = null,
 )
 
 /**

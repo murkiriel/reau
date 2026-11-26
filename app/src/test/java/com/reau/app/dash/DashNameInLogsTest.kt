@@ -44,6 +44,6 @@ class DashNameInLogsTest {
     /** The missing-name failure goes to the log too: its example is a made-up name, not a real dash's. */
     @Test
     fun `the missing full name gives a made-up example`() {
-        assertTrue(WifiDashLinkUp.FULL_NAME_NEEDED, "(ex.: $name)" in WifiDashLinkUp.FULL_NAME_NEEDED)
+        assertTrue(WifiDashLinkUp.FULL_NAME_NEEDED, "(e.g. $name)" in WifiDashLinkUp.FULL_NAME_NEEDED)
     }
 }

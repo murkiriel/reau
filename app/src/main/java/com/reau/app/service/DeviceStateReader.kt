@@ -18,6 +18,7 @@ import androidx.core.content.ContextCompat
 import com.reau.app.data.CpuWindow
 import com.reau.app.data.DeviceState
 import com.reau.app.data.LoadAverage
+import com.reau.app.data.MemoryProc
 import com.reau.app.data.PowerReadings
 import com.reau.app.data.RideDiagnostics
 
@@ -34,6 +35,7 @@ class DeviceStateReader(private val context: Context, private val bikeNetwork: (
     private val batteryManager = context.getSystemService(BatteryManager::class.java)
     private val cpu = CpuWindow()
     private val load = LoadAverage { RideDiagnostics.log("device", LoadAverage.UNREADABLE_LINE) }
+    private val procMemory = MemoryProc(onPressureUnreadable = { RideDiagnostics.log("device", MemoryProc.UNREADABLE_LINE) })
 
     /** The state now; what it says of the charger, the screen and doze is also kept for the line on a link's end. */
     fun read(): DeviceState = readNow().also { com.reau.app.data.PhoneNow.update(it.charging, it.screenOn, it.dozing, it.batteryTempC) }
@@ -77,6 +79,8 @@ class DeviceStateReader(private val context: Context, private val bikeNetwork: (
             cpuPct = runCatching { cpu.offer(Process.getElapsedCpuTime(), SystemClock.elapsedRealtime()) }.getOrNull(),
             lowMemoryAtMb = memory?.let { (it.threshold / MB).toInt() },
             loadAverage = load.read(),
+            memAvailableMb = procMemory.availableMb(),
+            memPressure = procMemory.pressure(),
         )
     }
 

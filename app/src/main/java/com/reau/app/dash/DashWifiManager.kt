@@ -707,6 +707,8 @@ class DashWifiManager(
             ssid   = pendingSsid,
             error  = message,
             dashVisible = refusal == Refusal.DASH_STUCK || refusal == Refusal.SEEN_NOT_JOINED,
+            // The log's words for the failure ([WifiState.cause]): the refusal's name, not the screen's text in the rider's language.
+            cause  = "initial connect refused: $refusal",
         )
         wantConnected = false
     }

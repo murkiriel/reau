@@ -324,6 +324,9 @@ class ProjectionService : Service() {
     // The phone's state looked at while the projection is on; only the worker reads and writes it.
     private var deviceLook: ScheduledFuture<*>? = null
 
+    // What the system's memory signs call ([com.reau.app.data.PressureSignals]): a look at the phone on the worker, with the reason it is written for.
+    private var pressureLook: ((String) -> Unit)? = null
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     // Before Android 13 the chosen language is put on the context here (from 13 the system holds it).
@@ -400,6 +403,8 @@ class ProjectionService : Service() {
             ACTION_START, ACTION_START_CARD -> if (goForeground()) {
                 lastStart = startId
                 resumedAttempt = 0
+                // The rider's own Ligar: a frame from now on is not the resume's.
+                com.reau.app.data.ResumeClock.shared.disarm()
                 resumable = resumeSwitchOn()
                 val card = intent.action == ACTION_START_CARD
                 handle(startId, if (card) ProjectionEvent.StartCard else ProjectionEvent.Start, sidesFor = card)
@@ -485,7 +490,24 @@ class ProjectionService : Service() {
     private fun forgetResume() {
         resumable = false
         resumedAttempt = 0
+        com.reau.app.data.ResumeClock.shared.disarm()
         runCatching { resumeBook.erase() }.onFailure { logResume("the resume mark could not be erased: ${it.javaClass.simpleName}") }
+    }
+
+    /**
+     * A resume began: the dash session says, when the dash confirms the first frame, how long that took since the system ended the process and since this one started
+     * ([com.reau.app.data.ResumeClock], plan 35, 25/11/2026). The exit is the newest one Android kept; on the worker (a binder call), once the session's log has begun.
+     */
+    private fun armResumeClock() {
+        runCatching {
+            val exit = ExitHistory.newest(this)
+            com.reau.app.data.ResumeClock.shared.arm(
+                nowMs = com.reau.app.util.MonotonicClock.nowMs(),
+                processAgeMs = SystemClock.elapsedRealtime() - android.os.Process.getStartElapsedRealtime(),
+                exitAgeMs = exit?.let { System.currentTimeMillis() - it.timestampMs },
+                exitName = exit?.let { com.reau.app.data.ExitReasons.reasonName(it.reason) },
+            )
+        }
     }
 
     private fun logResume(line: String) {
@@ -650,7 +672,10 @@ class ProjectionService : Service() {
             // One ride log per projection, in <external files>/diag, where `adb pull` reaches it.
             RideDiagnostics.start("projection")
             // After the session's own start, so the reader finds it inside the projection it belongs to.
-            resumedAttempt.takeIf { it > 0 }?.let { logResume(ProjectionResume.resumedLine(it, ProjectionResume.exemptionNote(batteryExemption()))) }
+            resumedAttempt.takeIf { it > 0 }?.let {
+                logResume(ProjectionResume.resumedLine(it, ProjectionResume.exemptionNote(batteryExemption())))
+                armResumeClock()
+            }
             val inUse = SettingsStore.open(this@ProjectionService).load().sanitized()
             RideDiagnostics.log("settings", SettingsInUse.line(inUse))
             marks.reset()
@@ -709,7 +734,7 @@ class ProjectionService : Service() {
                     log("projection: the browser switch went off with the projection")
                 }
             }
-            deviceLook?.cancel(false)
+            stopLookingAtTheDevice()
             ProjectionNotification.clearPhoneHot(this@ProjectionService)
             // The Wi-Fi notice goes with the projection, and the voice lets its engine and the audio focus go (a next projection starts clean).
             ProjectionNotification.clearWifiOff(this@ProjectionService)
@@ -760,25 +785,40 @@ class ProjectionService : Service() {
      */
     private fun lookAtTheDevice() {
         val reader = DeviceStateReader(this) { sides?.bikeNetwork }
-        val device = DeviceStateLog(DEVICE_PERIOD_MS) { RideDiagnostics.log("device", it) }
+        // After a sign of memory pressure the line comes at every look for a minute (PressureSignals.periodAt), then back to the 30 s.
+        val signals = com.reau.app.data.MemoryPressure.signals
+        val device = DeviceStateLog(DEVICE_PERIOD_MS, signals::periodAt) { RideDiagnostics.log("device", it) }
         // Armed for this projection: one warning when the battery passes 44 C, another only after it fell under 41 C (BatteryHeatWatch).
         val heat = BatteryHeatWatch()
         // Said once for this projection: the reader does not ask for the thermal headroom in this build (the lines have no headroom=).
         RideDiagnostics.log("device", com.reau.app.data.ThermalHeadroomNote.LINE)
         // Said once for this projection: the alert channel muted or blocked in Android (the main screen says it too).
         AlertChannelState.line(AlertChannelState.read(this))?.let { RideDiagnostics.warn("projection", it) }
-        deviceLook?.cancel(false)
-        deviceLook = worker.scheduleWithFixedDelay({
+        // [why] null: the look of every 5 s (the line only when its period is due or something relevant changed); else a memory sign's reason, and the line at once.
+        val look = { why: String? ->
             runCatching {
                 // The sign of life the resume's mark is renewed with, once a minute at most (ProjectionResumeBook).
                 resumeBook.beat(System.currentTimeMillis(), dashUp = ProjectionResume.dashUp(controller.state.dash))
                 val state = reader.read()
-                device.offer(SystemClock.elapsedRealtime(), state)
+                if (why == null) device.offer(SystemClock.elapsedRealtime(), state) else device.force(SystemClock.elapsedRealtime(), state, why)
                 ProjectionSummary.current.device(state.thermal, state.batteryPct)
                 warnIfHot(heat, state)
             }
                 .onFailure { log("${RideDiagnostics.WARN}projection: reading the device state failed: $it") }
-        }, 0, DEVICE_LOOK_MS, TimeUnit.MILLISECONDS)
+        }
+        deviceLook?.cancel(false)
+        deviceLook = worker.scheduleWithFixedDelay({ look(null) }, 0, DEVICE_LOOK_MS, TimeUnit.MILLISECONDS)
+        // A memory sign comes on the main thread: the look is handed to the worker, which is where the reader (and its state) lives.
+        val onSign: (String) -> Unit = { why -> runCatching { worker.execute { look(why) } } }
+        pressureLook = onSign
+        signals.attach(onSign)
+    }
+
+    /** The projection no longer looks at the phone: the memory signs go back to writing their own line only. */
+    private fun stopLookingAtTheDevice() {
+        deviceLook?.cancel(false)
+        pressureLook?.let { com.reau.app.data.MemoryPressure.signals.detach(it) }
+        pressureLook = null
     }
 
     /** The rider's notice that the phone is hot ([BatteryHeatWatch]), and its line in the ride log; the notice goes when the phone has cooled. */

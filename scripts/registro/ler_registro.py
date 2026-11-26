@@ -158,7 +158,7 @@ PROCESSO_RECOMECOU = (tempo.PROCESSO_COMECOU, "o app recomeçou")
 # `[exit] past exit: package updated (16) at 2026-11-25 06:02:24.550, process …` (or `… (16) ×2 from <a> to 2026-11-25 06:02:24.550, …`): the app tells, at the start of the
 # next process, why Android ended the previous one (`ExitReasons`). The reader says it in these words, by the number in the parentheses.
 SAIDA_DO_PROCESSO = re.compile(r"^past exit: .*? \((\d+)\) (?:at|×\d+ from \S+ \S+ to) \d{4}-\d\d-\d\d (\d\d:\d\d:\d\d(?:\.\d+)?)")
-RETOMADA = re.compile(r"^resumed after the system ended the process \(attempt (\d+) of (\d+)\)$")  # the app's own line when the projection came back by itself (0.4.0)
+RETOMADA = re.compile(r"^resumed after the system ended the process \(attempt (\d+) of (\d+)(?:; [^)]*)?\)$")  # the app's own line when the projection came back by itself (0.4.0)
 SAIDA_DO_PROCESSO_LINHAS = 60  # how far after the `process start` the app tells its past exits
 # O sistema fechou o REau (25/11/2026: o Android matou o processo às 16:10:18 e às 16:10:55, `low memory (3)` e `was foreground service (125)`, e o leitor só
 # dizia «o app recomeçou» na linha do tempo, sem nenhum problema). A regra espelha a de `SystemClosedRide.kt` (o aviso que o app dá ao piloto): o motivo é um
@@ -266,7 +266,7 @@ ABERTURA_S = 5.0
 ABERTURA_FRAME_LENTO = re.compile(r"slow frame: \d+ ms during cold start")
 ABERTURA_FRAME_LENTO_S = 1.5
 CHAVE_CHEGOU = re.compile(r"key arrived ([\d.]+) s after the first greeting, after (\d+) resends?")
-AVISO_DE_10S = ("dash DECODED first IDR", "dash notice 09 06 55", "dash sent 09 06 55 while")
+AVISO_DE_10S = ("dash DECODED first IDR", "first frame confirmed by the dash", "dash notice 09 06 55", "dash sent 09 06 55 while")
 # Android Auto closes its link together with the phone's screen going off or on (EOF, 12:01:07 and 12:13:36 on 20/10/2026): not a fall.
 TELA_JUNTO_S = 3.0
 TELA_EVENTOS = ("screen on", "screen off", "screen unlocked")
@@ -1267,13 +1267,22 @@ def versoes_do_app(linhas):
     return [f"app {v}: {len(a)} {'abertura' if len(a) == 1 else 'aberturas'} ({', '.join(a)})" for v, a in por.items()]
 
 
+# Desde o plano 35 (25/11/2026) o app escreve o instante: `first frame confirmed by the dash 7420 ms after streaming began (09 06 55)`.
+PRIMEIRO_QUADRO_DO_APP = re.compile(r"^first frame confirmed by the dash (\d+) ms after streaming began(?: \(([^)]*)\))?")
 VIDEO_COM_PAINEL = re.compile(r"^video fps target=.*?\((\d+)frames/([\d.]+)s\).*?\bdash=([\d.]+)")
 
 
 def _primeiro_quadro_do_painel(bloco):
-    """(linha `video fps`, texto) do primeiro quadro que o painel confirmou, calculado: a primeira janela de 5 s depois do `→ STREAMING` com `dash=` acima de zero (o painel quase nunca
-    confirma quadro: `dash=0.4` uma vez por viagem). O instante exato está nessa janela, não é escrito pelo app; por isso o texto diz de quanto a quanto. None se o app já escreveu a
-    linha do primeiro quadro (`dash DECODED first IDR`, que o leitor já conta), se não transmitiu ou se o painel nunca confirmou."""
+    """(linha, texto) do primeiro quadro que o painel confirmou. Desde o plano 35 o app escreve o instante (`first frame confirmed by the dash N ms after streaming began`): o texto
+    traz o tempo medido por ele e a linha é a dele. Num registro antigo, que não tem essa linha, é calculado: a primeira janela de 5 s depois do `→ STREAMING` com `dash=` acima de
+    zero (o painel quase nunca confirma quadro: `dash=0.4` uma vez por viagem); o instante exato está nessa janela, por isso o texto diz de quanto a quanto. None se o app já escreveu
+    a linha do primeiro quadro de antes (`dash DECODED first IDR`, que o leitor já conta), se não transmitiu ou se o painel nunca confirmou."""
+    do_app = next(((x, PRIMEIRO_QUADRO_DO_APP.match(x.texto)) for x in bloco if PRIMEIRO_QUADRO_DO_APP.match(x.texto)), None)
+    if do_app is not None:
+        x, m = do_app
+        ms = int(m.group(1))
+        aviso = f"; confirmado pelo aviso {m.group(2)}" if m.group(2) else ""
+        return x, f"painel confirmou o primeiro quadro {tempo.dec(ms / 1000)} s depois de transmitir ({ms} ms, medido pelo app{aviso})"
     if any("dash DECODED first IDR" in x.texto for x in bloco):
         return None
     transmitindo = next((x for x in bloco if "→ STREAMING" in x.texto), None)
@@ -2672,6 +2681,12 @@ def _eventos_novos(x, bloco):
     retomada = RETOMADA.match(t) if x.etiqueta == "projection" else None
     if retomada:
         return [f"projeção retomada depois de o sistema fechar o REau, tentativa {retomada.group(1)} de {retomada.group(2)}"]
+    # O tempo da morte à imagem: a linha que o app escreve quando o painel confirma o primeiro quadro de uma projeção retomada (plano 35, 25/11/2026).
+    if x.etiqueta == "projection" and t.startswith("resumed projection: the dash confirmed the first frame"):
+        return ["retomada: " + t[len("resumed projection: "):]]
+    # Os avisos de pouca memória do Android (`onTrimMemory(RUNNING_LOW, 10): …`, `onLowMemory(): …`; plano 35): só os de pressão, que são os que apertam as linhas [device].
+    if x.etiqueta == "memory" and ": memory is short" in t:
+        return ["o Android avisou de pouca memória: " + t.split(":", 1)[0]]
     if x.etiqueta == thread_principal.ETIQUETA:
         return thread_principal.eventos(t)
     if x.etiqueta == "dash":

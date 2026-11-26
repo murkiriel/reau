@@ -168,7 +168,7 @@ internal class WifiDashLinkUp(
     companion object {
         /** Why a start fails when the dash's full name is nowhere to be had; to the log, so the example is made up. */
         const val FULL_NAME_NEEDED =
-            "nome inteiro do Wi-Fi do painel desconhecido: digite o nome inteiro (ex.: RE_AB12_345678) em Ajustes"
+            "the dash's full Wi-Fi name is not known: type the full name (e.g. RE_AB12_345678) in Settings"
 
         /**
          * [text] with every one of [passwords] (the paired one, the panel's default one) replaced by "…": a password never goes to the
@@ -190,12 +190,12 @@ internal class WifiDashLinkUp(
         private const val NANOS_PER_MILLI = 1_000_000L
 
         /** Why a start fails when the phone's Wi-Fi radio is off: nothing is asked of Android, which could not grant it. */
-        const val RADIO_OFF = "Wi-Fi do celular desligado: nenhum pedido de rede até ele ligar"
+        const val RADIO_OFF = "the phone's Wi-Fi is off: no request for the dash's network until it is on"
 
-        const val DASH_NOT_SEEN_YET = "painel ainda não visto na varredura do Wi-Fi: esperando ele aparecer"
+        const val DASH_NOT_SEEN_YET = "the dash is not in the Wi-Fi scan yet: waiting for it to show up"
 
         /** Why a start fails when the reconnection it joined has not come back in time. */
-        const val RECONNECT_NOT_BACK_YET = "o Wi-Fi do painel ainda está tentando voltar"
+        const val RECONNECT_NOT_BACK_YET = "the dash's Wi-Fi is still trying to come back"
 
         /** How long a start waits on a reconnection it joined: one request of the manager's and its pause. */
         const val JOIN_WAIT_MS = 20_000L
@@ -359,8 +359,10 @@ internal class WifiDashLinkUp(
 
     private fun report(state: WifiState, onReady: (String, Network?) -> Unit, onFailed: (String) -> Unit) {
         if (state.status == WifiConnStatus.ERROR) {
-            // The reason goes to the ride log: the words of a stuck dash say the default password.
-            onFailed(withoutPasswords(state.error ?: "Wi-Fi do painel falhou", pairing.password, DashPairing.DEFAULT_PASSWORD))
+            // The reason goes to the ride log (and nowhere else: the screen reads the Wi-Fi state itself): the words of a stuck dash say the default password. The
+            // log's own words when the manager gave them ([WifiState.cause]), else its error text, which in the manager's refusals is the screen's, in the rider's
+            // language: one log then wrote English and Portuguese in turns (25/11/2026).
+            onFailed(withoutPasswords(state.cause ?: state.error ?: "the dash's Wi-Fi failed", pairing.password, DashPairing.DEFAULT_PASSWORD))
             return
         }
         // Connected by the prefix, the Wi-Fi may report the prefix itself as the name; that is neither
@@ -368,7 +370,7 @@ internal class WifiDashLinkUp(
         val reported = state.ssid.takeIf { isFullName(it) }
         val ssid = reported ?: pairing.ssid.takeIf { isDashName(it) }
         if (ssid == null) {
-            onFailed(if (state.ssid.isBlank()) "nome do Wi-Fi do painel desconhecido" else FULL_NAME_NEEDED)
+            onFailed(if (state.ssid.isBlank()) "the dash's Wi-Fi name is not known" else FULL_NAME_NEEDED)
             return
         }
         if (reported != null && reported != pairing.ssid) pairing.remember(reported)

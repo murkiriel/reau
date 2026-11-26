@@ -47,6 +47,22 @@ class ProjecaoRetomada(unittest.TestCase):
         achadas = [l for l in t.splitlines() if TEXTO in l]
         self.assertEqual([l.rsplit("tentativa ", 1)[1] for l in achadas], ["1 de 3", "2 de 3", "3 de 3"])
 
+    def test_a_linha_com_a_nota_da_bateria_tambem_vale_como_retomada(self):
+        t = lido(viagem("resumed after the system ended the process (attempt 2 of 3; battery optimization: REau is exempt)"))
+        self.assertIn(f"10:06:02.500  {TEXTO} 2 de 3", t)
+
+    def test_o_tempo_da_morte_a_imagem_entra_na_linha_do_tempo(self):
+        linha = "resumed projection: the dash confirmed the first frame 16.7 s after the system ended the process (low memory) and 15.2 s after this process started"
+        t = lido(viagem("resumed after the system ended the process (attempt 1 of 3)", linha))
+        self.assertIn("retomada: the dash confirmed the first frame 16.7 s after the system ended the process (low memory) and 15.2 s after this process started", t)
+
+    def test_o_aviso_de_pouca_memoria_do_android_entra_na_linha_do_tempo_e_o_de_tela_escondida_nao(self):
+        pressao = linha("10:05:30.000", "memory", "onTrimMemory(RUNNING_LOW, 10): memory is short, the device lines come every 5 s for 60 s")
+        tela = linha("10:05:31.000", "memory", "onTrimMemory(UI_HIDDEN, 20)")
+        t = lido(PROCESSO.format(hora="10:00:00.000") + LIGADA.format(hora="10:00:01.000") + pressao + tela + DESLIGADA.format(hora="10:09:00.000"))
+        self.assertIn("o Android avisou de pouca memória: onTrimMemory(RUNNING_LOW, 10)", t)
+        self.assertNotIn("UI_HIDDEN", t)
+
     def test_a_projeção_de_antes_continua_acabando_em_o_app_recomeçou(self):
         t = lido(viagem("resumed after the system ended the process (attempt 1 of 3)"))
         self.assertIn("o app recomeçou", t)

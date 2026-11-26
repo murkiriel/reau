@@ -161,7 +161,7 @@ class ProjectionResumeIsWiredTest {
             assertEquals(call, 1, lines.size)
             assertTrue("$call is bare: ${lines[0]}", "runCatching { $call" in lines[0])
         }
-        val look = body.between("deviceLook = worker.scheduleWithFixedDelay({", ".onFailure")
+        val look = body.between("val look = { why: String? ->", ".onFailure")
         assertTrue(look, look.trimStart().startsWith("runCatching {") && "resumeBook.beat(System.currentTimeMillis(), dashUp = ProjectionResume.dashUp(controller.state.dash))" in look)
         val restart = body.between("private fun resumeAfterRestart(startId: Int): Boolean {", "private fun forgetResume")
         assertTrue("read and the count are inside the try", restart.indexOf("val resumed = try {") < restart.indexOf("resumeBook.read()") &&

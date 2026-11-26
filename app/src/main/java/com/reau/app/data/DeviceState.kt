@@ -43,6 +43,10 @@ data class DeviceState(
     val lowMemoryAtMb: Int? = null,
     /** The phone's load average, `1.20/0.80/0.50` ([LoadAverage]); null when the app may not read it. */
     val loadAverage: String? = null,
+    /** The kernel's `MemAvailable` in MB ([MemoryProc]); null when it could not be read. Not the same as [phoneAvailMb], which is Android's own figure. */
+    val memAvailableMb: Int? = null,
+    /** The kernel's memory pressure, the `some` line's `avg10/avg60/avg300` ([MemoryProc]); null when the app may not read it. */
+    val memPressure: String? = null,
 ) {
     data class BikeWifi(val dbm: Int, val mhz: Int, val mbps: Int)
 
@@ -74,6 +78,9 @@ data class DeviceState(
         // What says whether the whole phone was under load; left out (like the headroom) when the phone does not give it.
         lowMemoryAtMb?.let { "lowat=${it}MB" },
         loadAverage?.let { "load=$it" },
+        // The kernel's own view of the memory (plan 35, 25/11/2026): what was left to the apps, and how long the phone was stalling for it; left out when not readable.
+        memAvailableMb?.let { "memavail=${it}MB" },
+        memPressure?.let { "psi=$it" },
         "screen=" + onOff(screenOn),
         "interactive=" + yesNo(interactive),
         "doze=" + yesNo(dozing),
@@ -110,21 +117,35 @@ data class DeviceState(
 /**
  * When a [DeviceState] is written. The first look at once (`[start]`), then every
  * [periodMs] (`[30 s]`), and at once when a relevant part changed from the look before (`[change: …]`); a line
- * written for a change starts the period again.
+ * written for a change starts the period again. [fasterAt] says, for the instant of a look, a shorter period than [periodMs] (`[memory 5 s]`): the one the memory
+ * pressure signs ask for ([PressureSignals.periodAt]); null keeps [periodMs]. [force] writes a line at once for a reason of its own (`[trim RUNNING_LOW]`).
  */
-class DeviceStateLog(private val periodMs: Long, private val write: (String) -> Unit) {
+class DeviceStateLog(
+    private val periodMs: Long,
+    private val fasterAt: (nowMs: Long) -> Long? = { null },
+    private val write: (String) -> Unit,
+) {
     private var last: DeviceState? = null
     private var lastWrittenMs = 0L
 
     fun offer(nowMs: Long, state: DeviceState) {
         val before = last
         last = state
+        val faster = fasterAt(nowMs)?.takeIf { it < periodMs }
+        val period = faster ?: periodMs
         val why = when {
             before == null -> "start"
             state.relevantChangesFrom(before).isNotEmpty() -> "change: " + state.relevantChangesFrom(before).joinToString(", ")
-            nowMs - lastWrittenMs >= periodMs -> "${periodMs / MS_PER_S} s"
+            nowMs - lastWrittenMs >= period -> (if (faster != null) "memory " else "") + "${period / MS_PER_S} s"
             else -> return
         }
+        lastWrittenMs = nowMs
+        write("${state.line()} [$why]")
+    }
+
+    /** Writes [state] at once with [why] (a memory sign of the system), and starts the period again. */
+    fun force(nowMs: Long, state: DeviceState, why: String) {
+        last = state
         lastWrittenMs = nowMs
         write("${state.line()} [$why]")
     }
