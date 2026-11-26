@@ -492,7 +492,10 @@ internal class LiveSides(
 
     /** What the volume card shows changed (a step came, or its time ran out): the compositor draws it or takes it off, at once even with the map still. */
     private fun volumeCardChanged() {
-        compositor.setVolumeCard(volumeCard.current())
+        val showing = volumeCard.current()
+        compositor.setVolumeCard(showing)
+        // The low battery's pill waits for the volume card to go (BatteryPill).
+        batteryPill.volumeChanged(showing != null)
     }
 
     /** The system's volume broadcast, listened to while this projection runs (started in the init block, given back in [release]). */
@@ -515,10 +518,28 @@ internal class LiveSides(
         if (shown && log) RideDiagnostics.log("dash", step.logLine())
     }
 
+    // The pill of the low battery ([com.reau.app.dash.BatteryPill], 26/11/2026): it takes the call card's place on the dash's video, 5 s, once per projection, and gives way
+    // to a call card and to the volume card. It sits between the call card's feed and the compositor, so what the feed says reaches the compositor through it. Declared before
+    // the call card's feed, which is given its callback, and before the init block.
+    private val batteryPill = com.reau.app.dash.BatteryPill(
+        show = compositor::setCallCard,
+        schedule = { delayMs, action ->
+            val job = scope.launch {
+                delay(delayMs)
+                action()
+            }
+            ({ job.cancel() })
+        },
+    )
+
+    override fun showBatteryLow(pct: Int): Boolean = batteryPill.request(
+        com.reau.app.dash.CallCards.batteryNotice(appContext.getString(R.string.battery_pill_level, pct), appContext.getString(R.string.battery_pill_hint)),
+    )
+
     // The call card on the dash's video ([com.reau.app.dash.CallCards], [CallCardFeed]): follows Android Auto's word of the calls whatever the switch says; the switch only
     // decides whether it is drawn and whether the dash is still sent the call.
     private val callCard = CallCardFeed(
-        scope, compositor::setCallCard, { com.reau.app.dash.ActionEchoText.callWords(appContext) }, { RideDiagnostics.log("dash", it) },
+        scope, batteryPill::callChanged, { com.reau.app.dash.ActionEchoText.callWords(appContext) }, { RideDiagnostics.log("dash", it) },
     )
 
     /** The switch of the call card ([com.reau.app.settings.REauSettings.callCard]): the session stops sending the dash the call (and clears what it sent), the joystick has the call's keys for it. */
@@ -1082,6 +1103,7 @@ internal class LiveSides(
                 "wifi radio" to { WifiRadio.release(radioListener) },
                 "image gap" to { com.reau.app.dash.ImageGap.clock.forget() },
                 "time to picture" to { com.reau.app.dash.TimeToPicture.marks.forget() },
+                "battery pill" to { batteryPill.drop() },
                 "scope" to { scope.cancel() },
                 "compositor" to { compositor.release() },
             ),

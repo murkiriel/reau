@@ -31,6 +31,8 @@
     <string name="notif_text_dash_stuck">The dash is on but not accepting the connection. Turn the motorcycle’s ignition off and on again; REau reconnects by itself</string>
     <string name="notif_title_phone_hot">Phone is hot</string>
     <string name="notif_text_phone_hot">The phone is hot (%1$d °C). Take it out of the sun or a closed pocket, or unplug the charger, so it does not slow down</string>
+    <string name="notif_title_battery_low">Battery low</string>
+    <string name="notif_text_battery_low">Battery at %1$d%% — the phone may shut down during the ride. Plug in the charger.</string>
     <string name="notif_title_wifi_off">Phone Wi-Fi is off</string>
     <string name="notif_text_wifi_off">Phone Wi-Fi is off: turn on Wi-Fi to connect to the dash</string>
     <string name="notif_title_bind_refused">Android is refusing the dash’s network</string>
@@ -966,6 +968,8 @@
     <string name="call_card_calling">Calling…</string>
     <string name="call_card_ended">Ended · %1$s</string>
     <string name="call_card_missed">Missed call</string>
+    <string name="battery_pill_level">Battery %1$d %%</string>
+    <string name="battery_pill_hint">Plug in the charger</string>
     <string name="echo_media_mode">Media mode</string>
     <string name="action_echo_title">Action name on the dash</string>
     <string name="action_echo_sub">Shows what each joystick tap did</string>

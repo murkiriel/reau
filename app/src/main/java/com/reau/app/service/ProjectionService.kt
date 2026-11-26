@@ -36,6 +36,7 @@ import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 
 /** The two sides and the video, as the service drives them. The real ones are [LiveSides]. */
+@Suppress("TooManyFunctions") // the six sides plus the optional ones with defaults; splitting them would scatter what LiveSides answers (26/11/2026)
 interface ProjectionSides {
     fun startAndroidAuto()
     fun stopAndroidAuto()
@@ -61,6 +62,12 @@ interface ProjectionSides {
      * overwrite (`MarkFreezer`). Returns at once. False: nothing to keep.
      */
     fun freezeRecording(mark: Int): Boolean = false
+
+    /**
+     * The battery is at [pct] percent with no charger ([BatteryLowWatch]): the dash's video shows the pill of the low battery for a few seconds, after a call or the volume
+     * card if one shows (26/11/2026). True when the pill was taken; false when these sides have no video to show it on.
+     */
+    fun showBatteryLow(pct: Int): Boolean = false
 
     /** The bike's Wi-Fi while the sides hold it, for the `device` line; null when none. */
     val bikeNetwork: Network? get() = null
@@ -790,6 +797,8 @@ class ProjectionService : Service() {
         val device = DeviceStateLog(DEVICE_PERIOD_MS, signals::periodAt) { RideDiagnostics.log("device", it) }
         // Armed for this projection: one warning when the battery passes 44 C, another only after it fell under 41 C (BatteryHeatWatch).
         val heat = BatteryHeatWatch()
+        // Armed for this projection: one warning when the battery is at 10 % or under with no charger, never a second one (BatteryLowWatch, 26/11/2026).
+        val low = BatteryLowWatch()
         // Said once for this projection: the reader does not ask for the thermal headroom in this build (the lines have no headroom=).
         RideDiagnostics.log("device", com.reau.app.data.ThermalHeadroomNote.LINE)
         // Said once for this projection: the alert channel muted or blocked in Android (the main screen says it too).
@@ -803,6 +812,7 @@ class ProjectionService : Service() {
                 if (why == null) device.offer(SystemClock.elapsedRealtime(), state) else device.force(SystemClock.elapsedRealtime(), state, why)
                 ProjectionSummary.current.device(state.thermal, state.batteryPct)
                 warnIfHot(heat, state)
+                warnIfBatteryLow(low, state)
             }
                 .onFailure { log("${RideDiagnostics.WARN}projection: reading the device state failed: $it") }
         }
@@ -840,6 +850,28 @@ class ProjectionService : Service() {
                 ProjectionNotification.clearPhoneHot(this)
             }
             BatteryHeatWatch.Verdict.NONE -> Unit
+        }
+    }
+
+    /**
+     * The rider's notice that the battery is nearly out with no charger ([BatteryLowWatch]), once per projection, and its line in the ride log: the level, and
+     * whether the notice was posted or the rider has the app's notifications off (26/11/2026; the ride of 25/11 went from 12 % to 4 % in 2 minutes).
+     */
+    private fun warnIfBatteryLow(low: BatteryLowWatch, state: com.reau.app.data.DeviceState) {
+        val pct = state.batteryPct ?: return
+        // The pill waits for the dash: drawn with no dash connected it would run its 5 s unseen (26/11/2026); the phone's notice goes at once.
+        val dashUp = ProjectionResume.dashUp(controller.state.dash)
+        if (low.offer(pct, state.charging)) {
+            val shown = ProjectionNotification.showBatteryLow(this, pct)
+            val onDash = low.pillDue(dashUp) && sides?.showBatteryLow(pct) == true
+            val pill = if (onDash) "asked" else if (low.pillPending) "waiting for the dash" else "none"
+            RideDiagnostics.warn(
+                "battery",
+                "battery at $pct% with no charger (at or under ${BatteryLowWatch.LOW_PCT}%): rider told the phone may shut down " +
+                    "(phone notice: ${if (shown) "shown" else "not shown, the app's notifications are off"}; dash pill: $pill)",
+            )
+        } else if (low.pillDue(dashUp) && sides?.showBatteryLow(pct) == true) {
+            RideDiagnostics.log("battery", "battery pill asked on the dash at $pct% (it had waited for the dash)")
         }
     }
 

@@ -95,19 +95,19 @@ jobs:
           retention-days: 14
 
   mutacao:
-    name: Teste de mutação (fatia ${{ matrix.fatia }} de 24)
+    name: Teste de mutação (fatia ${{ matrix.fatia }} de 26)
     runs-on: ubuntu-24.04
-    # 2 745 mutações em 26/11/2026 (python3 scripts/dev/mutacoes.py --lista conta), cada uma um Gradle de testes. Com o daemon ligado e o código já compilado
-    # cada uma leva de 10 a 60 s; uma fatia de um vinte e quatro avos (114 ou 115: 2 745 / 24 = 114,38) leva de 17 a 115 min no pior caso, dentro do limite de 120, com
-    # 5 min de folga para a partida (com vinte e duas fatias, de 101 ou 102, o pior caso seria de 102 min; com vinte e uma, de 106 ou 107, de 107 min; com dez, de 224,
-    # passaria). A folga acaba perto de 2 880 mutações (24 fatias de 120).
-    # Medir a cada execução e ajustar o número de fatias se a lista crescer (o script aceita qualquer N; mudar o 24 aqui, na matriz, na linha do script e no resumo).
+    # 2 762 mutações em 26/11/2026 (python3 scripts/dev/mutacoes.py --lista conta), cada uma um Gradle de testes. Com o daemon ligado e o código já compilado
+    # cada uma leva de 10 a 60 s; uma fatia de um vinte e seis avos (106 ou 107: 2 762 / 26 = 106,23) leva de 17 a 107 min no pior caso, dentro do limite de 120, com
+    # 13 min de folga para a partida (eram 24 fatias até 26/11/2026, com 116 min no pior caso e 4 de folga; com vinte e duas fatias, de 101 ou 102, o pior caso seria de 102 min; com vinte e uma, de 106 ou 107, de 107 min; com dez, de 224,
+    # passaria). A folga acaba perto de 3 120 mutações (26 fatias de 120).
+    # Medir a cada execução e ajustar o número de fatias se a lista crescer (o script aceita qualquer N; mudar o 26 aqui, na matriz, na linha do script e no resumo).
     # (mutacao-mensal.yml roda uma fatia de doze por mês, como rede mais leve.)
     timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        fatia: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
+        fatia: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]
     env:
       # O daemon fica ligado nesta tarefa: com `daemon=false` cada mutação pagava a partida do Gradle (o que passava de 4 horas no total).
       GRADLE_OPTS: -Dorg.gradle.console=plain
@@ -134,12 +134,12 @@ jobs:
       # Sai com 1 se alguma mutação sobreviver ou o trecho dela sumiu do arquivo; o log é guardado de qualquer jeito.
       - name: Mutações
         shell: bash # com -e e -o pipefail: o código de saída do Python (1 se uma mutação sobrevive) não é engolido pelo tee
-        run: python3 scripts/dev/mutacoes.py --fatia ${{ matrix.fatia }}/24 2>&1 | tee mutacoes.log
+        run: python3 scripts/dev/mutacoes.py --fatia ${{ matrix.fatia }}/26 2>&1 | tee mutacoes.log
 
       - name: Resumo das mutações
         if: always()
         run: |
-          { echo "### Teste de mutação, fatia ${{ matrix.fatia }} de 24"; echo '```'; tail -n 25 mutacoes.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          { echo "### Teste de mutação, fatia ${{ matrix.fatia }} de 26"; echo '```'; tail -n 25 mutacoes.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Guardar o log
         if: always()

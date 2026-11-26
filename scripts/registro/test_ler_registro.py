@@ -1539,6 +1539,45 @@ class AvisoDeCelularQuente(unittest.TestCase):
         self.assertNotIn("marca do piloto", tempo)
 
 
+class AvisoDeBateriaFraca(unittest.TestCase):
+    """Plano 35, passo E: o aviso de bateria <= 10 % sem carregador (a etiqueta `battery`) vai à linha do tempo, sem virar problema nem marca."""
+
+    def test_a_pill_that_waits_for_the_dash_is_said(self):
+        texto = ("W: battery at 8% with no charger (at or under 10%): rider told the phone may shut down "
+                 "(phone notice: shown; dash pill: waiting for the dash)")
+        self.assertIn("cartão no painel: espera o painel conectar", ler_registro._aviso_bateria(texto))
+
+    def tempo(self, *meio):
+        d = Path(tempfile.mkdtemp())
+        (d / "ride-20261126-100000.log").write_text(projecao(*meio), encoding="utf-8")
+        linhas = ler_registro.ler([d / "ride-20261126-100000.log"])
+        return "\n".join(ler_registro.linha_do_tempo(linhas)), ler_registro.problemas(linhas)
+
+    def test_o_aviso_aparece_na_linha_do_tempo_com_o_nivel(self):
+        tempo, _ = self.tempo(linha(
+            "10:05:00.000", "battery",
+            "W: battery at 9% with no charger (at or under 10%): rider told the phone may shut down (phone notice: shown; dash pill: asked)"))
+        self.assertIn("aviso de bateria fraca: 9 % sem carregador; aviso no celular: feito; cartão no painel: pedido", tempo)
+
+    def test_sem_permissao_e_sem_painel_o_aviso_diz_o_que_nao_saiu(self):
+        tempo, _ = self.tempo(linha(
+            "10:05:00.000", "battery",
+            "W: battery at 10% with no charger (at or under 10%): rider told the phone may shut down "
+            "(phone notice: not shown, the app's notifications are off; dash pill: none)"))
+        self.assertIn("aviso no celular: NÃO feito (as notificações do app estão desligadas); cartão no painel: nenhum", tempo)
+
+    def test_nao_conta_como_marca_nem_como_problema(self):
+        tempo, problemas = self.tempo(linha(
+            "10:05:00.000", "battery",
+            "W: battery at 10% with no charger (at or under 10%): rider told the phone may shut down (phone notice: shown; dash pill: asked)"))
+        self.assertNotIn("marca do piloto", tempo)
+        self.assertFalse(any("bateria" in p for p in problemas))
+
+    def test_uma_linha_desconhecida_passa_como_veio(self):
+        tempo, _ = self.tempo(linha("10:05:00.000", "battery", "battery: something new"))
+        self.assertIn("battery: something new", tempo)
+
+
 ETAPAS_ANTIGA = ("video fps target=4 sent=3.9 (20frames/5.0s) composed=3.9 kbps=300 set=400k frame=9000B source=152 drawn=20 repeated=0 compose=3.4ms "
                  "encode=14.0ms late=0 tickwait=100/200/250ms full=true thermal=OK kf=1s idr=5(max 14000B/12pkt) sync=0 auto=4fps [at ceiling]")
 ETAPAS_NOVA = (ETAPAS_ANTIGA + " compose_max={cmax}ms compose_p95={cp95}ms encode_max={emax}ms encode_p95={ep95}ms look={look} latch={latch} wake={wake}")

@@ -26,6 +26,7 @@ object ProjectionNotification {
     private const val ID_WIFI_OFF = 5306
     private const val ID_DASH_TAKEN = 5307
     private const val ID_DASH_SILENT = 5308
+    private const val ID_BATTERY_LOW = 5309
     private const val CHANNEL_ID = "reau_projection"
 
     /** The channel of the notices that must be heard with the phone's screen off in a pocket: high importance, sound and vibration. */
@@ -309,6 +310,35 @@ object ProjectionNotification {
     /** The dash talks again (or the projection is off): the notice of [showDashSilent] goes. */
     fun clearDashSilent(context: Context) {
         context.getSystemService(NotificationManager::class.java).cancel(ID_DASH_SILENT)
+    }
+
+    /**
+     * Told once per projection when the phone's battery is at [pct] percent with no charger ([BatteryLowWatch]), in the alert channel so it is heard with the
+     * screen off in a pocket (the ride of 25/11/2026 went from 12 % to 4 % in 2 minutes and the phone shut REau down). Nothing is posted when the rider has
+     * the app's notifications off (Android 13 and later: no POST_NOTIFICATIONS); the answer says whether it was posted, for the ride log. No clear: it is a fact
+     * of the ride, not a state that goes away. 26/11/2026.
+     */
+    fun showBatteryLow(context: Context, pct: Int): Boolean {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        if (!manager.areNotificationsEnabled()) return false
+        createAlertChannel(context)
+        val open = PendingIntent.getActivity(
+            context, 0, Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE,
+        )
+        val text = context.getString(R.string.notif_text_battery_low, pct)
+        val notification = Notification.Builder(context, ALERT_CHANNEL_ID)
+            .setContentTitle(context.getString(R.string.notif_title_battery_low))
+            .setContentText(text)
+            .setStyle(Notification.BigTextStyle().bigText(text))
+            .setSmallIcon(R.drawable.ic_stat_reau)
+            .setCategory(Notification.CATEGORY_STATUS)
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setColor(ERROR)
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .build()
+        manager.notify(ID_BATTERY_LOW, notification)
+        return true
     }
 
     /** One notice in the alert channel (sound and vibration), in the colour of a warning; its tap opens the app. */

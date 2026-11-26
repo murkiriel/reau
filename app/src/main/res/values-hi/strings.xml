@@ -29,6 +29,8 @@
     <string name="notif_text_dash_stuck">डैश चालू है, पर कनेक्शन नहीं ले रहा। बाइक का इग्निशन बंद करके फिर चालू करें; REau अपने आप दोबारा जुड़ जाता है</string>
     <string name="notif_title_phone_hot">फ़ोन गर्म है</string>
     <string name="notif_text_phone_hot">फ़ोन गर्म है (%1$d °C)। उसे धूप या बंद जेब से निकालें, या चार्जर हटा दें, ताकि वह धीमा न पड़े</string>
+    <string name="notif_title_battery_low">बैटरी कम है</string>
+    <string name="notif_text_battery_low">बैटरी %1$d%% — सफ़र में फ़ोन बंद हो सकता है। चार्जर लगाएँ।</string>
     <string name="notif_title_wifi_off">फ़ोन का वाई-फ़ाई बंद है</string>
     <string name="notif_text_wifi_off">फ़ोन का वाई-फ़ाई बंद है: डैश से जुड़ने के लिए वाई-फ़ाई चालू करें</string>
     <string name="notif_title_bind_refused">Android डैश का नेटवर्क नहीं मान रहा</string>
@@ -912,6 +914,8 @@
     <string name="call_card_calling">कॉल हो रहा है…</string>
     <string name="call_card_ended">खत्म · %1$s</string>
     <string name="call_card_missed">मिस्ड कॉल</string>
+    <string name="battery_pill_level">बैटरी %1$d %%</string>
+    <string name="battery_pill_hint">चार्जर लगाएँ</string>
     <string name="echo_media_mode">मीडिया मोड</string>
     <string name="action_echo_title">डैश पर एक्शन का नाम</string>
     <string name="action_echo_sub">दिखाता है कि जॉयस्टिक टैप ने क्या किया</string>

@@ -17,7 +17,7 @@ import com.reau.app.dash.CallSpan
 
 /**
  * The call card drawn as a picture for the compositor to lay at the top of the dash's video ([CallCardLayout] has the numbers): a dark pill at 92% with a 2 px
- * border, a handset, a small line of hints in the joystick's colours and the name in bold white below it, all green (grey when the call is over, and "Missed call" in red for a call that went unanswered). The arrows and the dot
+ * border, a handset (a battery on the low battery's pill), a small line of hints in the joystick's colours and the name in bold white below it, all green (grey when the call is over, and "Missed call" in red for a call that went unanswered). The arrows and the dot
  * of the hints are shapes, not characters, so no font has to have them. Plain colours and big shapes, as the dash gets the video as H.264 at a few frames a second.
  * Drawn when the call changes and once a second on a call, not at each frame.
  */
@@ -30,6 +30,11 @@ object CallCardInk {
     private const val GREY = 0xFF9AA0A8.toInt()
     private const val SEMIBOLD = 600
 
+    /** Material's battery_alert on the same 24-unit grid as the handset: the low battery's pill ([CallNotice.battery]) draws it where the call card has the handset. */
+    private const val BATTERY =
+        "M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z" +
+            " M13 18h-2v-2h2v2zm0-4h-2V9h2v5z"
+
     /** The colour of the border and the handset: green, grey when the call is over. */
     fun colorOf(over: Boolean): Int = if (over) GREY else GREEN
 
@@ -40,7 +45,8 @@ object CallCardInk {
     }
 
     fun render(notice: CallNotice): Bitmap {
-        val color = colorOf(CallCards.isOver(notice.card))
+        // The low battery's pill is red all over; a call's card is green, grey when the call is over.
+        val color = if (notice.battery) RED else colorOf(CallCards.isOver(notice.card))
         val bitmap = createBitmap(CallCardLayout.WIDTH, CallCardLayout.HEIGHT)
         val canvas = Canvas(bitmap)
         val w = CallCardLayout.WIDTH.toFloat()
@@ -60,7 +66,8 @@ object CallCardInk {
         canvas.withTranslation(CallCardLayout.ICON_X.toFloat(), CallCardLayout.ICON_Y.toFloat()) {
             val factor = CallCardLayout.ICON / VolumeCardInk.GRID
             scale(factor, factor)
-            drawPath(PathParser.createPathFromPathData(VolumeCardInk.HANDSET), Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color })
+            val icon = if (notice.battery) BATTERY else VolumeCardInk.HANDSET
+            drawPath(PathParser.createPathFromPathData(icon), Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color })
         }
         drawHints(canvas, notice.spans)
         drawName(canvas, notice.card.name)

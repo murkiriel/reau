@@ -30,6 +30,8 @@
     <string name="notif_text_dash_stuck">O painel está ligado mas não aceita a conexão. Desligue e ligue a ignição da moto; o REau reconecta sozinho</string>
     <string name="notif_title_phone_hot">O celular está quente</string>
     <string name="notif_text_phone_hot">O celular está quente (%1$d °C). Tire-o do sol ou do bolso fechado, ou desligue o carregador, para ele não reduzir o desempenho</string>
+    <string name="notif_title_battery_low">Bateria baixa</string>
+    <string name="notif_text_battery_low">Bateria em %1$d%% — o celular pode desligar durante a viagem. Ligue o carregador.</string>
     <string name="notif_title_wifi_off">Wi-Fi do celular desligado</string>
     <string name="notif_text_wifi_off">Wi-Fi do celular desligado: ligue o Wi-Fi para conectar ao painel</string>
     <string name="notif_title_bind_refused">O Android está recusando a rede do painel</string>
@@ -955,6 +957,8 @@
     <string name="call_card_calling">Chamando…</string>
     <string name="call_card_ended">Encerrada · %1$s</string>
     <string name="call_card_missed">Chamada perdida</string>
+    <string name="battery_pill_level">Bateria %1$d %%</string>
+    <string name="battery_pill_hint">Ligue o carregador</string>
     <string name="echo_media_mode">Modo mídia</string>
     <string name="action_echo_title">Nome da ação no painel</string>
     <string name="action_echo_sub">Mostra o que cada toque do joystick fez</string>

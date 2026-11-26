@@ -5673,6 +5673,47 @@ MUTATIONS += [
      "const val RADIO_OFF = \"Wi-Fi do celular desligado: nenhum pedido de rede até ele ligar\"", ["WifiDashLinkUpTest"]),
 ]
 
+MUTATIONS += [
+    # Plano 35, passo E (26/11/2026): o aviso de bateria fraca (<= 10 % sem carregador, uma vez por projeção) no celular e a pílula no painel (5 s, cede à chamada e ao volume).
+    ("plano35/E Bateria fraca: o limite de 10 % vira 5 %", MAIN + "service/BatteryLowWatch.kt",
+     "const val LOW_PCT = 10", "const val LOW_PCT = 5", ["BatteryLowWatchTest"]),
+    ("plano35/E Bateria fraca: o aviso sai também com o carregador ligado", MAIN + "service/BatteryLowWatch.kt",
+     "batteryPct in 0..lowPct && charging == false", "batteryPct in 0..lowPct && charging != null", ["BatteryLowWatchTest"]),
+    ("plano35/E Bateria fraca: o aviso sai de novo na mesma projeção (o aviso dado não é lembrado)", MAIN + "service/BatteryLowWatch.kt",
+     "            told = true\n", "            told = false\n", ["BatteryLowWatchTest"]),
+    ("plano35/E Bateria fraca: a leitura desconhecida (-1) conta como bateria fraca", MAIN + "service/BatteryLowWatch.kt",
+     "batteryPct != null && batteryPct in 0..lowPct", "batteryPct != null && batteryPct <= lowPct", ["BatteryLowWatchTest"]),
+    ("plano35/E Bateria fraca: a notificação no celular não é postada pelo serviço (fiação removida)", MAIN + "service/ProjectionService.kt",
+     "val shown = ProjectionNotification.showBatteryLow(this, pct)", "val shown = false", ["BatteryLowIsWiredTest"]),
+    ("plano35/E Bateria fraca: o serviço não pede a pílula ao painel", MAIN + "service/ProjectionService.kt",
+     "val onDash = low.pillDue(dashUp) && sides?.showBatteryLow(pct) == true", "val onDash = false", ["BatteryLowIsWiredTest"]),
+    ("plano35/E Bateria fraca: a notificação sai mesmo com as notificações do app desligadas", MAIN + "service/ProjectionNotification.kt",
+     "if (!manager.areNotificationsEnabled()) return false\n        createAlertChannel(context)\n        val open = PendingIntent.getActivity(\n            context, 0, Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE,\n        )\n        val text = context.getString(R.string.notif_text_battery_low, pct)",
+     "createAlertChannel(context)\n        val open = PendingIntent.getActivity(\n            context, 0, Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE,\n        )\n        val text = context.getString(R.string.notif_text_battery_low, pct)",
+     ["BatteryLowIsWiredTest"]),
+    ("plano35/E Pílula da bateria: nunca aparece no painel", MAIN + "dash/BatteryPill.kt",
+     "                out = waiting\n", "                out = call\n", ["BatteryPillTest"]),
+    ("plano35/E Pílula da bateria: aparece por cima de um cartão de chamada", MAIN + "dash/BatteryPill.kt",
+     "val clear = call == null && !volume", "val clear = !volume", ["BatteryPillTest"]),
+    ("plano35/E Pílula da bateria: aparece por cima do cartão de volume", MAIN + "dash/BatteryPill.kt",
+     "val clear = call == null && !volume", "val clear = call == null", ["BatteryPillTest"]),
+    ("plano35/E Pílula da bateria: aparece mais de uma vez na mesma projeção", MAIN + "dash/BatteryPill.kt",
+     "if (asked) return false", "if (asked && pill != null) return false", ["BatteryPillTest"]),
+    ("plano35/E Pílula da bateria: fica 15 s e não 5 s", MAIN + "dash/BatteryPill.kt",
+     "const val SHOW_MS = 5_000L", "const val SHOW_MS = 15_000L", ["BatteryPillTest"]),
+    ("plano35/E Pílula da bateria: depois de cortada pela chamada ela não volta a contar os 5 s do começo", MAIN + "dash/BatteryPill.kt",
+     "            // Held back by a call or the volume card (or nothing to show): its seconds start again when it is let through.\n            onGlassSinceMs = null\n",
+     "", ["BatteryPillTest"]),
+    ("plano35/E Pílula da bateria: o cartão de chamada vai direto ao compositor, sem passar pela pílula", MAIN + "service/LiveSides.kt",
+     "scope, batteryPill::callChanged,", "scope, compositor::setCallCard,", ["BatteryLowIsWiredTest", "CallCardIsWiredTest"]),
+    ("plano35/E Pílula da bateria: o cartão de volume não avisa a pílula", MAIN + "service/LiveSides.kt",
+     "        batteryPill.volumeChanged(showing != null)\n", "", ["BatteryLowIsWiredTest"]),
+    ("plano35/E Pílula da bateria: o desenho do cartão de chamada não faz a pílula vermelha com a bateria", MAIN + "video/CallCardInk.kt",
+     "val color = if (notice.battery) RED else colorOf(CallCards.isOver(notice.card))", "val color = colorOf(CallCards.isOver(notice.card))", ["BatteryLowIsWiredTest"]),
+    ("plano35/E Leitor: a linha do aviso de bateria fraca não entra na linha do tempo", "scripts/registro/ler_registro.py",
+     'elif x.etiqueta == "battery":', 'elif x.etiqueta == "battery_":', ["registro/test_ler_registro.py"]),
+]
+
 
 def command_for(classes):
     """The command that runs a mutation's tests: Python test files (`test_*.py`) with unittest, JVM unit test classes with Gradle. A bare name (`test_apk_audit.py`) is found

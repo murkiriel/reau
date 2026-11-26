@@ -30,6 +30,8 @@
     <string name="notif_text_dash_stuck">El tablero está encendido pero no acepta la conexión. Apaga y vuelve a encender el contacto de la moto; REau se reconecta sola</string>
     <string name="notif_title_phone_hot">El teléfono está caliente</string>
     <string name="notif_text_phone_hot">El teléfono está caliente (%1$d °C). Sácalo del sol o del bolsillo cerrado, o desconecta el cargador, para que no reduzca el rendimiento</string>
+    <string name="notif_title_battery_low">Batería baja</string>
+    <string name="notif_text_battery_low">Batería al %1$d%% — el teléfono puede apagarse durante el viaje. Conecta el cargador.</string>
     <string name="notif_title_wifi_off">Wi-Fi del teléfono apagado</string>
     <string name="notif_text_wifi_off">Wi-Fi del teléfono apagado: enciende el Wi-Fi para conectar al tablero</string>
     <string name="notif_title_bind_refused">Android rechaza la red del tablero</string>
@@ -956,6 +958,8 @@
     <string name="call_card_calling">Llamando…</string>
     <string name="call_card_ended">Finalizada · %1$s</string>
     <string name="call_card_missed">Llamada perdida</string>
+    <string name="battery_pill_level">Batería %1$d %%</string>
+    <string name="battery_pill_hint">Conecta el cargador</string>
     <string name="echo_media_mode">Modo multimedia</string>
     <string name="action_echo_title">Nombre de la acción en el tablero</string>
     <string name="action_echo_sub">Muestra qué hizo cada toque del joystick</string>

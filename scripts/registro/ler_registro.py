@@ -1219,6 +1219,16 @@ def _aviso_calor(texto):
     return texto
 
 
+def _aviso_bateria(texto):
+    """A linha do aviso de bateria fraca (<= 10 % sem carregador; BatteryLowWatch, plano 35 passo E, 26/11/2026): o nível, o aviso no celular e o cartão no painel."""
+    m = re.search(r"battery at (\d+)% with no charger .*phone notice: (shown|not shown[^;]*); dash pill: (asked|none|waiting for the dash)", texto)
+    if not m:
+        return texto
+    celular = "feito" if m.group(2) == "shown" else "NÃO feito (as notificações do app estão desligadas)"
+    painel = {"asked": "pedido", "waiting for the dash": "espera o painel conectar"}.get(m.group(3), "nenhum")
+    return f"aviso de bateria fraca: {m.group(1)} % sem carregador; aviso no celular: {celular}; cartão no painel: {painel}"
+
+
 def _marca_gravacao(texto):
     """A linha que a Marca do piloto escreve sobre a gravação da sessão do Android Auto: guardada (nome do par), cópia no lugar de outra, ou não feita.
 
@@ -1359,6 +1369,8 @@ def linha_do_tempo(linhas):
                 saida.append(f"{x.hora}  {_marca_gravacao(t)}")  # what the mark did to the session recording (plan 22)
             elif x.etiqueta == "heat":
                 saida.append(f"{x.hora}  {_aviso_calor(t)}")  # the phone-is-hot notice (plan 22)
+            elif x.etiqueta == "battery":
+                saida.append(f"{x.hora}  {_aviso_bateria(t)}")  # the low-battery notice, on the phone and on the dash (plan 35, step E)
             elif x.etiqueta == "settings" and t.startswith(("settings in use: ", "connection experiments ON: ")):
                 saida.append(f"{x.hora}  {t}")  # the settings the ride was made with, at the start of each projection, and the connection experiments that were on
             elif x.etiqueta == "wifi" and t.startswith("connected "):

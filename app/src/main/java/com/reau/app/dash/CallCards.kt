@@ -35,8 +35,11 @@ class CallWords(
     val missed: String,
 )
 
-/** What the compositor draws: the [card] (with the name) and the pieces of its small line. The same notice again is not drawn again. */
-data class CallNotice(val card: CallCard, val spans: List<CallSpan>)
+/**
+ * What the compositor draws: the [card] (with the name) and the pieces of its small line. The same notice again is not drawn again. [battery]: the pill of the low battery
+ * ([BatteryPill], 26/11/2026) in the call card's place and drawing: a battery for the handset, red for the border, the level for the name, the hint for the small line.
+ */
+data class CallNotice(val card: CallCard, val spans: List<CallSpan>, val battery: Boolean = false)
 
 /**
  * The call card's decisions, with no Android class in them so the unit tests see them. The card is REau's own pill at the top of the dash's video
@@ -81,6 +84,13 @@ object CallCards {
     }
 
     fun notice(card: CallCard, words: CallWords): CallNotice = CallNotice(card, spans(card, words))
+
+    /**
+     * The pill of the low battery as the call card draws it ([BatteryPill]): [level] ("Battery 10 %") where the name goes and [hint] ("Plug in the charger") in red on the small
+     * line, the way "Missed call" is. The words are the Android side's, in the rider's language; the level is the real one.
+     */
+    fun batteryNotice(level: String, hint: String): CallNotice =
+        CallNotice(CallCard(CallPhase.MISSED, level), listOf(CallSpan(hint, CallRole.MISSED)), battery = true)
 
     /** The small line as plain text, with the marks the card draws as shapes: "◀ Answer · Decline ▶", "On call 01:42 · ● End", "Missed call". */
     fun plain(spans: List<CallSpan>): String = spans.joinToString("") {

@@ -45,7 +45,7 @@ class VolumeCardIsWiredTest {
         assertTrue(declaration, "val job = scope.launch {\n                delay(delayMs)\n                action()" in declaration)
         assertTrue(declaration, "changed = ::volumeCardChanged" in declaration)
         assertTrue("before the init block", live.indexOf("private val volumeCard: ") < live.indexOf("\n    init {"))
-        assertTrue(live, "compositor.setVolumeCard(volumeCard.current())" in live)
+        assertTrue(live, "val showing = volumeCard.current()\n        compositor.setVolumeCard(showing)" in live)
         assertTrue(live, "private fun volumeStepHeard(step: com.reau.app.dash.VolumeCards.Step) = showVolumeCard(step, log = true)" in live)
         val shown = live.between("private fun showVolumeCard(", "// The map's zoom from the joystick")
         assertTrue(shown, "volumeCard.show(com.reau.app.dash.VolumeNotice(step.card, text), com.reau.app.dash.VolumeCards.showMs(left))" in shown)

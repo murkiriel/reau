@@ -39,7 +39,8 @@ class CallCardIsWiredTest {
     @Test
     fun `the feed is made with the compositor, the words of the app's language and the ride log`() {
         val made = live.between("private val callCard = CallCardFeed(", "private fun callCardSwitch(")
-        assertTrue(made, "compositor::setCallCard" in made)
+        // 26/11/2026: the feed gives the card to the low battery's pill, which gives the compositor the card or the pill (BatteryPillTest).
+        assertTrue(made, "batteryPill::callChanged" in made)
         assertTrue(made, "com.reau.app.dash.ActionEchoText.callWords(appContext)" in made)
         assertTrue(made, "RideDiagnostics.log(\"dash\", it)" in made)
     }
