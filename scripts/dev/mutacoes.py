@@ -5600,6 +5600,10 @@ MUTATIONS += [
 MUTATIONS += [
     ("p34/10 Vigia da thread principal: o mesmo nível de atraso é escrito de novo", MAIN + "util/MainStallLog.kt",
      "if (reached <= told) return null", "if (reached < told) return null", ["MainStallLogTest", "MainThreadWatchTest"]),
+    ("B7 Vigia da thread principal: o último nível (20 s) some", MAIN + "util/MainStallLog.kt",
+     "listOf(1_000L, 3_000L, 5_000L, 10_000L, 20_000L)", "listOf(1_000L, 3_000L, 5_000L, 10_000L)", ["MainStallLogTest"]),
+    ("B7 Vigia da thread principal: os níveis de 10 s e 20 s somem", MAIN + "util/MainStallLog.kt",
+     "listOf(1_000L, 3_000L, 5_000L, 10_000L, 20_000L)", "listOf(1_000L, 3_000L, 5_000L)", ["MainStallLogTest"]),
     ("p34/10 Vigia da thread principal: a linha do registro sai fora do runCatching", MAIN + "service/MainThreadWatch.kt",
      "if (line != null) runCatching { write(line) }", "if (line != null) write(line)", ["MainThreadWatchTest", "MainThreadWatchIsWiredTest"]),
     ("p34/10 Vigia da thread principal: a thread não é daemon", MAIN + "service/MainThreadWatch.kt",

@@ -1,13 +1,14 @@
 package com.reau.app.util
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * What the ride log says when the main thread stops answering ([MainStallLog]): nothing under 1 s, one line at 1 s, 3 s and 5 s (each once while the
- * stall lasts), and one line with the whole time when the main thread answers again.
+ * What the ride log says when the main thread stops answering ([MainStallLog]): nothing under 1 s, one line at 1 s, 3 s, 5 s, 10 s and 20 s (each once while
+ * the stall lasts), and one line with the whole time when the main thread answers again.
  */
 class MainStallLogTest {
     private val log = MainStallLog()
@@ -34,13 +35,36 @@ class MainStallLogTest {
     }
 
     @Test
-    fun `a stall that lasts writes again at three seconds and at five and then no more`() {
+    fun `a stall that lasts writes again at three seconds and at five, and between them nothing`() {
         assertTrue(log.waiting(1_000, stack) != null)
         assertEquals("main thread not answering for 3.2 s, at: a.B.c < d.E.f", log.waiting(3_200, stack))
         assertNull(log.waiting(4_000, stack))
         assertEquals("main thread not answering for 5.0 s, at: a.B.c < d.E.f", log.waiting(5_000, stack))
         assertNull(log.waiting(5_500, stack))
+        assertNull(log.waiting(9_999, stack))
+    }
+
+    @Test
+    fun `a stall that goes on past five seconds is told again at ten and at twenty, each once, and then no more`() {
+        assertNotNull(log.waiting(5_000, stack))
+        assertNull(log.waiting(9_999, stack))
+        assertEquals("main thread not answering for 10.0 s, at: a.B.c < d.E.f", log.waiting(10_000, stack))
+        assertNull(log.waiting(10_000, stack))
+        assertNull(log.waiting(19_999, stack))
+        assertEquals("main thread not answering for 20.0 s, at: a.B.c < d.E.f", log.waiting(20_000, stack))
+        assertNull(log.waiting(20_000, stack))
         assertNull(log.waiting(60_000, stack))
+    }
+
+    @Test
+    fun `the stack of each level is the one of the moment, so a stall that moved shows where it went`() {
+        var where = "a.First.at"
+        val moving = { where }
+        assertEquals("main thread not answering for 5.0 s, at: a.First.at", log.waiting(5_000, moving))
+        where = "b.Second.at"
+        assertEquals("main thread not answering for 10.5 s, at: b.Second.at", log.waiting(10_500, moving))
+        where = "c.Third.at"
+        assertEquals("main thread not answering for 25.0 s, at: c.Third.at", log.waiting(25_000, moving))
     }
 
     @Test
@@ -83,8 +107,8 @@ class MainStallLogTest {
     }
 
     @Test
-    fun `the levels are one second then three and five`() {
-        assertEquals(listOf(1_000L, 3_000L, 5_000L), MainStallLog.LEVELS_MS)
+    fun `the levels are one, three, five, ten and twenty seconds`() {
+        assertEquals(listOf(1_000L, 3_000L, 5_000L, 10_000L, 20_000L), MainStallLog.LEVELS_MS)
     }
 
     @Test

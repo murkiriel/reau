@@ -8,7 +8,8 @@ import java.util.Locale
  * are pure, so the JVM tests cover them: [MainThreadWatch] measures how late the main thread answers and feeds the numbers here.
  *
  * One stall is a few lines: one when the main thread has not answered for [LEVELS_MS]'s first level, one more at each further level (3 s, 5 s: where
- * Android starts an ANR), each with where the main thread is stuck ([stackText]); never the same level twice while the stall lasts; and, when the main
+ * Android starts an ANR; then 10 s and 20 s, for a stall that goes on and whose stack has moved since), each with where the main thread is stuck
+ * ([stackText]); never the same level twice while the stall lasts; and, when the main
  * thread answers again, one line with how long it took. A stall that ends before the first level writes nothing. Only class and method names are said,
  * never a file, a value or any data.
  */
@@ -32,8 +33,12 @@ class MainStallLog {
     }
 
     companion object {
-        /** How late the main thread must be for a line: 1 s, then 3 s and 5 s (the time Android gives an app's main thread before it calls an ANR). */
-        val LEVELS_MS = listOf(1_000L, 3_000L, 5_000L)
+        /**
+         * How late the main thread must be for a line: 1 s, then 3 s and 5 s (the time Android gives an app's main thread before it calls an ANR), then
+         * 10 s and 20 s: a stall that becomes a system ANR lasts longer than that, the stack at its end is often the real cause, and each level costs
+         * one line (the stack is only asked when the line is written).
+         */
+        val LEVELS_MS = listOf(1_000L, 3_000L, 5_000L, 10_000L, 20_000L)
 
         /** How many frames of the main thread's stack are said, from the top. */
         const val STACK_FRAMES = 8
