@@ -84,7 +84,10 @@ class ExperimentsGoneTest {
     fun `each behaviour is wired as it was with the switch off`() {
         val live = text("service/LiveSides.kt")
         assertEquals("the projection starts with the rider's settings and a new stream takes them up again", 2, Regex("""\.withRider\(settings\)""").findAll(live).count())
-        assertTrue("sockets with the build's own marks, no gap", live.contains("dashSocket = { DashSocket(it) },"))
+        assertTrue(
+            "sockets with the build's own marks and the rider's switch for the 2 ms between packets (plan 35 S), no experimental gap",
+            live.contains("dashSocket = { DashSocket(it, pacePackets = pace()) },"),
+        )
         assertTrue("weather: three hours", live.contains("weatherProvider = { if (tuned?.dashWeather == true) setup.weather() else null },"))
         assertTrue("thermal: Android's own", live.contains("private val thermalStatus: () -> Int = { setup.thermalStatus() }"))
         assertTrue("speed profile: the route's estimate", live.contains("speedKmh = navSample") || live.contains("speedKmh = navSpeed.kmhAt(android.os.SystemClock.elapsedRealtime()),"))

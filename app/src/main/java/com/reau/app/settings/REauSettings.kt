@@ -113,6 +113,12 @@ data class REauSettings(
      */
     val resumeAfterKill: Boolean = true,
     /**
+     * REau leaves at least 2 ms between any two UDP packets to the dash, the video's RTP and the commands together ([com.reau.app.dash.SendPacer]; the owner's decision of
+     * 25/11/2026: the dash of some riders restarts a minute after the transmission starts, and the apps that stay up space their sends the same way). On by default; off, the packets
+     * leave back to back as before. Read when the session opens its sockets ([com.reau.app.service.LiveSides]), so a change counts from the next projection.
+     */
+    val pacePackets: Boolean = true,
+    /**
      * The joystick answers and ends calls; on by default, but it does nothing until the phone permissions are given (they are asked
      * on the permissions page, or when the rider switches it on again after turning it off).
      */

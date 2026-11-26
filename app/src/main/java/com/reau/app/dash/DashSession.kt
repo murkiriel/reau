@@ -1047,6 +1047,7 @@ class DashSession(
             else -> {
                 socket = sock
                 sock.stats = stats
+                stats.pacer = sock.pacer
                 stats.trail.clear()
                 stats.sendTail.clear()
                 stats.fine.clear()

@@ -39,6 +39,12 @@ class DashStats(private val onFirst: (String) -> Unit = {}) {
     /** The fine detail of the last 15 s (each frame, each command's code and size, the title's size and change), for the same lines. */
     val fine = FineTail()
 
+    /**
+     * The socket's pacer ([SendPacer]), set when the session opens its sockets: the window's line says whether the packets are paced, what the pacer waited in the window
+     * and the longest wait of one packet (25/11/2026). Null (a test with no socket) leaves the line as it was.
+     */
+    @Volatile var pacer: SendPacer? = null
+
     private val lock = Any()
     private var window = Counts()
     private val total = Counts()
@@ -115,14 +121,17 @@ class DashStats(private val onFirst: (String) -> Unit = {}) {
         val w = window
         window = Counts()
         val lastRx = if (lastRxMs < 0) "never" else "${nowMs - lastRxMs}ms ago"
+        val paced = pacer
         String.format(Locale.US, "dash-stats %.1fs: ", windowMs / MS_PER_S) +
             "tx=${w.tx.values.sum()} (${parts(w.tx)}) rx=${w.rx.values.sum()} (${parts(groupTelemetry(w.rx))}) acks=${w.acks} " +
             "buttons=${w.buttons} telemetry=${w.telemetry} heartbeats=${w.heartbeats} tx-fail=${w.txFailed} " +
             // Only when there were some, so the line of a healthy window is the one it always was.
             (if (w.malformed > 0) "cut-short=${w.malformed} " else "") +
             (if (w.slid > 0) "quiet=${w.slid} " else "") +
+            (paced?.let { "${it.windowText()} " } ?: "") +
             "last-rx=$lastRx | total tx=${total.tx.values.sum()} rx=${total.rx.values.sum()} acks=${total.acks} " +
-            "buttons=${total.buttons} telemetry=${total.telemetry} tx-fail=${total.txFailed}"
+            "buttons=${total.buttons} telemetry=${total.telemetry} tx-fail=${total.txFailed}" +
+            (paced?.takeIf { it.enabled }?.let { " pace-waited=${it.totalWaitedMs()}ms" } ?: "")
     }
 
     fun totals(): Totals = synchronized(lock) {
