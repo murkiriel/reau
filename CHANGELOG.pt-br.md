@@ -17,7 +17,7 @@ aparecem).
 > **Versão de teste para pilotos, sobre a 0.3.1** (série 0.3.9x: builds de teste, não publicadas). Próxima rodada da 0.3.90.
 
 ### Alterado
-- **0.3.91: a tela acende também no bolso; sem o sensor de proximidade.** O "Tela acesa com o celular bloqueado (teste)" não olha mais o sensor de proximidade (nem diz `skip proximity` no registro): acende a tela sempre que a regra do modo manda, em qualquer lugar, sem esperar a leitura do sensor.
+- **0.3.91: a tela acende também no bolso; sem o sensor de proximidade.** O "Tela acesa com o celular bloqueado (teste)" não olha mais o sensor de proximidade (nem diz `skip proximity` no registro): acende a tela sempre que a regra do modo manda, em qualquer lugar, sem esperar a leitura do sensor. O seletor "Quando acender a tela" agora tem 6 opções: sempre que a tela apagar, a cada 30 segundos, a cada 1, 2, 3 ou 4 minutos (com 3 e 4 minutos a folga até os ~300 s do realme é pequena, de propósito, para achar o limite).
 
 ## [0.3.90] - 2026-11-26
 

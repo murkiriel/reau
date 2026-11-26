@@ -16,7 +16,7 @@ Português (pt-BR): [CHANGELOG.pt-br.md](CHANGELOG.pt-br.md) · Español: [CHANG
 > **Test version for pilots, on top of 0.3.1** (0.3.9x series: test builds, not published). The next round after 0.3.90.
 
 ### Changed
-- **0.3.91: the screen lights in a pocket too; no proximity sensor.** "Screen on with the phone locked (test)" no longer looks at the proximity sensor (and no longer writes `skip proximity` in the log): it lights the screen whenever the mode's rule says so, wherever the phone is, without waiting for a sensor reading.
+- **0.3.91: the screen lights in a pocket too; no proximity sensor.** "Screen on with the phone locked (test)" no longer looks at the proximity sensor (and no longer writes `skip proximity` in the log): it lights the screen whenever the mode's rule says so, wherever the phone is, without waiting for a sensor reading. The selector "When to light the screen" now has 6 options: every time the screen goes off, every 30 seconds, every 1, 2, 3 or 4 minutes (at 3 and 4 minutes the margin to the realme's ~300 s is small, on purpose, to find the limit).
 
 ## [0.3.90] - 2026-11-26
 

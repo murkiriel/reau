@@ -32,7 +32,7 @@ class ScreenKeepPolicyTest {
 
     @Test
     fun `the modes with an interval do not light at the screen-off itself, only their timer does`() {
-        for (mode in listOf(ScreenKeepMode.EVERY_60_S, ScreenKeepMode.EVERY_30_S)) {
+        for (mode in ScreenKeepMode.entries.filter { it.intervalSec != null }) {
             assertEquals(mode.toString(), Decision.NOTHING, decide(mode = mode, trigger = Trigger.SCREEN_OFF))
             assertEquals(mode.toString(), Decision.WAKE, decide(mode = mode, trigger = Trigger.TIMER))
         }
@@ -69,6 +69,22 @@ class ScreenKeepPolicyTest {
     }
 
     @Test
+    fun `every interval of the selector has its own next light, a whole interval from the moment the screen went off`() {
+        val expected = mapOf(
+            ScreenKeepMode.EVERY_30_S to 30_000L, ScreenKeepMode.EVERY_60_S to 60_000L, ScreenKeepMode.EVERY_120_S to 120_000L,
+            ScreenKeepMode.EVERY_180_S to 180_000L, ScreenKeepMode.EVERY_240_S to 240_000L,
+        )
+        for ((mode, interval) in expected) {
+            assertEquals("$mode at the moment it went off", interval, ScreenKeepPolicy.nextDelayMs(mode, offSinceMs = 10_000L, nowMs = 10_000L))
+            assertEquals("$mode a second later", interval - 1_000L, ScreenKeepPolicy.nextDelayMs(mode, offSinceMs = 10_000L, nowMs = 11_000L))
+            assertEquals("$mode just before it", 1L, ScreenKeepPolicy.nextDelayMs(mode, offSinceMs = 0L, nowMs = interval - 1))
+            assertEquals("$mode on the second multiple", interval, ScreenKeepPolicy.nextDelayMs(mode, offSinceMs = 0L, nowMs = interval))
+            assertEquals("$mode the interval the mode says", interval, ScreenKeepMode.entries.first { it == mode }.intervalSec!! * 1_000L)
+        }
+        assertEquals("the five timer modes", 5, expected.size)
+    }
+
+    @Test
     fun `the mode with no interval has no next light`() {
         assertNull(ScreenKeepPolicy.nextDelayMs(ScreenKeepMode.ON_SCREEN_OFF, 0L, 10_000L))
     }
@@ -78,6 +94,9 @@ class ScreenKeepPolicyTest {
         assertEquals("on mode=off lockui=off", ScreenKeepPolicy.onLine(ScreenKeepMode.ON_SCREEN_OFF, false))
         assertEquals("on mode=n60 lockui=on", ScreenKeepPolicy.onLine(ScreenKeepMode.EVERY_60_S, true))
         assertEquals("on mode=n30 lockui=off", ScreenKeepPolicy.onLine(ScreenKeepMode.EVERY_30_S, false))
+        assertEquals("on mode=n120 lockui=off", ScreenKeepPolicy.onLine(ScreenKeepMode.EVERY_120_S, false))
+        assertEquals("on mode=n180 lockui=on", ScreenKeepPolicy.onLine(ScreenKeepMode.EVERY_180_S, true))
+        assertEquals("on mode=n240 lockui=off", ScreenKeepPolicy.onLine(ScreenKeepMode.EVERY_240_S, false))
         assertEquals("wake reason=screenoff after=0s", ScreenKeepPolicy.wakeLine(Trigger.SCREEN_OFF, 0))
         assertEquals("wake reason=timer after=60s", ScreenKeepPolicy.wakeLine(Trigger.TIMER, 60))
         assertEquals("off", ScreenKeepPolicy.OFF_LINE)

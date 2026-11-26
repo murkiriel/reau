@@ -35,6 +35,20 @@ class ScreenKeepSettingTest {
     }
 
     @Test
+    fun `a value saved by the first version as 60 or 30 seconds is still read as it was, and the new ones are kept`() {
+        for ((saved, mode) in mapOf("EVERY_60_S" to ScreenKeepMode.EVERY_60_S, "EVERY_30_S" to ScreenKeepMode.EVERY_30_S, "ON_SCREEN_OFF" to ScreenKeepMode.ON_SCREEN_OFF)) {
+            val prefs = KeystoreBackedPrefsTest.FakePrefs()
+            prefs.map["screen_keep_mode"] = saved
+            assertEquals(saved, mode, SettingsStore(prefs).load().screenKeepMode)
+        }
+        for (mode in ScreenKeepMode.entries) {
+            val prefs = KeystoreBackedPrefsTest.FakePrefs()
+            SettingsStore(prefs).save(REauSettings(screenKeepMode = mode))
+            assertEquals(mode.name, mode, SettingsStore(prefs).load().screenKeepMode)
+        }
+    }
+
+    @Test
     fun `a mode the store does not know goes back to the default`() {
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
         prefs.map["screen_keep_mode"] = "EVERY_5_S"
@@ -43,8 +57,10 @@ class ScreenKeepSettingTest {
 
     @Test
     fun `the modes say their interval and the short word of the log`() {
-        assertEquals(listOf("off", "n60", "n30"), ScreenKeepMode.entries.map { it.logName })
-        assertEquals(listOf(null, 60, 30), ScreenKeepMode.entries.map { it.intervalSec })
+        assertEquals(listOf("off", "n30", "n60", "n120", "n180", "n240"), ScreenKeepMode.entries.map { it.logName })
+        assertEquals(listOf(null, 30, 60, 120, 180, 240), ScreenKeepMode.entries.map { it.intervalSec })
+        assertEquals("the saved names of the first version stay", ScreenKeepMode.EVERY_60_S, ScreenKeepMode.valueOf("EVERY_60_S"))
+        assertEquals(ScreenKeepMode.EVERY_30_S, ScreenKeepMode.valueOf("EVERY_30_S"))
     }
 
     @Test
@@ -85,13 +101,15 @@ class ScreenKeepSettingTest {
     fun `every text of the function is in the three languages`() {
         val names = listOf(
             "group_screen_keep", "screen_keep_title", "screen_keep_sub", "screen_keep_info", "screen_keep_mode_title", "screen_keep_mode_off",
-            "screen_keep_mode_60", "screen_keep_mode_30", "screen_keep_lock_ui_title", "screen_keep_lock_ui_sub", "screen_keep_lock_projecting",
+            "screen_keep_mode_60", "screen_keep_mode_30", "screen_keep_mode_120", "screen_keep_mode_180", "screen_keep_mode_240", "screen_keep_lock_ui_title", "screen_keep_lock_ui_sub", "screen_keep_lock_projecting",
             "screen_keep_lock_swipe", "screen_keep_lock_pause",
         )
         for (folder in listOf("values", "values-pt", "values-es")) for (name in names) assertTrue("$folder $name", string(folder, name).isNotBlank())
         assertEquals("Sempre que a tela apagar", string("values-pt", "screen_keep_mode_off"))
-        assertEquals("A cada 60 segundos", string("values-pt", "screen_keep_mode_60"))
-        assertEquals("A cada 30 segundos", string("values-pt", "screen_keep_mode_30"))
+        assertEquals(
+            listOf("A cada 30 segundos", "A cada 1 minuto", "A cada 2 minutos", "A cada 3 minutos", "A cada 4 minutos"),
+            listOf("30", "60", "120", "180", "240").map { string("values-pt", "screen_keep_mode_$it") },
+        )
         assertEquals("Mostrar o REau sobre o bloqueio", string("values-pt", "screen_keep_lock_ui_title"))
         assertEquals("Projetando no painel", string("values-pt", "screen_keep_lock_projecting"))
         assertEquals("Deslize para cima para desbloquear", string("values-pt", "screen_keep_lock_swipe"))

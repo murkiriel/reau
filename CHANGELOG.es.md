@@ -16,7 +16,7 @@ English: [CHANGELOG.md](CHANGELOG.md) · Português (pt-BR): [CHANGELOG.pt-br.md
 > **Versión de prueba para pilotos, sobre la 0.3.1** (serie 0.3.9x: builds de prueba, no publicadas). La próxima ronda después de la 0.3.90.
 
 ### Cambiado
-- **0.3.91: la pantalla se enciende también en el bolsillo; sin el sensor de proximidad.** "Pantalla encendida con el teléfono bloqueado (prueba)" ya no mira el sensor de proximidad (ni escribe `skip proximity` en el registro): enciende la pantalla siempre que la regla del modo lo manda, dondequiera que esté el teléfono, sin esperar la lectura del sensor.
+- **0.3.91: la pantalla se enciende también en el bolsillo; sin el sensor de proximidad.** "Pantalla encendida con el teléfono bloqueado (prueba)" ya no mira el sensor de proximidad (ni escribe `skip proximity` en el registro): enciende la pantalla siempre que la regla del modo lo manda, dondequiera que esté el teléfono, sin esperar la lectura del sensor. El selector "Cuándo encender la pantalla" ahora tiene 6 opciones: cada vez que la pantalla se apague, cada 30 segundos, cada 1, 2, 3 o 4 minutos (con 3 y 4 minutos el margen hasta los ~300 s del realme es pequeño, a propósito, para hallar el límite).
 
 ## [0.3.90] - 2026-11-26
 

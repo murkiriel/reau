@@ -4269,6 +4269,10 @@ MUTATIONS = [
     ("DashJoin: o vigia da varredura volta a olhar a cada 2 s", MAIN + "dash/DashJoin.kt",
      "const val WATCH_PERIOD_MS = 500L", "const val WATCH_PERIOD_MS = 2_000L", ["AssociationInFlightTest", "AssociationHoldIsWiredTest"]),
     # 0.3.5 (teste para pilotos, sobre a 0.3.1): "Tela acesa com o celular bloqueado".
+    ("ScreenKeepMode: o intervalo de 4 minutos é de 40 segundos", MAIN + "settings/ScreenKeepMode.kt",
+     'EVERY_240_S("n240", 240)', 'EVERY_240_S("n240", 40)', ["ScreenKeepSettingTest", "ScreenKeepPolicyTest"]),
+    ("ScreenKeepMode: o valor antigo de 60 segundos passa a valer 90", MAIN + "settings/ScreenKeepMode.kt",
+     'EVERY_60_S("n60", 60)', 'EVERY_60_S("n60", 90)', ["ScreenKeepSettingTest", "ScreenKeepPolicyTest"]),
     ("ScreenKeepPolicy: a folga mínima entre duas luzes vale um instante a mais", MAIN + "service/ScreenKeepPolicy.kt",
      "sinceLastWakeMs in 0L until MIN_GAP_MS", "sinceLastWakeMs in 0L..MIN_GAP_MS", ["ScreenKeepPolicyTest"]),
     ("ScreenKeepPolicy: o temporizador acende também a tela que já está acesa", MAIN + "service/ScreenKeepPolicy.kt",

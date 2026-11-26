@@ -42,8 +42,11 @@ internal fun ScreenKeepGroup(s: REauSettings, change: (REauSettings) -> Unit) {
 private fun ScreenKeepModeChoice(s: REauSettings, change: (REauSettings) -> Unit) {
     val names = mapOf(
         ScreenKeepMode.ON_SCREEN_OFF to R.string.screen_keep_mode_off,
-        ScreenKeepMode.EVERY_60_S to R.string.screen_keep_mode_60,
         ScreenKeepMode.EVERY_30_S to R.string.screen_keep_mode_30,
+        ScreenKeepMode.EVERY_60_S to R.string.screen_keep_mode_60,
+        ScreenKeepMode.EVERY_120_S to R.string.screen_keep_mode_120,
+        ScreenKeepMode.EVERY_180_S to R.string.screen_keep_mode_180,
+        ScreenKeepMode.EVERY_240_S to R.string.screen_keep_mode_240,
     )
     SegmentedRow(
         stringResource(R.string.screen_keep_mode_title),
