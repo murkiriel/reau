@@ -20,11 +20,33 @@ class BatteryLowIsWiredTest {
         assertTrue(look, "val low = BatteryLowWatch(alreadyTold = told)" in look)
         assertTrue(look, "warnIfBatteryLow(low, state)" in look)
         val warn = service.substringAfter("private fun warnIfBatteryLow").substringBefore("/**")
-        assertTrue(warn, "if (low.offer(pct, state.charging)) {" in warn && "low.pillDue(dashUp)" in warn)
+        assertTrue(warn, "val due = low.offer(pct, state.charging)" in warn && "val step = low.pillStep(dashUp)" in warn)
+        assertTrue(warn, "if (due) {" in warn)
         assertTrue(warn, "ProjectionNotification.showBatteryLow(this, pct)" in warn)
-        assertTrue(warn, "val onDash = low.pillDue(dashUp) && sides?.showBatteryLow(pct) == true" in warn)
-        assertTrue(warn, "} else if (low.pillDue(dashUp) && sides?.showBatteryLow(pct) == true) {" in warn)
+        assertTrue(warn, "val onDash = step.asks && sides?.showBatteryLow(pct) == true" in warn)
+        assertTrue(warn, "if (step.stops) {" in warn && "sides?.stopBatteryLow()" in warn)
+        assertTrue(warn, "battery pill alternation stops at \$pct%: \${step.reason}" in warn)
         assertTrue("the ride log says the level", "RideDiagnostics.warn(\n                \"battery\"," in warn && "battery at \$pct% with no charger" in warn)
+    }
+
+    @Test
+    fun `the service takes the pill off when the projection ends, and says it`() {
+        val service = source("service/ProjectionService.kt")
+        val release = service.substringAfter("stopLookingAtTheDevice()\n            endBatteryPill()", "").substringBefore("clearWifiOff")
+        assertTrue("the stop calls endBatteryPill after the device look stops", release.isNotEmpty())
+        val end = service.substringAfter("private fun endBatteryPill()").substringBefore("/**")
+        assertTrue(end, "batteryLow?.pillEnds() ?: return" in end && "sides?.stopBatteryLow()" in end)
+        assertTrue(end, "battery pill alternation stops: \${step.reason}" in end)
+        val look = service.substringAfter("private fun lookAtTheDevice()").substringBefore("private fun warnIfHot")
+        assertTrue(look, "batteryLow = low" in look)
+    }
+
+    @Test
+    fun `a resumed projection starts the pill and does not post the notice again`() {
+        val look = source("service/ProjectionService.kt").substringAfter("private fun lookAtTheDevice()").substringBefore("private fun warnIfHot")
+        // the watch is made with what the mark says was told, and the pill's decision is not made from that
+        assertTrue(look, "BatteryLowWatch(alreadyTold = told)" in look)
+        assertTrue("the pill's step does not read the told flag", "told" !in source("service/BatteryLowWatch.kt").substringAfter("fun pillStep").substringBefore("fun pillEnds"))
     }
 
     @Test
@@ -54,12 +76,14 @@ class BatteryLowIsWiredTest {
         assertTrue(pill, "show = compositor::setCallCard" in pill)
         assertTrue(pill, "scope, batteryPill::callChanged," in pill)
         assertTrue(pill, "override fun showBatteryLow(pct: Int): Boolean = batteryPill.request(" in pill)
+        assertTrue(pill, "override fun stopBatteryLow() = batteryPill.stop()" in pill)
         assertTrue(pill, "R.string.battery_pill_level, pct" in pill && "R.string.battery_pill_hint" in pill)
         val volume = live.substringAfter("private fun volumeCardChanged() {").substringBefore("}\n")
         assertTrue(volume, "compositor.setVolumeCard(showing)" in volume && "batteryPill.volumeChanged(showing != null)" in volume)
         assertTrue("\"battery pill\" to { batteryPill.drop() }" in live)
         assertEquals("the compositor is given the call card's slot by the pill alone", 1, Regex("""compositor::setCallCard""").findAll(live).count())
         assertTrue("the sides' answer is false without video", "fun showBatteryLow(pct: Int): Boolean = false" in source("service/ProjectionService.kt"))
+        assertTrue("and without video there is nothing to take off", "fun stopBatteryLow() = Unit" in source("service/ProjectionService.kt"))
     }
 
     @Test

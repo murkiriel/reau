@@ -65,10 +65,14 @@ interface ProjectionSides {
     fun freezeRecording(mark: Int): Boolean = false
 
     /**
-     * The battery is at [pct] percent with no charger ([BatteryLowWatch]): the dash's video shows the pill of the low battery for a few seconds, after a call or the volume
-     * card if one shows (26/11/2026). True when the pill was taken; false when these sides have no video to show it on.
+     * The battery is at [pct] percent with no charger ([BatteryLowWatch]): the dash's video alternates the pill of the low battery, a minute on and a minute out, after a call
+     * or the volume card if one shows (the owner's decision of 26/11/2026; it was 5 s once). Asked at each look while it holds: the first starts the alternation, the next ones
+     * only change the level in its words. True when the pill was taken; false when these sides have no video to show it on.
      */
     fun showBatteryLow(pct: Int): Boolean = false
+
+    /** The alternation of [showBatteryLow] ends (the charger came in, the battery went up, the dash went, the projection ended): the pill is taken off the video at once. */
+    fun stopBatteryLow() = Unit
 
     /** The bike's Wi-Fi while the sides hold it, for the `device` line; null when none. */
     val bikeNetwork: Network? get() = null
@@ -331,6 +335,9 @@ class ProjectionService : Service() {
 
     // The phone's state looked at while the projection is on; only the worker reads and writes it.
     private var deviceLook: ScheduledFuture<*>? = null
+
+    // The watch of the low battery of the projection being looked at, kept for its end ([endBatteryPill]); only the worker reads and writes it.
+    private var batteryLow: BatteryLowWatch? = null
 
     // What the system's memory signs call ([com.reau.app.data.PressureSignals]): a look at the phone on the worker, with the reason it is written for.
     private var pressureLook: ((String) -> Unit)? = null
@@ -750,6 +757,7 @@ class ProjectionService : Service() {
                 }
             }
             stopLookingAtTheDevice()
+            endBatteryPill()
             ProjectionNotification.clearPhoneHot(this@ProjectionService)
             // The low-battery notice is about this ride: it goes with it (26/11/2026; a resume after a death by the system is the same ride and keeps it).
             ProjectionNotification.clearBatteryLow(this@ProjectionService)
@@ -817,6 +825,7 @@ class ProjectionService : Service() {
         // after a death by the system is the same trip, and the mark says whether the warning was already given.
         val told = runCatching { resumeBook.batteryTold() }.getOrDefault(false)
         val low = BatteryLowWatch(alreadyTold = told)
+        batteryLow = low
         if (told) RideDiagnostics.log("battery", "the low-battery notice was given before the system closed REau: not given again in this ride")
         // Said once for this projection: the reader does not ask for the thermal headroom in this build (the lines have no headroom=).
         RideDiagnostics.log("device", com.reau.app.data.ThermalHeadroomNote.LINE)
@@ -878,25 +887,43 @@ class ProjectionService : Service() {
 
     /**
      * The rider's notice that the battery is nearly out with no charger ([BatteryLowWatch]), once per trip, and its line in the ride log: the level, and
-     * whether the notice was posted or the rider has the app's notifications off (26/11/2026; the ride of 25/11 went from 12 % to 4 % in 2 minutes).
+     * whether the notice was posted or the rider has the app's notifications off (26/11/2026; the ride of 25/11 went from 12 % to 4 % in 2 minutes). The dash's pill is
+     * another thing and has its own life: it alternates (a minute on, a minute out) at each look while the battery is low with no charger and the dash is up, and it
+     * stops, said in the log, when the charger came in, the battery went above the limit or the dash went; with the notice told already (a resumed ride) it still starts.
      */
     private fun warnIfBatteryLow(low: BatteryLowWatch, state: com.reau.app.data.DeviceState) {
         val pct = state.batteryPct ?: return
-        // The pill waits for the dash: drawn with no dash connected it would run its 5 s unseen (26/11/2026); the phone's notice goes at once.
+        // The pill waits for the dash: drawn with no dash connected it would run its minute unseen (26/11/2026); the phone's notice goes at once.
         val dashUp = ProjectionResume.dashUp(controller.state.dash)
-        if (low.offer(pct, state.charging)) {
+        val due = low.offer(pct, state.charging)
+        val step = low.pillStep(dashUp)
+        val onDash = step.asks && sides?.showBatteryLow(pct) == true
+        if (due) {
             val shown = ProjectionNotification.showBatteryLow(this, pct)
             runCatching { resumeBook.recordBatteryTold() }
-            val onDash = low.pillDue(dashUp) && sides?.showBatteryLow(pct) == true
-            val pill = if (onDash) "asked" else if (low.pillPending) "waiting for the dash" else "none"
+            val pill = if (onDash) "asked" else if (low.lowNow && !dashUp) "waiting for the dash" else "none"
             RideDiagnostics.warn(
                 "battery",
                 "battery at $pct% with no charger (at or under ${BatteryLowWatch.LOW_PCT}%): rider told the phone may shut down " +
                     "(phone notice: ${if (shown) "shown" else "not shown, the app's notifications are off"}; dash pill: $pill)",
             )
-        } else if (low.pillDue(dashUp) && sides?.showBatteryLow(pct) == true) {
-            RideDiagnostics.log("battery", "battery pill asked on the dash at $pct% (it had waited for the dash)")
+        } else if (step == BatteryLowWatch.PillStep.START && onDash) {
+            val shownS = TimeUnit.MILLISECONDS.toSeconds(com.reau.app.dash.BatteryPill.SHOW_MS)
+            val outS = TimeUnit.MILLISECONDS.toSeconds(com.reau.app.dash.BatteryPill.OUT_MS)
+            RideDiagnostics.log("battery", "battery pill alternation starts at $pct% ($shownS s shown, $outS s out)")
         }
+        if (step.stops) {
+            runCatching { sides?.stopBatteryLow() }
+            RideDiagnostics.log("battery", "battery pill alternation stops at $pct%: ${step.reason}")
+        }
+    }
+
+    /** The projection is over: the dash's pill, if it was alternating, is taken off and the log says so (26/11/2026). */
+    private fun endBatteryPill() {
+        val step = batteryLow?.pillEnds() ?: return
+        runCatching { sides?.stopBatteryLow() }
+        RideDiagnostics.log("battery", "battery pill alternation stops: ${step.reason}")
+        batteryLow = null
     }
 
     /**

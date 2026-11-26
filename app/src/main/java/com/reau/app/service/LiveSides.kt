@@ -518,8 +518,8 @@ internal class LiveSides(
         if (shown && log) RideDiagnostics.log("dash", step.logLine())
     }
 
-    // The pill of the low battery ([com.reau.app.dash.BatteryPill], 26/11/2026): it takes the call card's place on the dash's video, 5 s, once per projection, and gives way
-    // to a call card and to the volume card. It sits between the call card's feed and the compositor, so what the feed says reaches the compositor through it. Declared before
+    // The pill of the low battery ([com.reau.app.dash.BatteryPill], 26/11/2026): it takes the call card's place on the dash's video, a minute on and a minute out for as long as the
+    // service asks for it (the owner's decision of 26/11/2026; it was 5 s once), and gives way to a call card and to the volume card. It sits between the call card's feed and the compositor, so what the feed says reaches the compositor through it. Declared before
     // the call card's feed, which is given its callback, and before the init block.
     private val batteryPill = com.reau.app.dash.BatteryPill(
         show = compositor::setCallCard,
@@ -535,6 +535,8 @@ internal class LiveSides(
     override fun showBatteryLow(pct: Int): Boolean = batteryPill.request(
         com.reau.app.dash.CallCards.batteryNotice(appContext.getString(R.string.battery_pill_level, pct), appContext.getString(R.string.battery_pill_hint)),
     )
+
+    override fun stopBatteryLow() = batteryPill.stop()
 
     // The call card on the dash's video ([com.reau.app.dash.CallCards], [CallCardFeed]): follows Android Auto's word of the calls whatever the switch says; the switch only
     // decides whether it is drawn and whether the dash is still sent the call.

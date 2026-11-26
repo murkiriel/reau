@@ -1557,7 +1557,7 @@ class AvisoDeBateriaFraca(unittest.TestCase):
         tempo, _ = self.tempo(linha(
             "10:05:00.000", "battery",
             "W: battery at 9% with no charger (at or under 10%): rider told the phone may shut down (phone notice: shown; dash pill: asked)"))
-        self.assertIn("aviso de bateria fraca: 9 % sem carregador; aviso no celular: feito; cartão no painel: pedido", tempo)
+        self.assertIn("aviso de bateria fraca: 9 % sem carregador; aviso no celular: feito; cartão no painel: pedido (alterna: 60 s na tela, 60 s fora)", tempo)
 
     def test_sem_permissao_e_sem_painel_o_aviso_diz_o_que_nao_saiu(self):
         tempo, _ = self.tempo(linha(
@@ -1572,6 +1572,26 @@ class AvisoDeBateriaFraca(unittest.TestCase):
             "W: battery at 10% with no charger (at or under 10%): rider told the phone may shut down (phone notice: shown; dash pill: asked)"))
         self.assertNotIn("marca do piloto", tempo)
         self.assertFalse(any("bateria" in p for p in problemas))
+
+    def test_a_alternancia_do_cartao_comeca_e_para_com_o_motivo(self):
+        tempo, problemas = self.tempo(
+            linha("10:05:00.000", "battery", "battery at 9% with no charger (at or under 10%): rider told the phone may shut down (phone notice: shown; dash pill: asked)"),
+            linha("10:20:00.000", "battery", "battery pill alternation stops at 9%: charger in"),
+            linha("10:30:00.000", "battery", "battery pill alternation starts at 8% (60 s shown, 60 s out)"),
+            linha("10:31:00.000", "battery", "battery pill alternation stops at 12%: battery above the limit"),
+            linha("10:32:00.000", "battery", "battery pill alternation stops at 8%: dash gone, it starts again when the dash is back"),
+            linha("10:40:00.000", "battery", "battery pill alternation stops: projection over"),
+        )
+        self.assertIn("cartão de bateria fraca no painel para de alternar com a bateria a 9 %: o carregador foi ligado", tempo)
+        self.assertIn("cartão de bateria fraca no painel passa a alternar com a bateria a 8 % (60 s na tela, 60 s fora)", tempo)
+        self.assertIn("para de alternar com a bateria a 12 %: a bateria subiu acima de 10 %", tempo)
+        self.assertIn("para de alternar com a bateria a 8 %: o painel caiu (volta a alternar quando ele reconectar)", tempo)
+        self.assertIn("cartão de bateria fraca no painel para de alternar: a projeção acabou", tempo)
+        self.assertNotIn("marca do piloto", tempo)
+        self.assertFalse(any("bateria" in p for p in problemas))
+
+    def test_um_motivo_novo_passa_como_veio(self):
+        self.assertIn("para de alternar: something new", ler_registro._aviso_bateria("battery pill alternation stops: something new"))
 
     def test_uma_linha_desconhecida_passa_como_veio(self):
         tempo, _ = self.tempo(linha("10:05:00.000", "battery", "battery: something new"))

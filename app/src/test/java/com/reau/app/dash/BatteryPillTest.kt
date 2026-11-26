@@ -8,7 +8,7 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Plan 35, step E (26/11/2026): the pill of the low battery on the dash's video ([BatteryPill]): when it shows, for how long, and what gives way to what. The clock and the wait
+ * Plan 35, step E (26/11/2026): the pill of the low battery on the dash's video ([BatteryPill]): when it shows, for how long, and what gives way to what.  The owner of 26/11/2026 asked for it to alternate, a minute on and a minute out, for as long as it is asked for (it was 5 s once). The clock and the wait
  * are moved by hand; what the compositor is given is recorded.
  */
 class BatteryPillTest {
@@ -48,32 +48,98 @@ class BatteryPillTest {
     }
 
     @Test
-    fun `it shows at once with nothing else up, for 5 seconds, and then goes`() {
+    fun `it shows at once with nothing else up, for a minute, then goes for a minute, and comes again`() {
         assertTrue(pill.request(battery))
         assertEquals(battery, onGlass)
-        advance(4_900)
+        advance(59_900)
         assertEquals(battery, onGlass)
         advance(100)
+        assertNull("a minute on the glass is over", onGlass)
+        assertEquals("one wait left, for the minute out", 1, waits.size)
+        advance(59_900)
         assertNull(onGlass)
+        advance(100)
+        assertEquals("on again", battery, onGlass)
+        advance(60_000)
+        assertNull("out again", onGlass)
+        advance(60_000)
+        assertEquals("and on", battery, onGlass)
+    }
+
+    @Test
+    fun `it is a minute on and a minute out`() {
+        assertEquals(60_000L, BatteryPill.SHOW_MS)
+        assertEquals(60_000L, BatteryPill.OUT_MS)
+    }
+
+    @Test
+    fun `it alternates for as long as it is asked for, and stops with nothing left to run`() {
+        pill.request(battery)
+        repeat(10) {
+            advance(60_000)
+            assertNull(onGlass)
+            advance(60_000)
+            assertEquals(battery, onGlass)
+        }
+        pill.stop()
+        assertNull("off the glass at once", onGlass)
         assertTrue("no wait left over", waits.isEmpty())
-    }
-
-    @Test
-    fun `it is for 5 seconds`() {
-        assertEquals(5_000L, BatteryPill.SHOW_MS)
-    }
-
-    @Test
-    fun `it comes once per projection, a second request is refused and shows nothing`() {
-        assertTrue(pill.request(battery))
-        assertFalse(pill.request(battery))
-        advance(5_000)
-        assertNull(onGlass)
-        assertFalse("not even after it went", pill.request(battery))
-        assertNull(onGlass)
         val count = given.size
+        advance(600_000)
+        assertEquals("and it does not come back", count, given.size)
+        assertNull(onGlass)
+    }
+
+    @Test
+    fun `stopping it in the minute out keeps it from coming back`() {
+        pill.request(battery)
+        advance(60_000)
+        pill.stop()
+        advance(120_000)
+        assertNull(onGlass)
+        assertTrue(waits.isEmpty())
+    }
+
+    @Test
+    fun `a new request after a stop is a new alternation, showing first`() {
+        pill.request(battery)
+        advance(60_000)
+        assertNull(onGlass)
+        pill.stop()
         advance(10_000)
-        assertEquals("nothing more is drawn", count, given.size)
+        assertTrue(pill.request(battery))
+        assertEquals("not in the middle of the old minute out", battery, onGlass)
+        advance(59_999)
+        assertEquals(battery, onGlass)
+        advance(1)
+        assertNull(onGlass)
+    }
+
+    @Test
+    fun `asked again while it runs it changes the words and keeps the count`() {
+        pill.request(battery)
+        advance(30_000)
+        val lower = CallCards.batteryNotice("Battery 9 %", "Plug in the charger")
+        assertTrue(pill.request(lower))
+        assertEquals("the new level is on the glass", lower, onGlass)
+        advance(29_999)
+        assertEquals(lower, onGlass)
+        advance(1)
+        assertNull("its minute ended where it would have", onGlass)
+        advance(60_000)
+        assertEquals(lower, onGlass)
+    }
+
+    @Test
+    fun `asked again in the minute out does not bring it back early`() {
+        pill.request(battery)
+        advance(60_000)
+        pill.request(battery)
+        assertNull(onGlass)
+        advance(59_999)
+        assertNull(onGlass)
+        advance(1)
+        assertEquals(battery, onGlass)
     }
 
     @Test
@@ -81,39 +147,71 @@ class BatteryPillTest {
         pill.callChanged(ringing)
         assertTrue(pill.request(battery))
         assertEquals("the call stays", ringing, onGlass)
-        advance(60_000)
-        assertEquals("the call is still the one on the glass a minute later", ringing, onGlass)
+        advance(600_000)
+        assertEquals("the call is still the one on the glass ten minutes later", ringing, onGlass)
         val grey = CallCards.notice(CallCard(CallPhase.ENDED, "Ana", 60), words())
         pill.callChanged(grey)
         assertEquals("the grey card of the call over is a call card too", grey, onGlass)
         pill.callChanged(null)
         assertEquals(battery, onGlass)
-        advance(4_999)
+        advance(59_999)
         assertEquals(battery, onGlass)
         advance(1)
         assertNull(onGlass)
     }
 
     @Test
-    fun `a call that comes while the pill shows takes the glass, and the pill has its 5 seconds again after it`() {
+    fun `a call that comes while the pill shows takes the glass, and the pill has its minute again after it`() {
         pill.request(battery)
-        advance(3_000)
+        advance(30_000)
         pill.callChanged(ringing)
         assertEquals(ringing, onGlass)
-        advance(20_000)
+        advance(120_000)
         pill.callChanged(null)
         assertEquals(battery, onGlass)
-        advance(4_999)
+        advance(59_999)
+        assertEquals("the 30 s seen before the call do not count", battery, onGlass)
+        advance(1)
+        assertNull(onGlass)
+    }
+
+    @Test
+    fun `the minute out runs with a call up, and the pill shows when the call goes`() {
+        pill.request(battery)
+        advance(60_000)
+        assertNull(onGlass)
+        advance(30_000)
+        pill.callChanged(ringing)
+        advance(30_000)
+        assertEquals("the minute out is over, the call is on the glass", ringing, onGlass)
+        advance(100_000)
+        pill.callChanged(null)
+        assertEquals("it was due long ago: at once, for a whole minute", battery, onGlass)
+        advance(59_999)
         assertEquals(battery, onGlass)
         advance(1)
         assertNull(onGlass)
+    }
+
+    @Test
+    fun `a call that goes before the minute out is over does not bring the pill early`() {
+        pill.request(battery)
+        advance(60_000)
+        pill.callChanged(ringing)
+        advance(20_000)
+        pill.callChanged(null)
+        assertNull("still in the minute out", onGlass)
+        advance(39_999)
+        assertNull(onGlass)
+        advance(1)
+        assertEquals(battery, onGlass)
     }
 
     @Test
     fun `the call card ticking each second while a call goes on does not push the pill in`() {
         pill.callChanged(ringing)
         pill.request(battery)
-        repeat(30) {
+        repeat(300) {
             advance(1_000)
             pill.callChanged(ringing)
             assertEquals(ringing, onGlass)
@@ -125,24 +223,24 @@ class BatteryPillTest {
         pill.volumeChanged(true)
         assertTrue(pill.request(battery))
         assertNull("nothing for the compositor but the call card slot's own, which is empty", onGlass)
-        advance(30_000)
+        advance(300_000)
         assertNull(onGlass)
         pill.volumeChanged(false)
         assertEquals(battery, onGlass)
-        advance(5_000)
+        advance(60_000)
         assertNull(onGlass)
     }
 
     @Test
-    fun `a volume card that comes while the pill shows holds it, and it has its 5 seconds again`() {
+    fun `a volume card that comes while the pill shows holds it, and it has its minute again`() {
         pill.request(battery)
-        advance(2_000)
+        advance(20_000)
         pill.volumeChanged(true)
         assertNull(onGlass)
         advance(10_000)
         pill.volumeChanged(false)
         assertEquals(battery, onGlass)
-        advance(4_999)
+        advance(59_999)
         assertEquals(battery, onGlass)
         advance(1)
         assertNull(onGlass)
@@ -161,15 +259,30 @@ class BatteryPillTest {
     }
 
     @Test
+    fun `the dash going and coming back is a stop and a new request, and the cycle starts again showing`() {
+        pill.request(battery)
+        advance(70_000)
+        assertNull("in the minute out", onGlass)
+        pill.stop()
+        advance(300_000)
+        assertNull("the dash is away: nothing runs", onGlass)
+        assertTrue(waits.isEmpty())
+        pill.request(battery)
+        assertEquals("the dash is back: showing", battery, onGlass)
+        advance(60_000)
+        assertNull(onGlass)
+    }
+
+    @Test
     fun `a wait that wakes early waits again for what is left`() {
         pill.request(battery)
-        now += 4_000
+        now += 40_000
         val early = waits.single().second
         waits.clear()
         early()
         assertEquals(battery, onGlass)
         assertEquals(1, waits.size)
-        advance(1_000)
+        advance(20_000)
         assertNull(onGlass)
     }
 
@@ -179,6 +292,8 @@ class BatteryPillTest {
         val count = given.size
         pill.drop()
         assertTrue(waits.isEmpty())
+        assertEquals(count, given.size)
+        advance(300_000)
         assertEquals(count, given.size)
     }
 

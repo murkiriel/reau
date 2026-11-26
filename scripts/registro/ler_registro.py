@@ -1245,13 +1245,31 @@ def _aviso_calor(texto):
     return texto
 
 
+_MOTIVO_CARTAO_BATERIA = {
+    "charger in": "o carregador foi ligado",
+    "battery above the limit": "a bateria subiu acima de 10 %",
+    "dash gone, it starts again when the dash is back": "o painel caiu (volta a alternar quando ele reconectar)",
+    "projection over": "a projeção acabou",
+}
+
+
 def _aviso_bateria(texto):
-    """A linha do aviso de bateria fraca (<= 10 % sem carregador; BatteryLowWatch, plano 35 passo E, 26/11/2026): o nível, o aviso no celular e o cartão no painel."""
+    """As linhas da bateria fraca (<= 10 % sem carregador; BatteryLowWatch, plano 35 passo E, 26/11/2026): o aviso no celular e o cartão no painel.
+
+    O cartão no painel (decisão do dono de 26/11/2026) alterna: 60 s na tela, 60 s fora, enquanto a bateria está fraca sem carregador. A linha do aviso diz se o cartão foi
+    pedido; `battery pill alternation starts` marca quando a alternância recomeça (carregador tirado, bateria caiu de novo, painel de volta, retomada) e `... stops` quando para, com o motivo."""
+    m = re.search(r"battery pill alternation starts at (\d+)% \((\d+) s shown, (\d+) s out\)", texto)
+    if m:
+        return f"cartão de bateria fraca no painel passa a alternar com a bateria a {m.group(1)} % ({m.group(2)} s na tela, {m.group(3)} s fora)"
+    m = re.search(r"battery pill alternation stops(?: at (\d+)%)?: (.+)$", texto)
+    if m:
+        nivel = f" com a bateria a {m.group(1)} %" if m.group(1) else ""
+        return f"cartão de bateria fraca no painel para de alternar{nivel}: {_MOTIVO_CARTAO_BATERIA.get(m.group(2).strip(), m.group(2).strip())}"
     m = re.search(r"battery at (\d+)% with no charger .*phone notice: (shown|not shown[^;]*); dash pill: (asked|none|waiting for the dash)", texto)
     if not m:
         return texto
     celular = "feito" if m.group(2) == "shown" else "NÃO feito (as notificações do app estão desligadas)"
-    painel = {"asked": "pedido", "waiting for the dash": "espera o painel conectar"}.get(m.group(3), "nenhum")
+    painel = {"asked": "pedido (alterna: 60 s na tela, 60 s fora)", "waiting for the dash": "espera o painel conectar"}.get(m.group(3), "nenhum")
     return f"aviso de bateria fraca: {m.group(1)} % sem carregador; aviso no celular: {celular}; cartão no painel: {painel}"
 
 
