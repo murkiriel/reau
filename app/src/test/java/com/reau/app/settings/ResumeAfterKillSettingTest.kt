@@ -82,10 +82,10 @@ class ResumeAfterKillSettingTest {
     fun `the texts are in the four languages, say the limit and the force stop, and say it is on by default`() {
         fun string(folder: String, name: String, file: String = "strings") =
             Regex("""<string name="$name">(.*?)</string>""", RegexOption.DOT_MATCHES_ALL).find(File("src/main/res/$folder/$file.xml").readText())!!.groupValues[1]
-        assertEquals("Resume if the system closes REau", string("values", "resume_after_kill_title"))
-        assertEquals("Retomar se o sistema fechar o REau", string("values-pt", "resume_after_kill_title"))
-        assertEquals("Retomar si el sistema cierra REau", string("values-es", "resume_after_kill_title"))
-        assertTrue(string("values-hi", "resume_after_kill_title").isNotBlank())
+        assertEquals("Resume if the system closes REau (experimental)", string("values", "resume_after_kill_title"))
+        assertEquals("Retomar se o sistema fechar o REau (experimental)", string("values-pt", "resume_after_kill_title"))
+        assertEquals("Retomar si el sistema cierra REau (experimental)", string("values-es", "resume_after_kill_title"))
+        assertTrue(string("values-hi", "resume_after_kill_title").endsWith("(प्रायोगिक)"))
         for (folder in listOf("values", "values-pt", "values-es", "values-hi")) {
             val long = string(folder, "resume_after_kill")
             assertTrue("$folder: the limit", "3" in long && "30" in long)
@@ -93,6 +93,8 @@ class ResumeAfterKillSettingTest {
             assertTrue("$folder: a sub line", string(folder, "resume_after_kill_sub").length > 30)
             assertTrue("$folder: the notification's line", string(folder, "notif_resumed", "strings_extra").isNotBlank())
         }
+        // 26/11/2026: still not tried on a phone that closes the app, so the title says experimental and the (i) says it may go.
+        assertTrue("On by default, but it is a test and may be removed in a later version." in string("values", "resume_after_kill"))
         assertTrue("On by default" in string("values", "resume_after_kill") && "Vem ligado" in string("values-pt", "resume_after_kill") &&
             "Viene activado" in string("values-es", "resume_after_kill"))
     }

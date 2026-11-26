@@ -6007,6 +6007,18 @@ MUTATIONS += [
      "o <strong>Android Auto não deixa digitar</strong>, como num carro.", "o <strong>Android Auto deixa digitar</strong>, como num carro.", ["TipsTest"]),
 ]
 
+MUTATIONS += [
+    # Pedido do dono de 26/11/2026: as opções da 0.4.0 ainda não provadas na moto (retomar depois de o sistema fechar o REau, espaçar os pacotes) ficam em vermelho e dizem "experimental" nos 4 idiomas.
+    ("dono/experimental Retomar: o título em português perde o (experimental) e a linha deixa de ficar vermelha", "app/src/main/res/values-pt/strings.xml",
+     "Retomar se o sistema fechar o REau (experimental)</string>", "Retomar se o sistema fechar o REau</string>", ["ExperimentalMarkTest", "ResumeAfterKillSettingTest"]),
+    ("dono/experimental Espaçar: o título em inglês perde o (experimental)", "app/src/main/res/values/strings.xml",
+     "Space out the packets to the dash (experimental)</string>", "Space out the packets to the dash</string>", ["ExperimentalMarkTest", "PacePacketsSettingTest"]),
+    ("dono/experimental Espaçar: o texto longo em espanhol perde a frase de que é uma prueba", "app/src/main/res/values-es/strings.xml",
+     "Viene activado, pero es una prueba y puede salir en una próxima versión.</string>\n    <string name=\"pace_packets", "Viene activado.</string>\n    <string name=\"pace_packets", ["ExperimentalMarkTest"]),
+    ("dono/experimental A marca vermelha volta ao \\b e deixa de reconhecer o hindi (प्रायोगिक)", MAIN + "ui/ExperimentalMark.kt",
+     '"""(?<![\\p{L}\\p{M}\\p{N}_])(experimental|teste|\\u092A\\u094D\\u0930\\u093E\\u092F\\u094B\\u0917\\u093F\\u0915)(?![\\p{L}\\p{M}\\p{N}_])"""', '"""\\b(experimental|teste)\\b"""', ["ExperimentalMarkTest"]),
+]
+
 
 MUTATIONS += [
     ("dia26/item8 Quadro lento: o quadro de meio segundo volta a ficar escondido atrás da cota de cinco por minuto", MAIN + "util/FrameJank.kt",

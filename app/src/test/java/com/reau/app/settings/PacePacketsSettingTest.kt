@@ -91,14 +91,16 @@ class PacePacketsSettingTest {
     fun `the texts are in the four languages, say the 2 ms and that it is on by default`() {
         fun string(folder: String, name: String) =
             Regex("""<string name="$name">(.*?)</string>""", RegexOption.DOT_MATCHES_ALL).find(File("src/main/res/$folder/strings.xml").readText())!!.groupValues[1]
-        assertEquals("Space out the packets to the dash", string("values", "pace_packets_title"))
-        assertEquals("Espaçar os pacotes para o painel", string("values-pt", "pace_packets_title"))
-        assertEquals("Espaciar los paquetes al tablero", string("values-es", "pace_packets_title"))
-        assertTrue(string("values-hi", "pace_packets_title").isNotBlank())
+        assertEquals("Space out the packets to the dash (experimental)", string("values", "pace_packets_title"))
+        assertEquals("Espaçar os pacotes para o painel (experimental)", string("values-pt", "pace_packets_title"))
+        assertEquals("Espaciar los paquetes al tablero (experimental)", string("values-es", "pace_packets_title"))
+        assertTrue(string("values-hi", "pace_packets_title").endsWith("(प्रायोगिक)"))
         for (folder in listOf("values", "values-pt", "values-es", "values-hi")) {
             assertTrue("$folder: the 2 ms in the long text", "2 ms" in string(folder, "pace_packets"))
             assertTrue("$folder: the 2 ms in the sub line", "2 ms" in string(folder, "pace_packets_sub"))
         }
+        // 26/11/2026: not yet tried on the bike, so the title says experimental and the (i) says it may go.
+        assertTrue("On by default, but it is a test and may be removed in a later version." in string("values", "pace_packets"))
         assertTrue(
             "On by default" in string("values", "pace_packets") && "Vem ligado" in string("values-pt", "pace_packets") &&
                 "Viene activado" in string("values-es", "pace_packets"),

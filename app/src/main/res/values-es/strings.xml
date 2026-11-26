@@ -290,12 +290,12 @@
     <string name="no_dash_stop_info">Cuando el Wi-Fi del tablero desaparece y no vuelve (la moto se apagó), REau sigue pidiéndolo, con Android Auto, el video y los bloqueos del teléfono activos, hasta que toques Apagar. Con esto activado, la proyección se apaga sola tras el tiempo elegido sin el tablero, como lo haría el botón Apagar, y una notificación dice por qué. La cuenta empieza de nuevo cada vez que el tablero vuelve; \"Sin límite\" mantiene el comportamiento anterior.</string>
     <string name="no_dash_stop_minutes">%1$d min</string>
     <string name="no_dash_stop_never">Sin límite</string>
-    <string name="resume_after_kill_title">Retomar si el sistema cierra REau</string>
+    <string name="resume_after_kill_title">Retomar si el sistema cierra REau (experimental)</string>
     <string name="resume_after_kill_sub">Si el sistema del teléfono cierra REau en medio del viaje, la proyección vuelve sola</string>
-    <string name="resume_after_kill">Cuando el sistema del teléfono cierra REau en medio del viaje y vuelve a iniciar su servicio, la proyección se enciende sola otra vez, como si hubieras tocado Encender: hasta 3 veces en 30 minutos, nunca después de que la apagues tú. No vuelve tras una detención forzada (algunos Xiaomi la hacen) y, retomada, queda sin micrófono (Gemini) y sin ubicación para la lista de Wi-Fi. Viene activado.</string>
-    <string name="pace_packets_title">Espaciar los paquetes al tablero</string>
+    <string name="resume_after_kill">Cuando el sistema del teléfono cierra REau en medio del viaje y vuelve a iniciar su servicio, la proyección se enciende sola otra vez, como si hubieras tocado Encender: hasta 3 veces en 30 minutos, nunca después de que la apagues tú. No vuelve tras una detención forzada (algunos Xiaomi la hacen) y, retomada, queda sin micrófono (Gemini) y sin ubicación para la lista de Wi-Fi. Viene activado, pero es una prueba y puede salir en una próxima versión.</string>
+    <string name="pace_packets_title">Espaciar los paquetes al tablero (experimental)</string>
     <string name="pace_packets_sub">Al menos 2 ms entre dos paquetes cualesquiera, video y comandos</string>
-    <string name="pace_packets">REau deja al menos 2 ms entre dos paquetes cualesquiera que envía al tablero, los del video y los de los comandos juntos, en vez de una ráfaga pegada; algunos tableros se reinician un minuto después de que empieza la transmisión, y las apps que se mantienen estables espacian los paquetes igual. Esto suma unos milisegundos a un cuadro clave y a la respuesta a un botón, y vale desde la próxima proyección. Viene activado.</string>
+    <string name="pace_packets">REau deja al menos 2 ms entre dos paquetes cualesquiera que envía al tablero, los del video y los de los comandos juntos, en vez de una ráfaga pegada; algunos tableros se reinician un minuto después de que empieza la transmisión, y las apps que se mantienen estables espacian los paquetes igual. Esto suma unos milisegundos a un cuadro clave y a la respuesta a un botón, y vale desde la próxima proyección. Viene activado, pero es una prueba y puede salir en una próxima versión.</string>
     <string name="action_view_logs">Ver el registro</string>
     <string name="log_viewer_title">Registro</string>
     <string name="log_viewer_none">Aún no hay registros.</string>
