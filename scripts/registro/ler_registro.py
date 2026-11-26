@@ -115,6 +115,11 @@ Desde 25/11/2026 (0.4.0): se o sistema do celular encerra o processo do REau com
 «projeção retomada depois de o sistema fechar o REau, tentativa N de 3»; a projeção de antes continua a acabar em «o app recomeçou», com o motivo da saída. Uma retomada que não houve
 (o ajuste desligado, o limite, a marca velha) fica fora de qualquer projeção e só está no arquivo bruto: `not resumed after the system ended the process: <motivo>`.
 
+Desde 25/11/2026 (plano 35, passo A): a linha `[exit] past exit: …` que o processo seguinte escreve vira o problema «o sistema fechou o REau», com a hora da morte e o motivo, quando
+o motivo é do sistema (2, 3, 9, 10, 11, 12, 13 ou 14), a importância é de serviço em primeiro plano ou melhor (1 a 125) e a descrição não diz «remove task» nem «swipeupclean» (a regra
+de `SystemClosedRide.kt`). A subida de temperatura é medida dentro de um trecho de uso que um processo novo, ou um buraco de 15 min entre duas olhadas em uso (`USO_BURACO_S`), também
+fecham; e a gravação vai para a projeção que estava em curso na hora do nome dela (a folga de 60 s só vale quando nenhuma estava), sem roubar a de uma projeção que começa logo depois.
+
 Em registros de versões até a 0.2.0 (o serviço que ligava o servidor sozinho não existe mais), por Ligar, o bloco `servidor do AA:` conta a caminhada que liga o servidor do Android Auto (toque, início
 da caminhada, clique em Iniciar, Voltar, fim, primeira conexão, em ms) e acusa a causa: porta fechada 5 s depois do clique, servidor
 que só atendeu quando a tela do Android Auto abriu, menu lido pela metade (Android Auto frio?). Sem linhas `aa-server` (o serviço desligado, o caso comum) não diz nada.
@@ -155,6 +160,17 @@ PROCESSO_RECOMECOU = (tempo.PROCESSO_COMECOU, "o app recomeçou")
 SAIDA_DO_PROCESSO = re.compile(r"^past exit: .*? \((\d+)\) (?:at|×\d+ from \S+ \S+ to) \d{4}-\d\d-\d\d (\d\d:\d\d:\d\d(?:\.\d+)?)")
 RETOMADA = re.compile(r"^resumed after the system ended the process \(attempt (\d+) of (\d+)\)$")  # the app's own line when the projection came back by itself (0.4.0)
 SAIDA_DO_PROCESSO_LINHAS = 60  # how far after the `process start` the app tells its past exits
+# O sistema fechou o REau (25/11/2026: o Android matou o processo às 16:10:18 e às 16:10:55, `low memory (3)` e `was foreground service (125)`, e o leitor só
+# dizia «o app recomeçou» na linha do tempo, sem nenhum problema). A regra espelha a de `SystemClosedRide.kt` (o aviso que o app dá ao piloto): o motivo é um
+# dos do sistema, a importância é a de um serviço em primeiro plano ou melhor (1 a 125: o REau projetava, não estava parado em segundo plano) e a descrição
+# não diz que o piloto tirou o app dos recentes. Se a regra mudar lá, mude aqui.
+# BY_THE_SYSTEM: sinal, memória, recursos, pedido do usuário (o gerenciador do fabricante também o faz), parado, dependência, outro, congelado.
+SAIDA_PELO_SISTEMA = {2, 3, 9, 10, 11, 12, 13, 14}
+SAIDA_IMPORTANCIA_MAX = 125  # PROJECTING_IMPORTANCE
+SAIDA_PELO_PILOTO = ("remove task", "swipeupclean")  # BY_THE_RIDER: o piloto tirou o app dos recentes
+SAIDA_IMPORTANCIA = re.compile(r", was (.*?) \((\d+)\)")
+SAIDA_DESCRICAO = re.compile(r', "(.*)"(?:, trace in \S+)?$')
+IMPORTANCIA_DO_APP = {100: "em primeiro plano", 125: "serviço em primeiro plano"}
 MOTIVO_DA_SAIDA = {0: "motivo desconhecido", 1: "o app saiu sozinho", 2: "morto por sinal", 3: "falta de memória", 4: "falha", 5: "falha nativa", 6: "app sem resposta (ANR)",
                    7: "falha ao iniciar", 8: "permissão mudou", 9: "uso excessivo de recursos", 10: "pedido do usuário",
                    11: "parado pelo usuário", 12: "dependência morreu", 13: "outro motivo", 14: "congelado", 15: "estado do pacote mudou", 16: "pacote atualizado"}
@@ -206,6 +222,12 @@ SOBE_GRAUS = 8.0
 QUENTE_GRAUS = 44.0
 # The battery stays warm from the charge for this long after the charger leaves: those looks are the charger's heat, not the use's.
 CARGA_ESFRIA_S = 600.0
+# A rise is measured inside one stretch of use: a new process (`process start`) or a hole this long between two looks in use closes the stretch, because the
+# lowest temperature of before the hole is no longer the start of the heat being measured (25/11/2026, 06:15 to 07:00: 30 → 38 °C at 06:30, then 38 → 34 °C in
+# 17 min with the screen off, and the next lit look compared with the 30 of 45 min before). The looks come every 30 s, so 15 min is 30 looks lost or a screen
+# off long enough for the battery to cool: well above any pause of the use (a red light, the 4 min of 06:19 to 06:23) and below the time the battery takes to
+# forget the heat.
+USO_BURACO_S = 900.0
 # The screen of Android Auto, by time (`aa-screen: apps (by the picture: …)`, `… confirmed by the picture`) and the rider's keys on the dash.
 TELA_AA = re.compile(r"^aa-screen: (nav|menu|apps)\b")
 TELA_NOME = {"nav": "mapa", "menu": "menu", "apps": "apps"}
@@ -876,6 +898,34 @@ def _motivo_da_saida(linhas, i, ultima):
             if tempo.assinado(saiu, ultima.segundos) >= -5 and tempo.assinado(inicio.segundos, saiu) >= -5:
                 return MOTIVO_DA_SAIDA.get(int(m.group(1)), f"motivo {m.group(1)}")
     return ""
+
+
+def _sistema_fechou(linhas):
+    """Os problemas «o sistema fechou o REau»: uma linha `past exit` (o processo seguinte conta como o anterior acabou) cujo motivo é do sistema, com a
+    importância de um serviço em primeiro plano ou melhor e sem a descrição de o piloto ter tirado o app dos recentes (a regra de `SystemClosedRide.decide`,
+    sem a idade: o leitor lê registros de qualquer dia). Diz a hora da morte (a da saída, não a da linha: o app só a conta ao recomeçar), o motivo e o que o
+    processo era. Uma saída contada em dois arquivos vale uma vez. Uma saída sem importância (o app de antes da linha trazer isso) não vale: não se sabe se
+    projetava."""
+    saida, vistas = [], set()
+    for x in linhas:
+        m = SAIDA_DO_PROCESSO.match(x.texto)
+        importancia = SAIDA_IMPORTANCIA.search(x.texto)
+        if not m or not importancia:
+            continue
+        motivo, grau = int(m.group(1)), int(importancia.group(2))
+        descricao = SAIDA_DESCRICAO.search(x.texto)
+        if (motivo not in SAIDA_PELO_SISTEMA or not 1 <= grau <= SAIDA_IMPORTANCIA_MAX
+                or any(p in (descricao.group(1) if descricao else "").lower() for p in SAIDA_PELO_PILOTO)):
+            continue
+        quando = m.group(2)[:8]
+        chave = (x.texto.split(", was ")[0], quando)
+        if chave in vistas:
+            continue
+        vistas.add(chave)
+        nome = IMPORTANCIA_DO_APP.get(grau, importancia.group(1))
+        saida.append(f"{quando}: o sistema fechou o REau — {MOTIVO_DA_SAIDA.get(motivo, f'motivo {motivo}')} ({motivo}), com o app como {nome} ({grau}); "
+                     f"o app só soube ao recomeçar, às {x.hora[:8]} ({x.arquivo})")
+    return saida
 
 
 def _do_desligamento(x, bloco):
@@ -1685,6 +1735,7 @@ def problemas(linhas):
         saida += _envio_por_politica(bloco) + thread_principal.problemas(bloco)
         saida += _apps_sem_tecla(bloco) + _quadros_chave_altos(bloco) + _painel_visto_tarde(bloco) + _apps_recorte_errado_problemas(bloco)
         saida += [f"projeção de {inicio}: servidor do AA — {causa}" for causa in _servidor_aa(bloco)[1]]
+    saida += _sistema_fechou(linhas)
     # The test of item 1a (the Wi-Fi list with the app behind) fails here, with the reasons; its whole account is in `teste_1a`.
     return saida + varredura.problemas_do_teste(varredura.teste_1a(linhas)) + olhadas.problemas(projecoes(linhas))
 
@@ -2172,21 +2223,31 @@ def _em_uso(texto):
 def _trechos_de_uso(bloco):
     """As temperaturas da bateria nas olhadas em uso (sem carregador, tela ligada), em trechos de (graus, sem painel): o carregador (uma olhada com `charging=yes`,
     `charger in` ou `charger out`) fecha o trecho, e as olhadas até 10 min depois do último sinal dele são o calor da carga, não do uso. Sem painel é a olhada com `bike=none`
-    (o Wi-Fi do painel não está unido); uma olhada sem o campo (registro de antes dele) conta como com painel."""
-    trechos, atual, carga_em = [], [], None
+    (o Wi-Fi do painel não está unido); uma olhada sem o campo (registro de antes dele) conta como com painel. Um processo novo (`process start`) e um buraco
+    de `USO_BURACO_S` ou mais entre duas olhadas em uso também fecham o trecho: a menor temperatura de antes deles não é o começo do calor que se mede."""
+    trechos, atual, carga_em, ultima = [], [], None, None
     for x in bloco:
+        if x.texto.startswith(tempo.PROCESSO_COMECOU):
+            if atual:
+                trechos.append(atual)
+            atual, ultima = [], None  # o calor da carga (`carga_em`) não esfria só porque o processo mudou
+            continue
         carregador = (x.etiqueta == "system" and x.texto.startswith(("charger in", "charger out"))) or (
             x.texto.startswith("device ") and _device(x.texto, "charging") == "yes")
         if carregador:
             if atual:
                 trechos.append(atual)
-            atual, carga_em = [], x.segundos
+            atual, carga_em, ultima = [], x.segundos, None
         elif x.texto.startswith("device "):
             if carga_em is not None and 0 <= x.segundos - carga_em < CARGA_ESFRIA_S:
                 continue
             g = _device(x.texto, "temp")
             if g and g != "?" and _em_uso(x.texto):
+                if ultima is not None and tempo.dif(x.segundos, ultima) >= USO_BURACO_S and atual:
+                    trechos.append(atual)
+                    atual = []
                 atual.append((float(g), _device(x.texto, "bike") == "none"))
+                ultima = x.segundos
     if atual:
         trechos.append(atual)
     return trechos

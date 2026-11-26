@@ -1,8 +1,16 @@
 #!/usr/bin/env bash
 # Coleta, por adb e SÓ PARA LER, o que ajuda a investigar um problema do REau num celular: o estado do celular e do Android Auto,
-# o logcat (o do sistema e o buffer de quedas) e as pastas de registro do app. Nunca instala, apaga nem muda configuração:
-# os únicos comandos são de leitura (getprop, dumpsys, cmd appops get, am get-standby-bucket, settings get, logcat -d, logcat -g) e a
+# o logcat (o do sistema, o buffer de quedas e, em sistema/, os buffers `events` e `kernel`) e as pastas de registro do app. Nunca instala, apaga nem muda
+# configuração: os únicos comandos são de leitura (getprop, dumpsys, cmd appops get, am get-standby-bucket, settings get, logcat -d, logcat -g) e a
 # cópia das pastas do app por run-as (só na build debug).
+# Em sistema/ também vêm, para investigar o que o Android faz com o REau (25/11/2026: ele matou o processo duas vezes por falta de memória, e o logcat do
+# sistema já tinha rolado):
+#   - logcat-events.txt e logcat-kernel.txt (`logcat -b events|kernel -d`): am_kill, am_proc_died e o lmkd (eventos), o que o kernel diz de memória e de matar
+#     processo (kernel);
+#   - dumpsys-meminfo.txt (`dumpsys meminfo`: quanta memória cada processo usa agora e o que sobra) e exit-info-reau.txt / exit-info-gearhead.txt (`dumpsys
+#     activity exit-info`: por que o Android diz que o processo do REau e o do Android Auto acabaram, o mesmo histórico que o app conta como
+#     `[exit] past exit`, mas o do Android Auto o app não vê).
+# Nunca `logcat -G` (mudar o tamanho do buffer seria escrever no aparelho): só `-g`, que lê.
 #
 # Uso:  scripts/coletar_do_celular.sh [SERIAL [PASTA_DE_SAIDA]]
 #   SERIAL   o aparelho (adb devices); sem ele, só roda se houver exatamente UM aparelho conectado.
@@ -108,6 +116,14 @@ fi
 mkdir -p "$OUT/sistema"
 no_celular dumpsys wifi > "$OUT/sistema/dumpsys-wifi.txt" 2>&1 || true
 no_celular dumpsys connectivity > "$OUT/sistema/dumpsys-connectivity.txt" 2>&1 || true
+# Memória e mortes de processo (só leitura): os buffers `events` e `kernel` do logcat (cada um guarda coisa que o `-b all` em threadtime mostra mal ou já
+# perdeu), a memória de cada processo agora e o histórico de saídas do Android (ApplicationExitInfo) do REau e do Android Auto. Rode logo depois de uma morte
+# do app: o histórico guarda poucas entradas.
+"$ADB" -s "$SERIAL" logcat -b events -d -v threadtime > "$OUT/sistema/logcat-events.txt" 2>&1 || true
+"$ADB" -s "$SERIAL" logcat -b kernel -d -v threadtime > "$OUT/sistema/logcat-kernel.txt" 2>&1 || true
+no_celular dumpsys meminfo > "$OUT/sistema/dumpsys-meminfo.txt" 2>&1 || true
+no_celular dumpsys activity exit-info com.reau.app > "$OUT/sistema/exit-info-reau.txt" 2>&1 || true
+no_celular dumpsys activity exit-info "$GEARHEAD" > "$OUT/sistema/exit-info-gearhead.txt" 2>&1 || true
 printf '%s\n' "$BUFFERS" > "$OUT/sistema/logcat-tamanho-dos-buffers.txt"
 # O que o Android diz do acesso do REau à localização (a busca de redes com o app atrás depende dela; item 1a, pedido em 08/11/2026): os
 # modos de cada permissão do app (`cmd appops get`, com o `rejectTime` de uma recusa) e as linhas do `dumpsys location` que falam do REau
@@ -121,7 +137,9 @@ grep -E "wpa_supplicant|WifiService|WifiClientModeImpl|ClientModeImpl|WifiConnec
 # redes Wi-Fi (casa, trabalho: registro/mascarar.py); o original fica. O resto do dado pessoal do logcat (nome, e-mails, apps) continua nele: filtre antes de compartilhar.
 if command -v python3 >/dev/null 2>&1; then
   python3 -I "$(dirname "$0")/registro/mascarar.py" "$OUT/logcat-sistema.txt" "$OUT/logcat-sistema.mascarado.txt" || true
-  for arquivo in dumpsys-wifi dumpsys-connectivity wifi-linhas appops-reau location-reau; do
+  # O kernel e os eventos podem trazer o nome Wi-Fi e o MAC (o driver do Wi-Fi escreve no kernel); a memória e o histórico de saídas só falam de processos:
+  # sem cópia mascarada.
+  for arquivo in dumpsys-wifi dumpsys-connectivity wifi-linhas appops-reau location-reau logcat-events logcat-kernel; do
     python3 -I "$(dirname "$0")/registro/mascarar.py" "$OUT/sistema/$arquivo.txt" "$OUT/sistema/$arquivo.mascarado.txt" || true
   done
 fi
@@ -211,5 +229,6 @@ if [ -n "$AVISOS" ]; then { echo "--- avisos da coleta"; printf '%s' "$AVISOS"; 
 
 echo "coletado em $OUT"
 echo "logcat-sistema.mascarado.txt (e os .mascarado.txt de sistema/) são as cópias sem o nome Wi-Fi do painel, sem MACs e sem os nomes de outras redes; ainda têm o resto do dado pessoal (nome, e-mails, apps)."
-echo "sistema/ guarda o que o Android disse do Wi-Fi e da conectividade; o logcat guarda pouca história, então rode isto logo depois da corrida."
+echo "sistema/ guarda o que o Android disse do Wi-Fi e da conectividade, da memória e das mortes de processo (events, kernel, meminfo, exit-info);"
+echo "o logcat guarda pouca história, então rode isto logo depois da corrida."
 echo "ATENÇÃO: logcat-sistema.txt tem dado pessoal (nome, e-mails, redes Wi-Fi, apps), e sessions/ e video/ (se copiadas) mostram o mapa e por onde você andou: não compartilhe sem filtrar."
