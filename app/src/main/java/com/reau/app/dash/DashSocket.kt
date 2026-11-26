@@ -40,7 +40,7 @@ class DashSocket(
     private val ctrlDest: InetSocketAddress = InetSocketAddress(InetAddress.getByName(BROADCAST), CTRL_PORT),
     private val rtpDest: InetSocketAddress = InetSocketAddress(InetAddress.getByName(DASH_IP), RTP_PORT),
     // The phone's own address on the dash's network, for the one try REau makes when Android refuses to bind a socket to that network
-    // ([LocalAddressRetry]): the three sockets are bound to it, not to the network. Null (every other caller): the sockets are exactly what they were.
+    // ([LocalAddressRetry]): the control and video sockets are bound to it, not to the network (the receive socket stays on every address). Null (every other caller): the sockets are exactly what they were.
     private val localAddress: InetAddress? = null,
 ) : AutoCloseable {
     companion object {
@@ -125,7 +125,9 @@ class DashSocket(
             rx = DatagramSocket(null).also {
                 it.reuseAddress = true
                 it.soTimeout = RECV_TIMEOUT_MS
-                it.bind(localAddress?.let { ip -> InetSocketAddress(ip, RX_PORT) } ?: InetSocketAddress(RX_PORT))
+                // On every address, with the local address too (25/11/2026): a socket bound to the phone's unicast address does not receive a datagram sent to the
+                // broadcast address, and the dash's replies may come that way (its own control packets go to the broadcast address). Control and video stay on the local address.
+                it.bind(InetSocketAddress(RX_PORT))
                 network?.bindSocket(it)
             }
             rtp = (localAddress?.let { ip -> DatagramSocket(InetSocketAddress(ip, 0)) } ?: DatagramSocket()).also { network?.bindSocket(it) }

@@ -37,8 +37,13 @@ object ExitReasons {
     /** Exits whose line says nothing but the time (the app was replaced by an install): in a row, they are one line. */
     private val REPEATABLE = setOf(16)
 
-    /** An install, a forced stop ("user requested", "user stopped"): REau ended from outside, maybe mid-session. */
-    private val CUT_FROM_OUTSIDE = setOf(10, 11, 16)
+    /**
+     * REau ended from outside, maybe mid-session: an install (16), a forced stop ("user requested", "user stopped") and, since 25/11/2026, the system's own
+     * kills ([SystemClosedRide.BY_THE_SYSTEM]: signaled, low memory, excessive resource use, dependency died, other, freezer). The first version listed only
+     * 10, 11 and 16; on 25/11/2026 at 16:10:55 a LOW_MEMORY kill with importance 125 left Android Auto's server holding the session, the quick restart rule
+     * did not turn on, and the picture never came back.
+     */
+    private val CUT_FROM_OUTSIDE = SystemClosedRide.BY_THE_SYSTEM + 16
 
     /** At most "foreground service": REau was running a projection, not sitting in the background. */
     private const val PROJECTING_IMPORTANCE = 125

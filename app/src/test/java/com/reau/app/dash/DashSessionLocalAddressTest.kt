@@ -109,18 +109,26 @@ class DashSessionLocalAddressTest {
     private val live = LocalAddressRetry.Facts(alive = true, ipv4 = InetAddress.getLoopbackAddress())
 
     @Test
-    fun `an EPERM on a live network goes on through the local address once the dash answers, with no refusal told`() {
+    fun `an EPERM on a live network goes on through the local address once the dash answers, and the bind is told as one that worked`() {
         val s = start(live)
         await("the session to be ready") { s.state.value == DashState.READY || s.state.value == DashState.ERROR }
         assertEquals(errors.toString(), DashState.READY, s.state.value)
         assertEquals("the normal bind was tried first, once", 1, normalCalls.get())
         assertEquals(1, localCalls.get())
         assertEquals(loopback, localAddresses.single())
-        assertEquals("neither a refusal nor a bind that worked is told: the refusals' count is left as it is", emptyList<Boolean>(), bindResults.toList())
+        assertEquals("the refusal was gone around and the route proved: told once as a bind that worked, which closes the count of refusals", listOf(false), bindResults.toList())
         val lines = logged()
         assertTrue(lines.toString(), lines.any { it.endsWith("[session] W: " + LocalAddressRetry.TRYING_LINE) })
         assertTrue(lines.toString(), lines.any { LocalAddressRetry.WORKED_LINE in it })
         assertFalse("no address in the log lines of the try", lines.filter { "local address" in it }.any { "127.0.0.1" in it })
+    }
+
+    @Test
+    fun `the count of refusals is closed only by a route that was proved, never at the opening of the sockets`() {
+        val s = start(live, silent = true)
+        await("the failure") { s.state.value == DashState.ERROR }
+        assertFalse("no bind that worked told for a try that proved nothing", false in bindResults.toList())
+        assertEquals(listOf(true), bindResults.toList())
     }
 
     @Test
@@ -141,7 +149,7 @@ class DashSessionLocalAddressTest {
         val s = start(live, youngAt = 22, proofMs = 2_000)
         await("the session to be ready", timeoutMs = 20_000) { s.state.value == DashState.READY || s.state.value == DashState.ERROR }
         assertEquals(errors.toString(), DashState.READY, s.state.value)
-        assertEquals(emptyList<Boolean>(), bindResults.toList())
+        assertEquals("told as a bind that worked only when the route was proved, once", listOf(false), bindResults.toList())
         assertTrue(logged().any { LocalAddressRetry.WORKED_LINE in it })
     }
 

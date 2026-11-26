@@ -26,7 +26,7 @@ object SystemClosedRide {
      * (12), other (13) and freezer (14). Left out on purpose: the app's own exit (1), crashes (4, 5) and ANR (6), which the crash reports tell; a failed start
      * (7); a permission change (8); and the package being updated or changed (15, 16), which is the rider installing.
      */
-    private val BY_THE_SYSTEM = setOf(2, 3, 9, 10, 11, 12, 13, 14)
+    internal val BY_THE_SYSTEM = setOf(2, 3, 9, 10, 11, 12, 13, 14)
 
     /** At most "foreground service": REau was projecting, not sitting cached in the background (the same line as [ExitReasons]). */
     private const val PROJECTING_IMPORTANCE = 125

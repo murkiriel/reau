@@ -26,6 +26,15 @@ object ProjectionResume {
     const val WINDOW_MS = 30 * 60_000L
     const val MAX_ATTEMPTS = 3
 
+    /**
+     * How long the dash may have been gone, as of the last sign of life, for the projection to be resumed (25/11/2026). The mark used to know nothing of the dash: a
+     * rider who switched the bike off and kept the phone in a pocket had REau killed 10 minutes later, the restart found a mark with a sign of life a minute old,
+     * and the resume held the phone's locks for up to [com.reau.app.settings.REauSettings.noDashStopMinutes] more minutes for a dash that was not there, up to 3 times.
+     * Two minutes: the beat writes the dash's last instant at most a minute late, and a tunnel or a Wi-Fi hiccup that took the dash for a minute or so is a ride
+     * that goes on; a dash gone for longer is a bike that is off.
+     */
+    const val DASH_GONE_MAX_MS = 2 * 60_000L
+
     /** How often the mark's instant is renewed while the projection runs (the service looks at the phone every 5 s; the disk is written once a minute). */
     const val BEAT_EVERY_MS = 60_000L
 
@@ -33,9 +42,20 @@ object ProjectionResume {
 
     /**
      * What is kept: [lastSeenMs] the instant of the last sign of life (wall clock: it has to outlive the process; [Mark.card]: the card mode was the one on),
-     * [resumedAtMs] the resumes of this ride so far, and [removedAtMs] when the rider took the app off the recent apps during this ride (0 when not): see [decide].
+     * [resumedAtMs] the resumes of this ride so far, [removedAtMs] when the rider took the app off the recent apps during this ride (0 when not), and [dashUpAtMs]
+     * the last instant the dash was connected (or, with the projection just switched on or just resumed, that instant: the dash is then waited for; 0 when the mark
+     * does not say, which reads as "unknown, resume"): see [decide].
      */
-    class Mark(val lastSeenMs: Long, val card: Boolean, val resumedAtMs: List<Long> = emptyList(), val removedAtMs: Long = 0L)
+    class Mark(
+        val lastSeenMs: Long,
+        val card: Boolean,
+        val resumedAtMs: List<Long> = emptyList(),
+        val removedAtMs: Long = 0L,
+        val dashUpAtMs: Long = 0L,
+    )
+
+    /** Whether the dash is connected, for the mark: ready, and nothing else (connecting, dropped, taken by another phone, asking for a name). */
+    fun dashUp(link: DashLink): Boolean = link == DashLink.READY
 
     /** What to do with a restart that has no intent. */
     sealed interface Verdict {
@@ -49,18 +69,22 @@ object ProjectionResume {
     /**
      * Whether a restart with no intent at [nowMs] resumes the projection. In this order: the rider's switch is off; there is no mark (the projection was
      * not on, or the rider turned it off: both erase it); the clock is behind the mark; the last sign of life is more than [MAX_IDLE_MS] old; the rider
+     * the dash was gone for more than [DASH_GONE_MAX_MS] at that sign of life (the bike was switched off); the rider
      * took the app off the recent apps during this ride (an act of the rider's, the same that [com.reau.app.data.SystemClosedRide] does not tell as the system's
      * work: a maker may end the process right then, and that is not to be undone); [MAX_ATTEMPTS] resumes are already inside the last [WINDOW_MS].
      * Otherwise it resumes.
      */
     fun decide(mark: Mark?, enabled: Boolean, nowMs: Long): Verdict {
         val idleMs = mark?.let { nowMs - it.lastSeenMs } ?: 0L
+        val dashGoneMs = mark?.takeIf { it.dashUpAtMs > 0 }?.let { it.lastSeenMs - it.dashUpAtMs } ?: 0L
         val recent = mark?.resumedAtMs.orEmpty().filter { nowMs - it in 0 until WINDOW_MS }
         return when {
             !enabled -> Verdict.Drop("the rider's switch for resuming is off")
             mark == null -> Verdict.Drop("no mark: the projection was not on, or the rider turned it off")
             idleMs < 0 -> Verdict.Drop("the clock is behind the mark")
             idleMs > MAX_IDLE_MS -> Verdict.Drop("the last sign of life was ${idleMs / MS_PER_MINUTE} min ago, over ${MAX_IDLE_MS / MS_PER_MINUTE}")
+            dashGoneMs > DASH_GONE_MAX_MS ->
+                Verdict.Drop("the dash had been gone for ${dashGoneMs / MS_PER_MINUTE} min at the last sign of life, over ${DASH_GONE_MAX_MS / MS_PER_MINUTE}")
             mark.removedAtMs > 0 -> Verdict.Drop("the rider removed the app from the recent apps during this ride")
             recent.size >= MAX_ATTEMPTS -> Verdict.Drop("already ${recent.size} resumes in the last ${WINDOW_MS / MS_PER_MINUTE} min")
             else -> Verdict.Resume(attempt = recent.size + 1, card = mark.card, resumedAtMs = recent + nowMs)
@@ -86,8 +110,16 @@ object ProjectionResume {
             "(an empty list reads as unknown, not as the dash gone)",
     )
 
-    /** The line of the ride log for a resume, written once the session of the log has begun. */
-    fun resumedLine(attempt: Int): String = "resumed after the system ended the process (attempt $attempt of $MAX_ATTEMPTS)"
+    /** The line of the ride log for a resume, written once the session of the log has begun; [note]: what else it says (the battery optimization, [exemptionNote]). */
+    fun resumedLine(attempt: Int, note: String? = null): String =
+        "resumed after the system ended the process (attempt $attempt of $MAX_ATTEMPTS" + (note?.let { "; $it" } ?: "") + ")"
+
+    /** What the log says of the battery optimization: with the exemption a foreground start from the background is allowed; without it Android may refuse it. */
+    fun exemptionNote(exempt: Boolean?): String = when (exempt) {
+        true -> "battery optimization: REau is exempt"
+        false -> "battery optimization: REau is NOT exempt"
+        null -> "battery optimization: unknown"
+    }
 
     /** The line for a restart that does not resume. */
     fun notResumedLine(why: String): String = "not resumed after the system ended the process: $why"

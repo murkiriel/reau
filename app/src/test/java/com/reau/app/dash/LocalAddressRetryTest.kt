@@ -76,10 +76,13 @@ class LocalAddressRetryTest {
     }
 
     @Test
-    fun `the sockets of the try are bound to the local address, and every other caller's are still on every address`() {
+    fun `the control and video sockets of the try are bound to the local address, the receive socket on every address, and every other caller's are as always`() {
         val mine = java.net.InetAddress.getByName("127.0.0.2")
         DashSocket(null, localAddress = mine).use { s ->
-            assertEquals("control, receive and video, all on the local address", listOf(mine, mine, mine), s.testOnlyBoundTo())
+            val (control, receive, video) = s.testOnlyBoundTo()
+            assertEquals("control on the local address", mine, control)
+            assertEquals("video on the local address", mine, video)
+            assertTrue("receive on every address: a unicast-bound socket would miss what the dash sends to the broadcast address", receive.isAnyLocalAddress)
         }
         DashSocket().use { s ->
             assertTrue("the normal sockets are bound as they always were: to no address in particular", s.testOnlyBoundTo().all { it.isAnyLocalAddress })

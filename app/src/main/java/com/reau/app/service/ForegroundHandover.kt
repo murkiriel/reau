@@ -13,6 +13,22 @@ object ForegroundHandover {
      */
     fun dropsForeground(stopCommand: Int, lastStart: Int): Boolean = lastStart <= stopCommand
 
+    /**
+     * The start id the release of the stop brought by [stopCommand] ends the service with. A stop that lets the foreground go ends the service with the id of the
+     * latest command of any kind ([latestCommand]): a MARK or a REFIT that came after the Ligar or the Desligar has a newer id, and `stopSelf` with an older one does
+     * nothing, so the service stayed "started" and idle, and being sticky the system could bring that idle process back (25/11/2026). A stop that does not let it
+     * go (a start came after it) ends with its own id, as before: the newer start is the one that decides.
+     */
+    fun stopId(stopCommand: Int, lastStart: Int, latestCommand: Int): Int =
+        if (dropsForeground(stopCommand, lastStart)) maxOf(stopCommand, latestCommand) else stopCommand
+
+    /**
+     * The id a command leaves as [stopId]'s latest command: its own [startId] when it does not take the foreground (Desligar, a mark, a refit), and the
+     * [latest] it found when it does (a Ligar, a restart with no intent). A Ligar's id there would let a Desligar released while that Ligar is still on its way
+     * end the new projection: `stopSelf` with the newest id stops the service, with an older one it does nothing (25/11/2026).
+     */
+    fun latestForStop(latest: Int, startId: Int, takesForeground: Boolean): Int = if (takesForeground) latest else startId
+
     // ActivityManager.RunningAppProcessInfo's importances, as numbers so the words stay testable off the device.
     private val NAMES = mapOf(
         100 to "foreground",

@@ -1122,11 +1122,16 @@ class DashSession(
         else -> "no RSA pubkey ${timing.keyPatienceMs}ms after the last burst — burst sent again (${greeting.patientSent}/$MAX_BURST_RESENDS)"
     }
 
-    /** The route through the local address is proved (once): a line of the log. */
-    private fun noteLocalRouteWorks() {
+    /**
+     * The route through the local address is proved (once): a line of the log, and the bind is told as one that worked ([onBindResult] with `false`), which ends
+     * the count of refusals and the notice of the rider that the count started (the call that tells it is skipped at the opening of the sockets while the try is
+     * still unproved: 25/11/2026).
+     */
+    private fun noteLocalRouteWorks(mine: Int) {
         if (localProven) return
         localProven = true
         com.reau.app.data.RideDiagnostics.log("session", LocalAddressRetry.WORKED_LINE)
+        if (isCurrent(mine)) onBindResult?.invoke(linkNetwork, false)
     }
 
     /**
@@ -1134,7 +1139,7 @@ class DashSession(
      * Not: the refusal stands, the network is dropped as if the bind had been refused, before the failure is told.
      */
     private fun endLocalTry(mine: Int) {
-        if (authConfirmed) return noteLocalRouteWorks()
+        if (authConfirmed) return noteLocalRouteWorks(mine)
         if (!isCurrent(mine)) return
         com.reau.app.data.RideDiagnostics.warn("session", LocalAddressRetry.failedLine(MonotonicClock.nowMs() - burstStartMs))
         onBindResult?.invoke(linkNetwork, true)
@@ -1145,7 +1150,7 @@ class DashSession(
         if (localProven) return false
         val from = LocalAddressRetry.proofStartMs(burstStartMs, firstHeartbeat.takeIf { it >= 0 }, firstHeartbeatAtMs)
         when (LocalAddressRetry.proof(auth?.keySeen == true || authConfirmed, now - from, timing.localProofMs)) {
-            LocalAddressRetry.Proof.WORKED -> noteLocalRouteWorks()
+            LocalAddressRetry.Proof.WORKED -> noteLocalRouteWorks(mine)
             LocalAddressRetry.Proof.DID_NOT_ANSWER -> {
                 refusalStands(LocalAddressRetry.silentLine(now - from), mine)
                 return true

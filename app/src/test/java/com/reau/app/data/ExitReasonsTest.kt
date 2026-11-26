@@ -257,4 +257,38 @@ class ExitReasonsTest {
         assertFalse("too long ago", ExitReasons.leftAndroidAutoHanging(installed, at + ExitReasons.HANGING_FOR_MS + 1))
         assertFalse("none", ExitReasons.leftAndroidAutoHanging(null, at))
     }
+
+    @Test
+    fun `the system's own kills while projecting can have left Android Auto hanging too`() {
+        // 25/11/2026 16:10:55: LOW_MEMORY with importance 125, and the picture never came back.
+        val lowMemory = exit(reason = ApplicationExitInfo.REASON_LOW_MEMORY)
+        assertTrue(ExitReasons.leftAndroidAutoHanging(lowMemory, at + 13_000))
+        for (reason in listOf(
+            ApplicationExitInfo.REASON_SIGNALED, ApplicationExitInfo.REASON_LOW_MEMORY, ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE,
+            ApplicationExitInfo.REASON_DEPENDENCY_DIED, ApplicationExitInfo.REASON_OTHER, ApplicationExitInfo.REASON_FREEZER,
+        )) {
+            assertTrue("reason $reason", ExitReasons.leftAndroidAutoHanging(exit(reason = reason), at + 60_000))
+        }
+        for (reason in SystemClosedRide.BY_THE_SYSTEM) {
+            assertTrue("the system's reason $reason, as SystemClosedRide tells it", ExitReasons.leftAndroidAutoHanging(exit(reason = reason), at))
+        }
+    }
+
+    @Test
+    fun `a system kill of a process that was only cached, or one long ago, still does not count`() {
+        val cached = exit(reason = ApplicationExitInfo.REASON_OTHER, importance = RunningAppProcessInfo.IMPORTANCE_CACHED)
+        assertFalse(ExitReasons.leftAndroidAutoHanging(cached, at + 13_000))
+        assertFalse(ExitReasons.leftAndroidAutoHanging(exit(reason = ApplicationExitInfo.REASON_OTHER), at + ExitReasons.HANGING_FOR_MS + 1))
+        assertTrue(ExitReasons.leftAndroidAutoHanging(exit(reason = ApplicationExitInfo.REASON_OTHER), at + ExitReasons.HANGING_FOR_MS))
+    }
+
+    @Test
+    fun `the app's own exit, a crash, an ANR and a failed start are still not an outside cut`() {
+        for (reason in listOf(
+            ApplicationExitInfo.REASON_EXIT_SELF, ApplicationExitInfo.REASON_CRASH, ApplicationExitInfo.REASON_CRASH_NATIVE,
+            ApplicationExitInfo.REASON_ANR, ApplicationExitInfo.REASON_INITIALIZATION_FAILURE, ApplicationExitInfo.REASON_PERMISSION_CHANGE,
+        )) {
+            assertFalse("reason $reason", ExitReasons.leftAndroidAutoHanging(exit(reason = reason), at + 13_000))
+        }
+    }
 }

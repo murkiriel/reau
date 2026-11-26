@@ -109,6 +109,7 @@ class ProjectionService : Service() {
         const val ACTION_START_CARD = "com.reau.app.PROJECTION_START_CARD"
         const val ACTION_REFIT = "com.reau.app.PROJECTION_REFIT"
         const val ACTION_MARK = "com.reau.app.PROJECTION_MARK"
+        private val START_ACTIONS = setOf(ACTION_START, ACTION_START_CARD)
 
         /** The tag of both locks, as `dumpsys power` and `dumpsys wifi` show it. */
         const val LOCK_TAG = "reau:projection"
@@ -293,6 +294,9 @@ class ProjectionService : Service() {
     // The start id of the last start that took the foreground; written on the main thread, read by the worker.
     @Volatile private var lastStart = 0
 
+    // The start id of the latest command of any kind (Ligar, Desligar, mark, refit, a restart), for the release's stopSelf (ForegroundHandover.stopId); main thread writes, worker reads.
+    @Volatile private var latestCommand = 0
+
     // The mark that lets the projection come back after the system ended the process (ProjectionResume); read on the main thread at a restart, written on the worker.
     private val resumeBook by lazy { ProjectionResumeBook.open(this) }
 
@@ -388,6 +392,9 @@ class ProjectionService : Service() {
 
     private fun startCommand(intent: Intent?, startId: Int): Int {
         val action = intent?.action
+        // Only a command that does not take the foreground (a Ligar or a restart with no intent does): with a Ligar's id, a Desligar released on the worker
+        // while that Ligar is still taking the foreground would end the new projection (25/11/2026; stopSelf with an older id does nothing, which protected it).
+        latestCommand = ForegroundHandover.latestForStop(latestCommand, startId, takesForeground = intent == null || action in START_ACTIONS)
         noteTapDuringStop(action)
         when (action) {
             ACTION_START, ACTION_START_CARD -> if (goForeground()) {
@@ -455,7 +462,8 @@ class ProjectionService : Service() {
     private fun resumeNow(verdict: ProjectionResume.Verdict.Resume, startId: Int): Boolean {
         resumeBook.recordResume(System.currentTimeMillis(), verdict.resumedAtMs)
         if (!goForeground(restart = true)) {
-            logResume(ProjectionResume.notResumedLine("the foreground start was refused (the lines above say how)"))
+            val battery = ProjectionResume.exemptionNote(batteryExemption())
+            logResume(ProjectionResume.notResumedLine("the foreground start was refused (the lines above say how; $battery)"))
             return false
         }
         lastStart = startId
@@ -464,6 +472,14 @@ class ProjectionService : Service() {
         handle(startId, if (verdict.card) ProjectionEvent.StartCard else ProjectionEvent.Start, sidesFor = verdict.card, fresh = false)
         return true
     }
+
+    /**
+     * Whether REau is exempt from the battery optimization (what the rider granted with "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"); null when Android does not say.
+     * It is the one exemption Android lists for a foreground start from the background that REau can have, so the resume's log line says it (25/11/2026): the next
+     * log tells whether a refused or a late resume had it.
+     */
+    private fun batteryExemption(): Boolean? =
+        runCatching { getSystemService(android.os.PowerManager::class.java)?.isIgnoringBatteryOptimizations(packageName) }.getOrNull()
 
     /** The rider's projection is over (turned off, stopped for the dash's absence, or refused to start), or cannot be resumed: nothing is left to bring back. */
     private fun forgetResume() {
@@ -634,7 +650,7 @@ class ProjectionService : Service() {
             // One ride log per projection, in <external files>/diag, where `adb pull` reaches it.
             RideDiagnostics.start("projection")
             // After the session's own start, so the reader finds it inside the projection it belongs to.
-            resumedAttempt.takeIf { it > 0 }?.let { logResume(ProjectionResume.resumedLine(it)) }
+            resumedAttempt.takeIf { it > 0 }?.let { logResume(ProjectionResume.resumedLine(it, ProjectionResume.exemptionNote(batteryExemption()))) }
             val inUse = SettingsStore.open(this@ProjectionService).load().sanitized()
             RideDiagnostics.log("settings", SettingsInUse.line(inUse))
             marks.reset()
@@ -718,7 +734,8 @@ class ProjectionService : Service() {
                 log("projection: a start came after this stop: the foreground stays")
             }
             RideDiagnostics.stop("projection")
-            stopSelf(command)
+            // With the id of the latest command, not only the stop's own: a mark or a refit that came after it would leave the service started and idle (25/11/2026).
+            stopSelf(ForegroundHandover.stopId(command, lastStart, latestCommand))
         }
 
         override fun startAndroidAuto() = sides?.startAndroidAuto() ?: Unit
@@ -754,7 +771,7 @@ class ProjectionService : Service() {
         deviceLook = worker.scheduleWithFixedDelay({
             runCatching {
                 // The sign of life the resume's mark is renewed with, once a minute at most (ProjectionResumeBook).
-                resumeBook.beat(System.currentTimeMillis())
+                resumeBook.beat(System.currentTimeMillis(), dashUp = ProjectionResume.dashUp(controller.state.dash))
                 val state = reader.read()
                 device.offer(SystemClock.elapsedRealtime(), state)
                 ProjectionSummary.current.device(state.thermal, state.batteryPct)

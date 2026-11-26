@@ -5578,6 +5578,43 @@ MUTATIONS += [
      "if (!resumed) forgetResume()", "if (!resumed) Unit", ["ProjectionResumeIsWiredTest"]),
 ]
 
+MUTATIONS += [
+    ("plano35/R1.1 Atalho do Android Auto travado: a morte pelo sistema (memória baixa, outro) não liga o atalho, só instalação e parada forçada", MAIN + "data/ExitReasons.kt",
+     "private val CUT_FROM_OUTSIDE = SystemClosedRide.BY_THE_SYSTEM + 16", "private val CUT_FROM_OUTSIDE = setOf(10, 11, 16)", ["ExitReasonsTest"]),
+    ("plano35/R1.1 Retomada: o processo novo não passa pelo atalho do Android Auto travado (a 1ª projeção do processo)", MAIN + "service/LiveSides.kt",
+     "quickUnresponsive = com.reau.app.aa.FirstOfProcess.projection.take() &&", "quickUnresponsive = !com.reau.app.aa.FirstOfProcess.projection.take() &&", ["ProjectionResumeIsWiredTest"]),
+    ("plano35/R1.5 Retomada: o painel sumido há 10 min ainda retoma (o limite de 2 min some)", MAIN + "service/ProjectionResume.kt",
+     "dashGoneMs > DASH_GONE_MAX_MS ->", "dashGoneMs > Long.MAX_VALUE ->", ["ProjectionResumeTest"]),
+    ("plano35/R1.5 Retomada: o sinal de vida não guarda o último instante com o painel conectado", MAIN + "service/ProjectionResumeBook.kt",
+     "        if (dashUp) lastDashUpMs = nowMs\n", "", ["ProjectionResumeBookTest"]),
+    ("plano35/R1.5 Retomada: o sinal de vida do serviço não diz se o painel está conectado", MAIN + "service/ProjectionService.kt",
+     "resumeBook.beat(System.currentTimeMillis(), dashUp = ProjectionResume.dashUp(controller.state.dash))", "resumeBook.beat(System.currentTimeMillis(), dashUp = true)",
+     ["ProjectionResumeIsWiredTest"]),
+    ("plano35/R1.2 Retomada: o log diz isento da otimização de bateria quando não é", MAIN + "service/ProjectionResume.kt",
+     'false -> "battery optimization: REau is NOT exempt"', 'false -> "battery optimization: REau is exempt"', ["ProjectionResumeTest"]),
+    ("plano35/R1.2 Retomada: a linha de retomada não traz a isenção de bateria", MAIN + "service/ProjectionService.kt",
+     "ProjectionResume.resumedLine(it, ProjectionResume.exemptionNote(batteryExemption()))", "ProjectionResume.resumedLine(it)", ["ProjectionResumeIsWiredTest"]),
+    ("plano35/R1.4 Release: o stopSelf usa só o id do Desligar e deixa o serviço ocioso depois de um MARK ou REFIT", MAIN + "service/ForegroundHandover.kt",
+     "maxOf(stopCommand, latestCommand)", "stopCommand", ["ForegroundHandoverTest"]),
+    ("plano35/R1.4b Release: um Ligar vira o id do stopSelf e um Desligar no meio dele encerra a projeção nova", MAIN + "service/ForegroundHandover.kt",
+     "if (takesForeground) latest else startId", "startId", ["ForegroundHandoverTest"]),
+    ("plano35/R1.4 Release: o serviço não usa o id do último comando de qualquer tipo", MAIN + "service/ProjectionService.kt",
+     "stopSelf(ForegroundHandover.stopId(command, lastStart, latestCommand))", "stopSelf(command)", ["ProjectionResumeIsWiredTest"]),
+    ("plano35/R1.6 Retomada: reabrir o app não limpa o aviso de que o piloto tirou o app dos recentes", MAIN + "service/ProjectionResumeBook.kt",
+     "if (prefs.contains(REMOVED)) prefs.edit { remove(REMOVED) }", "", ["ProjectionResumeBookTest"]),
+    ("plano35/R1.6 Retomada: a tela principal não avisa a marca de que o piloto voltou ao app", MAIN + "MainActivity.kt",
+     "        learnSunPlace(this, thenWeather = true)\n        forgetRemovalFromRecents()\n", "        learnSunPlace(this, thenWeather = true)\n", ["ProjectionResumeIsWiredTest"]),
+    ("plano35/R1.6 Retomada: o Ligar não apaga a remoção dos recentes da viagem anterior", MAIN + "service/ProjectionResumeBook.kt",
+     "            remove(RESUMED)\n            remove(REMOVED)\n", "            remove(RESUMED)\n", ["ProjectionResumeBookTest"]),
+    ("plano35/R1.7 Retomada: a contagem da retomada volta a ser apply e pode se perder com uma morte logo depois", MAIN + "service/ProjectionResumeBook.kt",
+     "        prefs.edit(commit = true) {\n            putLong(SEEN, nowMs)\n            putLong(DASH_UP, nowMs)", "        prefs.edit {\n            putLong(SEEN, nowMs)\n            putLong(DASH_UP, nowMs)",
+     ["ProjectionResumeBookTest"]),
+    ("plano35/R2.3 Painel pelo endereço local: o socket de recepção volta a ser preso ao IP unicast e não recebe broadcast", MAIN + "dash/DashSocket.kt",
+     "it.bind(InetSocketAddress(RX_PORT))", "it.bind(localAddress?.let { ip -> InetSocketAddress(ip, RX_PORT) } ?: InetSocketAddress(RX_PORT))", ["LocalAddressRetryTest"]),
+    ("plano35/R2.4 Painel pelo endereço local: a prova da rota não fecha a contagem e o aviso de EPERM", MAIN + "dash/DashSession.kt",
+     "        if (isCurrent(mine)) onBindResult?.invoke(linkNetwork, false)\n", "", ["DashSessionLocalAddressTest"]),
+]
+
 
 def command_for(classes):
     """The command that runs a mutation's tests: Python test files (`test_*.py`) with unittest, JVM unit test classes with Gradle. A bare name (`test_apk_audit.py`) is found

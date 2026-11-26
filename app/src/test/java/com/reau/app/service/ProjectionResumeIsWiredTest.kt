@@ -115,7 +115,7 @@ class ProjectionResumeIsWiredTest {
     @Test
     fun `the resume's line goes to the log after the session has begun, and the notification says it was resumed`() {
         val prepare = body.between("override fun prepare(): String? {", "marks.reset()")
-        assertTrue(prepare, prepare.indexOf("RideDiagnostics.start(\"projection\")") < prepare.indexOf("logResume(ProjectionResume.resumedLine(it))"))
+        assertTrue(prepare, prepare.indexOf("RideDiagnostics.start(\"projection\")") < prepare.indexOf("logResume(ProjectionResume.resumedLine(it, ProjectionResume.exemptionNote(batteryExemption())))"))
         assertTrue(body, "?: resumedAttempt.takeIf { it > 0 }?.let { getString(R.string.notif_resumed) }" in body)
         for (folder in listOf("values", "values-pt", "values-es", "values-hi")) {
             assertTrue(folder, "name=\"notif_resumed\"" in File("src/main/res/$folder/strings_extra.xml").readText())
@@ -162,7 +162,7 @@ class ProjectionResumeIsWiredTest {
             assertTrue("$call is bare: ${lines[0]}", "runCatching { $call" in lines[0])
         }
         val look = body.between("deviceLook = worker.scheduleWithFixedDelay({", ".onFailure")
-        assertTrue(look, look.trimStart().startsWith("runCatching {") && "resumeBook.beat(System.currentTimeMillis())" in look)
+        assertTrue(look, look.trimStart().startsWith("runCatching {") && "resumeBook.beat(System.currentTimeMillis(), dashUp = ProjectionResume.dashUp(controller.state.dash))" in look)
         val restart = body.between("private fun resumeAfterRestart(startId: Int): Boolean {", "private fun forgetResume")
         assertTrue("read and the count are inside the try", restart.indexOf("val resumed = try {") < restart.indexOf("resumeBook.read()") &&
             restart.indexOf("resumeBook.read()") < restart.indexOf("} catch (e: Exception) {"))
@@ -182,6 +182,47 @@ class ProjectionResumeIsWiredTest {
         assertTrue(removed, "runCatching { resumeBook.taskRemoved(System.currentTimeMillis()) }" in removed)
         assertTrue(removed, "super.onTaskRemoved(rootIntent)" in removed)
         assertFalse("it does not stop anything", "stopSelf" in removed || "stopForeground" in removed || "controller" in removed)
+    }
+
+    // ── the resume reaches the quick restart of Android Auto's server, and the rest of what the 25/11/2026 review asked for ──────────────
+
+    @Test
+    fun `a resume builds its sides as Ligar does, in a process whose first projection takes the quick restart of Android Auto's server`() {
+        val now = body.between("private fun resumeNow(", "private fun forgetResume")
+        assertTrue(now, "handle(startId, if (verdict.card) ProjectionEvent.StartCard else ProjectionEvent.Start, sidesFor = verdict.card, fresh = false)" in now)
+        val handle = body.between("private fun handle(", "private fun buildSides")
+        assertTrue(handle, "if (sidesFor != null && buildsSides(sidesFor, controller.state.phase)) buildSides(card = sidesFor)" in handle)
+        val live = code(File(main, "service/LiveSides.kt").readText())
+        val quick = live.between("quickUnresponsive = ", "),\n")
+        assertTrue(quick, quick.trimStart().startsWith("com.reau.app.aa.FirstOfProcess.projection.take() &&"))
+        assertTrue(quick, "com.reau.app.data.ExitReasons.leftAndroidAutoHanging(" in quick && "com.reau.app.data.ExitHistory.newest(context)" in quick)
+    }
+
+    @Test
+    fun `the beat tells the mark whether the dash is connected, and a resume that is refused says the battery optimization too`() {
+        assertEquals("the one call of the beat", 1, Regex("resumeBook\\.beat\\(").findAll(body).count())
+        val refused = body.between("private fun resumeNow(", "private fun forgetResume").between("if (!goForeground(restart = true)) {", "return false")
+        assertTrue(refused, "ProjectionResume.exemptionNote(batteryExemption())" in refused)
+        val exemption = body.between("private fun batteryExemption(): Boolean? =", "private fun forgetResume")
+        assertTrue(exemption, "isIgnoringBatteryOptimizations(packageName)" in exemption && "runCatching" in exemption)
+    }
+
+    @Test
+    fun `the release ends the service with the id of the latest command of any kind, written for every command that arrives`() {
+        assertTrue("latestCommand = ForegroundHandover.latestForStop(latestCommand, startId, takesForeground = intent == null || action in START_ACTIONS)" in
+            body.between("val action = intent?.action", "noteTapDuringStop(action)"))
+        val release = body.between("override fun release() {", "override fun startAndroidAuto()")
+        assertTrue(release, "stopSelf(ForegroundHandover.stopId(command, lastStart, latestCommand))" in release)
+        assertFalse("no bare stopSelf(command) left", "stopSelf(command)" in release)
+        assertEquals("written in one place", 1, Regex("latestCommand = ForegroundHandover.latestForStop").findAll(body).count())
+    }
+
+    @Test
+    fun `the rider opening the app again takes the removal from the recent apps away, off the main thread`() {
+        val activity = code(File(main, "MainActivity.kt").readText())
+        val reopen = activity.between("private fun forgetRemovalFromRecents() {", "private fun learnDashName")
+        assertTrue(reopen, "Dispatchers.IO" in reopen && "ProjectionResumeBook.open(context).reopened()" in reopen && "runCatching" in reopen)
+        assertTrue("called whenever the app comes to the front", "forgetRemovalFromRecents()" in activity.between("private fun resume() {", "private fun forgetRemovalFromRecents"))
     }
 
     // ── what did not grow ────────────────────────────────────────────────────────────────────────────────

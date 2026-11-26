@@ -544,6 +544,16 @@ class MainActivity : ComponentActivity() {
         permissionRows = PermissionRows.read(this)
         learnDashName()
         learnSunPlace(this, thenWeather = true)
+        forgetRemovalFromRecents()
+    }
+
+    /**
+     * The rider is back in the app: that the rider took it off the recent apps earlier in this ride no longer says the rider wants it closed, so the resume after
+     * a kill is allowed again (25/11/2026: the mark kept "removed" for the rest of the ride and the resume stayed off with no word). Off the main thread.
+     */
+    private fun forgetRemovalFromRecents() {
+        val context = applicationContext
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) { runCatching { com.reau.app.service.ProjectionResumeBook.open(context).reopened() } }
     }
 
 

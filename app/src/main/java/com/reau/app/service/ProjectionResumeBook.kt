@@ -7,46 +7,66 @@ import androidx.core.content.edit
 /**
  * What is kept on the phone for [ProjectionResume]: one mark, there while the rider has the projection on and gone when it is turned off, by the
  * rider or by itself. It holds the instant of the service's last sign of life (wall clock, epoch ms), whether the card mode was on, the instants of
- * the resumes already made, and when the rider took the app off the recent apps. Nothing personal: no name, no place, no network.
+ * the resumes already made, when the rider took the app off the recent apps, and the last instant the dash was connected. Nothing personal: no name, no place, no network.
  *
  * A process killed by the system leaves the mark as it is, which is how the service that the system starts again finds out the projection was on. Every
- * write but the erasing is `apply` (in memory at once, on the disk a moment later); the erasing is `commit`, called on the worker, so that a Desligar that is
+ * write but the erasing and the count of a resume is `apply` (in memory at once, on the disk a moment later); those two are `commit`, called on the worker, so that a Desligar that is
  * followed by the process going away does not leave a mark behind.
  */
 internal class ProjectionResumeBook(private val prefs: SharedPreferences) {
     // When the mark's instant was last written by this process; the worker's beats read and write it.
     @Volatile private var lastBeatMs = 0L
 
+    // The last instant the dash was seen connected, by this process; every beat renews it, and the write that the minute allows keeps it (the dash's own instant is
+    // never more than that minute late on the disk).
+    @Volatile private var lastDashUpMs = 0L
+
     /** The rider switched the projection on at [nowMs]: a new mark, with no resumes counted. [card]: in the card mode. */
     fun begin(nowMs: Long, card: Boolean) {
         prefs.edit {
             putLong(SEEN, nowMs)
             putBoolean(CARD, card)
+            // The dash is waited for from now: a mark made at Ligar counts as "the dash was here" until the beat says otherwise.
+            putLong(DASH_UP, nowMs)
             remove(RESUMED)
             remove(REMOVED)
         }
         lastBeatMs = nowMs
+        lastDashUpMs = nowMs
     }
 
     /**
-     * A sign of life at [nowMs] while the projection runs. Writes only when a mark is there (a beat after the erasing must not bring it back) and the last
-     * write was [ProjectionResume.BEAT_EVERY_MS] ago or more; true when it wrote.
+     * A sign of life at [nowMs] while the projection runs; [dashUp]: the dash is connected at this instant. Writes only when a mark is there (a beat after the
+     * erasing must not bring it back) and the last write was [ProjectionResume.BEAT_EVERY_MS] ago or more; true when it wrote. What it writes is the instant and the
+     * last instant the dash was connected (renewed by every call with [dashUp], written with the next write): [ProjectionResume.decide] does not resume a
+     * projection whose dash was gone for long at the last sign of life.
      */
-    fun beat(nowMs: Long): Boolean {
+    fun beat(nowMs: Long, dashUp: Boolean): Boolean {
         if (!prefs.contains(SEEN)) return false
+        if (dashUp) lastDashUpMs = nowMs
         if (nowMs - lastBeatMs in 0 until ProjectionResume.BEAT_EVERY_MS) return false
-        prefs.edit { putLong(SEEN, nowMs) }
+        prefs.edit {
+            putLong(SEEN, nowMs)
+            // A process that has not seen the dash since it began (the resume's first minute) leaves the instant the mark has.
+            if (lastDashUpMs > 0) putLong(DASH_UP, lastDashUpMs)
+        }
         lastBeatMs = nowMs
         return true
     }
 
-    /** The service was resumed at [nowMs]: the sign of life is now, and [resumedAtMs] are the resumes of the window, this one included. */
+    /**
+     * The service was resumed at [nowMs]: the sign of life is now, the dash is waited for from now (a resume that is killed again within two minutes is resumed
+     * again, the dash having had no time to come), and [resumedAtMs] are the resumes of the window, this one included. `commit`, not `apply` (25/11/2026): the
+     * count is what stops a process that dies again at once, so it is on the disk before the call returns, and a kill a moment later cannot lose it.
+     */
     fun recordResume(nowMs: Long, resumedAtMs: List<Long>) {
-        prefs.edit {
+        prefs.edit(commit = true) {
             putLong(SEEN, nowMs)
+            putLong(DASH_UP, nowMs)
             putString(RESUMED, resumedAtMs.joinToString(","))
         }
         lastBeatMs = nowMs
+        lastDashUpMs = nowMs
     }
 
     /** The rider took the app off the recent apps at [nowMs]; kept only when a mark is there. */
@@ -54,18 +74,24 @@ internal class ProjectionResumeBook(private val prefs: SharedPreferences) {
         if (prefs.contains(SEEN)) prefs.edit { putLong(REMOVED, nowMs) }
     }
 
+    /** The rider opened the app again: the removal from the recent apps no longer stands for this ride. Only writes when there is one to take away. */
+    fun reopened() {
+        if (prefs.contains(REMOVED)) prefs.edit { remove(REMOVED) }
+    }
+
     /** The mark as kept; null when there is none (or it holds no instant). */
     fun read(): ProjectionResume.Mark? {
         val seen = prefs.getLong(SEEN, 0L)
         if (seen <= 0L) return null
         val resumed = prefs.getString(RESUMED, null).orEmpty().split(",").mapNotNull { it.toLongOrNull() }
-        return ProjectionResume.Mark(seen, prefs.getBoolean(CARD, false), resumed, prefs.getLong(REMOVED, 0L))
+        return ProjectionResume.Mark(seen, prefs.getBoolean(CARD, false), resumed, prefs.getLong(REMOVED, 0L), prefs.getLong(DASH_UP, 0L))
     }
 
     /** No projection left to resume: the mark and its count are erased. */
     fun erase() {
         prefs.edit(commit = true) { clear() }
         lastBeatMs = 0L
+        lastDashUpMs = 0L
     }
 
     companion object {
@@ -74,6 +100,7 @@ internal class ProjectionResumeBook(private val prefs: SharedPreferences) {
         private const val CARD = "card"
         private const val RESUMED = "resumed_at"
         private const val REMOVED = "task_removed_at"
+        private const val DASH_UP = "dash_up_at"
 
         fun open(context: Context) = ProjectionResumeBook((context.applicationContext ?: context).getSharedPreferences(NAME, Context.MODE_PRIVATE))
     }
