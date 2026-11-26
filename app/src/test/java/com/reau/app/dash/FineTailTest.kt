@@ -2,10 +2,18 @@ package com.reau.app.dash
 
 import com.reau.app.dash.protocol.K1GPacket
 import com.reau.app.dash.protocol.Tlv
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.net.DatagramSocket
+import java.net.InetAddress
+import java.net.InetSocketAddress
 
 /** The fine detail of the last 15 s kept for the ride log: the lines, the window, the size cap and, above all, that no content gets in. */
 class FineTailTest {
@@ -133,5 +141,43 @@ class FineTailTest {
         val text = stats.fine.report("x", System.nanoTime()).joinToString("\n")
         assertTrue(text, text.contains("tx 0556 1B, 0102 0B") && text.contains("rx 0906 1B"))
         assertFalse(text, text.contains("0201"))
+    }
+
+    @Test
+    fun `the session keeps each frame the video loop tells it, with its bytes, packets, kind and longest gap`() {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        try {
+            val session = DashSession(scope)
+            session.frameSent(bytes = 21_000, packets = 7, key = true, maxGapNs = 3_000_000L)
+            session.frameSent(bytes = 4_100, packets = 3, key = false, maxGapNs = 1_000_000L)
+            val text = session.stats.fine.report("x", System.nanoTime()).joinToString("\n")
+            assertTrue(text, text.contains("video K 21000B/7p gap 3ms, P 4100B/3p gap 1ms"))
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun `a new socket starts the detail over and gives the Wi-Fi manager its handle`() {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val dash = DatagramSocket(InetSocketAddress(InetAddress.getLoopbackAddress(), 0))
+        val ctrl = InetSocketAddress(InetAddress.getLoopbackAddress(), dash.localPort)
+        val rtp = InetSocketAddress(InetAddress.getLoopbackAddress(), 1)
+        val session = DashSession(scope, socketFactory = { DashSocket(it, ctrlDest = ctrl, rtpDest = rtp) })
+        try {
+            // A frame left by the socket before: the next one must not be told as if it were this one's.
+            session.frameSent(bytes = 21_000, packets = 7, key = true, maxGapNs = 3_000_000L)
+            session.connect("RE_TEST_1234")
+            val deadline = System.currentTimeMillis() + 5_000
+            while (session.state.value != DashState.AUTHENTICATING && System.currentTimeMillis() < deadline) Thread.sleep(20)
+            assertEquals(DashState.AUTHENTICATING, session.state.value)
+            val text = session.stats.fine.report("x", System.nanoTime()).joinToString("\n")
+            assertFalse("the frame of the socket before is gone: $text", text.contains("21000B"))
+            assertSame("the Wi-Fi manager reads the detail of this session", session.stats.fine, DashHeard.fine)
+        } finally {
+            session.disconnect()
+            dash.close()
+            scope.cancel()
+        }
     }
 }

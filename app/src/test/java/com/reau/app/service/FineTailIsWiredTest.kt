@@ -15,7 +15,6 @@ class FineTailIsWiredTest {
 
     private val wifi = source("dash/DashWifiManager.kt")
     private val session = source("dash/DashSession.kt")
-    private val stats = source("dash/DashStats.kt")
     private val live = source("service/LiveSides.kt")
     private val loop = source("stream/VideoLoop.kt")
     private val rtp = source("stream/RtpOutput.kt")
@@ -44,26 +43,19 @@ class FineTailIsWiredTest {
         assertTrue(lost.indexOf("DashHeard.fine?.reportOnce(") < lost.indexOf("notes.lost()"))
     }
 
+    // 26/11/2026: what the session's stats and the session itself do with a TLV and a frame, and with a new socket, is proved by what they keep (FineTailTest: "the session's
+    // stats feed it with every sent TLV and every received one", "the session keeps each frame the video loop tells it" and "a new socket starts the detail over"). What stays text is the two hand-overs that need the
+    // service and the video loop: the live sides pass the frame on, and the loop gives the output the session's function.
     @Test
-    fun `a new socket starts the detail over and gives the Wi-Fi manager its handle`() {
-        val open = session.between("stats.sendTail.clear()", "// The refusal that the local address went around")
-        assertTrue(open.contains("stats.fine.clear()"))
-        assertTrue(open.contains("DashHeard.fine = stats.fine"))
-    }
-
-    @Test
-    fun `every frame, every TLV sent and every TLV received reach it, and the video loop tells the session each frame`() {
-        assertTrue(stats.between("fun sent(packet: ByteArray", "fun malformed()").contains("fine.sent(DashStats.key(it), it.value)"))
-        assertTrue(stats.between("fun received(tlvs: List<Tlv>", "private fun classify(").contains("fine.received(key(tlv), tlv.value.size)"))
-        assertTrue(session.contains("fun frameSent(bytes: Int, packets: Int, key: Boolean, maxGapNs: Long) = stats.fine.frame(bytes, packets, key, maxGapNs)"))
+    fun `the live sides pass each frame to the session, and the video loop tells the session each frame`() {
         assertTrue(live.contains("override fun frameSent(bytes: Int, packets: Int, key: Boolean, maxGapNs: Long) = session.frameSent(bytes, packets, key, maxGapNs)"))
         assertTrue(loop.contains("onFrame = dash::frameSent"))
     }
 
+    // 26/11/2026: that the clock of the gaps is read before the packet goes out is proved by RtpOutputTest ("the clock of the gaps is read before each packet goes
+    // out"); what stays text is the absence of any wait in the function that watches the gap, which no clock of a test can show.
     @Test
-    fun `the output only watches the gaps between packets, it does not wait, and the clock is read before the packet goes out`() {
-        val send = rtp.between("private val packetizer = RtpPacketizer", "private fun watchGap()")
-        assertTrue(send.indexOf("watchGap()") in 0 until send.indexOf("sendRtp(packet)"))
+    fun `the function that watches the gaps between packets does not wait and sends nothing`() {
         val watch = rtp.between("private fun watchGap()", "// All NALs of one frame")
         assertTrue(watch.contains("nanoTime()"))
         assertFalse(watch, watch.contains("sleep") || watch.contains("delay") || watch.contains("sendRtp"))

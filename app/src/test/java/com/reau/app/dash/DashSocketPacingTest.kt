@@ -1,9 +1,13 @@
 package com.reau.app.dash
 
 import java.io.File
+import java.net.DatagramPacket
+import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.net.SocketTimeoutException
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.concurrent.thread
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -16,6 +20,7 @@ import org.junit.Test
  */
 class DashSocketPacingTest {
     private var socket: DashSocket? = null
+    private var fakeDash: DatagramSocket? = null
     private val loopback = InetSocketAddress(InetAddress.getLoopbackAddress(), 9)
     private val ms = 1_000_000L
     private val clock = AtomicLong(0L)
@@ -24,6 +29,7 @@ class DashSocketPacingTest {
     @After
     fun tearDown() {
         socket?.close()
+        fakeDash?.close()
     }
 
     private fun open(enabled: Boolean = true): DashSocket {
@@ -101,15 +107,62 @@ class DashSocketPacingTest {
 
     private fun text(path: String) = File("src/main/java/com/reau/app/$path").readText()
 
+    /** What reached [dash] so far (read until it is quiet for a moment); a packet that has not left the phone is not in it. */
+    private fun heard(dash: DatagramSocket): Int {
+        var n = 0
+        val buffer = ByteArray(2_048)
+        dash.soTimeout = HEARD_QUIET_MS
+        while (true) {
+            try {
+                dash.receive(DatagramPacket(buffer, buffer.size))
+                n++
+            } catch (_: SocketTimeoutException) {
+                return n
+            }
+        }
+    }
+
+    /**
+     * Two sends through [send] to a real loopback "dash", the pacer's wait being a hook of the test (26/11/2026, the source test of the order is gone): in the wait of
+     * the second one, the first packet has reached the dash and the second has not, and another thread can send a packet at once (so the waiting one holds no lock).
+     * Returns what the dash had heard in the wait, and whether the other thread finished while the first was still waiting.
+     */
+    private fun waitOfTheSecond(send: (DashSocket) -> Unit): Pair<Int, Boolean> {
+        val dash = DatagramSocket(InetSocketAddress(InetAddress.getLoopbackAddress(), 0)).also { fakeDash = it }
+        val dashAddress = InetSocketAddress(InetAddress.getLoopbackAddress(), dash.localPort)
+        var heardInTheWait = -1
+        var otherFinished = false
+        var inTheWait = false
+        lateinit var s: DashSocket
+        val pacer = SendPacer(true, nanoTime = { clock.get() }, waitUntil = { deadline ->
+            clock.set(maxOf(clock.get(), deadline))
+            // The other thread's own wait comes back here: it is not looked at again.
+            if (!inTheWait) {
+                inTheWait = true
+                heardInTheWait = heard(dash)
+                val other = thread { send(s) }
+                other.join(OTHER_THREAD_MS)
+                otherFinished = !other.isAlive
+            }
+        })
+        s = DashSocket(ctrlDest = dashAddress, rtpDest = dashAddress, pacer = pacer).also { socket = it }
+        send(s)
+        send(s)
+        return heardInTheWait to otherFinished
+    }
+
     @Test
-    fun `the two send paths ask the pacer right before the socket send, outside every lock`() {
-        val source = text("dash/DashSocket.kt")
-        val wire = source.substringAfter("private fun wire(").substringBefore("private fun heldBack")
-        assertTrue(wire, wire.indexOf("pacer.pace()") in 0 until wire.indexOf("txSocket.send("))
-        val rtp = source.substringAfter("fun sendRtp(").substringBefore("private fun rtpSendFailed")
-        assertTrue(rtp, rtp.indexOf("pacer.pace()") in 0 until rtp.indexOf("rtpSocket.send("))
-        assertEquals("one ask in each path, none anywhere else", 2, Regex("""pacer\.pace\(\)""").findAll(source).count())
-        assertFalse("never inside the control channel's lock", wire.contains("synchronized"))
+    fun `a command waits for its slot before it leaves and holds nothing while it waits`() {
+        val (heardInTheWait, otherFinished) = waitOfTheSecond { it.send(command) }
+        assertEquals("only the first command had left when the second waited", 1, heardInTheWait)
+        assertTrue("a send from another thread goes through while the second waits (no lock held)", otherFinished)
+    }
+
+    @Test
+    fun `a video packet waits for its slot before it leaves and holds nothing while it waits`() {
+        val (heardInTheWait, otherFinished) = waitOfTheSecond { it.sendRtp(rtp) }
+        assertEquals("only the first packet had left when the second waited", 1, heardInTheWait)
+        assertTrue("a send from another thread goes through while the second waits (no lock held)", otherFinished)
     }
 
     @Test
@@ -127,5 +180,13 @@ class DashSocketPacingTest {
         val socket = text("dash/DashSocket.kt")
         assertTrue(socket, "com.reau.app.data.RideDiagnostics.log(\"dash\", pacingLine())" in socket)
         assertTrue(socket, "\"packet pacing on: at least" in socket && "\"packet pacing off:" in socket)
+    }
+
+    private companion object {
+        /** How long the fake dash waits for one more packet before it says it has heard them all (loopback delivers inside the send itself). */
+        const val HEARD_QUIET_MS = 100
+
+        /** What the other thread's send is given to finish while the first one waits. */
+        const val OTHER_THREAD_MS = 3_000L
     }
 }

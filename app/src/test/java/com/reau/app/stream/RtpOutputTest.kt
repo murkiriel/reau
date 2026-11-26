@@ -171,6 +171,23 @@ class RtpOutputTest {
         assertEquals("a frame of one packet has no gap", listOf(pFrame(2).size, 1, false, 0L), told[1])
     }
 
+    @Test
+    fun `the clock of the gaps is read before each packet goes out, so the gap is the one between two sends and the output waits for nothing`() {
+        // 26/11/2026 (it was a source test of FineTailIsWiredTest): each read of the clock counts, and a send says how many reads came before it. A clock read after the
+        // send would say 0, 1, 2... here, and the gap of a packet would be the time of the send before it.
+        var reads = 0
+        val readsAtSend = mutableListOf<Int>()
+        val clock = { ++reads * 1_000_000L }
+        val told = mutableListOf<Long>()
+        val timed = RtpOutput(onFrame = { _, _, _, gap -> told += gap }, nanoTime = clock) { readsAtSend += reads }.also { it.switchTo(encoder) }
+        timed.onEncoded(encoder, config, isKey = false, ptsMs = 0)
+        timed.onEncoded(encoder, bytes(0, 0, 0, 1, 0x65) + ByteArray(3_000) { 0x55 }, isKey = true, ptsMs = 62)
+        assertTrue("a keyframe of 3 000 bytes takes several packets: $readsAtSend", readsAtSend.size >= 3)
+        assertEquals("the n-th packet goes out after n reads", (1..readsAtSend.size).toList(), readsAtSend)
+        assertEquals("each read is a step of the clock, so the longest gap is the step", listOf(1_000_000L), told)
+        assertEquals("the clock was read once for each packet and for nothing else", readsAtSend.size, reads)
+    }
+
     // ── the tap (the recording of what is sent) ────────────────────────────────────────────────────────────
 
     @Test

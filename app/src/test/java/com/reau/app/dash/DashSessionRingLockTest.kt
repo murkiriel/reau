@@ -157,14 +157,14 @@ class DashSessionRingLockTest {
         assertTrue(session.ringAfterPress(0x05))
     }
 
+    // 26/11/2026: what the session does with these two answers (the ring is not switched under the lock, nor on a call the card owns) is proved above, by the ring's own
+    // state with the answers given by hand; the lines of the session that ask them are gone from this test. What stays text is what only the service can show: that the
+    // live sides give the session the joystick's answers.
     @Test
     fun `the live sides give the session the joystick's answer`() {
         val live = File("src/main/java/com/reau/app/service/LiveSides.kt").readText()
         assertTrue(live, "session.pressDropped = { code ->" in live)
         assertTrue(live, "session.callOwnsPress = joystick::callOwnsPress" in live)
         assertTrue(live, "joystick.wouldDrop(com.reau.app.dash.protocol.DashButtonEvent.fromByte(code.toByte()), com.reau.app.util.MonotonicClock.nowMs())" in live)
-        val dash = File("src/main/java/com/reau/app/dash/DashSession.kt").readText()
-        assertTrue(dash, "if (infoRingSwitchable && RingCycle.advancesOn(code) && !pressDropped(code)) switchInfoRing(code)" in dash)
-        assertTrue(dash, "if (callOwnsPress()) return false" in dash)
     }
 }

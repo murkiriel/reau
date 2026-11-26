@@ -1,6 +1,7 @@
 package com.reau.app.dash
 
 import com.reau.app.dash.protocol.TelemetryEvent
+import com.reau.app.data.RideDiagnostics
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -13,13 +14,16 @@ import kotlinx.coroutines.yield
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 
 /**
  * The dash's `09 08` reaches the ride log's line ([GearGuessWatch]) and still goes on to the telemetry as before: the line changes nothing REau
  * does, and a failure making it never ends the receive loop.
  */
 class DashSessionGearGuessTest {
+    @get:Rule val tmp = TemporaryFolder()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var sock: DashSocket? = null
     private var session: DashSession? = null
@@ -29,6 +33,7 @@ class DashSessionGearGuessTest {
         sock?.close()
         session?.disconnect()
         scope.cancel()
+        RideDiagnostics.testOnlyReset()
     }
 
     private fun rawPacket(type: Int, sub: Int, value: ByteArray): ByteArray {
@@ -79,9 +84,22 @@ class DashSessionGearGuessTest {
 
     @Test
     fun `each connection starts the line again`() {
-        val text = File("src/main/java/com/reau/app/dash/DashSession.kt").readText()
-        val start = text.substringAfter("internal fun beginAuthState(").substringBefore("\n    }\n")
-        assertTrue(start, "gearGuess.reset()" in start)
+        // 26/11/2026: it was a source test of beginAuthState; now the session says it. The same reading twice is one line, and after the start of a new connection it is told again.
+        val file = tmp.newFile("ride-gear-guess.log")
+        RideDiagnostics.testOnlySetFile(file)
+        val s = DashSession(scope).also { session = it }
+        val socket = DashSocket().also { sock = it }
+        val reading = rawPacket(0x09, 0x08, byteArrayOf(0xAA.toByte()))
+        fun told(): Int {
+            RideDiagnostics.logAndWait("ui", "end")
+            return file.readLines().count { "09 08: AA (in gear?) (first reading of the connection)" in it }
+        }
+        s.dispatchIncoming(reading, socket)
+        s.dispatchIncoming(reading, socket)
+        assertEquals("the same reading again says nothing", 1, told())
+        s.beginAuthState(null)
+        s.dispatchIncoming(reading, socket)
+        assertEquals("a new connection tells its first reading again", 2, told())
     }
 
     @Test

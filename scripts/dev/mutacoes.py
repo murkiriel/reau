@@ -5543,6 +5543,28 @@ MUTATIONS += [
      "onCancel = { asking = false },", "onCancel = { change(s.copy(webView = true)) },", ["WebOnDialogIsWiredTest"]),
 ]
 
+# p35/H (26/11/2026): the tests that were read from the source and are now proved by what the code does. Written with the tests and NOT yet run: the run is the proof.
+MUTATIONS += [
+    ("p35/H Detalhe fino: o relógio dos intervalos é lido depois do envio do pacote", MAIN + "stream/RtpOutput.kt",
+     "        watchGap()\n        packetsMade++\n        sendRtp(packet)\n", "        packetsMade++\n        sendRtp(packet)\n        watchGap()\n", ["RtpOutputTest"]),
+    ("p35/H Detalhe fino: o quadro contado pela sessão não chega ao detalhe", MAIN + "dash/DashSession.kt",
+     "fun frameSent(bytes: Int, packets: Int, key: Boolean, maxGapNs: Long) = stats.fine.frame(bytes, packets, key, maxGapNs)",
+     "fun frameSent(bytes: Int, packets: Int, key: Boolean, maxGapNs: Long) = Unit", ["FineTailTest"]),
+    ("p35/H Espaçamento: o comando espera a sua vaga depois de sair", MAIN + "dash/DashSocket.kt",
+     "            pacer.pace()\n            txSocket.send(DatagramPacket(pkt, pkt.size, ctrlDest.address, ctrlDest.port))\n",
+     "            txSocket.send(DatagramPacket(pkt, pkt.size, ctrlDest.address, ctrlDest.port))\n            pacer.pace()\n", ["DashSocketPacingTest"]),
+    ("p35/H Espaçamento: o vídeo espera a sua vaga depois de sair", MAIN + "dash/DashSocket.kt",
+     "            pacer.pace()\n            rtpSocket.send(DatagramPacket(data, data.size, rtpDest.address, rtpDest.port))\n",
+     "            rtpSocket.send(DatagramPacket(data, data.size, rtpDest.address, rtpDest.port))\n            pacer.pace()\n", ["DashSocketPacingTest"]),
+    ("p35/H Espaçamento: o comando espera a sua vaga dentro da trava do canal", MAIN + "dash/DashSocket.kt",
+     "            pacer.pace()\n            txSocket.send(DatagramPacket(pkt, pkt.size, ctrlDest.address, ctrlDest.port))\n",
+     "            synchronized(txLock) { pacer.pace() }\n            txSocket.send(DatagramPacket(pkt, pkt.size, ctrlDest.address, ctrlDest.port))\n", ["DashSocketPacingTest"]),
+    ("p35/H Detalhe fino: um soquete novo não recomeça o detalhe", MAIN + "dash/DashSession.kt",
+     "                stats.sendTail.clear()\n                stats.fine.clear()\n", "                stats.sendTail.clear()\n", ["FineTailTest"]),
+    ("p35/H Detalhe fino: o gerente de Wi-Fi não recebe o detalhe da sessão", MAIN + "dash/DashSession.kt",
+     "                DashHeard.fine = stats.fine\n", "", ["FineTailTest"]),
+]
+
 
 # Plano 34, item 10 (25/11/2026): o vigia da thread principal (`[mainthread]`), a carga do sistema na linha `device` e o leitor de registros.
 MUTATIONS += [
