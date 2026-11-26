@@ -40,6 +40,8 @@ object LogMask {
     // date, so `2026-12-aa-bb-cc-dd-ee-ff` is hidden (review of 26/11/2026, S5; the edge used to be any two digits and a hyphen, which left it whole). A hex LETTER or a single
     // digit before the hyphen (`bssid-`, `wlan0-`, `feed-`, `id-1a-`) is a word, and the MAC after it is hidden (review of 26/11/2026, C5). With no separator it is hidden only after
     // its keyword, and only when it is exactly twelve digits (a longer run is a hash).
+    // One line on purpose: scripts/registro/mascarar.py holds the same pattern and the mutation catalog finds its pieces whole.
+    @Suppress("MaxLineLength")
     private val MAC = Regex("""(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<!^\d\d-)(?!(?:(?<=\d{4}-)|(?<=\d{4}-\d\d-))(?:\d\d-){5}\d\d)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}""")
     // A word that ends in two hex digits glued to a MAC (`mac-aa-bb-cc-dd-ee-ff`, `device-00-11-22-33-44-55`) makes [MAC] match one position early (the `ac` of `mac` is a pair)
     // and leave the last pair out, which leaked. The pair that follows the MAC after the same kind of sign, whole, is hidden with it: it hides too much, never too little
