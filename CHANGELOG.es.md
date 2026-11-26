@@ -11,6 +11,13 @@ English: [CHANGELOG.md](CHANGELOG.md) · Português (pt-BR): [CHANGELOG.pt-br.md
 
 ## [Unreleased]
 
+## [0.3.91] - 2026-11-26
+
+> **Versión de prueba para pilotos, sobre la 0.3.1** (serie 0.3.9x: builds de prueba, no publicadas). La próxima ronda después de la 0.3.90.
+
+### Cambiado
+- **0.3.91: la pantalla se enciende también en el bolsillo; sin el sensor de proximidad.** "Pantalla encendida con el teléfono bloqueado (prueba)" ya no mira el sensor de proximidad (ni escribe `skip proximity` en el registro): enciende la pantalla siempre que la regla del modo lo manda, dondequiera que esté el teléfono, sin esperar la lectura del sensor.
+
 ## [0.3.90] - 2026-11-26
 
 > **Versión de prueba para pilotos, sobre la 0.3.1** (serie 0.3.9x: builds de prueba, no publicadas). Solo agrega una función de prueba y más registro; todo lo demás es la 0.3.1.

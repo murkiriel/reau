@@ -12,6 +12,13 @@ aparecem).
 
 ## [Unreleased]
 
+## [0.3.91] - 2026-11-26
+
+> **Versão de teste para pilotos, sobre a 0.3.1** (série 0.3.9x: builds de teste, não publicadas). Próxima rodada da 0.3.90.
+
+### Alterado
+- **0.3.91: a tela acende também no bolso; sem o sensor de proximidade.** O "Tela acesa com o celular bloqueado (teste)" não olha mais o sensor de proximidade (nem diz `skip proximity` no registro): acende a tela sempre que a regra do modo manda, em qualquer lugar, sem esperar a leitura do sensor.
+
 ## [0.3.90] - 2026-11-26
 
 > **Versão de teste para pilotos, sobre a 0.3.1** (série 0.3.9x: builds de teste, não publicadas). Só acrescenta uma função de teste e mais registro; todo o resto é a 0.3.1.
