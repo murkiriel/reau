@@ -15,6 +15,7 @@ import android.os.IBinder
 import android.os.SystemClock
 import com.reau.app.R
 import com.reau.app.aa.AaLinkState
+import com.reau.app.data.AppStandbyLog
 import com.reau.app.data.CrashHandler
 import com.reau.app.data.DeviceStateLog
 import com.reau.app.data.ProjectionSummary
@@ -659,6 +660,8 @@ class ProjectionService : Service() {
     private fun lookAtTheDevice() {
         val reader = DeviceStateReader(this) { sides?.bikeNetwork }
         val device = DeviceStateLog(DEVICE_PERIOD_MS) { RideDiagnostics.log("device", it) }
+        // The standby bucket and the background restriction: one line at the first look of the projection, another only when one of them changes (26/11/2026).
+        val standby = AppStandbyLog { RideDiagnostics.log("device", it) }
         // Armed for this projection: one warning when the battery passes 44 C, another only after it fell under 41 C (BatteryHeatWatch).
         val heat = BatteryHeatWatch()
         // Said once for this projection: the reader does not ask for the thermal headroom in this build (the lines have no headroom=).
@@ -669,6 +672,7 @@ class ProjectionService : Service() {
         deviceLook = worker.scheduleWithFixedDelay({
             runCatching {
                 val state = reader.read()
+                standby.offer(reader.appStandby())
                 device.offer(SystemClock.elapsedRealtime(), state)
                 ProjectionSummary.current.device(state.thermal, state.batteryPct)
                 warnIfHot(heat, state)
