@@ -1,6 +1,7 @@
 """Lê registros do REau puxados do celular e mostra a linha do tempo resumida, acusando os problemas conhecidos.
 
     python -B scripts\\registro\\ler_registro.py <arquivo ou pasta> [...] [--desde AAAA-MM-DD] [--ate AAAA-MM-DD] [--tudo]
+    python -B scripts\\registro\\ler_registro.py --ab <arquivo, pasta ou .zip de coleta> [...] [--desde AAAA-MM-DD] [--ate AAAA-MM-DD]
 
 Lê os arquivos `ride-*.log` (uma pasta inteira, ou arquivos soltos), em ordem de nome, e escreve:
 
@@ -135,18 +136,29 @@ do próprio processo (`DisplayState`, quando a coleta o traz) e a descrição IN
 sem ela pode ser o piloto nos Ajustes: suposição, dita como tal). Duas ou mais mortes com a mesma espera de tela apagada (dentro de 15 s; as de processo que já começou com a tela apagada e as que
 podem ser do piloto não entram) dão «as mortes vieram N s depois de a tela apagar (padrão)»: no realme de 25/11/2026, 298 a 303 s, o relógio de 5 min do sistema.
 
+Desde 26/11/2026 (0.4.0, teste A/B dos pilotos): `--ab` troca a leitura inteira pelo relatório do teste A/B (`ab.py`), sobre os `ride-*.log` de uma ou mais pastas, arquivos ou `.zip` de coleta
+(do zip só entram os `ride-*.log`, o `logcat-sistema*.txt` e o `dumpsys-wifi*.txt`; lê tudo, sem o corte da coleta anterior, e `--desde`/`--ate` valem). Separa as sessões (uma por projeção) pelos dois
+experimentos, o espaçamento do envio (`pacePackets` da linha `settings in use:`) ligado ou desligado e o codificador do vídeo (`videoEncoder`) do celular ou de software, e imprime, por sessão, o
+tempo em STREAMING, se o painel reiniciou (as quedas «Wi-Fi do painel reiniciou» e «painel desligou e religou» da leitura normal), o maior silêncio de vídeo (`gap max` do resumo), a idade do painel
+na volta (não existe a idade do quadro no registro), o `pace-waited`, o `tickwait` e o quadro-chave médio e máximo; e, por braço, as sessões, os minutos em STREAMING, os reinícios por hora, as medianas e o
+aviso «amostra pequena» com menos de 10 sessões. A sessão em que o codificador de software falhou e cedeu ao do celular, a que pediu o de software num celular que não lista um e a que tem dois codificadores
+nas linhas de uso ficam num grupo «à parte», que não serve para comparar os braços. Os critérios estão em `ab.py`. Sai com 0.
+
 Em registros de versões até a 0.2.0 (o serviço que ligava o servidor sozinho não existe mais), por Ligar, o bloco `servidor do AA:` conta a caminhada que liga o servidor do Android Auto (toque, início
 da caminhada, clique em Iniciar, Voltar, fim, primeira conexão, em ms) e acusa a causa: porta fechada 5 s depois do clique, servidor
 que só atendeu quando a tela do Android Auto abriu, menu lido pela metade (Android Auto frio?). Sem linhas `aa-server` (o serviço desligado, o caso comum) não diz nada.
 """
 import re
 import sys
+import tempfile
+import zipfile
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
 # With `python -I` (or a script run from another folder) the script's own folder is not on the path: the helpers beside it are found by this file's place.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ab  # noqa: E402
 import chaves  # noqa: E402
 import codificador  # noqa: E402
 import corrente  # noqa: E402
@@ -2935,6 +2947,66 @@ def corridas(linhas):
     return saida
 
 
+def sessoes_ab(linhas):
+    """Uma entrada por projeção para o teste A/B (`ab.py`): o braço (espaçamento do envio × codificador do vídeo) e os números da sessão. As quedas são as de `corridas` (sem o painel que
+    desligou com a moto); o painel reiniciou é o que a linha do tempo diz dela («Wi-Fi do painel reiniciou») ou «painel desligou e religou»; a idade do painel é a do primeiro pacote
+    depois de cada interrupção que voltou (`quedas.interrupcoes`)."""
+    blocos = projecoes(linhas)
+    saida = []
+    for bloco, configuracao in zip(blocos, ab.configuracao_por_projecao(linhas, blocos)):
+        grupos = _grupos_de_queda(bloco)
+        sem_moto = [g for g in grupos if not _painel_desligou(g, bloco)]
+        reiniciou = sum(1 for g in sem_moto if "Wi-Fi do painel reiniciou" in _resumo_da_queda(g, bloco)[0])
+        religou = sum(1 for g in grupos if _painel_religou(g, bloco) is not None)
+        idades = [i["idade"] for i in quedas.interrupcoes(bloco, grupos) if not i["final"] and i["idade"] is not None]
+        saida.append(ab.fatos(bloco, configuracao, len(sem_moto), reiniciou, religou, idades))
+    return saida
+
+
+ARQUIVOS_DO_ZIP = ("ride-*.log", "logcat-sistema*.txt", "dumpsys-wifi*.txt")
+
+
+def _abre_zips(caminhos, destino):
+    """Os caminhos com cada `.zip` trocado por uma pasta nova dentro de `destino` com o que o leitor lê dele (`ARQUIVOS_DO_ZIP`, pelo nome do arquivo, de qualquer pasta do zip). Só o nome do
+    arquivo é usado: um nome com caminho dentro do zip não escreve fora da pasta."""
+    saida = []
+    for k, c in enumerate(caminhos):
+        if not str(c).lower().endswith(".zip"):
+            saida.append(c)
+            continue
+        pasta = Path(destino) / f"zip{k}"
+        pasta.mkdir()
+        with zipfile.ZipFile(c) as z:
+            for item in z.infolist():
+                nome = Path(item.filename.replace("\\", "/")).name
+                if not item.is_dir() and any(Path(nome).match(padrao) for padrao in ARQUIVOS_DO_ZIP) and not (pasta / nome).exists():
+                    (pasta / nome).write_bytes(z.read(item))
+        saida.append(str(pasta))
+    return saida
+
+
+def main_ab(argv):
+    """O `--ab`: o relatório do teste A/B (`ab.py`) em vez da leitura normal. Devolve o código de saída."""
+    caminhos, desde, ate, _ = _opcoes(argv)
+    if isinstance(caminhos, str):
+        print(caminhos, file=sys.stderr)
+        return 2
+    if not caminhos:
+        print(__doc__)
+        return 2
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            lidos = _abre_zips(caminhos, tmp)
+        except (zipfile.BadZipFile, OSError) as e:
+            print(f"ler_registro.py: não consegui abrir o zip: {e}", file=sys.stderr)
+            return 2
+        linhas = ler(lidos, desde, ate, corte_padrao=False)
+        marcar_fim_de_viagem(lidos, linhas)
+        saida = ab.texto(sessoes_ab(linhas))
+    print("\n".join(saida) or "nenhuma projeção nos arquivos")
+    return 0
+
+
 def _instante_da_opcao(texto, fim_do_dia=False):
     """`2026-11-05`, `2026-11-05T07:00` ou `2026-11-05 07:00` como datetime; um dia sem hora vale o começo dele (ou o fim, em `--ate`). None se não for uma data."""
     for formato in ("%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
@@ -2973,6 +3045,8 @@ def main(argv):
     if any(a in ("-h", "--help") for a in argv):
         print(__doc__)
         return 0
+    if "--ab" in argv:
+        return main_ab([a for a in argv if a != "--ab"])
     if not argv:
         print(__doc__)
         return 2
