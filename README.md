@@ -64,6 +64,19 @@ A test (debug) build and the official one cannot replace each other: to change f
 
 Tip: Obtainium (a free third-party app) installs and updates REau straight from the repository's Releases: under "Add app", paste `https://github.com/Murkiriel/reau`; only published versions count, not test builds, and REau changes nothing because of it.
 
+## Connection drops
+
+Two different problems show up for the rider as a "connection problem":
+
+1. **The phone closes the app.** Xiaomi, Redmi and POCO, and also realme, OPPO and OnePlus, with their own versions of Android, have a
+   battery manager much more aggressive than stock Android's. It closes the app in the middle of a ride, with the screen off. This is the main
+   cause of the drops. The fix is a few settings on the phone itself, which the app now walks you through, and the automatic resume where the
+   system allows it.
+2. **The dash restarts.** The main cause is the dash running an older firmware version: the newer one recovers from the same hiccup. Phones
+   with a MediaTek processor make it worse, because they send a heavier video to the dash. We are testing a lighter video mode for these cases.
+
+A poor fix would be to keep the phone's screen on all the time: it drains the battery, heats the phone and leaves it unlocked in the pocket.
+
 ## Build
 
 With JDK 21 and the Android SDK installed:

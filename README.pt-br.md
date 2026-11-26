@@ -66,6 +66,19 @@ Uma build de teste (debug) e a oficial não se substituem: para trocar de uma pa
 
 Dica: o Obtainium (app livre de terceiros) instala e atualiza o REau direto das Releases do repositório: em "Adicionar app", cole `https://github.com/Murkiriel/reau`; só valem as versões publicadas, sem as builds de teste, e o REau não muda nada por isso.
 
+## Quedas de conexão
+
+São dois problemas diferentes que aparecem para o piloto como "problema de conexão":
+
+1. **O celular fecha o aplicativo.** Xiaomi, Redmi e POCO, e também realme, OPPO e OnePlus, com os seus sistemas personalizados, têm um
+   gerenciador de bateria muito mais agressivo que o do Android original. Ele fecha o app no meio da viagem, com a tela apagada. É a maior
+   causa das quedas. A solução passa por ajustes no próprio celular, que o app agora ensina, e pela retomada automática onde o sistema permite.
+2. **O painel reinicia.** A causa principal é o painel rodar uma versão antiga do firmware: a mais nova se recupera do mesmo engasgo. Os
+   celulares com processador MediaTek pioram o quadro, porque mandam um vídeo mais pesado para o painel. Estamos testando um modo de vídeo
+   mais leve para esses casos.
+
+Uma solução ruim seria deixar a tela do celular ligada o tempo todo: gasta bateria, esquenta e deixa o celular desbloqueado no bolso.
+
 ## Compilar
 
 Com o JDK 21 e o Android SDK instalados:

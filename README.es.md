@@ -66,6 +66,21 @@ Una compilación de prueba (debug) y la oficial no se reemplazan entre sí: para
 
 Consejo: Obtainium (una app libre de terceros) instala y actualiza REau directamente desde las Releases del repositorio: en "Añadir app", pega `https://github.com/Murkiriel/reau`; solo valen las versiones publicadas, sin las builds de prueba, y REau no cambia nada por ello.
 
+## Caídas de conexión
+
+Son dos problemas distintos que el piloto ve como "problema de conexión":
+
+1. **El teléfono cierra la aplicación.** Xiaomi, Redmi y POCO, y también realme, OPPO y OnePlus, con sus sistemas personalizados, tienen un
+   gestor de batería mucho más agresivo que el de Android original. Cierra la app en medio del viaje, con la pantalla apagada. Es la mayor
+   causa de las caídas. La solución pasa por ajustes en el propio teléfono, que la app ahora enseña, y por la reanudación automática donde el
+   sistema lo permite.
+2. **El tablero se reinicia.** La causa principal es que el tablero use una versión antigua del firmware: la más nueva se recupera del mismo
+   tropiezo. Los teléfonos con procesador MediaTek lo empeoran, porque envían un video más pesado al tablero. Estamos probando un modo de
+   video más liviano para estos casos.
+
+Una mala solución sería dejar la pantalla del teléfono encendida todo el tiempo: gasta batería, calienta el teléfono y lo deja desbloqueado
+en el bolsillo.
+
 ## Compilación
 
 Con JDK 21 y el Android SDK instalados:
