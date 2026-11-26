@@ -32,6 +32,11 @@ DASH_QUALQUER = re.compile(_OTHER.pattern + "|" + _DASH.pattern)
 # vendors write it) there IS something to leave: a date and time `2026-11-26-10-30-15` holds six pairs split by hyphens, from its last two year digits on. So
 # the hyphen form has a left edge: it does not start right after a hex digit or after a hex digit and a hyphen (26/11/2026, review B4).
 MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<![0-9A-Fa-f]-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}")
+# A palavra que termina em dois dígitos hexadecimais e vem colada num MAC (`mac-aa-bb-cc-dd-ee-ff`, `device-00-11-22-33-44-55`) faz o MAC acima casar uma posição antes do
+# certo (o `ac` de `mac` conta como um par) e deixar o último par de fora, que vazava. O que vem logo depois do MAC, separado pelo mesmo tipo de sinal, e é de dois dígitos
+# hexadecimais inteiros, entra na máscara: esconde de mais (errar para esconder), nunca de menos (revisão do plano 34, A5, 26/11/2026). A data `2026-11-26-10-30-15-45`
+# segue como estava: a borda esquerda do MAC com hífen já a recusa antes.
+MAC_E_RESTO = re.compile("(?:" + MAC.pattern + r")(?:[:-][0-9A-Fa-f]{2}(?![0-9A-Fa-f]))?")
 # A MAC with no separator at all (`bssid=aabbccddeeff`) is twelve hex digits, which a hash or a version number can also be: it is hidden only after the word that
 # says what it is (`bssid`, `mac`, `macaddr`, `hwaddr`, then `=` or `:`), and only when it is exactly twelve (a longer run is a hash, left alone). The left edge is "not a
 # letter" so that `wlan_mac=` counts and `macro=` does not. The word and the sign stay (group 1).
@@ -77,7 +82,7 @@ def compilar_nomes(nomes):
 
 def esconder_mac(texto: str) -> str:
     """[texto] with every MAC address replaced: with colons or hyphens anywhere, with no separator only after its keyword (see [MAC_SEM_SEPARADOR])."""
-    return MAC_SEM_SEPARADOR.sub(lambda m: m.group(1) + MASK_MAC, MAC.sub(MASK_MAC, texto))
+    return MAC_SEM_SEPARADOR.sub(lambda m: m.group(1) + MASK_MAC, MAC_E_RESTO.sub(MASK_MAC, texto))
 
 
 def mascarar(texto: str, nomes=()) -> str:

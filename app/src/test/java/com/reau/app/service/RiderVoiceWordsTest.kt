@@ -30,7 +30,7 @@ class RiderVoiceWordsTest {
 
     @Test
     fun `the phrases are said as the owner chose, in Portuguese, and have an English and a Spanish one`() {
-        assertEquals("Painel desconectado. Desligue e ligue a moto.", text("values-pt", "voice_dash_gone"))
+        assertEquals("Painel desconectado. Desligue a moto, espere 20 segundos e ligue.", text("values-pt", "voice_dash_gone"))
         assertEquals("Painel de volta.", text("values-pt", "voice_dash_back"))
         assertEquals("Wi-Fi do celular desligado.", text("values-pt", "voice_wifi_off"))
         // 26/11/2026 (A8): said when the app came back by itself after the phone's system ended it.

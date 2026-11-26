@@ -2627,7 +2627,7 @@ MUTATIONS = [
      r'private val OTHER = Regex("""(?:(?<=%[0-9A-Fa-f]{2})|\b)RE_[A-Za-z0-9_]{4,}""")', r'private val OTHER = Regex("""\bRE_[A-Za-z0-9_]{4,}""")',
      ['LogMaskTest']),
     ('Leva 6 11/11 Máscara: o MAC não é escondido', 'app/src/main/java/com/reau/app/util/LogMask.kt',
-     "if (out.contains(':') || out.contains('-')) out = MAC.replace(out, MASK_MAC)", "if (out.contains(':') || out.contains('-')) out = out",
+     "if (out.contains(':') || out.contains('-')) out = MAC_AND_ONE_MORE.replace(out, MASK_MAC)", "if (out.contains(':') || out.contains('-')) out = out",
      ['LogMaskTest']),
     ('Leva 6 11/11 Máscara: o MAC com letras minúsculas passa', 'app/src/main/java/com/reau/app/util/LogMask.kt',
      'Regex("""(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])', 'Regex("""(?:[0-9A-F]{2}:){5}[0-9A-F]{2}|(?<![0-9A-Fa-f])',
@@ -5952,7 +5952,29 @@ MUTATIONS += [
      "runCatching { android.provider.Settings.Global.getInt(context.contentResolver, name) != 0 }.getOrNull()", "android.provider.Settings.Global.getInt(context.contentResolver, name) != 0", ["AppStandbyIsWiredTest"]),
 ]
 
-
+MUTATIONS += [
+    # Revisão do plano 34 e dos commits recentes (26/11/2026): A1, A2, A3, A4, A5, B1, B3 e o aviso do painel travado.
+    ("revisao34/A1 Pílula: o fim da projeção escreve a linha mesmo sem a pílula alternando", MAIN + "service/BatteryLowWatch.kt",
+     "fun endLine(): String? = pillEnds().takeIf { it.stops }?.let {", "fun endLine(): String? = pillEnds().let {", ["BatteryLowWatchTest"]),
+    ("revisao34/A2 Detalhe fino: a janela volta a terminar na hora do relatório e não na última mensagem do painel", MAIN + "dash/FineTail.kt",
+     "val anchorNs = if (lastRxNs == NONE) nowNs else minOf(nowNs, lastRxNs)", "val anchorNs = nowNs", ["FineTailTest"]),
+    ("revisao34/A3 Guarda de privacidade: um GPX com 6 casas decimais passa a existir no repositório", "scripts/emu/rotas/avenida_reta_rtept.gpx",
+     '<rtept lat="38.714" lon="-9.141"/>', '<rtept lat="38.714' + '000" lon="-9.141' + '000"/>', ["PrivacyGuardTest"]),
+    ("revisao34/A4 Servidor de rede: o Ligar do diálogo grava a cópia velha do ajuste", MAIN + "ui/WebSection.kt",
+     "change(latest.copy(webView = true))", "change(s.copy(webView = true))", ["WebOnDialogIsWiredTest"]),
+    ("revisao34/A5 LogMask: o MAC colado numa palavra que termina em hexadecimal volta a vazar o último par", MAIN + "util/LogMask.kt",
+     "out = MAC_AND_ONE_MORE.replace(out, MASK_MAC)", "out = MAC.replace(out, MASK_MAC)", ["LogMaskTest"]),
+    ("revisao34/B1 Resumo do processo: uma olhada depois do fim da projeção volta a escrever p=1", MAIN + "data/ProcessStateSummary.kt",
+     "        if (over) return\n", "", ["ProcessStateSummaryTest"]),
+    ("revisao34/B3 Aberturas: o app volta a ler o aviso do sistema na thread principal", MAIN + "MainActivity.kt",
+     "lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) { runCatching { com.reau.app.data.SystemClosedRide.load(applicationContext) } }",
+     "com.reau.app.data.SystemClosedRide.load(applicationContext)", ["SystemClosedRideIsWiredTest"]),
+    ("revisao34/painel travado: a notificação em inglês volta a não dizer a espera", "app/src/main/res/values/strings.xml",
+     "Turn the motorcycle’s ignition off, wait about 20 seconds and turn it on again (a quick off and on does not clear it); REau reconnects by itself",
+     "Turn the motorcycle’s ignition off and on again; REau reconnects by itself", ["DashStuckWaitTextsTest"]),
+    ("revisao34/painel travado: a frase do fone em hindi volta a não dizer a espera", "app/src/main/res/values-hi/strings.xml",
+     "डैश डिस्कनेक्ट हो गया। बाइक बंद करें, 20 सेकंड रुकें, फिर चालू करें।", "डैश डिस्कनेक्ट हो गया। बाइक बंद करके फिर चालू करें।", ["DashStuckWaitTextsTest"]),
+]
 
 
 def command_for(classes):

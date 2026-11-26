@@ -202,6 +202,18 @@ class BatteryLowWatchTest {
     }
 
     @Test
+    fun `the end of the projection writes no line when the pill was not alternating, and one with its reason when it was`() {
+        val full = BatteryLowWatch()
+        full.look(80, false)
+        assertEquals("a full battery: no line at all, not one with an empty reason", null, full.endLine())
+        assertEquals("never looked at: none either", null, BatteryLowWatch().endLine())
+        val low = BatteryLowWatch()
+        low.look(9, false)
+        assertEquals("battery pill alternation stops: projection over", low.endLine())
+        assertEquals("said once", null, low.endLine())
+    }
+
+    @Test
     fun `only the starts and the keeps ask for the pill, only the stops take it off`() {
         for (step in BatteryLowWatch.PillStep.entries) {
             assertEquals(step.name, step == start || step == keep, step.asks)

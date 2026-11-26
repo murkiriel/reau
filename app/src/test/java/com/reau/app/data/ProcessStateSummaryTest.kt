@@ -115,10 +115,34 @@ class ProcessStateSummaryTest {
         val keeper = ProcessStateSummaryKeeper { given += text(it) }
         keeper.ended() // no look yet: nothing to say
         assertEquals(0, given.size)
-        keeper.offer(10_000L, look(attempt = 2))
+        val second = ArrayList<String>()
+        val another = ProcessStateSummaryKeeper { second += text(it) }
+        another.offer(10_000L, look(attempt = 2))
+        another.ended()
+        another.ended()
+        assertEquals("the second end says nothing again", 2, second.size)
+        assertTrue(second[1], second[1].startsWith("REau1;p=0;d=0;") && second[1].contains(";t=0;"))
+    }
+
+    @Test
+    fun `a look offered after the end of the projection is ignored and does not say the projection is on again`() {
+        val given = ArrayList<String>()
+        val keeper = ProcessStateSummaryKeeper { given += text(it) }
+        keeper.offer(10_000L, look())
         keeper.ended()
+        val atEnd = given.size
+        // the look the memory signal had queued runs after the end
+        keeper.offer(20_000L, look(screenOn = false))
+        assertEquals("nothing is given after the end", atEnd, given.size)
+        assertTrue(given.last(), given.last().startsWith("REau1;p=0;d=0;"))
+    }
+
+    @Test
+    fun `a look offered after an end that came before any look is ignored too`() {
+        val given = ArrayList<String>()
+        val keeper = ProcessStateSummaryKeeper { given += text(it) }
         keeper.ended()
-        assertEquals(2, given.size)
-        assertTrue(given[1], given[1].startsWith("REau1;p=0;d=0;") && given[1].contains(";t=0;"))
+        keeper.offer(10_000L, look())
+        assertEquals(0, given.size)
     }
 }

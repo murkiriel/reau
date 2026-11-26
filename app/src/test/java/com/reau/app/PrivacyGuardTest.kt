@@ -19,6 +19,9 @@ class PrivacyGuardTest {
         "VIN" to Regex("\\b(?=[A-HJ-NPR-Z0-9]{17}\\b)(?=[A-Z0-9]*[A-Z])(?=[A-Z0-9]*[0-9])[A-HJ-NPR-Z0-9]{17}\\b"),
         "Wi-Fi or hardware address" to Regex("\\b[0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5}\\b"),
         "precise coordinates" to Regex("(?<![\\d.])-?\\d{1,3}\\.\\d{4,}\\s*,\\s*-?\\d{1,3}\\.\\d{4,}(?![\\d.])"),
+        // The GPX form, `lat="..." lon="..."` with 4 or more decimals (either order), which the comma form above never sees (review of the plan 34, A3, 26/11/2026): a route
+        // recorded in a real ride and dropped in a folder would pass. The sample routes of the repository have three decimals on purpose.
+        "precise coordinates in a GPX file" to Regex("(?i)\\b(?:lat|lon)=\"-?\\d{1,3}\\.\\d{4,}\"\\s+(?:lat|lon)=\"-?\\d{1,3}\\.\\d{4,}\""),
         "path of a developer's computer" to Regex("$windowsHome|$workspace|/home/[a-z][a-z0-9_-]+/|/Users/[A-Za-z]"),
     )
 
@@ -60,6 +63,11 @@ class PrivacyGuardTest {
         assertTrue(patterns.getValue("VIN").containsMatchIn("vin " + "1HGCM" + "82633A004352" + " end"))
         assertTrue(patterns.getValue("Wi-Fi or hardware address").containsMatchIn("bssid " + "4c:11:ae:" + "00:12:ff"))
         assertTrue(patterns.getValue("precise coordinates").containsMatchIn("at -23.56" + "1414, -46.65" + "5881"))
+        val gpx = patterns.getValue("precise coordinates in a GPX file")
+        assertTrue(gpx.containsMatchIn("<trkpt lat=\"38.714" + "000\" lon=\"-9.140" + "900\"/>"))
+        assertTrue("the other order too", gpx.containsMatchIn("<trkpt lon=\"-9.140" + "9\" lat=\"38.714" + "0\"/>"))
+        assertTrue("three decimals are a street, not a person", !gpx.containsMatchIn("<trkpt lat=\"38.714\" lon=\"-9.141\"/>"))
+        assertTrue("short decimals are test values", !gpx.containsMatchIn("<trkpt lat=\"10.0\" lon=\"20.001\"/>"))
         assertTrue(patterns.getValue("path of a developer's computer").containsMatchIn("C:" + "\\Users\\someone\\x"))
         assertTrue(patterns.getValue("path of a developer's computer").containsMatchIn("/home/" + "someone/x"))
         assertTrue("two decimals are a place name, not a person", !patterns.getValue("precise coordinates").containsMatchIn("-23.55, -46.63"))

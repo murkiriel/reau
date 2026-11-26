@@ -572,7 +572,7 @@ MUTATIONS_SCRIPTS = [
     ("revisao33/B4 mascarar: a palavra colada a uma letra (`unmac=`) conta", REG + "mascarar.py",
      '(?i)(?<![a-z])((?:bssid', '(?i)((?:bssid', ["registro/test_mascarar.py"]),
     ("revisao33/B4 mascarar: o MAC sem separador não é escondido", REG + "mascarar.py",
-     "return MAC_SEM_SEPARADOR.sub(lambda m: m.group(1) + MASK_MAC, MAC.sub(MASK_MAC, texto))", "return MAC.sub(MASK_MAC, texto)", ["registro/test_mascarar.py"]),
+     "return MAC_SEM_SEPARADOR.sub(lambda m: m.group(1) + MASK_MAC, MAC_E_RESTO.sub(MASK_MAC, texto))", "return MAC_E_RESTO.sub(MASK_MAC, texto)", ["registro/test_mascarar.py"]),
 
     # S3 (26/11/2026): o resumo que o processo gravou de si e que o Android devolve na saída; S1: a depuração USB e as opções de desenvolvedor na linha do balde.
     ("s3/leitor: a linha `[exit]` não traz o resumo na morte do sistema", REG + "ler_registro.py",
@@ -595,4 +595,10 @@ MUTATIONS_SCRIPTS = [
      "(?: adb=(\\S+) devopts=(\\S+))?$\")", " adb=(\\S+) devopts=(\\S+)$\")", ["registro/test_a3_a8_leitor.py"]),
     ("s3/S1 leitor: a depuração USB ligada sai como desligada", REG + "ler_registro.py",
      'STANDBY_LIGADO = {"on": "ligada", "off": "desligada", "?": "sem leitura"}', 'STANDBY_LIGADO = {"on": "desligada", "off": "ligada", "?": "sem leitura"}', ["registro/test_a3_a8_leitor.py"]),
+    # ── Revisão do plano 34 (26/11/2026) ──────────────────────────────────────────────────────
+    ("revisao34/A5 mascarar: o MAC colado numa palavra que termina em hexadecimal volta a vazar o último par", REG + "mascarar.py",
+     'r")(?:[:-][0-9A-Fa-f]{2}(?![0-9A-Fa-f]))?")', 'r")")', ["registro/test_mascarar.py"]),
+    ("revisao34/A2 leitor: o detalhe fino volta a não dizer há quanto tempo o painel estava calado", REG + "ler_registro.py",
+     'quando = f"nos últimos {janela} s até a última mensagem do painel (calado há {calado} s)" if calado else f"nos últimos {janela} s"',
+     'quando = f"nos últimos {janela} s"', ["registro/test_ler_registro.py"]),
 ]

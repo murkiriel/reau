@@ -935,10 +935,11 @@ class ProjectionService : Service() {
 
     /** The projection is over: the dash's pill, if it was alternating, is taken off and the log says so (26/11/2026). */
     private fun endBatteryPill() {
-        val step = batteryLow?.pillEnds() ?: return
-        runCatching { sides?.stopBatteryLow() }
-        RideDiagnostics.log("battery", "battery pill alternation stops: ${step.reason}")
+        val line = batteryLow?.endLine()
         batteryLow = null
+        if (line == null) return
+        runCatching { sides?.stopBatteryLow() }
+        RideDiagnostics.log("battery", line)
     }
 
     /**

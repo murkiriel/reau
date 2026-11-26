@@ -184,6 +184,8 @@ object ProjectionNotification {
      * Told once for an absence of the dash, apart from the ongoing notification: the dash's Wi-Fi is in the air and refuses every join, which
      * only turning the bike's ignition off and on clears (01/11/2026: 3 min 54 s with the picture gone and the rest of the dash working).
      * Sound and vibration, because the phone's screen is off. [clearDashStuck] takes it away when the dash is back.
+     * The words say to turn the ignition off, WAIT ABOUT 20 SECONDS and turn it on (owner's field test of 26/11/2026): a quick off and on leaves the dash on the same
+     * channel, still refusing; the slow one makes it start from zero on another channel, and REau joins it in 1.4 s.
      */
     fun showDashStuck(context: Context) {
         createAlertChannel(context)

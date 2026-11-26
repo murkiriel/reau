@@ -64,6 +64,22 @@ class OutrasRedesEMacTest(unittest.TestCase):
             with self.subTest(texto=texto):
                 self.assertEqual(esperado, mascarar.mascarar(texto))
 
+    def test_a_mac_glued_to_a_word_that_ends_in_hex_digits_does_not_leak_its_last_pair(self):
+        # Revisão do plano 34, A5 (26/11/2026): o `ac` de `mac` contava como um par e o último par do MAC sobrava (`m<MAC>-ff`). Os MACs são montados aqui, na hora.
+        with_hyphens = MAC_FF.replace(":", "-")
+        other = "-".join(["00", "11", "22", "33", "44", "55"])
+        for texto, esperado in ((f"mac-{with_hyphens}", f"m{mascarar.MASK_MAC}"), (f"device-{other}", f"devi{mascarar.MASK_MAC}"),
+                                (f"mac:{MAC_FF}", f"m{mascarar.MASK_MAC}"), (f"mac {with_hyphens} up", f"mac {mascarar.MASK_MAC} up")):
+            with self.subTest(texto=texto):
+                self.assertEqual(esperado, mascarar.mascarar(texto))
+
+    def test_the_pair_after_a_mac_is_hidden_only_when_it_is_two_whole_hex_digits(self):
+        with_hyphens = MAC_FF.replace(":", "-")
+        self.assertEqual(f"x {mascarar.MASK_MAC}-123", mascarar.mascarar(f"x {with_hyphens}-123"))
+        self.assertEqual(f"{mascarar.MASK_MAC} up", mascarar.mascarar(f"{with_hyphens}-12 up"))
+        # the date stays: its left edge refuses it before anything is hidden
+        self.assertEqual("log-2026-11-26-10-30-15-45", mascarar.mascarar("log-2026-11-26-10-30-15-45"))
+
     def test_a_mac_with_no_separator_is_hidden_only_after_its_keyword(self):
         bare = MAC_FF.replace(":", "")
         for texto, esperado in ((f"bssid={bare} up", f"bssid={mascarar.MASK_MAC} up"), (f"BSSID: {bare}", f"BSSID: {mascarar.MASK_MAC}"),

@@ -89,17 +89,20 @@ object ProcessStateSummary {
 
 /**
  * Gives [keep] the summary only when it changed since the last one it gave (a change of the state, never every look: the battery counts in steps of 5 %), and follows
- * when the screen went off. One per projection; the look at the phone feeds it ([ProcessStateSummary.Look]).
+ * when the screen went off. One per projection; the look at the phone feeds it ([ProcessStateSummary.Look]). After [ended] it takes no more looks: a look already queued on
+ * the worker (the one the memory signal asks for) runs after the projection's end and would write `p=1` over the summary that says it is over (review of the plan 34, B1, 26/11/2026).
  */
 class ProcessStateSummaryKeeper(private val keep: (ByteArray) -> Unit) {
     private var screenOffAtSec: Long? = null
     private var screenKnown = false
     private var last: String? = null
     private var lastLook: ProcessStateSummary.Look? = null
+    private var over = false
 
-    /** A look at the phone at wall-clock [nowMs]. */
+    /** A look at the phone at wall-clock [nowMs]; ignored once the projection [ended]. */
     @Synchronized
     fun offer(nowMs: Long, look: ProcessStateSummary.Look) {
+        if (over) return
         // A look that does not know the screen (null) changes nothing.
         look.screenOn?.let { on ->
             if (on) screenOffAtSec = null else if (screenOffAtSec == null) screenOffAtSec = nowMs / MS_PER_S
@@ -112,6 +115,7 @@ class ProcessStateSummaryKeeper(private val keep: (ByteArray) -> Unit) {
     /** The projection ended: the summary says so (the process may live on with the app open). */
     @Synchronized
     fun ended() {
+        over = true
         val look = lastLook ?: return
         give(ProcessStateSummary.State(look.copy(projecting = false, dashUp = false, attempt = 0), screenOffAtSec, screenKnown))
     }

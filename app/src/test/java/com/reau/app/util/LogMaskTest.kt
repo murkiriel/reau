@@ -142,6 +142,11 @@ class LogMaskTest {
             "bssid $macHyphen up" to "bssid ${LogMask.MASK_MAC} up",
             "BSSID: $macBare" to "BSSID: ${LogMask.MASK_MAC}",
             "wlan_mac=\"${macBare.uppercase()}\"" to "wlan_mac=\"${LogMask.MASK_MAC}\"",
+            // review of the plan 34, A5 (26/11/2026): a word that ends in hex digits glued to a MAC does not make its last pair leak
+            "mac-$macHyphen" to "m${LogMask.MASK_MAC}",
+            "device-${listOf("00", "11", "22", "33", "44", "55").joinToString("-")}" to "devi${LogMask.MASK_MAC}",
+            "mac:$macA" to "m${LogMask.MASK_MAC}",
+            "x $macHyphen-123" to "x ${LogMask.MASK_MAC}-123",
             "commit $macBare built" to "commit $macBare built",
             "macro=$macBare" to "macro=$macBare",
             "mac=${macBare}0" to "mac=${macBare}0",

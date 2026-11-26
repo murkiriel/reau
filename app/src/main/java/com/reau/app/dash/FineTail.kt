@@ -15,6 +15,10 @@ import java.util.Locale
  * Cheap on the hot path: the video's packets are not seen here (only the frame's end, 2 to 6 times a second), and a command is written into arrays
  * that exist, with no allocation, under a lock nobody else holds for long. Times are `System.nanoTime()` readings, given by the caller in the tests.
  * Thread-safe (the receive loop, the cards, the heartbeats and the encoder's output thread write it).
+ *
+ * The window ends at the last message that CAME FROM the dash, not at the moment the report is written (26/11/2026, review of the plan 34, A2): the watchdog fires 4 s after the
+ * dash went quiet, and counted back from the report 4 of the 15 s would be frames sent into the silence. What is told is the 15 s before it, and the header says for how long the
+ * dash had been quiet. A dash that never spoke in this session has no such moment, and the window ends at the report as before.
  */
 class FineTail {
     private val frameAt = LongArray(FRAME_CAPACITY)
@@ -34,6 +38,7 @@ class FineTail {
     private var titleHash = 0
     private var titleSeen = false
     private var reportedNs = NONE
+    private var lastRxNs = NONE
 
     /** A video frame of [bytes] bytes went out in [packets] RTP packets, the longest gap between two of them [maxGapNs], at [nowNs]. */
     @Synchronized
@@ -62,7 +67,10 @@ class FineTail {
 
     /** A TLV that came from the dash: its [code] and the size of its value in bytes. */
     @Synchronized
-    fun received(code: String, size: Int, nowNs: Long = System.nanoTime()) = add(nowNs, tx = false, code, size, TITLE_NONE)
+    fun received(code: String, size: Int, nowNs: Long = System.nanoTime()) {
+        if (lastRxNs == NONE || nowNs > lastRxNs) lastRxNs = nowNs
+        add(nowNs, tx = false, code, size, TITLE_NONE)
+    }
 
     private fun add(nowNs: Long, tx: Boolean, code: String, size: Int, title: Byte) {
         val i = (commands % COMMAND_CAPACITY).toInt()
@@ -82,6 +90,7 @@ class FineTail {
         titleHash = 0
         commandCode.fill(null)
         reportedNs = NONE
+        lastRxNs = NONE
     }
 
     /**
@@ -95,9 +104,13 @@ class FineTail {
         return report(why, nowNs)
     }
 
-    /** The lines for [why] at [nowNs], whatever was written before ([FineLines.report]). */
+    /** The lines for [why] at [nowNs], whatever was written before ([FineLines.report]); the window ends at the dash's last message when there was one before [nowNs]. */
     @Synchronized
-    fun report(why: String, nowNs: Long): List<String> = FineLines.report(why, framesIn(nowNs), commandsIn(nowNs))
+    fun report(why: String, nowNs: Long): List<String> {
+        val anchorNs = if (lastRxNs == NONE) nowNs else minOf(nowNs, lastRxNs)
+        val quietS = if (lastRxNs == NONE) null else ((nowNs - anchorNs) / NS_PER_S).toInt()
+        return FineLines.report(why, framesIn(anchorNs), commandsIn(anchorNs), quietS)
+    }
 
     private fun ageOf(nowNs: Long, atNs: Long): Int? =
         ((nowNs - atNs) / NS_PER_S).takeIf { nowNs - atNs >= 0 && it < FineLines.WINDOW_S }?.toInt()

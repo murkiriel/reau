@@ -33,18 +33,21 @@ class FineTailTest {
         val at = now - (14.0 * s).toLong()
         repeat(3) { t.sent("0501", ByteArray(88) { 0x41 }, at) }
         t.sent("0556", ByteArray(12), at)
-        t.received("0101", 6, at)
-        repeat(5) { t.received("0C0$it", 8, at) }
+        // What the dash said ends the window (26/11/2026): it spoke at the report's moment, so the seconds are counted back from `now` as in the report.
+        t.received("0101", 6, now)
+        repeat(5) { t.received("0C0$it", 8, now) }
         val lines = t.report("a watchdog fired", now)
         assertEquals(
-            "fine tail before a watchdog fired (last 15 s): 1 keyframes in 2 frames, biggest 28728 B in 21 pkts, longest gap between packets 3 ms; 4 commands out, 6 in",
+            "fine tail before a watchdog fired (last 15 s): 1 keyframes in 2 frames, biggest 28728 B in 21 pkts, longest gap between packets 3 ms; 4 commands out, 6 in" +
+                "; the dash had been quiet for 0 s (the window ends at its last message)",
             lines[0],
         )
         assertEquals(
-            "fine tail t-14 s: video K 28728B/21p gap 3ms, P 8100B/6p gap 2ms | tx 0501×3 264B, 0556 12B | title 88B changed | rx 0101 6B, 0C*×5 40B",
+            "fine tail t-14 s: video K 28728B/21p gap 3ms, P 8100B/6p gap 2ms | tx 0501×3 264B, 0556 12B | title 88B changed",
             lines[1],
         )
-        assertEquals(2, lines.size)
+        assertEquals("fine tail t-0 s: rx 0101 6B, 0C*×5 40B", lines[2])
+        assertEquals(3, lines.size)
     }
 
     @Test
@@ -75,6 +78,41 @@ class FineTailTest {
     }
 
     @Test
+    fun `the window ends at the last message of the dash, not at the report, and the header says for how long the dash was quiet`() {
+        val t = tail()
+        // The dash spoke up to 4 s before the report (the watchdog's moment); the app kept sending video into the silence, for 4 s more.
+        t.received("0101", 6, now - 4 * s)
+        t.key(14.5)
+        t.key(5.0)
+        t.key(2.0)
+        t.key(0.5)
+        t.sent("0556", ByteArray(1), now - 3 * s)
+        val lines = t.report("a watchdog fired", now)
+        assertTrue(lines[0], lines[0].endsWith("; the dash had been quiet for 4 s (the window ends at its last message)"))
+        assertEquals("only the frames up to the silence, counted back from it: 14.5 s before the report is 10 s before the silence, 5 s is 1 s, and its last message is t-0", listOf("fine tail t-10 s", "fine tail t-1 s", "fine tail t-0 s"), lines.drop(1).map { it.substringBefore(":") })
+        assertTrue("the frames and the command sent into the silence are left out: ${lines[0]}", lines[0].contains("2 keyframes in 2 frames") && lines[0].contains("0 commands out, 1 in"))
+    }
+
+    @Test
+    fun `a dash that never spoke has the window end at the report, as before, with no word about silence`() {
+        val t = tail().apply { key(2.0) }
+        val lines = t.report("a watchdog fired", now)
+        assertFalse(lines[0], lines[0].contains("quiet"))
+        assertTrue(lines[1], lines[1].startsWith("fine tail t-2 s"))
+        assertEquals(listOf("fine tail before the session failed (last 15 s): nothing exchanged"), tail().report("the session failed", now))
+    }
+
+    @Test
+    fun `a message of the dash after the report moment does not move the window forward, and clear forgets the last message`() {
+        val t = tail().apply { key(1.0) }
+        t.received("0101", 1, now + 3 * s)
+        val lines = t.report("x", now)
+        assertTrue(lines[0], lines[0].endsWith("quiet for 0 s (the window ends at its last message)"))
+        t.clear()
+        assertFalse(t.report("x", now).single().contains("quiet"))
+    }
+
+    @Test
     fun `nothing in the window is said so in one line`() {
         assertEquals(listOf("fine tail before the session failed (last 15 s): nothing exchanged"), tail().report("the session failed", now))
         val old = tail().apply { key(40.0) }
@@ -88,7 +126,7 @@ class FineTailTest {
             repeat(6) { n -> t.key(second + 0.1 + n * 0.1, packets = 21) }
             // 34 + 34 a second: 15 seconds fill the command ring (1 024) without losing the oldest, so every second's line is full.
             for (kind in 0 until 34) t.sent("05%02X".format(kind), ByteArray(30), now - (second * s) - 5_000_000L)
-            for (kind in 0 until 34) t.received("01%02X".format(kind), 30, now - (second * s) - 6_000_000L)
+            for (kind in 0 until 34) t.received("01%02X".format(kind), 30, now - (second * s) - 4_000_000L)
         }
         val lines = t.report("a watchdog fired", now)
         assertTrue("${lines.size} lines", lines.size <= FineLines.MAX_LINES)

@@ -24,8 +24,18 @@ class WebOnDialogIsWiredTest {
         assertTrue(switch, "if (WebSwitch.needsConfirmation(it, projectionOn, dashInUse)) asking = true else change(s.copy(webView = it))" in switch)
         val dialog = section.substringAfter("if (asking) {").substringBefore("Column(Modifier.fillMaxWidth().clip(shape)")
         assertTrue(dialog, "onCancel = { asking = false }," in dialog)
-        assertTrue(dialog, "asking = false\n                    change(s.copy(webView = true))" in dialog)
-        assertEquals("the setting is written in two places only, the plain path and the confirmation", 2, Regex("""change\(s\.copy\(webView = """).findAll(section).count())
+        assertTrue(dialog, "asking = false\n                    change(latest.copy(webView = true))" in dialog)
+        assertEquals("the setting is written in two places only, the plain path and the confirmation", 2, Regex("""change\((s|latest)\.copy\(webView = """).findAll(section).count())
+    }
+
+    @Test
+    fun `the question goes when the projection ends, and Ligar writes the settings of that moment and not an old copy`() {
+        val section = File(main, "ui/WebSection.kt").readText()
+        val head = section.substringAfter("internal fun WebSection(").substringBefore("val shape")
+        assertTrue(head, "val latest by rememberUpdatedState(s)" in head)
+        assertTrue(head, "LaunchedEffect(projectionOn) { if (!projectionOn) asking = false }" in head)
+        val dialog = section.substringAfter("if (asking) {").substringBefore("Column(Modifier.fillMaxWidth().clip(shape)")
+        assertTrue("Ligar does not write from the copy of the composition", "s.copy(" !in dialog)
     }
 
     @Test

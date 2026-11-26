@@ -354,7 +354,9 @@ EVENTOS = [
 # O cabeçalho do detalhe fino: `fine tail before a watchdog fired (last 15 s): 3 keyframes in 61 frames, biggest 28728 B in 21 pkts, longest gap between packets 41 ms; 120 commands out, 340 in`
 DETALHE_FINO = re.compile(
     r"fine tail before (.*?) \(last (\d+) s\): (\d+) keyframes in (\d+) frames, biggest (\d+) B in (\d+) pkts, "
-    r"longest gap between packets (\d+) ms; (\d+) commands out, (\d+) in")
+    r"longest gap between packets (\d+) ms; (\d+) commands out, (\d+) in"
+    # A janela termina na última mensagem do painel e o cabeçalho diz há quanto tempo ele estava calado (revisão do plano 34, A2, 26/11/2026).
+    r"(?:; the dash had been quiet for (\d+) s \(the window ends at its last message\))?")
 
 
 def _detalhe_fino(t):
@@ -363,8 +365,9 @@ def _detalhe_fino(t):
     m = DETALHE_FINO.search(t)
     if not m:
         return t[t.index("fine tail before") + len("fine tail before"):].strip()
-    motivo, janela, chaves, quadros, maior, pacotes, intervalo, saiu, entrou = m.groups()
-    return (f"{motivo}: nos últimos {janela} s, {chaves} quadros-chave em {quadros} quadros, maior quadro {maior} B em {pacotes} pacotes, "
+    motivo, janela, chaves, quadros, maior, pacotes, intervalo, saiu, entrou, calado = m.groups()
+    quando = f"nos últimos {janela} s até a última mensagem do painel (calado há {calado} s)" if calado else f"nos últimos {janela} s"
+    return (f"{motivo}: {quando}, {chaves} quadros-chave em {quadros} quadros, maior quadro {maior} B em {pacotes} pacotes, "
             f"maior intervalo sem pacote {intervalo} ms; {saiu} comandos enviados, {entrou} recebidos")
 
 

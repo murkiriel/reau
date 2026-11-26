@@ -38,6 +38,10 @@ object LogMask {
     // left edge, because a date and time holds six pairs split by hyphens (26/11/2026, review B4). With no separator it is hidden only after its keyword, and only
     // when it is exactly twelve digits (a longer run is a hash).
     private val MAC = Regex("""(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<![0-9A-Fa-f]-)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}""")
+    // A word that ends in two hex digits glued to a MAC (`mac-aa-bb-cc-dd-ee-ff`, `device-00-11-22-33-44-55`) makes [MAC] match one position early (the `ac` of `mac` is a pair)
+    // and leave the last pair out, which leaked. The pair that follows the MAC after the same kind of sign, whole, is hidden with it: it hides too much, never too little
+    // (review of the plan 34, A5, 26/11/2026). The date `2026-11-26-10-30-15-45` is left as it was: the left edge of the hyphen form refuses it before.
+    private val MAC_AND_ONE_MORE = Regex("(?:" + MAC.pattern + ")" + """(?:[:-][0-9A-Fa-f]{2}(?![0-9A-Fa-f]))?""")
     private val BARE_MAC = Regex("""(?i)(?<![a-z])((?:bssid|mac(?:addr(?:ess)?)?|hwaddr)\s*[=:]\s*["']?)[0-9a-f]{12}(?![0-9a-f])""")
 
     // `SSID: "Name"`, `ssid="Name"`, `configKey="Name"WPA_PSK`, `SSID 'Name'`: the quoted name after the keyword.
@@ -90,7 +94,7 @@ object LogMask {
     /** [text] with every MAC address replaced (see [MAC] and [BARE_MAC]). */
     private fun hideMacs(text: String): String {
         var out = text
-        if (out.contains(':') || out.contains('-')) out = MAC.replace(out, MASK_MAC)
+        if (out.contains(':') || out.contains('-')) out = MAC_AND_ONE_MORE.replace(out, MASK_MAC)
         if (out.contains("mac", ignoreCase = true) || out.contains("bssid", ignoreCase = true) || out.contains("hwaddr", ignoreCase = true)) {
             out = BARE_MAC.replace(out) { m -> m.groupValues[1] + MASK_MAC }
         }

@@ -28,7 +28,7 @@
     <string name="notif_update_title">REau %1$s available</string>
     <string name="notif_update_text">Tap to see the release page. Nothing is downloaded or installed.</string>
     <string name="notif_title_dash_stuck">The dash’s Wi-Fi is stuck</string>
-    <string name="notif_text_dash_stuck">The dash is on but not accepting the connection. Turn the motorcycle’s ignition off and on again; REau reconnects by itself</string>
+    <string name="notif_text_dash_stuck">The dash is on but not accepting the connection. Turn the motorcycle’s ignition off, wait about 20 seconds and turn it on again (a quick off and on does not clear it); REau reconnects by itself</string>
     <string name="notif_title_phone_hot">Phone is hot</string>
     <string name="notif_text_phone_hot">The phone is hot (%1$d °C). Take it out of the sun or a closed pocket, or unplug the charger, so it does not slow down</string>
     <string name="notif_title_battery_low">Battery low</string>
@@ -150,7 +150,7 @@
     <string name="dash_err_ssid_not_found">Dash Wi-Fi \'%1$s\' not found nearby — check that it’s on and in range</string>
     <string name="dash_err_auth_failed">The dash Wi-Fi \'%1$s\' is in range, but Android did not finish joining it (the phone may be slow to join with the screen off, the Android prompt may have been declined, or the password may be wrong). REau tries again by itself</string>
     <string name="dash_err_not_found_or_password">Couldn’t connect to \'%1$s\' — network not found or wrong password</string>
-    <string name="dash_err_dash_stuck">The dash Wi-Fi \'%1$s\' is refusing the connection. If the password is still the dash’s default one, the dash has frozen: turn the motorcycle off with the ignition key, wait about 30 seconds and turn it back on; REau keeps trying on its own</string>
+    <string name="dash_err_dash_stuck">The dash Wi-Fi \'%1$s\' is refusing the connection. If the password is still the dash’s default one, the dash has frozen: turn the motorcycle off with the ignition key, wait about 20 seconds and turn it back on; REau keeps trying on its own</string>
     <string name="dash_err_wifi_lost">Dash Wi-Fi lost — reconnecting…</string>
     <string name="dash_err_link_lost">Connection lost — reconnecting…</string>
     <!-- The joystick page -->
@@ -923,7 +923,7 @@
     <string name="spoken_alerts_title">Spoken alerts in the headset</string>
     <string name="spoken_alerts_sub">Speaks the important alerts in the helmet headset</string>
     <string name="spoken_alerts">Speaks the important alerts with Android’s voice, in the helmet headset, like the navigation voice: the dash gone or stuck and back again, the phone hot and the phone’s Wi-Fi off. It lowers the music for a moment while it speaks and never repeats the same phrase within a minute. Off by default; the notifications appear whatever you choose here, and the voice is up to the phone’s text-to-speech engine and its voices.</string>
-    <string name="voice_dash_gone">Dash disconnected. Turn the motorcycle off and on.</string>
+    <string name="voice_dash_gone">Dash disconnected. Turn the motorcycle off, wait 20 seconds, then on.</string>
     <string name="voice_dash_back">Dash is back.</string>
     <string name="voice_phone_hot">Phone is hot. Take it out of the sun or a closed pocket.</string>
     <string name="voice_wifi_off">Phone Wi-Fi is off.</string>

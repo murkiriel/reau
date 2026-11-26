@@ -30,18 +30,20 @@ internal object FineLines {
     const val TITLE_CHANGED: Byte = 2
     private val TELEMETRY = setOf("0C", "0F")
 
-    fun report(why: String, frames: List<FineFrame>, commands: List<FineCommand>): List<String> {
+    /** [quietS]: for how many seconds the dash had been quiet when this is written (the window ends at its last message), or null when it never spoke. */
+    fun report(why: String, frames: List<FineFrame>, commands: List<FineCommand>, quietS: Int? = null): List<String> {
         val head = "fine tail before $why (last $WINDOW_S s)"
-        if (frames.isEmpty() && commands.isEmpty()) return listOf("$head: nothing exchanged")
+        val quiet = quietS?.let { "; the dash had been quiet for $it s (the window ends at its last message)" }.orEmpty()
+        if (frames.isEmpty() && commands.isEmpty()) return listOf("$head: nothing exchanged$quiet")
         val seconds = (frames.map { it.age } + commands.map { it.age }).distinct().sortedDescending()
         var body = seconds.map { s -> secondLine(s, frames.filter { it.age == s }, commands.filter { it.age == s }) }
         val summary = summary(frames, commands)
         var cut = false
-        while (body.isNotEmpty() && (body.size > MAX_LINES - 1 || head.length + summary.length + body.sumOf { it.length } > MAX_CHARS)) {
+        while (body.isNotEmpty() && (body.size > MAX_LINES - 1 || head.length + summary.length + quiet.length + body.sumOf { it.length } > MAX_CHARS)) {
             body = body.drop(1)
             cut = true
         }
-        return listOf("$head: $summary" + if (cut) "; the oldest seconds left out for size" else "") + body
+        return listOf("$head: $summary$quiet" + if (cut) "; the oldest seconds left out for size" else "") + body
     }
 
     private fun summary(frames: List<FineFrame>, commands: List<FineCommand>): String {

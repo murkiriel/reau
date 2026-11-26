@@ -81,9 +81,13 @@ object SystemClosedRide {
     /** The time of the newest exit ever told (0 with none), dismissed or not: [KeepAliveNotice] shows itself again when a later one comes. */
     fun lastNotedAt(context: Context): Long = Book.open(context).notedAt()
 
-    /** Reads what is kept on the phone into [pendingAt]; the activity calls it when it opens. */
+    /**
+     * Reads what is kept on the phone into [pendingAt]; the activity calls it when it opens, off the main thread (the first read is the disk). It runs while the opening's
+     * thread may be in [note], so the read and the hand-over to the flow are one step under a lock, with [note]'s: the last one to hand over has read the latest state.
+     */
     fun load(context: Context) {
-        told.value = Book.open(context).pendingAt()
+        val book = Book.open(context)
+        synchronized(told) { told.value = book.pendingAt() }
     }
 
     /**
@@ -94,7 +98,7 @@ object SystemClosedRide {
         val book = Book.open(context)
         val exit = pick(exits, book.toldUpTo(), nowMs) ?: return
         if (!book.note(exit.timestampMs)) return
-        told.value = book.pendingAt()
+        synchronized(told) { told.value = book.pendingAt() }
         runCatching {
             val at = SimpleDateFormat("HH:mm", Locale.US).format(Date(exit.timestampMs))
             RideDiagnostics.log("ui", logLine(exit, at))

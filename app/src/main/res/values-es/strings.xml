@@ -27,7 +27,7 @@
     <string name="notif_update_title">REau %1$s disponible</string>
     <string name="notif_update_text">Toca para ver la página de la versión. No se descarga ni se instala nada.</string>
     <string name="notif_title_dash_stuck">El Wi-Fi del tablero se trabó</string>
-    <string name="notif_text_dash_stuck">El tablero está encendido pero no acepta la conexión. Apaga y vuelve a encender el contacto de la moto; REau se reconecta sola</string>
+    <string name="notif_text_dash_stuck">El tablero está encendido pero no acepta la conexión. Apaga el contacto de la moto, espera unos 20 segundos y vuelve a encenderlo (apagar y encender rápido no lo destraba); REau se reconecta sola</string>
     <string name="notif_title_phone_hot">El teléfono está caliente</string>
     <string name="notif_text_phone_hot">El teléfono está caliente (%1$d °C). Sácalo del sol o del bolsillo cerrado, o desconecta el cargador, para que no reduzca el rendimiento</string>
     <string name="notif_title_battery_low">Batería baja</string>
@@ -150,7 +150,7 @@
     <string name="dash_err_ssid_not_found">No se encontró cerca el Wi-Fi del tablero \'%1$s\' — revisa que esté encendido y al alcance</string>
     <string name="dash_err_auth_failed">El Wi-Fi del tablero \'%1$s\' está al alcance, pero Android no terminó de unirse a él (el teléfono puede tardar en unirse con la pantalla apagada, puede que se haya rechazado el aviso de Android o que la contraseña sea incorrecta). REau lo intenta de nuevo sola</string>
     <string name="dash_err_not_found_or_password">No se pudo conectar a \'%1$s\' — red no encontrada o contraseña incorrecta</string>
-    <string name="dash_err_dash_stuck">El Wi-Fi del tablero \'%1$s\' rechaza la conexión. Si la contraseña sigue siendo la de fábrica del tablero, el tablero se congeló: apaga la moto con la llave, espera unos 30 segundos y vuelve a encenderla; REau sigue intentando sola</string>
+    <string name="dash_err_dash_stuck">El Wi-Fi del tablero \'%1$s\' rechaza la conexión. Si la contraseña sigue siendo la de fábrica del tablero, el tablero se congeló: apaga la moto con la llave, espera unos 20 segundos y vuelve a encenderla; REau sigue intentando sola</string>
     <string name="dash_err_wifi_lost">Se perdió el Wi-Fi del tablero — reconectando…</string>
     <string name="dash_err_link_lost">Se perdió la conexión — reconectando…</string>
     <!-- The joystick page -->
@@ -913,7 +913,7 @@
     <string name="spoken_alerts_title">Avisos hablados en el auricular</string>
     <string name="spoken_alerts_sub">Dice los avisos importantes en el auricular del casco</string>
     <string name="spoken_alerts">Dice los avisos importantes con la voz de Android, en el auricular del casco, como la voz de la navegación: el tablero que se fue o se trabó y volvió, el teléfono caliente y el Wi-Fi del teléfono apagado. Baja la música un instante mientras habla y nunca repite la misma frase en menos de un minuto. Viene apagado; las notificaciones aparecen de todos modos, y la voz depende del motor de voz del teléfono y de las voces instaladas.</string>
-    <string name="voice_dash_gone">Tablero desconectado. Apaga y enciende la moto.</string>
+    <string name="voice_dash_gone">Tablero desconectado. Apaga la moto, espera 20 segundos y enciende.</string>
     <string name="voice_dash_back">Tablero de vuelta.</string>
     <string name="voice_phone_hot">Celular caliente. Sácalo del sol o del bolsillo cerrado.</string>
     <string name="voice_wifi_off">Wi-Fi del teléfono apagado.</string>

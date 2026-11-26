@@ -26,7 +26,7 @@
     <string name="notif_update_title">REau %1$s उपलब्ध है</string>
     <string name="notif_update_text">रिलीज़ पेज देखने के लिए टैप करें। कुछ भी डाउनलोड या इंस्टॉल नहीं होता।</string>
     <string name="notif_title_dash_stuck">डैश का वाई-फ़ाई अटक गया</string>
-    <string name="notif_text_dash_stuck">डैश चालू है, पर कनेक्शन नहीं ले रहा। बाइक का इग्निशन बंद करके फिर चालू करें; REau अपने आप दोबारा जुड़ जाता है</string>
+    <string name="notif_text_dash_stuck">डैश चालू है, पर कनेक्शन नहीं ले रहा। बाइक का इग्निशन बंद करें, करीब 20 सेकंड रुकें और फिर चालू करें (झट से बंद-चालू करने से नहीं खुलता); REau अपने आप दोबारा जुड़ जाता है</string>
     <string name="notif_title_phone_hot">फ़ोन गर्म है</string>
     <string name="notif_text_phone_hot">फ़ोन गर्म है (%1$d °C)। उसे धूप या बंद जेब से निकालें, या चार्जर हटा दें, ताकि वह धीमा न पड़े</string>
     <string name="notif_title_battery_low">बैटरी कम है</string>
@@ -142,7 +142,7 @@
     <string name="dash_err_ssid_not_found">डैश का वाई-फ़ाई \'%1$s\' आस-पास नहीं मिला — देखें कि वह चालू है और पास में है</string>
     <string name="dash_err_auth_failed">डैश का वाई-फ़ाई \'%1$s\' पास में है, पर Android उससे जुड़ना पूरा नहीं कर सका (स्क्रीन बंद होने पर फ़ोन जुड़ने में धीमा हो सकता है, Android का संदेश ठुकराया गया हो सकता है, या पासवर्ड गलत हो सकता है)। REau अपने आप फिर कोशिश करता है</string>
     <string name="dash_err_not_found_or_password">\'%1$s\' से जुड़ नहीं सका — नेटवर्क नहीं मिला या पासवर्ड गलत है</string>
-    <string name="dash_err_dash_stuck">डैश का वाई-फ़ाई \'%1$s\' कनेक्शन ठुकरा रहा है। अगर पासवर्ड अब भी डैश का डिफ़ॉल्ट है, तो डैश अटक गया है: चाबी से बाइक बंद करें, करीब 30 सेकंड रुकें और फिर चालू करें; REau अपने आप कोशिश करता रहता है</string>
+    <string name="dash_err_dash_stuck">डैश का वाई-फ़ाई \'%1$s\' कनेक्शन ठुकरा रहा है। अगर पासवर्ड अब भी डैश का डिफ़ॉल्ट है, तो डैश अटक गया है: चाबी से बाइक बंद करें, करीब 20 सेकंड रुकें और फिर चालू करें; REau अपने आप कोशिश करता रहता है</string>
     <string name="dash_err_wifi_lost">डैश का वाई-फ़ाई छूट गया — फिर जुड़ रहा है…</string>
     <string name="dash_err_link_lost">कनेक्शन छूट गया — फिर जुड़ रहा है…</string>
     <string name="link_unresponsive">जवाब नहीं दे रहा</string>
@@ -872,7 +872,7 @@
     <string name="spoken_alerts_title">हेडसेट में बोलकर अलर्ट</string>
     <string name="spoken_alerts_sub">ज़रूरी अलर्ट हेलमेट के हेडसेट में बोलता है</string>
     <string name="spoken_alerts">ज़रूरी अलर्ट Android की आवाज़ में, हेलमेट के हेडसेट में, नेविगेशन की आवाज़ की तरह बोलता है: डैश का चले जाना या अटक जाना और फिर लौट आना, फ़ोन का गर्म होना और फ़ोन का वाई-फ़ाई बंद होना। बोलते समय यह कुछ देर के लिए संगीत धीमा करता है और एक ही वाक्य एक मिनट में दोबारा नहीं बोलता। डिफ़ॉल्ट रूप से बंद; आप जो भी चुनें, सूचनाएँ दिखती रहती हैं, और आवाज़ फ़ोन के टेक्स्ट-टू-स्पीच इंजन और उसकी आवाज़ों पर निर्भर है।</string>
-    <string name="voice_dash_gone">डैश डिस्कनेक्ट हो गया। बाइक बंद करके फिर चालू करें।</string>
+    <string name="voice_dash_gone">डैश डिस्कनेक्ट हो गया। बाइक बंद करें, 20 सेकंड रुकें, फिर चालू करें।</string>
     <string name="voice_dash_back">डैश वापस आ गया।</string>
     <string name="voice_phone_hot">फ़ोन गर्म है। उसे धूप या बंद जेब से निकालें।</string>
     <string name="voice_wifi_off">फ़ोन का वाई-फ़ाई बंद है।</string>

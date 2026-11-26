@@ -27,7 +27,7 @@
     <string name="notif_update_title">REau %1$s disponível</string>
     <string name="notif_update_text">Toque para ver a página da versão. Nada é baixado nem instalado.</string>
     <string name="notif_title_dash_stuck">O Wi-Fi do painel travou</string>
-    <string name="notif_text_dash_stuck">O painel está ligado mas não aceita a conexão. Desligue e ligue a ignição da moto; o REau reconecta sozinho</string>
+    <string name="notif_text_dash_stuck">O painel está ligado mas não aceita a conexão. Desligue a ignição da moto, espere uns 20 segundos e ligue de novo (desligar e ligar rápido não destrava); o REau reconecta sozinho</string>
     <string name="notif_title_phone_hot">O celular está quente</string>
     <string name="notif_text_phone_hot">O celular está quente (%1$d °C). Tire-o do sol ou do bolso fechado, ou desligue o carregador, para ele não reduzir o desempenho</string>
     <string name="notif_title_battery_low">Bateria baixa</string>
@@ -150,7 +150,7 @@
     <string name="dash_err_ssid_not_found">Wi‑Fi do painel \'%1$s\' não encontrado por perto — confira se está ligado e ao alcance</string>
     <string name="dash_err_auth_failed">O Wi‑Fi do painel \'%1$s\' está ao alcance, mas o Android não terminou de entrar nele (com a tela apagada o celular pode demorar a entrar, a janela do Android pode ter sido recusada ou a senha pode estar errada). O REau tenta de novo sozinho</string>
     <string name="dash_err_not_found_or_password">Não deu pra conectar em \'%1$s\' — rede não encontrada ou senha errada</string>
-    <string name="dash_err_dash_stuck">O Wi‑Fi do painel \'%1$s\' está recusando a conexão. Se a senha ainda é a senha padrão do painel, ele travou: desligue a moto pela chave, espere uns 30 segundos e ligue de novo; o REau volta a tentar sozinho</string>
+    <string name="dash_err_dash_stuck">O Wi‑Fi do painel \'%1$s\' está recusando a conexão. Se a senha ainda é a senha padrão do painel, ele travou: desligue a moto pela chave, espere uns 20 segundos e ligue de novo; o REau volta a tentar sozinho</string>
     <string name="dash_err_wifi_lost">Wi‑Fi do painel perdido — reconectando…</string>
     <string name="dash_err_link_lost">Conexão perdida — reconectando…</string>
     <!-- The joystick page -->
@@ -912,7 +912,7 @@
     <string name="spoken_alerts_title">Avisos falados no fone</string>
     <string name="spoken_alerts_sub">Fala os avisos importantes no fone do capacete</string>
     <string name="spoken_alerts">Fala os avisos importantes pela voz do Android, no fone do capacete, como a voz da navegação: o painel que sumiu ou travou e voltou, o celular quente e o Wi-Fi do celular desligado. Abaixa a música por um instante enquanto fala e nunca repete a mesma frase em menos de um minuto. Vem desligado; as notificações aparecem de qualquer jeito, e a voz depende do motor de voz do celular e das vozes instaladas nele.</string>
-    <string name="voice_dash_gone">Painel desconectado. Desligue e ligue a moto.</string>
+    <string name="voice_dash_gone">Painel desconectado. Desligue a moto, espere 20 segundos e ligue.</string>
     <string name="voice_dash_back">Painel de volta.</string>
     <string name="voice_phone_hot">Celular quente. Tire-o do sol ou do bolso fechado.</string>
     <string name="voice_wifi_off">Wi-Fi do celular desligado.</string>

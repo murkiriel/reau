@@ -35,8 +35,9 @@ class BatteryLowIsWiredTest {
         val release = service.substringAfter("stopLookingAtTheDevice()\n            endBatteryPill()", "").substringBefore("clearWifiOff")
         assertTrue("the stop calls endBatteryPill after the device look stops", release.isNotEmpty())
         val end = service.substringAfter("private fun endBatteryPill()").substringBefore("/**")
-        assertTrue(end, "batteryLow?.pillEnds() ?: return" in end && "sides?.stopBatteryLow()" in end)
-        assertTrue(end, "battery pill alternation stops: \${step.reason}" in end)
+        assertTrue(end, "val line = batteryLow?.endLine()" in end && "if (line == null) return" in end && "sides?.stopBatteryLow()" in end)
+        assertTrue(end, "RideDiagnostics.log(\"battery\", line)" in end)
+        assertTrue("nothing is taken off nor written unless the pill was alternating", end.indexOf("if (line == null) return") < end.indexOf("sides?.stopBatteryLow()"))
         val look = service.substringAfter("private fun lookAtTheDevice()").substringBefore("private fun warnIfHot")
         assertTrue(look, "batteryLow = low" in look)
     }

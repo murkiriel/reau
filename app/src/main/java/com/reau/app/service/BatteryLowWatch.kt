@@ -94,6 +94,12 @@ class BatteryLowWatch(private val lowPct: Int = LOW_PCT, alreadyTold: Boolean = 
         return PillStep.STOP_END
     }
 
+    /**
+     * The ride-log line for the end of the projection, or null when the pill was not alternating: there is nothing to say then (review of the plan 34, A1, 26/11/2026:
+     * [pillEnds] answers [PillStep.NONE], which is not null, and a line with no reason was written at the end of every projection, battery full or not).
+     */
+    fun endLine(): String? = pillEnds().takeIf { it.stops }?.let { "battery pill alternation stops: ${it.reason}" }
+
     companion object {
         /** The battery percentage the rider is told at, or under it (the owner's decision of 26/11/2026). */
         const val LOW_PCT = 10

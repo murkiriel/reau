@@ -581,6 +581,13 @@ class Ler(unittest.TestCase):
         self.assertEqual(1, tempo.count("detalhe do app antes do silêncio"))
         self.assertNotIn("t-14 s", tempo)
 
+    def test_o_detalhe_fino_diz_ha_quanto_tempo_o_painel_estava_calado_e_que_a_janela_termina_na_ultima_mensagem_dele(self):
+        # Revisão do plano 34, A2 (26/11/2026): a janela de 15 s termina na última mensagem do painel, não na hora em que o app escreveu.
+        texto = projecao(linha("10:01:00.000", "link", "fine tail before a watchdog fired (last 15 s): 3 keyframes in 61 frames, biggest 28728 B in 21 pkts, "
+                                                       "longest gap between packets 41 ms; 120 commands out, 340 in; the dash had been quiet for 4 s (the window ends at its last message)"))
+        tempo = "\n".join(ler_registro.linha_do_tempo(ler_registro.ler([self.arquivo(texto)])))
+        self.assertIn("a watchdog fired: nos últimos 15 s até a última mensagem do painel (calado há 4 s), 3 quadros-chave em 61 quadros", tempo)
+
     def test_o_detalhe_fino_sem_resumo_sai_como_veio(self):
         texto = projecao(linha("10:01:00.000", "link", "fine tail before the Wi-Fi was lost (last 15 s): nothing exchanged"))
         tempo = "\n".join(ler_registro.linha_do_tempo(ler_registro.ler([self.arquivo(texto)])))

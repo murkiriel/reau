@@ -19,6 +19,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -64,6 +65,11 @@ internal val LocalWebAddresses = staticCompositionLocalOf<() -> List<InetAddress
 internal fun WebSection(s: REauSettings, projectionOn: Boolean = true, dashInUse: Boolean = false, change: (REauSettings) -> Unit) {
     // Turning the server on stops the dash: with the projection running (or the dash in use) the rider is asked first, and Cancelar leaves it off.
     var asking by rememberSaveable { mutableStateOf(false) }
+    // Review of the plan 34, A4 (26/11/2026): the question belongs to a projection that runs. When it ends with the dialog open, the dialog goes with it (Ligar would write
+    // the switch with the projection stopped, where the screen says the server is switched on after Ligar), and what Ligar writes is the settings of that moment, not the
+    // copy this composition was made with (a setting changed while the dialog was open would be put back).
+    val latest by rememberUpdatedState(s)
+    LaunchedEffect(projectionOn) { if (!projectionOn) asking = false }
     val shape = MaterialTheme.shapes.large
     Column(verticalArrangement = Arrangement.spacedBy(LABEL_GAP)) {
         GroupLabel(null, stringResource(R.string.section_web))
@@ -72,7 +78,7 @@ internal fun WebSection(s: REauSettings, projectionOn: Boolean = true, dashInUse
                 onCancel = { asking = false },
                 onTurnOn = {
                     asking = false
-                    change(s.copy(webView = true))
+                    change(latest.copy(webView = true))
                 },
             )
         }

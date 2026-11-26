@@ -57,7 +57,10 @@ class SystemClosedRideIsWiredTest {
     @Test
     fun `the activity loads what is kept, follows the flow, and hands the time to the main screen's state`() {
         val activity = source("MainActivity.kt")
-        assertTrue(activity.between("override fun onCreate(", "setContent {").contains("com.reau.app.data.SystemClosedRide.load(applicationContext)"))
+        val create = activity.between("override fun onCreate(", "setContent {")
+        assertTrue(create.contains("com.reau.app.data.SystemClosedRide.load(applicationContext)"))
+        // review of the plan 34, B3 (26/11/2026): the first read of the kept preference is the disk, so not the main thread
+        assertTrue(create, create.contains("lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) { runCatching { com.reau.app.data.SystemClosedRide.load(applicationContext) } }"))
         assertTrue(activity.contains("val systemClosedAt = com.reau.app.data.SystemClosedRide.pendingAt.collectAsStateWithLifecycle().value"))
         // The flag of the one-time notice (KeepAliveNotice) follows it in the same chain (KeepAliveNoticeIsWiredTest).
         assertTrue(activity.contains("mainState(projection, settings, startedAt, pairing.ssid).withNetwork(networkOn).withSystemClosed(systemClosedAt)\n"))

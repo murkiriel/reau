@@ -208,15 +208,19 @@ class NmeaTest(unittest.TestCase):
 
 
 class CommandsTest(unittest.TestCase):
-    LAT = -23.561234
-    LON = -46.655678
+    # Ponto fictício de 2 casas (26/11/2026, revisão do plano 34, A3): a PrivacyGuardTest recusa pares com 4 casas ou mais, e o teste prova o mesmo com um ponto assim.
+    LAT = -10.12
+    LON = -50.57
     FIX = rf.Fix(LAT, LON, 45.0, 11.1, 0.0)
+    # O script escreve 6 casas; o esperado é feito do mesmo ponto (um literal de 6 casas seria o par que a guarda de privacidade recusa).
+    LAT_6 = f"{LAT:.6f}"
+    LON_6 = f"{LON:.6f}"
 
     def test_geo_fix_puts_longitude_before_latitude(self):
-        self.assertEqual([BASE + ["emu", "geo", "fix", "-46.655678", "-23.561234"]], rf.cmd_emulador(BASE, self.FIX, False, None, QUANDO))
+        self.assertEqual([BASE + ["emu", "geo", "fix", self.LON_6, self.LAT_6]], rf.cmd_emulador(BASE, self.FIX, False, None, QUANDO))
 
     def test_geo_fix_with_altitude(self):
-        self.assertEqual([BASE + ["emu", "geo", "fix", "-46.655678", "-23.561234", "760.0"]], rf.cmd_emulador(BASE, self.FIX, False, 760.0, QUANDO))
+        self.assertEqual([BASE + ["emu", "geo", "fix", self.LON_6, self.LAT_6, "760.0"]], rf.cmd_emulador(BASE, self.FIX, False, 760.0, QUANDO))
 
     def test_geo_nmea_sends_gga_then_rmc_as_one_argument_each(self):
         gga, rmc = rf.cmd_emulador(BASE, self.FIX, True, None, QUANDO)
@@ -229,7 +233,7 @@ class CommandsTest(unittest.TestCase):
         b = ["adb"]
         loc = ["shell", "cmd", "location", "providers"]
         self.assertEqual([b + loc + ["add-test-provider", "gps"], b + loc + ["set-test-provider-enabled", "gps", "true"]], rf.cmd_celular_preparar(b))
-        self.assertEqual(b + loc + ["set-test-provider-location", "gps", "--location", "-23.561234" + "," + "-46.655678", "--accuracy", "5"],
+        self.assertEqual(b + loc + ["set-test-provider-location", "gps", "--location", f"{self.LAT_6},{self.LON_6}", "--accuracy", "5"],
                          rf.cmd_celular_ponto(b, self.FIX))
         self.assertEqual(b + loc + ["remove-test-provider", "gps"], rf.cmd_celular_remover_provedor(b))
         self.assertEqual(b + ["shell", "appops", "set", "--uid", "2000", "MOCK_LOCATION", "default"], rf.cmd_celular_appop_padrao(b))
