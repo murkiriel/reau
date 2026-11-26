@@ -5,6 +5,7 @@ import com.reau.app.data.RideDiagnostics
 import com.reau.app.dash.BitrateMode
 import com.reau.app.dash.DashConfig
 import com.reau.app.dash.video.DashEncoder
+import com.reau.app.dash.video.VideoEncoder
 import com.reau.app.settings.REauSettings
 import com.reau.app.util.CodecErrors
 import com.reau.app.util.StageStats
@@ -93,6 +94,8 @@ internal class VideoLoop(
         val clockSlowPercent: Int = 0,
         val bitrateBps: Int = DashConfig.MAX_STREAM_BITRATE_BPS,
         val bitrateMode: BitrateMode? = null,
+        /** Which encoder makes the video ([REauSettings.videoEncoder]; the experimental test of 26/11/2026): the phone's own unless the rider asked for Android's software one. */
+        val videoEncoder: VideoEncoder = VideoEncoder.PHONE,
         val keyframeSec: Int = DashConfig.KEYFRAME_INTERVAL_AUTO,
         val windowMs: Long = StreamGovernor.WINDOW_MS,
         val recordFrames: Int = 0,
@@ -112,6 +115,7 @@ internal class VideoLoop(
             clockSlowPercent = rider.clockSlowPercent,
             bitrateBps = rider.streamBitrateBps,
             bitrateMode = rider.bitrateMode,
+            videoEncoder = rider.videoEncoder,
             keyframeSec = rider.keyframeSec,
             lightScreenFps = REauSettings.lightScreenFps(rider.videoPace),
             frame = rider.frameSize,
@@ -169,6 +173,7 @@ internal class VideoLoop(
             onKeyframe = dash::keyframeSent,
             onKeyframeStart = dash::keyframeStarting,
             onFrame = dash::frameSent,
+            log = log,
             sendRtp = { packet ->
                 dash.sendRtp(packet)
                 // Cheap when no touch is being followed (a flag): the line of a touch is written when its first packet goes out.
@@ -239,6 +244,8 @@ internal class VideoLoop(
         governor = null
         // What each pace cost in bits over the whole stream, before the loop's own stop line.
         ending.paceSummary()?.let(log)
+        // What the frames looked like over the whole stream (the keyframes, the slices, the worst second; 26/11/2026).
+        output?.shapeLine()?.let(log)
         com.reau.app.data.ProjectionSummary.current.streaming(on = false, SystemClock.elapsedRealtime())
         poller?.shutdownNow()
         poller = null
@@ -389,6 +396,8 @@ internal class VideoLoop(
         // What the phone offers and what the codec accepted go to the ride log once for a stream: the first encoder tells it, a rebuilt one does not.
         created.reportCodecs = reportCodecsOfNextEncoder
         reportCodecsOfNextEncoder = false
+        // The rider's experimental choice of the encoder (26/11/2026), taken when the stream starts; a rebuilt encoder keeps it.
+        created.preference = settings.videoEncoder
         if (created.prepare(fps, bitrateBps, encoderKeyframeSec, settings.bitrateMode)) return created
         log("${RideDiagnostics.ERROR}encoder prepare failed: ${created.lastPrepareError}")
         return null

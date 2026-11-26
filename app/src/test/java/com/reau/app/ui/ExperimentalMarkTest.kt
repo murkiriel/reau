@@ -57,11 +57,13 @@ class ExperimentalMarkTest {
     @Test
     fun `exactly the rows the app calls experimental are red today, in the four languages`() {
         // 26/11/2026 (the owner's request): what 0.4.0 added and the bike has not yet proved is red and says "(experimental)" in its title:
-        // "Retomar se o sistema fechar o REau" and "Espaçar os pacotes para o painel". The other rows are plain ("Anunciar como moto" and the ring included).
-        val experimental = setOf("resume_after_kill_title", "pace_packets_title")
+        // "Retomar se o sistema fechar o REau" and "Espaçar os pacotes para o painel"; and, from the same day, "Codificador de vídeo" (the test of the encoder, the owner's decision).
+        // The other rows are plain ("Anunciar como moto" and the ring included).
+        val experimental = setOf("resume_after_kill_title", "pace_packets_title", "video_encoder_title")
         for (folder in listOf("values", "values-pt", "values-es", "values-hi")) assertEquals(folder, experimental, redNames(folder))
         assertTrue(text("resume_after_kill_title").endsWith("(experimental)"))
         assertTrue(text("pace_packets_title").endsWith("(experimental)"))
+        assertTrue(text("video_encoder_title").endsWith("(experimental)"))
         assertFalse("the motorcycle row is a normal one", ExperimentalMark.marks(text("announce_motorcycle_title"), text("announce_motorcycle_sub")))
         // A row becomes red again only by saying so in its own text (a new experiment); the ring's line does not.
         assertFalse(ExperimentalMark.marks(text("ring_title"), text("ring_sub")))
@@ -69,9 +71,9 @@ class ExperimentalMarkTest {
     }
 
     @Test
-    fun `the Hindi titles of the two rows say prayogik, so they are red as the others`() {
+    fun `the Hindi titles of the three rows say prayogik, so they are red as the others`() {
         val hindi = File("src/main/res/values-hi/strings.xml").readText()
-        for (name in listOf("resume_after_kill_title", "pace_packets_title")) {
+        for (name in listOf("resume_after_kill_title", "pace_packets_title", "video_encoder_title")) {
             val title = Regex("""<string name="$name">(.*?)</string>""").find(hindi)!!.groupValues[1]
             assertTrue("$name: $title", title.endsWith("(प्रायोगिक)"))
             assertTrue(name, ExperimentalMark.marks(title))
@@ -79,7 +81,7 @@ class ExperimentalMarkTest {
     }
 
     @Test
-    fun `the long texts of the two rows say it is a test that may go in a later version, and stay within the rule of the (i)`() {
+    fun `the long texts of the three rows say it is a test that may go in a later version, and stay within the rule of the (i)`() {
         // 26/11/2026: the (i) of each experimental row tells the rider what "experimental" means; the length is InfoTextsTest's rule (3 sentences, 100 words).
         val said = mapOf(
             "values" to "is a test and may be removed in a later version", "values-pt" to "é um teste e pode sair numa próxima versão",
@@ -87,7 +89,7 @@ class ExperimentalMarkTest {
         )
         for ((folder, phrase) in said) {
             val xml = File("src/main/res/$folder/strings.xml").readText()
-            for (name in listOf("resume_after_kill", "pace_packets")) {
+            for (name in listOf("resume_after_kill", "pace_packets", "video_encoder_info")) {
                 val long = Regex("""<string name="$name">(.*?)</string>""").find(xml)!!.groupValues[1]
                 assertTrue("$folder/$name: $long", phrase in long)
             }

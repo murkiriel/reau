@@ -307,6 +307,11 @@
     <string name="pace_packets_title">Space out the packets to the dash (experimental)</string>
     <string name="pace_packets_sub">At least 2 ms between any two packets, video and commands</string>
     <string name="pace_packets">REau leaves at least 2 ms between any two packets it sends to the dash, the video’s and the commands’ together, instead of a burst back to back; some dashes restart a minute after the transmission starts, and the apps that stay up space their packets the same way. It adds a few milliseconds to a keyframe and to the answer to a button, and counts from the next projection. On by default, but it is a test and may be removed in a later version.</string>
+    <string name="video_encoder_title">Video encoder (experimental)</string>
+    <string name="video_encoder_sub">Who makes the video for the dash</string>
+    <string name="video_encoder_phone">Phone’s</string>
+    <string name="video_encoder_software">Android software</string>
+    <string name="video_encoder_info">By default the phone’s own chip makes the video to the dash. This test uses Android’s software encoder instead, which keeps the bitrate steady and makes smaller keyframes, at the cost of more processor use; if the phone has none, its own stays. It counts from the next time the video opens; it is a test and may be removed in a later version.</string>
     <string name="action_view_logs">View the log</string>
     <string name="log_viewer_title">Log</string>
     <string name="log_viewer_none">No logs yet.</string>

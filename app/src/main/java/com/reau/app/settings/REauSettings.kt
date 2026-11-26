@@ -5,6 +5,7 @@ import com.reau.app.aa.AaVideo
 import com.reau.app.dash.BitrateMode
 import com.reau.app.dash.DashConfig
 import com.reau.app.dash.NavProfileMode
+import com.reau.app.dash.video.VideoEncoder
 import com.reau.app.video.AaMargins
 import com.reau.app.video.ButtonOverlay
 import com.reau.app.video.FrameFit
@@ -118,6 +119,12 @@ data class REauSettings(
      * leave back to back as before. Read when the session opens its sockets ([com.reau.app.service.LiveSides]), so a change counts from the next projection.
      */
     val pacePackets: Boolean = true,
+    /**
+     * The experimental test of the video's encoder (the owner's decision of 26/11/2026): [VideoEncoder.PHONE], the encoder the phone's own list puts first (the hardware one, as
+     * always), or [VideoEncoder.SOFTWARE], the one Android ships, which keeps constant bitrate and makes small keyframes; the phone's own when it lists none.
+     * The phone's own by default. Read when the video opens, so a change counts from the next stream, never live.
+     */
+    val videoEncoder: VideoEncoder = VideoEncoder.PHONE,
     /**
      * The joystick answers and ends calls; on by default, but it does nothing until the phone permissions are given (they are asked
      * on the permissions page, or when the rider switches it on again after turning it off).

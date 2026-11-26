@@ -58,6 +58,9 @@ object CodecReport {
         "latency", "bitrate-mode", "profile", "level", "i-frame-interval", "bitrate", "frame-rate", "priority", "operating-rate",
     )
 
+    /** The name of a `bitrate-mode` value as the codec echoed it (`VBR`, `CBR`), `not echoed` when it did not give one. */
+    fun bitrateModeName(mode: Int?): String = if (mode == null) "not echoed" else BITRATE_MODES[mode] ?: mode.toString()
+
     private fun named(key: String, value: Number): String = when (key) {
         "bitrate-mode" -> BITRATE_MODES[value.toInt()] ?: number(value)
         "profile" -> AVC_PROFILES[value.toInt()] ?: number(value)

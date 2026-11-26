@@ -296,6 +296,11 @@
     <string name="pace_packets_title">Espaciar los paquetes al tablero (experimental)</string>
     <string name="pace_packets_sub">Al menos 2 ms entre dos paquetes cualesquiera, video y comandos</string>
     <string name="pace_packets">REau deja al menos 2 ms entre dos paquetes cualesquiera que envía al tablero, los del video y los de los comandos juntos, en vez de una ráfaga pegada; algunos tableros se reinician un minuto después de que empieza la transmisión, y las apps que se mantienen estables espacian los paquetes igual. Esto suma unos milisegundos a un cuadro clave y a la respuesta a un botón, y vale desde la próxima proyección. Viene activado, pero es una prueba y puede salir en una próxima versión.</string>
+    <string name="video_encoder_title">Codificador de video (experimental)</string>
+    <string name="video_encoder_sub">Quién hace el video para el tablero</string>
+    <string name="video_encoder_phone">Del teléfono</string>
+    <string name="video_encoder_software">Software de Android</string>
+    <string name="video_encoder_info">De forma predeterminada, el chip del propio teléfono hace el video para el tablero. Esta prueba usa en su lugar el codificador de software de Android, que mantiene la tasa estable y hace cuadros clave más pequeños, con más uso del procesador; si el teléfono no tiene uno, se queda el suyo. Vale desde la próxima vez que se abra el video; es una prueba y puede salir en una próxima versión.</string>
     <string name="action_view_logs">Ver el registro</string>
     <string name="log_viewer_title">Registro</string>
     <string name="log_viewer_none">Aún no hay registros.</string>

@@ -148,6 +148,7 @@ from pathlib import Path
 # With `python -I` (or a script run from another folder) the script's own folder is not on the path: the helpers beside it are found by this file's place.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import chaves  # noqa: E402
+import codificador  # noqa: E402
 import corrente  # noqa: E402
 import detalhes  # noqa: E402
 import gps_chave  # noqa: E402
@@ -1412,6 +1413,9 @@ def linha_do_tempo(linhas):
                 por_ritmo = _video_por_ritmo(bloco)
                 if por_ritmo:
                     saida.append(f"{x.hora}  {por_ritmo}")
+                do_codificador = codificador.texto(bloco)  # the encoder of the video, its rate, its SPS and the shape of the stream (26/11/2026; nothing in an older log)
+                if do_codificador:
+                    saida.append(f"{x.hora}  {do_codificador}")
                 telas = _tela_por_tempo(bloco)
                 if telas:
                     saida.append(f"{x.hora}  {telas}")
@@ -2847,6 +2851,8 @@ def _eventos_novos(x, bloco):
         return thread_principal.eventos(t)
     if x.etiqueta == "dash":
         return _eventos_do_painel(t) or _eventos_da_leva5(x.etiqueta, t)
+    if x.etiqueta == codificador.ETIQUETA and codificador.eventos(t):
+        return codificador.eventos(t)
     if x.etiqueta in ("stream", "aa"):
         return _eventos_da_leva5(x.etiqueta, t)
     if x.etiqueta == "system" and t in ("doze on", "doze off"):

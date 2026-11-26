@@ -38,11 +38,39 @@ internal object EncoderReport {
         }
     }
 
-    /** The codec announced its [output] format: the two lines about it (on the output thread). */
-    fun outputAnnounced(asked: MediaFormat, input: MediaFormat?, output: MediaFormat) {
+    /**
+     * The codec announced its [output] format: the lines about it (on the output thread): the format, what it took of the one asked for, and the rate control
+     * asked, sent and accepted ([rateLine]; [rateSent] is what the encoder built, `CBR -> VBR (CBR not offered)`).
+     */
+    fun outputAnnounced(asked: MediaFormat, input: MediaFormat?, output: MediaFormat, rateSent: String) {
         outputFormat(output)
         accepted(asked, input, output)
+        runCatching {
+            val mode = CodecReport.overlay({ numberOf(output, it) }, { key -> input?.let { numberOf(it, key) } })("bitrate-mode")
+            RideDiagnostics.log("stream", rateLine(rateSent, mode?.toInt()))
+        }
     }
+
+    /**
+     * The line of the rate control of a session, the same for either encoder (26/11/2026): `encoder rate: asked CBR -> sent VBR (CBR not offered), codec says VBR`.
+     * [mode] is the `bitrate-mode` the codec echoed (null: it did not).
+     */
+    fun rateLine(rateSent: String, mode: Int?): String = "encoder rate: $rateSent, codec says ${CodecReport.bitrateModeName(mode)}"
+
+    /**
+     * The line of the choice of the encoder of a session, told once with the `codecs:` line (26/11/2026): what the rider asked ([preference]), what came of it
+     * ([note], null when the phone's own was asked) and the codec in use, with its rate control as the encoder sent it ([rateSent]).
+     */
+    fun pick(preference: VideoEncoder, note: String?, c: MediaCodec, rateSent: String) {
+        runCatching {
+            val hardware = c.codecInfo.let { it.isHardwareAccelerated && !it.isSoftwareOnly }
+            RideDiagnostics.log("stream", pickLine(preference, c.name, hardware, rateSent, note))
+        }
+    }
+
+    /** The text of [pick]: `encoder in use: asked=SOFTWARE name=c2.android.avc.encoder kind=sw rate=CBR -> CBR`, with `; note` when there is one. */
+    fun pickLine(preference: VideoEncoder, name: String, hardware: Boolean, rateSent: String, note: String?): String =
+        "encoder in use: asked=${preference.name} name=$name kind=${if (hardware) "hw" else "sw"} rate=$rateSent" + (note?.let { "; $it" } ?: "")
 
     /** The codec's output format, when it changes (once, before the first buffer). */
     fun outputFormat(f: MediaFormat) {

@@ -295,6 +295,11 @@
     <string name="pace_packets_title">Espaçar os pacotes para o painel (experimental)</string>
     <string name="pace_packets_sub">Pelo menos 2 ms entre dois pacotes quaisquer, vídeo e comandos</string>
     <string name="pace_packets">O REau deixa pelo menos 2 ms entre dois pacotes quaisquer que manda ao painel, os do vídeo e os dos comandos juntos, em vez de uma rajada colada; alguns painéis reiniciam um minuto depois de a transmissão começar, e os apps que ficam estáveis espaçam os pacotes do mesmo jeito. Isso soma alguns milissegundos a um quadro-chave e à resposta a um botão, e vale a partir da próxima projeção. Vem ligado, mas é um teste e pode sair numa próxima versão.</string>
+    <string name="video_encoder_title">Codificador de vídeo (experimental)</string>
+    <string name="video_encoder_sub">Quem faz o vídeo para o painel</string>
+    <string name="video_encoder_phone">Do celular</string>
+    <string name="video_encoder_software">Software do Android</string>
+    <string name="video_encoder_info">Por padrão, o chip do próprio celular faz o vídeo para o painel. Este teste usa no lugar o codificador de software do Android, que mantém a taxa estável e faz quadros-chave menores, com mais uso do processador; se o celular não tiver um, fica o dele. Vale a partir da próxima vez que o vídeo abrir; é um teste e pode sair numa próxima versão.</string>
     <string name="action_view_logs">Ver o registro</string>
     <string name="log_viewer_title">Registro</string>
     <string name="log_viewer_none">Ainda não há registros.</string>

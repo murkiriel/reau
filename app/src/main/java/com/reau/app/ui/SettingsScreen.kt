@@ -244,6 +244,8 @@ private fun OnDashGroup(s: REauSettings, change: (REauSettings) -> Unit) {
         { ResumeAfterKill(s, change) },
         // 2 ms between any two packets to the dash (video and commands); read when the session opens its sockets, so it counts from the next projection.
         { PacePackets(s, change) },
+        // The video's encoder, an experimental test (26/11/2026): the phone's own or Android's software one; read when the video opens, so it counts from the next stream.
+        { VideoEncoderChoice(s, change) },
         // The notices said in the headset: off by default; read at each phrase, so it counts at once.
         {
             SettingSwitch(R.string.spoken_alerts_title, R.string.spoken_alerts_sub, R.string.spoken_alerts, s.spokenAlerts, "spoken_alerts", now = true) {

@@ -2,6 +2,7 @@ package com.reau.app.stream
 
 import com.reau.app.dash.video.NalProcessor
 import com.reau.app.dash.video.RtpPacketizer
+import com.reau.app.dash.video.SpsReport
 
 /**
  * The way out of the encoder, for one stream to the dash:
@@ -17,6 +18,7 @@ import com.reau.app.dash.video.RtpPacketizer
  *
  * Every method may be called from any thread; the encoders' output threads call [onEncoded].
  */
+@Suppress("LongParameterList") // optional hooks with defaults, each one listener of the sent stream; a holder class would only move them (26/11/2026)
 internal class RtpOutput(
     private val tap: ((ByteArray, Boolean, Long) -> Unit)? = null,
     /** Told after each keyframe went out: its bytes and how many RTP packets it took (for the line written when the dash goes quiet). */
@@ -27,6 +29,10 @@ internal class RtpOutput(
     private val onFrame: ((bytes: Int, packets: Int, key: Boolean, maxGapNs: Long) -> Unit)? = null,
     /** The clock of the gaps between packets, in ns; the tests give theirs. */
     private val nanoTime: () -> Long = System::nanoTime,
+    /** The clock of the shape of the stream ([StreamShape]), in ms (a separate clock: the one above is read once per packet and the tests count its reads); the tests give theirs. */
+    private val clockMs: () -> Long = { System.nanoTime() / NS_PER_MS },
+    /** The ride log, for the line about the stream's SPS and the line about its shape (26/11/2026); none, nothing is written. */
+    private val log: ((String) -> Unit)? = null,
     private val sendRtp: (ByteArray) -> Unit,
 ) {
 
@@ -64,6 +70,10 @@ internal class RtpOutput(
         // Only what really went out: a send that throws never gets here.
         tap?.invoke(nal, isKey, framePtsMs)
     }
+
+    // What the frames looked like (the keyframes, the slices, the worst second) and the SPS last written to the log, both for the lines of 26/11/2026.
+    private val shape = StreamShape()
+    private var loggedSps: ByteArray? = null
 
     private var encoder: Any? = null
     private var frames = 0
@@ -112,6 +122,7 @@ internal class RtpOutput(
         frameGapNs = 0L
         if (isKey && !KeyframeGate.isParameterSetsOnly(annexB, isKey)) onKeyframeStart?.invoke()
         nalProcessor.process(annexB)
+        logSps()
         if (nalProcessor.withheldIdr != withheldBefore) {
             // The keyframe stayed back, so what follows it has nothing to refer to: wait for the next one.
             gate.close()
@@ -128,8 +139,23 @@ internal class RtpOutput(
                 onKeyframe?.invoke(annexB.size, packetsMade - packetsBefore)
             }
             onFrame?.invoke(annexB.size, packetsMade - packetsBefore, isKey, frameGapNs)
+            val now = clockMs()
+            shape.add(now, annexB.size, packetsMade - packetsBefore, isKey, nalProcessor.lastSlices)
+            shape.periodicLine(now)?.let { log?.invoke(it) }
         }
     }
+
+    // The SPS the encoder made, written once for each encoder of the stream (a rebuilt one with the same SPS says nothing new).
+    private fun logSps() {
+        val original = nalProcessor.originalSps ?: return
+        if (loggedSps?.contentEquals(original) == true) return
+        loggedSps = original
+        log?.invoke(SpsReport.line(original, nalProcessor.sentSps ?: original))
+    }
+
+    /** The line about the shape of the stream so far (keyframes, slices, the worst second), for the end of the stream; null before the first frame. */
+    @Synchronized
+    fun shapeLine(): String? = shape.line()
 
     /** Totals since the previous call, then starts counting again. */
     @Synchronized
@@ -143,5 +169,6 @@ internal class RtpOutput(
 
     private companion object {
         const val NO_PACKET = Long.MIN_VALUE
+        const val NS_PER_MS = 1_000_000L
     }
 }

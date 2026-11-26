@@ -3,6 +3,7 @@ package com.reau.app.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.reau.app.R
+import com.reau.app.dash.video.VideoEncoder
 import com.reau.app.settings.REauSettings
 import com.reau.app.ui.components.Info
 import com.reau.app.ui.components.SegmentedRow
@@ -38,4 +39,22 @@ internal fun PacePackets(s: REauSettings, change: (REauSettings) -> Unit) {
     SettingSwitch(R.string.pace_packets_title, R.string.pace_packets_sub, R.string.pace_packets, s.pacePackets, "pace_packets") {
         change(s.copy(pacePackets = it))
     }
+}
+
+/**
+ * The experimental test of the video's encoder (26/11/2026): the phone's own or Android's software one, as two segments (tags `video_encoder`, `video_encoder_PHONE`,
+ * `video_encoder_SOFTWARE`). Read when the video opens, so it counts from the next stream (no "now" chip).
+ */
+@Composable
+internal fun VideoEncoderChoice(s: REauSettings, change: (REauSettings) -> Unit) {
+    val names = mapOf(VideoEncoder.PHONE to R.string.video_encoder_phone, VideoEncoder.SOFTWARE to R.string.video_encoder_software)
+    SegmentedRow(
+        stringResource(R.string.video_encoder_title),
+        VideoEncoder.entries.map { stringResource(names.getValue(it)) to "video_encoder_${it.name}" },
+        VideoEncoder.entries.indexOf(s.videoEncoder),
+        { change(s.copy(videoEncoder = VideoEncoder.entries[it])) },
+        sub = stringResource(R.string.video_encoder_sub),
+        info = Info(stringResource(R.string.video_encoder_title), stringResource(R.string.video_encoder_info)),
+        tag = "video_encoder",
+    )
 }

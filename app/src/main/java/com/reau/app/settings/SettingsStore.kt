@@ -220,6 +220,8 @@ class SettingsStore(private val prefs: SharedPreferences) {
             noDashStopMinutes = prefs.getInt(KEY_NO_DASH_STOP_MINUTES, defaults.noDashStopMinutes),
             resumeAfterKill = prefs.getBoolean(KEY_RESUME_AFTER_KILL, defaults.resumeAfterKill),
             pacePackets = prefs.getBoolean(KEY_PACE_PACKETS, defaults.pacePackets),
+            // An unknown or missing name is the phone's own encoder.
+            videoEncoder = enumOr(prefs.getString(KEY_VIDEO_ENCODER, null), defaults.videoEncoder),
             answerCalls = prefs.getBoolean(KEY_ANSWER_CALLS, defaults.answerCalls),
             phoneTouch = prefs.getBoolean(KEY_PHONE_TOUCH, defaults.phoneTouch),
             dashMusic = prefs.getBoolean(KEY_DASH_MUSIC, defaults.dashMusic),
@@ -332,6 +334,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             putInt(KEY_NO_DASH_STOP_MINUTES, s.noDashStopMinutes)
             putBoolean(KEY_RESUME_AFTER_KILL, s.resumeAfterKill)
             putBoolean(KEY_PACE_PACKETS, s.pacePackets)
+            putString(KEY_VIDEO_ENCODER, s.videoEncoder.name)
             putBoolean(KEY_ANSWER_CALLS, s.answerCalls)
             putBoolean(KEY_PHONE_TOUCH, s.phoneTouch)
             putBoolean(KEY_DASH_MUSIC, s.dashMusic)
@@ -494,6 +497,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val KEY_RESUME_AFTER_KILL = "resume_after_kill"
         /** "Espaçar os pacotes" (25/11/2026): 2 ms between any two packets to the dash; on unless the rider turned it off. */
         private const val KEY_PACE_PACKETS = "pace_packets"
+        private const val KEY_VIDEO_ENCODER = "video_encoder"
         private const val OLD_KEY_AA_SLOW_PACE = "aa_slow_pace"
         private const val OLD_KEY_AA_SLOW_PACE_FPS = "aa_slow_pace_fps"
         private const val KEY_AA_NEW_PROTOCOL = "aa_new_protocol"

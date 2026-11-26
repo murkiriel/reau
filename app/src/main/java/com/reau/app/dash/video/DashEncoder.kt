@@ -165,12 +165,21 @@ class DashEncoder(
     private var outputPump: EncoderOutputPump? = null
     private var codecName: String? = null
 
+    // What was asked of the rate control and what was sent to the codec (`CBR -> VBR (CBR not offered)`), for the line the codec's output format completes.
+    @Volatile private var rateSent = ""
+
     /**
      * Whether this encoder tells the ride log what the phone offers and what the codec accepted (`codecs: encoder …`, `encoder accepted: …`,
      * `encoder output format: …`): once for a stream, so the video loop leaves it on for the encoder it starts with and turns it off for the
      * ones it rebuilds. Set before [prepare]. Diagnostics only.
      */
     var reportCodecs = true
+
+    /**
+     * Which encoder the rider asked for ([VideoEncoder], 26/11/2026): the phone's own, as always, or Android's software one. Set before [prepare], from the settings
+     * the stream was started with, so a change counts from the next stream; a rebuilt encoder keeps it.
+     */
+    var preference: VideoEncoder = VideoEncoder.PHONE
 
     /** Set on a failed [prepare] — the caller logs this to RideDiagnostics (the on-disk ride log
      * pulled after the fact) since a live logcat isn't available once a rider is out on the road. */
@@ -211,18 +220,25 @@ class DashEncoder(
     ): Boolean {
         val ask = Ask(fpsHint, bitrateBps, iFrameIntervalSec, frame)
         // Every AVC encoder that can take the size and Baseline, hardware first (a software fallback runs the CPU hot, which
-        // is exactly what this whole project exists to avoid); the system's own pick is the last try.
-        val names: List<String?> = encoderNames() + null
+        // is exactly what this whole project exists to avoid); the system's own pick is the last try. With the rider's experimental
+        // choice of Android's software encoder, that one goes first and the rest stay behind it (26/11/2026).
+        val pick = encoderNames()
+        val names: List<String?> = pick.names + null
         val failures = mutableListOf<String>()
         for (name in names) {
-            val rate = rateMode(bitrateMode) { mode -> modeOffered(name, mode) }
+            // The software encoder is asked for constant bitrate whatever the caller said (the app always says CBR; the point of the test is a stream that keeps its ceiling).
+            val wanted = if (preference == VideoEncoder.SOFTWARE) bitrateMode ?: BitrateMode.CBR else bitrateMode
+            val rate = rateMode(wanted) { mode -> modeOffered(name, mode) }
             val detail = "size=${frame.width}x${frame.height} fpsHint=$fpsHint bitrateBps=$bitrateBps profile=baseline " +
                 "iFrameIntervalSec=${iFrameIntervalText(iFrameIntervalSec, fpsHint)} repeatAfterUs=$REPEAT_AFTER_US bitrateMode=${rate.label}"
+            // Set before the codec starts: the line that tells what it accepted comes from its output thread.
+            rateSent = "${wanted?.name ?: "default"} -> ${rate.label}"
             val started = startNamed(name, rate, detail) { n, spec, d -> startCodec(n, buildFormat(ask, spec), d) }
             started.onSuccess { c ->
                 lastPrepareError = null
                 codec = c
                 if (reportCodecs) EncoderReport.choice(c, candidateReport, frame)
+                if (reportCodecs) EncoderReport.pick(preference, pick.note, c, rateSent)
                 return true
             }
             val why = started.exceptionOrNull()?.let { CodecErrors.describe(it, name) }
@@ -238,9 +254,10 @@ class DashEncoder(
 
     /**
      * The phone's AVC encoders in the order to try them ([EncoderOrder]), with what each one's capabilities say about the
-     * stream's size and Baseline. Looked up once per process ([CodecNames]); the names are joined, since it keeps one string.
+     * stream's size and Baseline, and the rider's [preference] applied. Looked up once per process ([CodecNames]): the phone's own order and Android's
+     * software encoders, joined by `#` (the names by `|`), since it keeps one string.
      */
-    private fun encoderNames(): List<String> {
+    private fun encoderNames(): EncoderOrder.Pick {
         val joined = CodecNames.pick("dash encoders ${frame.width}x${frame.height} baseline") {
             val candidates = runCatching {
                 MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
@@ -256,9 +273,11 @@ class DashEncoder(
                     }
             }.getOrDefault(emptyList())
             candidateReport = CodecReport.candidates(candidates.map { CodecReport.Candidate(it.name, it.hardware, it.sizeSupported, it.baselineSupported) })
-            EncoderOrder.names(candidates).joinToString("|")
+            EncoderOrder.names(candidates).joinToString("|") + "#" + EncoderOrder.softwareNames(candidates).joinToString("|")
         }
-        return joined.orEmpty().split('|').filter { it.isNotEmpty() }
+        val (phone, software) = joined.orEmpty().split('#').let { it.first() to it.getOrElse(1) { "" } }
+        val names = { text: String -> text.split('|').filter { it.isNotEmpty() } }
+        return EncoderOrder.pick(preference, names(phone), names(software))
     }
 
     /** Creates, configures and starts one codec instance; releases it again if any step throws. */
@@ -272,7 +291,7 @@ class DashEncoder(
             inputSurface = c.createInputSurface()
             c.start()
             val inputFormat = if (reportCodecs) EncoderReport.inputFormat(c) else null
-            outputPump = EncoderOutputPump(c, onFormat = { f -> if (reportCodecs) EncoderReport.outputAnnounced(format, inputFormat, f) }) { idx, info ->
+            outputPump = EncoderOutputPump(c, onFormat = { if (reportCodecs) EncoderReport.outputAnnounced(format, inputFormat, it, rateSent) }) { idx, info ->
                 emitOutput(c, idx, info)
             }.also { it.start() }
             c

@@ -1376,7 +1376,7 @@ MUTATIONS = [
     ("DashEncoder: a linha codecs: sai também no codificador refeito", MAIN + "dash/video/DashEncoder.kt",
      "if (reportCodecs) EncoderReport.choice(c, candidateReport, frame)", "EncoderReport.choice(c, candidateReport, frame)", ["CodecDiagnosticsAreWiredTest"]),
     ("DashEncoder: o formato aceito sai também no codificador refeito", MAIN + "dash/video/DashEncoder.kt",
-     "if (reportCodecs) EncoderReport.outputAnnounced(format, inputFormat, f)", "EncoderReport.outputAnnounced(format, inputFormat, f)", ["CodecDiagnosticsAreWiredTest"]),
+     "if (reportCodecs) EncoderReport.outputAnnounced(format, inputFormat, it, rateSent)", "EncoderReport.outputAnnounced(format, inputFormat, it, rateSent)", ["CodecDiagnosticsAreWiredTest"]),
     ("DashEncoder: o formato de entrada é lido antes do start()", MAIN + "dash/video/DashEncoder.kt",
      "            c.start()\n            val inputFormat = if (reportCodecs) EncoderReport.inputFormat(c) else null\n",
      "            val inputFormat = if (reportCodecs) EncoderReport.inputFormat(c) else null\n            c.start()\n", ["CodecDiagnosticsAreWiredTest"]),
@@ -6062,6 +6062,36 @@ MUTATIONS += [
      "val due = lastLongAt == NEVER || now - lastLongAt >= LONG_EVERY_MS", "val due = true", ["FrameJankTest"]),
     ("revisao-rec2/C6 Quadro lento: o teto dos quadros longos passa a ser de um por 100 ms", MAIN + "util/FrameJank.kt",
      "const val LONG_EVERY_MS = 1_000L", "const val LONG_EVERY_MS = 100L", ["FrameJankTest"]),
+]
+
+MUTATIONS += [
+    # Teste A (26/11/2026): a opção experimental «Codificador de vídeo» (o do celular ou o de software do Android) e as linhas do registro que separam os dois braços.
+    ("teste-A/1 Codificador: a escolha de software não põe o de software na frente (a ordem é sempre a do celular)", MAIN + "dash/video/EncoderOrder.kt",
+     'else -> Pick((software + phone).distinct(), "software encoder asked: ${software.first()} first")', 'else -> Pick(phone, "software encoder asked: ${software.first()} first")',
+     ["VideoEncoderChoiceTest"]),
+    ("teste-A/2 Codificador: sem o de software no celular o registro não diz que ficou o do celular", MAIN + "dash/video/EncoderOrder.kt",
+     "software.isEmpty() -> Pick(phone, \"software encoder asked, none in the phone's list: the phone's own is used\")", "software.isEmpty() -> Pick(phone, null)",
+     ["VideoEncoderChoiceTest"]),
+    ("teste-A/3 Codificador: o padrão da opção vira o de software", MAIN + "settings/REauSettings.kt",
+     "val videoEncoder: VideoEncoder = VideoEncoder.PHONE,", "val videoEncoder: VideoEncoder = VideoEncoder.SOFTWARE,", ["VideoEncoderSettingTest", "SettingsInUseTest"]),
+    ("teste-A/4 Codificador: a escolha lida do disco é ignorada", MAIN + "settings/SettingsStore.kt",
+     "videoEncoder = enumOr(prefs.getString(KEY_VIDEO_ENCODER, null), defaults.videoEncoder),", "videoEncoder = defaults.videoEncoder,", ["VideoEncoderSettingTest"]),
+    ("teste-A/5 Codificador: o ajuste do piloto não chega ao codificador do vídeo", MAIN + "stream/VideoLoop.kt",
+     "        created.preference = settings.videoEncoder\n", "", ["VideoEncoderChoiceTest"]),
+    ("teste-A/6 Codificador: o vídeo novo não toma a escolha dos ajustes do piloto", MAIN + "stream/VideoLoop.kt",
+     "            videoEncoder = rider.videoEncoder,\n", "", ["VideoEncoderSettingTest", "VideoEncoderChoiceTest"]),
+    ("teste-A/7 Resumo do vídeo: o quadro-chave médio divide pelos quadros e não pelos quadros-chave", MAIN + "stream/StreamShape.kt",
+     "val keyBytesAvg = if (keyframes > 0) keyBytesSum / keyframes else 0L", "val keyBytesAvg = if (keyframes > 0) keyBytesSum / frames else 0L", ["StreamShapeTest"]),
+    ("teste-A/8 Resumo do vídeo: o pior segundo conta o quadro que saiu exatamente 1 s antes", MAIN + "stream/StreamShape.kt",
+     "while (recent.first().atMs <= atMs - PEAK_WINDOW_MS) {", "while (recent.first().atMs < atMs - PEAK_WINDOW_MS) {", ["StreamShapeTest"]),
+    ("teste-A/9 Resumo do vídeo: só os quadros de três fatias ou mais contam como de várias fatias", MAIN + "stream/StreamShape.kt",
+     "if (slices > 1) framesWithManySlices++", "if (slices > 2) framesWithManySlices++", ["StreamShapeTest"]),
+    ("teste-A/10 Fatias: o processador não zera a contagem a cada buffer do codificador", MAIN + "dash/video/NalProcessor.kt",
+     "        lastSlices = 0\n        for (nal in split(annexB)) {", "        for (nal in split(annexB)) {", ["EncoderSessionLinesTest"]),
+    ("teste-A/11 SPS: o registro escreve o SPS do codificador a cada quadro-chave e não uma vez", MAIN + "stream/RtpOutput.kt",
+     "        if (loggedSps?.contentEquals(original) == true) return\n", "", ["RtpOutputTest"]),
+    ("teste-A/12 Leitor: o de software que não existe no celular não aparece na linha do tempo", "scripts/registro/codificador.py",
+     'frase += "; o celular não lista um codificador de software do Android: ficou o do celular"', 'frase += ""', ["registro/test_codificador.py"]),
 ]
 
 

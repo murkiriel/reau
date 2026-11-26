@@ -287,5 +287,54 @@ class RtpOutputTest {
         assertEquals(listOf(0, 0, 0), listOf(again.keyframes, again.keyBytesMax, again.keyPacketsMax))
     }
 
+    // ── the lines of the stream's SPS and shape (26/11/2026) ───────────────────────────────────────────────
+
+    @Test
+    fun `the SPS of the encoder is written once, as it came and as it goes, and again only for an SPS that is another`() {
+        val written = mutableListOf<String>()
+        val logging = RtpOutput(log = { written += it }) { packets += it }.also { it.switchTo(encoder) }
+        logging.onEncoded(encoder, config, isKey = false, ptsMs = 0)
+        logging.onEncoded(encoder, idr, isKey = true, ptsMs = 0)
+        logging.onEncoded(encoder, config, isKey = false, ptsMs = 1_000)
+        logging.onEncoded(encoder, idr, isKey = true, ptsMs = 1_000)
+        assertEquals(listOf("encoder sps: profile=Baseline(66) level=4.1 constraints=0xC0; original=67 42 C0 29 11; sent=67 42 00 29 11"), written)
+
+        val fresh = Any()
+        logging.switchTo(fresh)
+        logging.onEncoded(fresh, bytes(0, 0, 0, 1, 0x67, 0x42, 0x80, 0x1F, 0x22, 0, 0, 0, 1, 0x68, 0x22), isKey = false, ptsMs = 2_000)
+        logging.onEncoded(fresh, idr, isKey = true, ptsMs = 2_000)
+        assertEquals("a rebuilt encoder with another SPS says it", 2, written.size)
+        assertEquals("encoder sps: profile=Baseline(66) level=3.1 constraints=0x80; original=67 42 80 1F 22; sent=67 42 00 29 22", written[1])
+    }
+
+    @Test
+    fun `the shape line counts the frames that went out, the keyframes with their packets and the slices of a buffer`() {
+        val clock = longArrayOf(0)
+        val shaped = RtpOutput(clockMs = { clock[0] }) { packets += it }.also { it.switchTo(encoder) }
+        assertEquals("no frame yet", null, shaped.shapeLine())
+        shaped.onEncoded(encoder, config, isKey = false, ptsMs = 0)
+        shaped.onEncoded(encoder, pFrame(1), isKey = false, ptsMs = 0) // held back: not a frame
+        shaped.onEncoded(encoder, bytes(0, 0, 0, 1, 0x65) + ByteArray(3_000) { 0x55 }, isKey = true, ptsMs = 0)
+        clock[0] = 250
+        shaped.onEncoded(encoder, bytes(0, 0, 0, 1, 0x41, 1, 0, 0, 0, 1, 0x41, 2), isKey = false, ptsMs = 250) // two slices
+        val line = shaped.shapeLine()!!
+        assertTrue(line, line.startsWith("video shape: frames=2 keyframes=1 keybytes avg=3005 max=3005 keypackets avg=3.0 max=3 slices=2 multi=1/2 peak1s="))
+    }
+
+    @Test
+    fun `the shape line comes by itself every 5 minutes of stream, written to the ride log`() {
+        val written = mutableListOf<String>()
+        val clock = longArrayOf(0)
+        val logging = RtpOutput(clockMs = { clock[0] }, log = { written += it }) { packets += it }.also { it.switchTo(encoder) }
+        logging.onEncoded(encoder, config, isKey = false, ptsMs = 0)
+        logging.onEncoded(encoder, idr, isKey = true, ptsMs = 0)
+        clock[0] = 299_999
+        logging.onEncoded(encoder, pFrame(1), isKey = false, ptsMs = 1)
+        assertEquals(listOf(true), written.map { it.startsWith("encoder sps:") })
+        clock[0] = 300_000
+        logging.onEncoded(encoder, pFrame(2), isKey = false, ptsMs = 2)
+        assertTrue(written.toString(), written.size == 2 && written[1].startsWith("video shape: frames=3 keyframes=1 "))
+    }
+
     private fun bytes(vararg values: Int) = ByteArray(values.size) { values[it].toByte() }
 }
