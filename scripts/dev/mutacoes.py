@@ -5714,6 +5714,12 @@ MUTATIONS += [
      'elif x.etiqueta == "battery":', 'elif x.etiqueta == "battery_":', ["registro/test_ler_registro.py"]),
 ]
 
+MUTATIONS += [
+    # Plano 35, passo F (26/11/2026): o pedido de rede não espera as leituras só de registro; o quadro-chave de 1 s na rampa de largada.
+    ("plano35/F Pedido de rede: as leituras da linha do pedido (lista de Wi-Fi, tela, chaveiro) voltam à thread que manda o pedido", MAIN + "dash/DashWifiManager.kt",
+     "scope.launch { runCatching { logRequestContextLine(head) } }", "runCatching { logRequestContextLine(head) }", ["ScanLooksTest"]),
+]
+
 
 def command_for(classes):
     """The command that runs a mutation's tests: Python test files (`test_*.py`) with unittest, JVM unit test classes with Gradle. A bare name (`test_apk_audit.py`) is found
