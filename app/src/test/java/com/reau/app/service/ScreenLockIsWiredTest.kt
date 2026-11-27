@@ -72,7 +72,7 @@ class ScreenLockIsWiredTest {
         assertTrue("every touch is taken", "private fun Modifier.swallowTouches()" in screen && "Modifier.fillMaxSize().swallowTouches()" in screen)
         assertTrue("only a touch on the thumb drags", "ScreenLock.hitsThumb(" in screen && "if (onThumb) {" in screen)
         assertTrue("past 90 percent leaves, else back to the start", "if (onThumb && ScreenLock.unlocked(ScreenLock.progress(dragPx, travel))) onUnlock() else dragPx = 0f" in screen)
-        assertTrue("onUnlock leaves by swipe", "SlideTrack { mode.exit(ScreenLock.Exit.SWIPE) }" in screen)
+        assertTrue("onUnlock leaves by swipe", "bottom)) { mode.exit(ScreenLock.Exit.SWIPE) }" in screen && "SlideTrack(Modifier.padding(" in screen)
         for (animated in listOf("animate", "InfiniteTransition", "Animatable", "AnimatedVisibility", "Canvas", "Image(", "painterResource")) assertFalse(animated, animated in code("ui/ScreenLockScreen.kt"))
         assertTrue("the brightness goes to the minimum after 5 s and comes back", "DIM_AFTER_MS = 5_000L" in mode && "mode.dim(true)" in screen && "mode.dim(false)" in screen)
         for (text in listOf("R.string.lock_projecting", "R.string.lock_stop_first", "R.string.lock_slide", "R.drawable.ic_ms_lock")) assertTrue(text, text in screen)
