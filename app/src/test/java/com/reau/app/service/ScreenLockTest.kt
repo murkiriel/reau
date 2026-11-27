@@ -60,7 +60,7 @@ class ScreenLockTest {
         val state = ScreenLock.State()
         assertFalse(state.active)
         assertNull("nothing to leave", state.exit(Exit.SWIPE, 5_000L))
-        assertEquals("manual on", state.enter(10_000L))
+        assertEquals("manual on reason=button", state.enter(10_000L))
         assertNull("already in", state.enter(11_000L))
         assertEquals("manual off reason=swipe after=62s", state.exit(Exit.SWIPE, 72_900L))
         assertNull("already out", state.exit(Exit.LEFT, 80_000L))
@@ -71,7 +71,7 @@ class ScreenLockTest {
         assertEquals(listOf("swipe", "left", "screenoff", "projection"), Exit.entries.map { it.logName })
         val state = ScreenLock.State()
         for (reason in Exit.entries) {
-            assertEquals("manual on", state.enter(0L))
+            assertEquals("manual on reason=button", state.enter(0L))
             assertEquals("manual off reason=${reason.logName} after=3s", state.exit(reason, 3_000L))
         }
         assertEquals("a clock that went back is zero", "manual off reason=left after=0s", ScreenLock.State().also { it.enter(9_000L) }.exit(Exit.LEFT, 1_000L))
@@ -139,5 +139,15 @@ class ScreenLockTest {
         assertEquals("100 % · -", ScreenLock.batteryText(100, null))
         assertEquals("- · 41 °C", ScreenLock.batteryText(null, 40.6f))
         assertEquals("-", ScreenLock.batteryText(null, null))
+    }
+
+    @Test
+    fun `the mode says how it began, by the button or by the idle count`() {
+        assertEquals("manual on reason=button", ScreenLock.onLine(ScreenLock.Entry.BUTTON))
+        assertEquals("manual on reason=idle", ScreenLock.onLine(ScreenLock.Entry.IDLE))
+        assertEquals(listOf("button", "idle"), ScreenLock.Entry.entries.map { it.logName })
+        val state = ScreenLock.State()
+        assertEquals("manual on reason=idle", state.enter(1_000L, ScreenLock.Entry.IDLE))
+        assertEquals("manual off reason=swipe after=2s", state.exit(Exit.SWIPE, 3_000L))
     }
 }

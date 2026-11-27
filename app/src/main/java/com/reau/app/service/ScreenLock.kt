@@ -13,8 +13,11 @@ import kotlin.math.roundToInt
 internal object ScreenLock {
     const val TAG = "lock"
 
-    /** The line when the mode begins. */
-    const val ON_LINE = "manual on"
+    /** How the mode began: the rider pressed the button, or the screen was about to go off by itself and [IdleLock] took it in (the 0.3.97 test build). */
+    enum class Entry(val logName: String) { BUTTON("button"), IDLE("idle") }
+
+    /** The line when the mode begins, and how. */
+    fun onLine(entry: Entry) = "manual on reason=${entry.logName}"
 
     /** The line when Back is pressed in the mode: it does nothing, and is said once per mode. */
     const val BACK_LINE = "back ignored"
@@ -109,13 +112,13 @@ internal object ScreenLock {
         private var sinceMs = 0L
         private var backSaid = false
 
-        /** Goes in at [nowMs]; the line to log, or null when it was already in. */
-        fun enter(nowMs: Long): String? {
+        /** Goes in at [nowMs], by [entry]; the line to log, or null when it was already in. */
+        fun enter(nowMs: Long, entry: Entry = Entry.BUTTON): String? {
             if (active) return null
             active = true
             sinceMs = nowMs
             backSaid = false
-            return ON_LINE
+            return onLine(entry)
         }
 
         /** Goes out at [nowMs] for [reason]; the line to log, or null when it was not in. */

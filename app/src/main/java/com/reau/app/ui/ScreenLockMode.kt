@@ -35,7 +35,7 @@ import kotlinx.coroutines.launch
  * the front ([stopped]), when the screen goes off (the default display's state, with the SCREEN_OFF broadcast as a second source) and when the projection stops.
  * Back does nothing, and is logged once per mode. Every call is on the main thread.
  */
-internal class ScreenLockMode(private val activity: ComponentActivity) {
+internal class ScreenLockMode(private val activity: ComponentActivity, private val keep: KeepScreenOn) {
     /** Whether the mode is on now; the screen reads it. */
     var active by mutableStateOf(false)
         private set
@@ -57,12 +57,15 @@ internal class ScreenLockMode(private val activity: ComponentActivity) {
         }
     }
 
-    /** The button: in, only with the projection on. */
-    fun enter() {
+    /** Told after the mode goes in or out (the idle count follows it). */
+    var onChange: (() -> Unit)? = null
+
+    /** In, only with the projection on: the button ([ScreenLock.Entry.BUTTON]), or the idle count running out ([ScreenLock.Entry.IDLE]). */
+    fun enter(entry: ScreenLock.Entry = ScreenLock.Entry.BUTTON) {
         if (active || !ScreenLock.available(ProjectionService.projection.value.phase != Phase.STOPPED)) return
-        state.enter(SystemClock.elapsedRealtime())?.let(::log)
+        state.enter(SystemClock.elapsedRealtime(), entry)?.let(::log)
         active = true
-        activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        keep.want(SOURCE)
         bars(hidden = true)
         // Added now, so it is the last one added: Back goes to it first, and it does nothing but say so once.
         val callback = object : OnBackPressedCallback(true) {
@@ -78,6 +81,7 @@ internal class ScreenLockMode(private val activity: ComponentActivity) {
         }
         screenOff = off
         ContextCompat.registerReceiver(activity, off, IntentFilter(Intent.ACTION_SCREEN_OFF), ContextCompat.RECEIVER_NOT_EXPORTED)
+        onChange?.invoke()
     }
 
     /** The activity left the front (Home, another app, the screen going off): the mode ends, as `screenoff` if the display is off, else as `left`. */
@@ -92,7 +96,7 @@ internal class ScreenLockMode(private val activity: ComponentActivity) {
         if (!active) return
         active = false
         state.exit(reason, SystemClock.elapsedRealtime())?.let(::log)
-        activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        keep.release(SOURCE)
         bars(hidden = false)
         back?.remove()
         back = null
@@ -100,6 +104,7 @@ internal class ScreenLockMode(private val activity: ComponentActivity) {
         displayListener = null
         screenOff?.let { runCatching { activity.unregisterReceiver(it) } }
         screenOff = null
+        onChange?.invoke()
     }
 
     /** The window's brightness: the minimum when [on], the phone's own otherwise. */
@@ -145,5 +150,6 @@ internal class ScreenLockMode(private val activity: ComponentActivity) {
         /** With no touch for this long the window's brightness goes to the minimum. */
         const val DIM_AFTER_MS = 5_000L
         private const val DIMMEST = 0.01f
+        private const val SOURCE = "lock"
     }
 }

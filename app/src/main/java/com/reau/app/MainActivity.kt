@@ -221,7 +221,11 @@ class MainActivity : ComponentActivity() {
     private val lockOver = com.reau.app.ui.LockOverHost(this)
 
     // "Bloquear a tela" (0.3.93 test build): REau's own dark screen in front, the screen kept lit by the window itself (ScreenLockMode).
-    private val lockMode = com.reau.app.ui.ScreenLockMode(this)
+    private val keepOn = com.reau.app.ui.KeepScreenOn(this)
+    private val lockMode = com.reau.app.ui.ScreenLockMode(this, keepOn)
+
+    // The idle count of the 0.3.97 test build: REau in front, the dash ready and the switch on, the screen does not go off by itself, it goes into the lock (IdleLockWatch).
+    private val idleWatch = com.reau.app.ui.IdleLockWatch(this, lockMode, keepOn)
 
     @Suppress("LongMethod") // one straight run of setup/serialization; cutting it adds indirection and no clarity
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -440,6 +444,7 @@ class MainActivity : ComponentActivity() {
         val refit = LiveTuning.steps(before, after).isNotEmpty() ||
             // "Modo de bloqueio do REau": a running projection takes the switch at once.
             after.lockMode != before.lockMode
+        idleWatch.setSwitch(after.lockMode)
         if (after.useLocation != before.useLocation) {
             // The place is learned here, on the screen (the service cannot read it); the refit goes after, so the dash's day or night uses it.
             learnSunPlace(this, then = { if (refit) ProjectionService.refit(this) })
@@ -511,12 +516,20 @@ class MainActivity : ComponentActivity() {
         super.onPostCreate(savedInstanceState)
         lockOver.attach()
         lockMode.attach()
+        idleWatch.attach()
     }
 
     override fun onPause() {
         onScreen = false
         lockOver.paused()
+        idleWatch.resumed(false)
         super.onPause()
+    }
+
+    // Any touch of the rider on the window restarts the idle count.
+    override fun onUserInteraction() {
+        super.onUserInteraction()
+        idleWatch.touched()
     }
 
     // The app leaving the front (Home, another app, the screen going off) ends the lock mode.
@@ -533,6 +546,7 @@ class MainActivity : ComponentActivity() {
     private fun resume() {
         onScreen = true
         lockOver.resumed()
+        idleWatch.resumed(true)
         resumedAtMs = com.reau.app.util.MonotonicClock.nowMs()
         if (leftForAaSettingsAtMs != 0L) {
             val away = (android.os.SystemClock.elapsedRealtime() - leftForAaSettingsAtMs) / 1_000

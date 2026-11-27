@@ -23,10 +23,10 @@ class ScreenLockIsWiredTest {
     @Test
     fun `the window keeps the screen on while the mode lasts and lets it go on the way out`() {
         val enter = mode.substringAfter("fun enter()").substringBefore("/** The activity left the front")
-        assertTrue(enter, "activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)" in enter)
+        assertTrue(enter, "keep.want(SOURCE)" in enter)
         assertTrue(enter, "bars(hidden = true)" in enter && "ScreenLock.available(" in enter)
         val exit = mode.substringAfter("fun exit(reason: ScreenLock.Exit)").substringBefore("/** The window's brightness")
-        assertTrue(exit, "activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)" in exit && "bars(hidden = false)" in exit)
+        assertTrue(exit, "keep.release(SOURCE)" in exit && "bars(hidden = false)" in exit)
         assertTrue(exit, "back?.remove()" in exit && "activity.unregisterReceiver(it)" in exit)
     }
 

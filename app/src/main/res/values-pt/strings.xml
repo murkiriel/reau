@@ -972,7 +972,7 @@
     <string name="group_screen_keep">Celular bloqueado</string>
     <string name="lock_mode_title">Modo de bloqueio do REau (teste)</string>
     <string name="lock_mode_sub">Mostra o botão Bloquear a tela, acende a tela quando ela apaga e mostra o REau sobre o bloqueio. Gasta mais bateria</string>
-    <string name="lock_mode_info">Ligado, o botão “Bloquear a tela” aparece na tela principal (com o painel pronto), a tela acende de novo, por alguns segundos, quando o Android a apaga durante a projeção, e o REau aparece sobre o bloqueio se estava na frente. O REau não apaga a tela: quem apaga é o Android (ou você). É um teste: vem desligado, gasta mais bateria e só vale com a projeção ligada.</string>
+    <string name="lock_mode_info">Ligado, o botão “Bloquear a tela” aparece na tela principal (com o painel pronto) e, com o REau na frente, a tela entra no bloqueio do REau em vez de apagar sozinha, sem pedir o PIN. Se ela apagar mesmo assim (botão de energia), o REau a acende de novo e aparece sobre o bloqueio, se estava na frente. É um teste: vem desligado, gasta mais bateria e só vale com a projeção ligada.</string>
     <string name="screen_keep_lock_projecting">Projetando no painel</string>
     <string name="screen_keep_lock_swipe">Deslize para cima para desbloquear</string>
     <string name="screen_keep_lock_pause">Apagar a tela nesta viagem</string>
