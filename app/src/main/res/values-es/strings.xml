@@ -985,4 +985,6 @@
     <string name="screen_keep_lock_projecting">Proyectando en el tablero</string>
     <string name="screen_keep_lock_swipe">Desliza hacia arriba para desbloquear</string>
     <string name="screen_keep_lock_pause">Apagar la pantalla en este viaje</string>
+    <string name="action_lock_screen">Bloquear la pantalla</string>
+    <string name="screen_keep_lock_swipe_exit">Desliza hacia arriba para salir</string>
 </resources>

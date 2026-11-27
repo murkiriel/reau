@@ -10,6 +10,7 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,6 +42,7 @@ import androidx.lifecycle.lifecycleScope
 import com.reau.app.R
 import com.reau.app.data.RideDiagnostics
 import com.reau.app.service.ScreenKeepFront
+import com.reau.app.service.ScreenKeepManual
 import com.reau.app.service.ScreenKeepPolicy
 import com.reau.app.ui.theme.REauTheme
 import java.util.Date
@@ -55,9 +57,12 @@ import kotlinx.coroutines.launch
  * another app when the phone locked, this activity is not in front and nothing shows (the service's log says `lockui not-front`). Every call is on the main thread.
  */
 internal class LockOverHost(private val activity: ComponentActivity) {
-    /** Whether [LockOverScreen] is to be shown now. */
+    /** Whether [LockOverScreen] is to be shown now, over the lock screen. */
     var over by mutableStateOf(false)
         private set
+
+    /** The "Bloquear a tela" button's mode: the same screen, in front, with the screen kept lit ([ManualLock]). */
+    val manual = ManualLock(activity)
 
     private val unlocked = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -71,9 +76,10 @@ internal class LockOverHost(private val activity: ComponentActivity) {
      */
     fun attach() {
         activity.addContentView(
-            ComposeView(activity).apply { setContent { if (over) LockOverScreen(this@LockOverHost) } },
+            ComposeView(activity).apply { setContent { if (over || manual.active) LockOverScreen(this@LockOverHost) } },
             ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
         )
+        manual.attach()
         activity.lifecycleScope.launch { ScreenKeepFront.armed.collect { apply(it) } }
         ContextCompat.registerReceiver(activity, unlocked, IntentFilter(Intent.ACTION_USER_PRESENT), ContextCompat.RECEIVER_NOT_EXPORTED)
         activity.lifecycle.addObserver(object : DefaultLifecycleObserver {
@@ -106,6 +112,9 @@ internal class LockOverHost(private val activity: ComponentActivity) {
         RideDiagnostics.log(ScreenKeepPolicy.TAG, ScreenKeepPolicy.PAUSED_LINE)
         ScreenKeepFront.pauseByRider()
     }
+
+    /** The main screen's "Bloquear a tela": the manual mode begins (only with the projection on). */
+    fun enterManual() = manual.enter()
 
     private fun locked() = activity.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true
 
@@ -160,16 +169,31 @@ internal fun LockOverScreen(host: LockOverHost) {
         host.dim(true)
     }
     DisposableEffect(Unit) { onDispose { host.dim(false) } }
+    val manual = host.manual.active
     REauTheme(dark = true) {
-        Surface(
-            Modifier.fillMaxSize().pointerInput(Unit) {
+        // Over the lock screen any touch unlocks; in the manual mode a loose touch does nothing and only a swipe up leaves.
+        val touch = if (manual) {
+            Modifier.pointerInput(true) {
+                var total = 0f
+                val threshold = ScreenKeepManual.SWIPE_UP_DP.dp.toPx()
+                detectVerticalDragGestures(
+                    onDragStart = { total = 0f },
+                    onDragEnd = { if (ScreenKeepManual.swipedUp(total, threshold)) host.manual.exit(ScreenKeepManual.Exit.SWIPE) },
+                    onDragCancel = { total = 0f },
+                ) { change, dy ->
+                    change.consume()
+                    total += dy
+                }
+            }
+        } else {
+            Modifier.pointerInput(false) {
                 awaitPointerEventScope {
                     awaitFirstDown()
                     host.unlock()
                 }
-            },
-            color = MaterialTheme.colorScheme.background,
-        ) {
+            }
+        }
+        Surface(Modifier.fillMaxSize().then(touch), color = MaterialTheme.colorScheme.background) {
             Column(
                 Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 48.dp),
                 verticalArrangement = Arrangement.SpaceBetween,
@@ -183,15 +207,17 @@ internal fun LockOverScreen(host: LockOverHost) {
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        stringResource(R.string.screen_keep_lock_swipe), style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
+                        stringResource(if (manual) R.string.screen_keep_lock_swipe_exit else R.string.screen_keep_lock_swipe),
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
                     )
-                    // A discreet button: its touch is its own (it consumes the press), so only a touch elsewhere unlocks.
-                    TextButton(onClick = host::pauseByRider) {
-                        Text(
-                            stringResource(R.string.screen_keep_lock_pause), style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                    // A discreet button: its touch is its own (it consumes the press), so only a touch elsewhere unlocks. Not in the manual mode.
+                    if (!manual) {
+                        TextButton(onClick = host::pauseByRider) {
+                            Text(
+                                stringResource(R.string.screen_keep_lock_pause), style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             }

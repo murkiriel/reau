@@ -995,4 +995,6 @@
     <string name="screen_keep_lock_projecting">Projecting to the dash</string>
     <string name="screen_keep_lock_swipe">Swipe up to unlock</string>
     <string name="screen_keep_lock_pause">Turn the screen off for this ride</string>
+    <string name="action_lock_screen">Lock the screen</string>
+    <string name="screen_keep_lock_swipe_exit">Swipe up to exit</string>
 </resources>

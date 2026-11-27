@@ -41,6 +41,7 @@ class ScreenKeepIsWiredTest {
         assertEquals("one acquire, with its timeout", 1, Regex("""\.acquire\(""").findAll(keeper).count())
         assertTrue("held.acquire(if (trigger == ScreenKeepPolicy.Trigger.SCREEN_OFF) SCREEN_OFF_LOCK_MS else TIMER_LOCK_MS)" in keeper)
         assertTrue("SCREEN_OFF_LOCK_MS = 10_000L" in keeper && "TIMER_LOCK_MS = 5_000L" in keeper)
+        // The function of the switch never asks for it; only the manual mode of the button does (ManualLock).
         for (file in listOf("service/ScreenKeeper.kt", "ui/LockOverHost.kt")) {
             val comment = Regex("""^\s*(\*|//|/\*)""")
             val code = source(file).lines().filterNot { comment.containsMatchIn(it) }.joinToString("\n")
@@ -142,5 +143,34 @@ class ScreenKeepIsWiredTest {
         assertTrue("RideDiagnostics.log(ScreenKeepPolicy.TAG, it)" in keeper)
         assertFalse("Thread(" in keeper || "Executors" in keeper)
         assertTrue("Handler(Looper.getMainLooper())" in keeper)
+    }
+
+    @Test
+    fun `the manual mode puts KEEP_SCREEN_ON and takes it off, hides and gives back the bars, and logs both ends`() {
+        val manual = source("ui/ManualLock.kt")
+        val enter = manual.substringAfter("fun enter()").substringBefore("/** Out, for")
+        assertTrue(enter, "activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)" in enter)
+        assertTrue(enter, "bars(hidden = true)" in enter && "ScreenKeepManual.available(" in enter)
+        assertTrue(enter, "RideDiagnostics.log(ScreenKeepPolicy.TAG, it)" in enter && "Intent.ACTION_SCREEN_OFF" in enter)
+        val exit = manual.substringAfter("fun exit(reason: ScreenKeepManual.Exit)").substringBefore("private fun bars(")
+        assertTrue(exit, "activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)" in exit && "bars(hidden = false)" in exit)
+        assertTrue(exit, "RideDiagnostics.log(ScreenKeepPolicy.TAG, it)" in exit && "back?.remove()" in exit && "activity.unregisterReceiver(it)" in exit)
+        assertTrue("the projection stopping ends it", "if (it.phase == Phase.STOPPED) exit(ScreenKeepManual.Exit.PROJECTION)" in manual)
+        assertTrue("Back and the power button end it", "exit(ScreenKeepManual.Exit.BACK)" in manual && "exit(ScreenKeepManual.Exit.SCREEN_OFF)" in manual)
+        val over = source("ui/LockOverHost.kt")
+        assertTrue("the same screen, not another one", "if (over || manual.active) LockOverScreen(this@LockOverHost)" in over)
+        assertTrue("the swipe leaves", "host.manual.exit(ScreenKeepManual.Exit.SWIPE)" in over && "ScreenKeepManual.swipedUp(total, threshold)" in over)
+        assertTrue("the text changes and the pause button is not there", "R.string.screen_keep_lock_swipe_exit" in over && "if (!manual) {" in over)
+        assertTrue("manual.attach()" in over && "fun enterManual() = manual.enter()" in over)
+    }
+
+    @Test
+    fun `the button is on the main screen only with the projection on, outlined, and reaches the manual mode`() {
+        val screen = source("ui/MainScreen.kt")
+        val button = screen.substringAfter("if (ScreenKeepManual.available(p.phase != Phase.STOPPED)) {").substringBefore("GroupLabel(null, stringResource(R.string.shortcuts_label))")
+        assertTrue(button, "GhostButton(" in button && "R.string.action_lock_screen" in button && "extras.onLockScreen" in button)
+        assertFalse("not the gold button", "PrimaryPowerButton" in button)
+        assertTrue("onLockScreen = { lockOver.enterManual() }" in source("MainActivity.kt"))
+        assertTrue("val onLockScreen: () -> Unit = {}" in source("ui/UiState.kt"))
     }
 }

@@ -45,6 +45,7 @@ import com.reau.app.ui.components.MsIcon
 import com.reau.app.ui.components.PrimaryPowerButton
 import com.reau.app.ui.components.REauTopBar
 import com.reau.app.ui.theme.REauMono
+import com.reau.app.service.ScreenKeepManual
 import com.reau.app.ui.theme.LocalREauNight
 import com.reau.app.ui.theme.REauTheme
 import kotlinx.coroutines.delay
@@ -117,6 +118,13 @@ fun MainScreen(
                     if (p.phase == Phase.STOPPED && !p.stopping) {
                         GhostButton(
                             R.drawable.ic_ms_image, stringResource(R.string.action_card), "card", extras.onCard,
+                            Modifier.align(Alignment.CenterHorizontally),
+                        )
+                    }
+                    // Outlined, not gold: Desligar is the screen's one main button. With the projection on, whatever the switch "Tela acesa com o celular bloqueado" says.
+                    if (ScreenKeepManual.available(p.phase != Phase.STOPPED)) {
+                        GhostButton(
+                            R.drawable.ic_ms_lock, stringResource(R.string.action_lock_screen), "lock_screen", extras.onLockScreen,
                             Modifier.align(Alignment.CenterHorizontally),
                         )
                     }

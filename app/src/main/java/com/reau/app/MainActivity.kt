@@ -413,6 +413,7 @@ class MainActivity : ComponentActivity() {
             }
         },
         onOpenWifiPanel = { com.reau.app.service.WifiPanel.open(this) },
+        onLockScreen = { lockOver.enterManual() },
     )
 
     /** What follows a change in the settings: the log, the Wi-Fi suggestion, a running refit. */

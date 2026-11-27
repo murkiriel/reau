@@ -984,4 +984,6 @@
     <string name="screen_keep_lock_projecting">Projetando no painel</string>
     <string name="screen_keep_lock_swipe">Deslize para cima para desbloquear</string>
     <string name="screen_keep_lock_pause">Apagar a tela nesta viagem</string>
+    <string name="action_lock_screen">Bloquear a tela</string>
+    <string name="screen_keep_lock_swipe_exit">Deslize para cima para sair</string>
 </resources>
