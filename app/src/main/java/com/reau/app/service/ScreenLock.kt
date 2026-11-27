@@ -28,8 +28,15 @@ internal object ScreenLock {
     /** The line when the mode ends: the reason and the seconds it lasted. */
     fun offLine(reason: Exit, afterSeconds: Long) = "manual off reason=${reason.logName} after=${afterSeconds}s"
 
-    /** The button is there, and works, with the projection on. */
+    /** The mode can begin, with the projection on (the button's own click checks it). */
     fun available(projectionOn: Boolean): Boolean = projectionOn
+
+    /**
+     * Whether the main screen shows the button: the switch "Modo de bloqueio do REau (teste)" is on, the projection runs and the dash's side of the bridge card says
+     * "Pronto" ([DashLink.READY], which the card shows only once the projection is past its preparation). At "Conectando", "Preparando", stopped or an error the dash
+     * is not receiving, and the button is not there. "Transmitindo" is the headline of the same moment (the dash ready and Android Auto's picture going to it), so it is covered.
+     */
+    fun buttonShown(switchOn: Boolean, phase: Phase, dash: DashLink): Boolean = switchOn && phase == Phase.RUNNING && dash == DashLink.READY
 
     /** How far the thumb is along the track, 0 to 1: [dragPx] pixels of a [travelPx] long way (no way, no progress). */
     fun progress(dragPx: Float, travelPx: Float): Float = if (travelPx <= 0f) 0f else (dragPx / travelPx).coerceIn(0f, 1f)
@@ -43,16 +50,16 @@ internal object ScreenLock {
         hypot(x - centerX, y - centerY) <= radiusPx + slopPx
 
     /**
-     * The brightness of the lock screen: down to the minimum [dimAfterMs] after the screen began and after the last touch ON THE THUMB. A touch anywhere else does not
-     * bring it back (the screen swallows those touches, they say nothing). Times are of one clock, in ms.
+     * The brightness of the lock screen: down to the minimum [dimAfterMs] after the screen began and after the last touch ON THE TRACK (the narrow strip the thumb runs on,
+     * anywhere along it). A touch outside the track does not bring it back (the screen swallows those touches, they say nothing). Times are of one clock, in ms.
      */
     class BrightnessRule(private val dimAfterMs: Long, startMs: Long) {
         private var brightSince = startMs
 
-        /** A touch at [nowMs]; true when it was on the thumb, so the brightness comes back now and the count to the minimum begins again. */
-        fun touch(nowMs: Long, onThumb: Boolean): Boolean {
-            if (onThumb) brightSince = nowMs
-            return onThumb
+        /** A touch at [nowMs]; true when it was on the track, so the brightness comes back now and the count to the minimum begins again. */
+        fun touch(nowMs: Long, onTrack: Boolean): Boolean {
+            if (onTrack) brightSince = nowMs
+            return onTrack
         }
 
         /** Whether the brightness is at the minimum at [nowMs]. */

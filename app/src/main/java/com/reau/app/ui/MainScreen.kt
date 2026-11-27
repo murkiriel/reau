@@ -113,7 +113,7 @@ fun MainScreen(
                         },
                         stopping = p.stopping,
                     )
-                    ModeButtons(p, extras)
+                    ModeButtons(p, state.lockModeOn, extras)
                     GroupLabel(null, stringResource(R.string.shortcuts_label))
                     Shortcuts(state, onOpenAndroidAutoSettings, onOpenSettings, extras, say)
                     Column(Modifier.fillMaxWidth().padding(top = 2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {

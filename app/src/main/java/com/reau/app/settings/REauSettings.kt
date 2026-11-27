@@ -265,13 +265,12 @@ data class REauSettings(
      */
     val announceMotorcycle: Boolean = true,
     /**
-     * "Tela acesa com o celular bloqueado (teste)", only in the 0.3.9x test builds and on by default there (the pilots' test: nothing is saved of the 0.3.94's off, see the key's
-     * name in the store): while the projection runs, REau turns the screen on again, for 10 s, when the display goes off, so that the phone's own task killer (realme, Xiaomi)
-     * never finds "screen off and app in the background" ([com.reau.app.service.ScreenKeeper]). Read at each screen-off, so a change counts at once.
+     * "Modo de bloqueio do REau (teste)", only in the 0.3.9x test builds and off by default: one switch for the whole function. On, it shows the main screen's button
+     * "Bloquear a tela", turns the screen on again, for 10 s, when the display goes off during the projection (so that the phone's own task killer, realme or Xiaomi, never
+     * finds "screen off and app in the background", [com.reau.app.service.ScreenKeeper]) and shows REau's own screen over the lock screen when it lights ([com.reau.app.ui.LockOverHost],
+     * only if REau was in front). Read at each screen-off and at each look at the main screen, so a change counts at once.
      */
-    val screenKeep: Boolean = true,
-    /** With [screenKeep] on: the screen that lights shows REau over the lock screen ([com.reau.app.ui.LockOverHost], the app's own activity), not the system's lock screen. Off by default. */
-    val screenKeepLockUi: Boolean = false,
+    val lockMode: Boolean = false,
     /**
      * Once a day, with the internet on, REau asks GitHub (the same single request as the "Check now" button, [com.reau.app.update.ReleaseCheck]) whether a newer version is
      * published, and posts one notification per version ([com.reau.app.update.UpdateNotice]). Nothing is downloaded or installed. On by default; off cancels the daily job.

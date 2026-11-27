@@ -15,7 +15,7 @@ import androidx.core.content.ContextCompat
 import com.reau.app.settings.REauSettings
 
 /**
- * "Tela acesa com o celular bloqueado (teste)": while the projection runs and the rider's switch is on, the screen is lit again when it goes off
+ * "Modo de bloqueio do REau (teste)": while the projection runs and the rider's switch is on, the screen is lit again when it goes off
  * (a bright screen wake lock that wakes it up, for 10 s), so the phone's own task killer (realme, Xiaomi) never finds REau in the background with the screen off.
  * The decisions are [ScreenKeepPolicy]'s; this holds the Android parts: the default display's listener (the screen going off or on is read from its state:
  * during a projection of Android Auto the phone stays "interactive" and no SCREEN_OFF broadcast comes), the broadcast as a second source, a safety tick of
@@ -38,7 +38,6 @@ internal class ScreenKeeper(
 
     private var receiver: BroadcastReceiver? = null
     private var lock: PowerManager.WakeLock? = null
-    private var lockUi = false
     private var offSinceMs = 0L
     private var lastWakeMs: Long? = null
     private var safety: Runnable? = null
@@ -49,11 +48,10 @@ internal class ScreenKeeper(
     private var retry = false
     private var frontCheck: Runnable? = null
 
-    /** Takes the switch as it is now (on the main thread): goes on, changes its lock screen choice, or goes off. Called when the projection runs and when a setting changes. */
+    /** Takes the switch as it is now (on the main thread): goes on or goes off. Called when the projection runs and when a setting changes. */
     fun sync() {
         main.post {
-            val s = settings()
-            if (s.screenKeep) turnOn(s) else turnOff()
+            if (settings().lockMode) turnOn() else turnOff()
         }
     }
 
@@ -62,16 +60,10 @@ internal class ScreenKeeper(
         main.post { turnOff() }
     }
 
-    private fun turnOn(s: REauSettings) {
-        val changed = s.screenKeepLockUi != lockUi
-        lockUi = s.screenKeepLockUi
+    private fun turnOn() {
         // The app's activity shows over the lock screen from now on, as the maker's own app does (it is the activity in front when the rider locks the phone).
-        ScreenKeepFront.arm(lockUi)
-        if (receiver != null) {
-            if (!changed) return
-            log(ScreenKeepPolicy.onLine(lockUi))
-            return
-        }
+        ScreenKeepFront.arm(true)
+        if (receiver != null) return
         val heard = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) = seen(intent.action == Intent.ACTION_SCREEN_OFF, ScreenKeepPolicy.Via.BROADCAST)
         }
@@ -79,7 +71,7 @@ internal class ScreenKeeper(
         val filter = IntentFilter().apply { addAction(Intent.ACTION_SCREEN_OFF); addAction(Intent.ACTION_SCREEN_ON) }
         runCatching { ContextCompat.registerReceiver(app, heard, filter, ContextCompat.RECEIVER_NOT_EXPORTED) }
             .onFailure { log("${com.reau.app.data.RideDiagnostics.WARN}listening to the screen failed: ${it.javaClass.simpleName}") }
-        log(ScreenKeepPolicy.onLine(lockUi))
+        log(ScreenKeepPolicy.ON_LINE)
         edge.reset(displayOff())
         watchTheDisplay()
         if (edge.off) offSinceMs = now()
@@ -146,10 +138,8 @@ internal class ScreenKeeper(
 
     private fun screenOff() {
         offSinceMs = now()
-        val s = settings()
-        if (!s.screenKeep) return turnOff()
-        lockUi = s.screenKeepLockUi
-        ScreenKeepFront.arm(lockUi)
+        if (!settings().lockMode) return turnOff()
+        ScreenKeepFront.arm(true)
         ask()
     }
 
@@ -178,7 +168,7 @@ internal class ScreenKeeper(
         val at = now()
         lastWakeMs = at
         log(ScreenKeepPolicy.wakeLine(ScreenKeepPolicy.secondsOff(offSinceMs, at)))
-        if (lockUi) checkFront()
+        checkFront()
     }
 
     /**

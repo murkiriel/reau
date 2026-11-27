@@ -263,8 +263,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             webTouch = prefs.getBoolean(KEY_WEB_TOUCH, defaults.webTouch),
             webAudio = WebAudioMode.entries.firstOrNull { it.name == prefs.getString(KEY_WEB_AUDIO, null) } ?: defaults.webAudio,
             announceMotorcycle = prefs.getBoolean(KEY_ANNOUNCE_MOTORCYCLE, defaults.announceMotorcycle),
-            screenKeep = prefs.getBoolean(KEY_SCREEN_KEEP, defaults.screenKeep),
-            screenKeepLockUi = prefs.getBoolean(KEY_SCREEN_KEEP_LOCK_UI, defaults.screenKeepLockUi),
+            lockMode = prefs.getBoolean(KEY_LOCK_MODE, defaults.lockMode),
             updateNotice = prefs.getBoolean(KEY_UPDATE_NOTICE, defaults.updateNotice),
         ).sanitized()
     }
@@ -373,8 +372,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             putBoolean(KEY_WEB_TOUCH, s.webTouch)
             putString(KEY_WEB_AUDIO, s.webAudio.name)
             putBoolean(KEY_ANNOUNCE_MOTORCYCLE, s.announceMotorcycle)
-            putBoolean(KEY_SCREEN_KEEP, s.screenKeep)
-            putBoolean(KEY_SCREEN_KEEP_LOCK_UI, s.screenKeepLockUi)
+            putBoolean(KEY_LOCK_MODE, s.lockMode)
             putBoolean(KEY_UPDATE_NOTICE, s.updateNotice)
         }
     }
@@ -490,10 +488,9 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val KEY_GEMINI = "gemini"
         /** "Anunciar como moto" (20/11/2026). The key of the debug build's experiment it came from, `experiment_motorcycle`, is ignored: everyone starts with it on. */
         private const val KEY_ANNOUNCE_MOTORCYCLE = "announce_motorcycle"
-        // A new name in 0.3.95: the switch came on by default, and the "off" the 0.3.94 saved with every other setting must not hold it off. The old `screen_keep` and
-        // `screen_keep_mode` (the interval modes, gone) stay in the file unread.
-        private const val KEY_SCREEN_KEEP = "screen_keep_on"
-        private const val KEY_SCREEN_KEEP_LOCK_UI = "screen_keep_lock_ui"
+        // A new name in 0.3.96: the three choices of the lit screen became one switch that is off by default, and what the 0.3.9x builds saved with every other setting
+        // (`screen_keep`, `screen_keep_on`, `screen_keep_lock_ui`, `screen_keep_mode`) must not hold it: they stay in the file unread.
+        private const val KEY_LOCK_MODE = "lock_mode_on"
         private const val KEY_UPDATE_NOTICE = "update_notice"
         private const val OLD_KEY_AA_SLOW_PACE = "aa_slow_pace"
         private const val OLD_KEY_AA_SLOW_PACE_FPS = "aa_slow_pace_fps"

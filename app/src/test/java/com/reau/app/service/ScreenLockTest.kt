@@ -11,7 +11,15 @@ import org.junit.Test
 /** The rules of the "Bloquear a tela" button: the drag of the thumb, the reasons to leave, the display's state and the lines of the ride log. Pure, no Android. */
 class ScreenLockTest {
     @Test
-    fun `the button is there with the projection on and not otherwise`() {
+    fun `the button is shown only with the switch on, the projection running and the dash ready`() {
+        assertTrue(ScreenLock.buttonShown(true, Phase.RUNNING, DashLink.READY))
+        assertFalse("the switch off, the dash ready", ScreenLock.buttonShown(false, Phase.RUNNING, DashLink.READY))
+        for (dash in DashLink.entries.filter { it != DashLink.READY }) assertFalse("the dash $dash", ScreenLock.buttonShown(true, Phase.RUNNING, dash))
+        for (phase in listOf(Phase.STOPPED, Phase.PREPARING)) assertFalse("the phase $phase", ScreenLock.buttonShown(true, phase, DashLink.READY))
+    }
+
+    @Test
+    fun `the mode can begin with the projection on and not otherwise`() {
         assertTrue(ScreenLock.available(projectionOn = true))
         assertFalse(ScreenLock.available(projectionOn = false))
     }
@@ -107,21 +115,21 @@ class ScreenLockTest {
     }
 
     @Test
-    fun `a touch on the thumb brings the brightness back and starts the five seconds again, a touch elsewhere does nothing`() {
+    fun `a touch anywhere on the track brings the brightness back and starts the five seconds again, a touch outside it does nothing`() {
         val rule = ScreenLock.BrightnessRule(dimAfterMs = 5_000L, startMs = 1_000L)
         assertFalse("bright at the start", rule.dimmed(1_000L))
         assertEquals(5_000L, rule.msUntilDim(1_000L))
         assertFalse(rule.dimmed(5_999L))
         assertTrue("dim five seconds after the start", rule.dimmed(6_000L))
         assertEquals(0L, rule.msUntilDim(9_000L))
-        assertFalse("a touch outside the thumb says nothing", rule.touch(7_000L, onThumb = false))
+        assertFalse("a touch outside the track says nothing", rule.touch(7_000L, onTrack = false))
         assertTrue("still dim", rule.dimmed(7_000L))
-        assertTrue("a touch on the thumb", rule.touch(8_000L, onThumb = true))
+        assertTrue("a touch on the track", rule.touch(8_000L, onTrack = true))
         assertFalse("bright at once, with no drag", rule.dimmed(8_000L))
         assertEquals(5_000L, rule.msUntilDim(8_000L))
         assertFalse(rule.dimmed(12_999L))
-        assertTrue("and down again five seconds after the last touch on the thumb", rule.dimmed(13_000L))
-        assertFalse("a touch elsewhere does not bring it back", rule.touch(14_000L, onThumb = false).also { assertTrue(rule.dimmed(14_000L)) })
+        assertTrue("and down again five seconds after the last touch on the track", rule.dimmed(13_000L))
+        assertFalse("a touch elsewhere does not bring it back", rule.touch(14_000L, onTrack = false).also { assertTrue(rule.dimmed(14_000L)) })
     }
 
     @Test

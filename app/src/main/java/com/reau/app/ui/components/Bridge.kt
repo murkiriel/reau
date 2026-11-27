@@ -51,6 +51,8 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -217,18 +219,22 @@ fun PrimaryPowerButton(on: Boolean, elapsed: () -> String?, onClick: () -> Unit,
 
 /**
  * The big gold button of the main screen, 72 dp, full width: Ouro with dark text (Hanken 600, 22 sp) and a 32 dp icon. It is Ligar's own, and "Bloquear a tela" (with the
- * projection on, when Desligar is outlined) is the same component, so the two are one button in the screen's eyes. [modifier] carries the width, the height and the tag.
+ * projection on, when Desligar is outlined) is the same component, a size smaller (56 dp, 18 sp, a 26 dp icon: [iconSize], [textSize], [lineHeight]). [modifier] carries the
+ * width, the height and the tag.
  */
 @Composable
-fun GoldBigButton(@DrawableRes icon: Int, label: String, onClick: () -> Unit, modifier: Modifier, enabled: Boolean = true) {
+fun GoldBigButton(
+    @DrawableRes icon: Int, label: String, onClick: () -> Unit, modifier: Modifier, enabled: Boolean = true,
+    iconSize: Dp = 32.dp, textSize: TextUnit = 22.sp, lineHeight: TextUnit = 26.sp,
+) {
     val colors = MaterialTheme.colorScheme
     Button(
         onClick, modifier, enabled = enabled, shape = MaterialTheme.shapes.large, contentPadding = PaddingValues(horizontal = 16.dp),
         colors = ButtonDefaults.buttonColors(containerColor = colors.primary, contentColor = colors.onPrimary),
     ) {
-        MsIcon(icon, 32.dp, LocalContentColor.current)
+        MsIcon(icon, iconSize, LocalContentColor.current)
         Spacer(Modifier.width(12.dp))
-        Text(label, style = MaterialTheme.typography.labelLarge.copy(fontSize = 22.sp, lineHeight = 26.sp))
+        Text(label, style = MaterialTheme.typography.labelLarge.copy(fontSize = textSize, lineHeight = lineHeight))
     }
 }
 

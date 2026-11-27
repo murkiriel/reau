@@ -971,11 +971,9 @@
     <string name="tip_video_fps_text">El tablero acepta más cuadros por segundo, pero el mismo procesador que muestra el video también dibuja la pantalla y atiende los botones. En las pruebas en la moto, a 8 fps el ícono de la reserva empezó a parpadear y a 12 fps el tablero empezó a ignorar los botones. A 6 fps todo funcionó sin fallas, por eso REau nunca pasa de ahí. Aun así, la app viene con el ritmo Original (4 fps en el A, 2 en el B), más liviano para el tablero; para una imagen más fluida, elige REau (6 fps en el A, 3 en el B) en el ajuste \"Ritmo del video\".</string>
     <!-- "Tela acesa com o celular bloqueado" (0.3.90 test build): ScreenKeeper, ui/LockOverHost, ui/SettingsScreenKeep. -->
     <string name="group_screen_keep">Teléfono bloqueado</string>
-    <string name="screen_keep_title">Pantalla encendida con el teléfono bloqueado (prueba)</string>
-    <string name="screen_keep_sub">En el viaje, REau enciende la pantalla cuando se apaga, para que el teléfono no lo cierre. Gasta más batería</string>
-    <string name="screen_keep_info">REau no apaga la pantalla: la apaga Android (o tú). Después de que se apaga, REau la vuelve a encender al instante, por unos segundos, con el brillo normal. Es una prueba: gasta más batería y solo vale con la proyección encendida.</string>
-    <string name="screen_keep_lock_ui_title">Mostrar REau sobre el bloqueo</string>
-    <string name="screen_keep_lock_ui_sub">La pantalla que se enciende muestra REau, y no la pantalla de bloqueo del sistema. Solo si REau está al frente cuando bloqueas</string>
+    <string name="lock_mode_title">Modo de bloqueo de REau (prueba)</string>
+    <string name="lock_mode_sub">Muestra el botón Bloquear la pantalla, enciende la pantalla cuando se apaga y muestra REau sobre el bloqueo. Gasta más batería</string>
+    <string name="lock_mode_info">Encendido, el botón “Bloquear la pantalla” aparece en la pantalla principal (con el tablero listo), la pantalla se vuelve a encender, por unos segundos, cuando Android la apaga durante la proyección, y REau aparece sobre el bloqueo si estaba al frente. REau no apaga la pantalla: la apaga Android (o tú). Es una prueba: viene apagado, gasta más batería y solo vale con la proyección encendida.</string>
     <string name="screen_keep_lock_projecting">Proyectando en el tablero</string>
     <string name="screen_keep_lock_swipe">Desliza hacia arriba para desbloquear</string>
     <string name="screen_keep_lock_pause">Apagar la pantalla en este viaje</string>

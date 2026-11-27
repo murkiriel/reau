@@ -9,27 +9,17 @@ import com.reau.app.ui.components.SettingsGroup
 import com.reau.app.ui.components.SwitchRow
 
 /**
- * "Tela acesa com o celular bloqueado (teste)": the switch (on by default in the 0.3.9x test builds; the word "teste" turns its row red, [ExperimentalMark]) and,
- * only with it on, whether the screen that lights is REau's own over the lock screen (off by default). Both are read at each screen-off, so they count at once.
+ * "Modo de bloqueio do REau (teste)": ONE switch for the whole function, off by default (the word "teste" turns its row red, [ExperimentalMark]). On, it shows the button
+ * "Bloquear a tela" on the main screen, lights the screen again when it goes off, and shows REau over the lock screen when it lights. Read at each use, so it counts at once.
  */
 @Composable
 internal fun ScreenKeepGroup(s: REauSettings, change: (REauSettings) -> Unit) {
-    val rows = buildList<@Composable () -> Unit> {
-        add {
-            SwitchRow(
-                stringResource(R.string.screen_keep_title), s.screenKeep, { change(s.copy(screenKeep = it)) }, "screen_keep", now = true,
-                sub = stringResource(R.string.screen_keep_sub),
-                info = Info(stringResource(R.string.screen_keep_title), stringResource(R.string.screen_keep_info)),
-            )
-        }
-        if (s.screenKeep) {
-            add {
-                SwitchRow(
-                    stringResource(R.string.screen_keep_lock_ui_title), s.screenKeepLockUi, { change(s.copy(screenKeepLockUi = it)) }, "screen_keep_lock_ui",
-                    now = true, sub = stringResource(R.string.screen_keep_lock_ui_sub),
-                )
-            }
-        }
-    }
+    val rows = listOf<@Composable () -> Unit>({
+        SwitchRow(
+            stringResource(R.string.lock_mode_title), s.lockMode, { change(s.copy(lockMode = it)) }, "lock_mode", now = true,
+            sub = stringResource(R.string.lock_mode_sub),
+            info = Info(stringResource(R.string.lock_mode_title), stringResource(R.string.lock_mode_info)),
+        )
+    })
     SettingsGroup(R.drawable.ic_ms_smartphone, stringResource(R.string.group_screen_keep), rows, tag = "group_screen_keep")
 }

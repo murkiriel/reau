@@ -39,8 +39,7 @@ class ScreenKeepPolicyTest {
 
     @Test
     fun `the lines of the log are short`() {
-        assertEquals("on mode=off lockui=off", ScreenKeepPolicy.onLine(false))
-        assertEquals("on mode=off lockui=on", ScreenKeepPolicy.onLine(true))
+        assertEquals("on mode=off lockui=on", ScreenKeepPolicy.ON_LINE)
         assertEquals("wake reason=screenoff after=0s", ScreenKeepPolicy.wakeLine(0))
         assertEquals("wake reason=screenoff after=61s", ScreenKeepPolicy.wakeLine(61))
         assertEquals("off", ScreenKeepPolicy.OFF_LINE)

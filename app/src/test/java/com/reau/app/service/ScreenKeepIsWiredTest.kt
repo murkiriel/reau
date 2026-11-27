@@ -27,10 +27,10 @@ class ScreenKeepIsWiredTest {
     }
 
     @Test
-    fun `a change of the two settings reaches a running projection`() {
+    fun `a change of the one switch reaches a running projection`() {
         val main = source("MainActivity.kt")
         val refit = main.substringAfter("val refit = LiveTuning.steps(before, after).isNotEmpty()").substringBefore("if (after.useLocation")
-        for (field in listOf("screenKeep", "screenKeepLockUi")) assertTrue(field, "after.$field != before.$field" in refit)
+        assertTrue(refit, "after.lockMode != before.lockMode" in refit)
     }
 
     @Test
@@ -73,14 +73,15 @@ class ScreenKeepIsWiredTest {
     fun `the service never starts an activity, it only arms the app's own, and says in the log when that one was not in front`() {
         val keeper = source("service/ScreenKeeper.kt")
         assertFalse("startActivity" in keeper || "PendingIntent" in keeper || "fullScreenIntent" in keeper || "SYSTEM_ALERT_WINDOW" in keeper)
-        assertTrue("ScreenKeepFront.arm(lockUi)" in keeper.substringAfter("private fun turnOn("))
-        assertTrue("ScreenKeepFront.arm(lockUi)" in keeper.substringAfter("private fun screenOff()"))
+        assertTrue("ScreenKeepFront.arm(true)" in keeper.substringAfter("private fun turnOn("))
+        assertTrue("ScreenKeepFront.arm(true)" in keeper.substringAfter("private fun screenOff()"))
+        assertTrue("the one switch decides", "if (settings().lockMode) turnOn() else turnOff()" in keeper && "if (!settings().lockMode) return turnOff()" in keeper)
         assertTrue("ScreenKeepFront.arm(false)" in keeper.substringAfter("private fun turnOff()").substringBefore("val heard"))
         val check = keeper.substringAfter("private fun checkFront()").substringBefore("private fun power()")
         assertTrue(check, "ScreenKeepPolicy.frontLine(ScreenKeepFront.resumed, locked)?.let(log)" in check)
         assertTrue(check, "main.postDelayed(check, FRONT_CHECK_MS)" in check && "isKeyguardLocked" in check)
         assertTrue("FRONT_CHECK_MS = 1_500L" in keeper)
-        assertTrue("it is asked after the wake lock is taken, and only with the choice on", "if (lockUi) checkFront()" in keeper.substringAfter("held.acquire("))
+        assertTrue("it is asked after the wake lock is taken", "        checkFront()" in keeper.substringAfter("held.acquire("))
     }
 
     @Test

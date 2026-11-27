@@ -382,6 +382,7 @@ class MainActivity : ComponentActivity() {
             alertRoute = alertRoute,
             otherEditionInstalled = otherEditionInstalled,
             weatherOn = settings.dashWeather,
+            lockModeOn = settings.lockMode,
         )
 
     /** Reads whether the alert channel would be heard; the ride log says it when it changes (and the main screen's card follows [alertLevel]). */
@@ -437,8 +438,8 @@ class MainActivity : ComponentActivity() {
         // A running projection takes a new fit at once, to adjust it looking at the dash; so does every video
         // setting (LiveTuning).
         val refit = LiveTuning.steps(before, after).isNotEmpty() ||
-            // "Tela acesa com o celular bloqueado": a running projection takes the switch and the lock screen choice at once.
-            after.screenKeep != before.screenKeep || after.screenKeepLockUi != before.screenKeepLockUi
+            // "Modo de bloqueio do REau": a running projection takes the switch at once.
+            after.lockMode != before.lockMode
         if (after.useLocation != before.useLocation) {
             // The place is learned here, on the screen (the service cannot read it); the refit goes after, so the dash's day or night uses it.
             learnSunPlace(this, then = { if (refit) ProjectionService.refit(this) })

@@ -66,8 +66,8 @@ internal object ScreenKeepPolicy {
     /** The ride log's lines, under the tag [TAG] (so the file reads `[screen-keep] on mode=off lockui=off`). */
     const val TAG = "screen-keep"
 
-    /** The line for the function going on (`mode=off` is the one mode left, "sempre que a tela apagar", kept for the readers of the log). */
-    fun onLine(lockUi: Boolean) = "on mode=off lockui=${if (lockUi) "on" else "off"}"
+    /** The line for the function going on (`mode=off` is the one mode of the light, "sempre que a tela apagar", and `lockui=on` the screen over the lock: kept as the readers of the log know them). */
+    const val ON_LINE = "on mode=off lockui=on"
 
     /** The line for a light of the screen. */
     fun wakeLine(afterSeconds: Long) = "wake reason=screenoff after=${afterSeconds}s"

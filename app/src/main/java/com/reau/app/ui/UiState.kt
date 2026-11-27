@@ -33,6 +33,8 @@ data class MainUiState(
     val reauVersion: String = com.reau.app.BuildConfig.VERSION_NAME,
     /** The switch "Clima no painel", which the weather section of the main screen shows. */
     val weatherOn: Boolean = false,
+    /** The switch "Modo de bloqueio do REau (teste)": it shows the button "Bloquear a tela" (with the dash ready). */
+    val lockModeOn: Boolean = false,
 ) {
     /** Whether Android Auto is installed; when not, its buttons lead to the store instead of to its settings. */
     val androidAutoInstalled: Boolean get() = androidAutoVersion != null

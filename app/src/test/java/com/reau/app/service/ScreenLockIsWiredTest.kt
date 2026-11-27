@@ -93,16 +93,17 @@ class ScreenLockIsWiredTest {
     @Test
     fun `the button is under the bridge card only with the projection on, gold like Ligar and with the same component, and the wallpaper stays for the stopped projection`() {
         val buttons = source("ui/MainModeButtons.kt").substringAfter("internal fun ColumnScope.ModeButtons(")
-        assertTrue(buttons, "if (ScreenLock.available(p.phase != Phase.STOPPED)) {" in buttons)
+        assertTrue(buttons, "if (ScreenLock.buttonShown(lockModeOn, p.phase, p.dash)) {" in buttons)
         assertTrue(buttons, "GoldBigButton(\n            R.drawable.ic_ms_lock, stringResource(R.string.action_lock_screen), extras.onLockScreen," in buttons)
-        assertTrue(buttons, "Modifier.fillMaxWidth().height(72.dp).testTag(\"lock_screen\")" in buttons)
-        assertTrue("the wallpaper only while stopped", "if (p.phase == Phase.STOPPED && !p.stopping) {" in buttons.substringBefore("ScreenLock.available") && "extras.onCard" in buttons)
+        assertTrue(buttons, "Modifier.fillMaxWidth().height(56.dp).testTag(\"lock_screen\")" in buttons)
+        assertTrue("a size smaller than Ligar's: 56 dp, 18 sp, a 26 dp icon", "iconSize = 26.dp, textSize = 18.sp" in buttons)
+        assertTrue("the wallpaper only while stopped", "if (p.phase == Phase.STOPPED && !p.stopping) {" in buttons.substringBefore("ScreenLock.buttonShown") && "extras.onCard" in buttons)
         assertFalse("not a second gold one: the outlined stop is Desligar", "PrimaryPowerButton" in buttons)
         val bridge = source("ui/components/Bridge.kt")
         val gold = bridge.substringAfter("fun GoldBigButton(")
-        assertTrue(gold, "fontSize = 22.sp" in gold && "MsIcon(icon, 32.dp, LocalContentColor.current)" in gold && "containerColor = colors.primary, contentColor = colors.onPrimary" in gold)
+        assertTrue(gold, "textSize: TextUnit = 22.sp" in gold && "iconSize: Dp = 32.dp" in gold && "MsIcon(icon, iconSize, LocalContentColor.current)" in gold && "containerColor = colors.primary, contentColor = colors.onPrimary" in gold)
         assertTrue("Ligar is made of the same component", "GoldBigButton(R.drawable.ic_ms_power_settings_new," in bridge.substringAfter("fun PrimaryPowerButton("))
-        assertTrue("under the bridge card", "ModeButtons(p, extras)" in source("ui/MainScreen.kt"))
+        assertTrue("under the bridge card", "ModeButtons(p, state.lockModeOn, extras)" in source("ui/MainScreen.kt"))
         assertTrue("val onLockScreen: () -> Unit = {}" in source("ui/UiState.kt"))
     }
 
@@ -126,7 +127,7 @@ class ScreenLockIsWiredTest {
         assertTrue("the projection and when it began", "ProjectionService.projection.collectAsStateWithLifecycle()" in screen && "ProjectionService.startedAt.collectAsStateWithLifecycle()" in screen)
         assertTrue("the battery of the last device look", "PhoneNow.batteryPctNow()" in screen && "PhoneNow.batteryTempNow()" in screen)
         assertTrue("the device look feeds the percent", "batteryPct = it.batteryPct" in source("service/DeviceStateReader.kt"))
-        assertTrue("the thumb's touch alone", "if (rule.touch(SystemClock.elapsedRealtime(), onThumb)) touches++" in screen && "onTouch(onThumb)" in screen)
+        assertTrue("the thumb's touch alone", "if (rule.touch(SystemClock.elapsedRealtime(), onTrack = true)) touches++" in screen && "onTouch()" in screen)
         val effect = screen.substringAfter("LaunchedEffect(touches) {").substringBefore("DisposableEffect")
         assertTrue(effect, "mode.dim(false)" in effect && "delay(rule.msUntilDim(SystemClock.elapsedRealtime()))" in effect && "mode.dim(true)" in effect)
         assertEquals("the swallowing of the rest of the screen touches nothing", 1, Regex("""touches\+\+""").findAll(screen).count())

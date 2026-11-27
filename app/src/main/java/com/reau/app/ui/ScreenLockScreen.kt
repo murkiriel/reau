@@ -88,8 +88,8 @@ private val LockOutline = OuroSuave.copy(alpha = 0.15f)
  * The screen of the "Bloquear a tela" mode (0.3.95, in the style of the 0.4.0 prototype's lock screen): a small "REau", the time and the date, the seal "Projetando no
  * painel", a card of three lines (Painel, Projeção, Bateria) with an outline and no fill, the warning "Pare a moto antes de desbloquear" and, at the bottom, the track with the
  * round thumb. Absolute black ground ([LockBlack]), dim texts, no animation but the thumb's own. Every touch is swallowed; only the thumb, dragged past [ScreenLock.UNLOCK_AT] of
- * the track and let go, leaves the mode. The window's brightness goes to the minimum after [ScreenLockMode.DIM_AFTER_MS] ([ScreenLock.BrightnessRule]): a touch on the thumb
- * (and only there) brings it back at once, and it goes down again 5 s after the last touch on the thumb. It comes back to normal when this leaves the screen.
+ * the track and let go, leaves the mode. The window's brightness goes to the minimum after [ScreenLockMode.DIM_AFTER_MS] ([ScreenLock.BrightnessRule]): a touch on the track
+ * (anywhere along the strip the thumb runs on, and only there) brings it back at once, and it goes down again 5 s after the last touch on the track. It comes back to normal when this leaves the screen.
  */
 @Composable
 internal fun ScreenLockScreen(mode: ScreenLockMode) {
@@ -123,8 +123,8 @@ internal fun ScreenLockScreen(mode: ScreenLockMode) {
                 val bottom = maxOf(TRACK_BOTTOM_MIN, WindowInsets.systemGestures.asPaddingValues().calculateBottomPadding() + 24.dp)
                 SlideTrack(
                     Modifier.padding(start = TRACK_MARGIN, end = TRACK_MARGIN, bottom = bottom),
-                    onTouch = { onThumb ->
-                        if (rule.touch(SystemClock.elapsedRealtime(), onThumb)) touches++
+                    onTouch = {
+                        if (rule.touch(SystemClock.elapsedRealtime(), onTrack = true)) touches++
                     },
                 ) { mode.exit(ScreenLock.Exit.SWIPE) }
             }
@@ -225,7 +225,7 @@ private fun Modifier.swallowTouches(): Modifier = pointerInput(Unit) {
  * [ScreenLock.UNLOCK_AT] of the way and it goes back to the start, past it [onUnlock] is called. A touch that does not start on the thumb drags nothing.
  */
 @Composable
-private fun SlideTrack(modifier: Modifier, onTouch: (onThumb: Boolean) -> Unit, onUnlock: () -> Unit) {
+private fun SlideTrack(modifier: Modifier, onTouch: () -> Unit, onUnlock: () -> Unit) {
     val density = LocalDensity.current
     val thumbPx = with(density) { THUMB.toPx() }
     val padPx = with(density) { PAD.toPx() }
@@ -240,7 +240,8 @@ private fun SlideTrack(modifier: Modifier, onTouch: (onThumb: Boolean) -> Unit, 
                     val down = awaitFirstDown(requireUnconsumed = false)
                     down.consume()
                     val onThumb = ScreenLock.hitsThumb(down.position.x, down.position.y, padPx + thumbPx / 2, size.height / 2f, thumbPx / 2, padPx)
-                    onTouch(onThumb)
+                    // Any touch that lands on the track, along its whole strip, brings the brightness back.
+                    onTouch()
                     var dx = 0f
                     do {
                         val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
