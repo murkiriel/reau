@@ -1,0 +1,108 @@
+package com.reau.app.service
+
+import com.reau.app.service.ScreenLock.Exit
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/** The rules of the "Bloquear a tela" button: the drag of the thumb, the reasons to leave, the display's state and the lines of the ride log. Pure, no Android. */
+class ScreenLockTest {
+    @Test
+    fun `the button is there with the projection on and not otherwise`() {
+        assertTrue(ScreenLock.available(projectionOn = true))
+        assertFalse(ScreenLock.available(projectionOn = false))
+    }
+
+    @Test
+    fun `the progress is the share of the way, held between the start and the end`() {
+        assertEquals(0f, ScreenLock.progress(0f, 400f), 1e-6f)
+        assertEquals(0.25f, ScreenLock.progress(100f, 400f), 1e-6f)
+        assertEquals(1f, ScreenLock.progress(400f, 400f), 1e-6f)
+        assertEquals("past the end", 1f, ScreenLock.progress(900f, 400f), 1e-6f)
+        assertEquals("dragged to the left of the start", 0f, ScreenLock.progress(-50f, 400f), 1e-6f)
+        assertEquals("a track with no way", 0f, ScreenLock.progress(100f, 0f), 1e-6f)
+    }
+
+    @Test
+    fun `letting go before 90 percent sends the thumb back, at 90 percent or more leaves`() {
+        assertFalse(ScreenLock.unlocked(ScreenLock.progress(0f, 400f)))
+        assertFalse(ScreenLock.unlocked(ScreenLock.progress(200f, 400f)))
+        assertFalse("just short", ScreenLock.unlocked(ScreenLock.progress(359f, 400f)))
+        assertTrue("at 90 percent", ScreenLock.unlocked(ScreenLock.progress(360f, 400f)))
+        assertTrue(ScreenLock.unlocked(ScreenLock.progress(400f, 400f)))
+        assertEquals(0.9f, ScreenLock.UNLOCK_AT, 0f)
+    }
+
+    @Test
+    fun `only a touch on the thumb drags it, one beside it or elsewhere drags nothing`() {
+        // The thumb: a circle of 28 px around (32, 32).
+        assertTrue("its centre", ScreenLock.hitsThumb(32f, 32f, 32f, 32f, 28f))
+        assertTrue("its edge", ScreenLock.hitsThumb(60f, 32f, 32f, 32f, 28f))
+        assertFalse("just outside", ScreenLock.hitsThumb(61f, 32f, 32f, 32f, 28f))
+        assertTrue("a little slop", ScreenLock.hitsThumb(66f, 32f, 32f, 32f, 28f, slopPx = 8f))
+        assertFalse("the middle of the track", ScreenLock.hitsThumb(500f, 32f, 32f, 32f, 28f, slopPx = 8f))
+        assertFalse("the corner of the circle's square", ScreenLock.hitsThumb(58f, 58f, 32f, 32f, 28f))
+    }
+
+    @Test
+    fun `going in says manual on once and going out says why and how long, once`() {
+        val state = ScreenLock.State()
+        assertFalse(state.active)
+        assertNull("nothing to leave", state.exit(Exit.SWIPE, 5_000L))
+        assertEquals("manual on", state.enter(10_000L))
+        assertNull("already in", state.enter(11_000L))
+        assertEquals("manual off reason=swipe after=62s", state.exit(Exit.SWIPE, 72_900L))
+        assertNull("already out", state.exit(Exit.LEFT, 80_000L))
+    }
+
+    @Test
+    fun `every reason has its word and the mode can go in again after each`() {
+        assertEquals(listOf("swipe", "left", "screenoff", "projection"), Exit.entries.map { it.logName })
+        val state = ScreenLock.State()
+        for (reason in Exit.entries) {
+            assertEquals("manual on", state.enter(0L))
+            assertEquals("manual off reason=${reason.logName} after=3s", state.exit(reason, 3_000L))
+        }
+        assertEquals("a clock that went back is zero", "manual off reason=left after=0s", ScreenLock.State().also { it.enter(9_000L) }.exit(Exit.LEFT, 1_000L))
+    }
+
+    @Test
+    fun `back is said once for each mode, and not outside one`() {
+        val state = ScreenLock.State()
+        assertNull("not in the mode", state.backIgnored())
+        state.enter(0L)
+        assertEquals("back ignored", state.backIgnored())
+        assertNull("only once", state.backIgnored())
+        state.exit(Exit.SWIPE, 1_000L)
+        state.enter(2_000L)
+        assertEquals("a new mode says it again", "back ignored", state.backIgnored())
+    }
+
+    @Test
+    fun `the display watch says a change of state once, and a state that is not on is the screen gone off`() {
+        val watch = ScreenLock.DisplayWatch()
+        assertNull("still on", watch.offer(2))
+        val off = watch.offer(1)
+        assertNotNull(off)
+        assertEquals("display state=OFF", off!!.line)
+        assertTrue(off.off)
+        assertNull("the same state again", watch.offer(1))
+        assertEquals("display state=DOZE", watch.offer(3)!!.line)
+        assertTrue(watch.offer(4)!!.off)
+        val on = watch.offer(2)!!
+        assertEquals("display state=ON", on.line)
+        assertFalse(on.off)
+        assertEquals("state99", ScreenLock.displayName(99))
+        assertEquals(listOf("UNKNOWN", "OFF", "ON", "DOZE", "DOZE_SUSPEND", "VR", "ON_SUSPEND"), (0..6).map(ScreenLock::displayName))
+    }
+
+    @Test
+    fun `the lines sit under the lock tag`() {
+        assertEquals("lock", ScreenLock.TAG)
+        assertEquals("manual off reason=projection after=0s", ScreenLock.offLine(Exit.PROJECTION, 0))
+        assertEquals(2, ScreenLock.DISPLAY_ON)
+    }
+}

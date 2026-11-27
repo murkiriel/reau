@@ -80,7 +80,7 @@ data class MainExtras(
     val onOpenServer: () -> Unit = {},
     /** The tips page, from the lightbulb in the main screen's bar. */
     val onOpenTips: () -> Unit = {},
-    /** "Bloquear a tela" (0.3.92 test build): REau's own dark screen in front, the screen kept lit at the minimum; only shown with the projection on. */
+    /** "Bloquear a tela" (0.3.93 test build): REau's own dark screen in front, the screen kept lit by the window at the minimum; only shown with the projection on. */
     val onLockScreen: () -> Unit = {},
 )
 

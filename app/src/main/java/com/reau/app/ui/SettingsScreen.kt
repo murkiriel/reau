@@ -87,7 +87,6 @@ fun SettingsScreen(
                     VideoProfilesGroup(settings, change)
                     CardGroup(settings, change, actions.onPickCardImage)
                     AndroidAutoGroup(settings, change)
-                    ScreenKeepGroup(settings, change)
                     DebugGroup(settings, change, actions, say)
                     UpdateGroup(settings, change)
                 }

@@ -217,8 +217,8 @@ class MainActivity : ComponentActivity() {
 
     private var resumedAtMs = 0L
 
-    // "Mostrar o REau sobre o bloqueio" (0.3.90 test build): this activity is shown over the lock screen, as the maker's own app does (LockOverHost).
-    private val lockOver = com.reau.app.ui.LockOverHost(this)
+    // "Bloquear a tela" (0.3.93 test build): REau's own dark screen in front, the screen kept lit by the window itself (ScreenLockMode).
+    private val lockMode = com.reau.app.ui.ScreenLockMode(this)
 
     @Suppress("LongMethod") // one straight run of setup/serialization; cutting it adds indirection and no clarity
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -413,7 +413,7 @@ class MainActivity : ComponentActivity() {
             }
         },
         onOpenWifiPanel = { com.reau.app.service.WifiPanel.open(this) },
-        onLockScreen = { lockOver.enterManual() },
+        onLockScreen = { lockMode.enter() },
     )
 
     /** What follows a change in the settings: the log, the Wi-Fi suggestion, a running refit. */
@@ -433,9 +433,7 @@ class MainActivity : ComponentActivity() {
         if (after.logKeepDays != before.logKeepDays) thread(name = "log-age") { RideDiagnostics.applyKeepDays(after.logKeepDays) }
         // A running projection takes a new fit at once, to adjust it looking at the dash; so does every video
         // setting (LiveTuning).
-        val refit = LiveTuning.steps(before, after).isNotEmpty() ||
-            // "Tela acesa com o celular bloqueado": a running projection takes the switch, its mode and the lock screen choice at once.
-            after.screenKeep != before.screenKeep || after.screenKeepMode != before.screenKeepMode || after.screenKeepLockUi != before.screenKeepLockUi
+        val refit = LiveTuning.steps(before, after).isNotEmpty()
         if (after.useLocation != before.useLocation) {
             // The place is learned here, on the screen (the service cannot read it); the refit goes after, so the dash's day or night uses it.
             learnSunPlace(this, then = { if (refit) ProjectionService.refit(this) })
@@ -502,16 +500,21 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // After onCreate's setContent: the layer over the lock screen is added on top of the screens (LockOverHost).
+    // After onCreate's setContent: the layer of the lock screen is added on top of the screens (ScreenLockMode).
     override fun onPostCreate(savedInstanceState: Bundle?) {
         super.onPostCreate(savedInstanceState)
-        lockOver.attach()
+        lockMode.attach()
     }
 
     override fun onPause() {
         onScreen = false
-        lockOver.paused()
         super.onPause()
+    }
+
+    // The app leaving the front (Home, another app, the screen going off) ends the lock mode.
+    override fun onStop() {
+        lockMode.stopped()
+        super.onStop()
     }
 
     override fun onResume() = com.reau.app.util.StartupTiming.timed("MainActivity.onResume") {
@@ -521,7 +524,6 @@ class MainActivity : ComponentActivity() {
 
     private fun resume() {
         onScreen = true
-        lockOver.resumed()
         resumedAtMs = com.reau.app.util.MonotonicClock.nowMs()
         if (leftForAaSettingsAtMs != 0L) {
             val away = (android.os.SystemClock.elapsedRealtime() - leftForAaSettingsAtMs) / 1_000
