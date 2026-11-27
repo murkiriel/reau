@@ -205,7 +205,7 @@ class DefaultsDocsTest {
 
     /** Audit of 20/10/2026 (second pass): two FAQ statements that the code contradicts. */
     @Test
-    fun `the FAQ does not give the official app the video profiles that are REau's own, and does not tag weather and joystick LIVE`() {
+    fun `the FAQ does not give another app the video profiles that are REau's own, and does not tag weather and joystick LIVE`() {
         val faqPt = text("../docs/pt/faq.html")
         val faqEn = text("../docs/en/faq.html")
         assertTrue("O app oficial da Royal Enfield também tem só" !in faqPt)

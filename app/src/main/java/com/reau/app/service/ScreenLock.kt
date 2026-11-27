@@ -6,7 +6,7 @@ import kotlin.math.roundToInt
 /**
  * The rules of the "Bloquear a tela" button (the 0.3.93 test build), with no Android in it. The button opens REau's own dark screen in front, with the window keeping the
  * screen on at the minimum brightness, so the phone maker's task killer finds nothing to kill and Android never locks. It is not the system's lock: no PIN is asked or
- * switched off, no device administrator, no accessibility. The rider leaves it by dragging the round thumb to the right (the official app's way); the app leaving the
+ * switched off, no device administrator, no accessibility. The rider leaves it by dragging the round thumb to the right; the app leaving the
  * front, the screen going off (the display's state, since during a projection the SCREEN_OFF broadcast does not come) and the projection stopping end it too.
  * [com.reau.app.ui.ScreenLockMode] does the Android parts. The ride log lines are under the tag [TAG] (`[lock]`).
  */
