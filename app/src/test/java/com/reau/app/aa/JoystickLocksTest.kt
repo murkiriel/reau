@@ -13,7 +13,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The joystick page: in the dash's map mode, up is the dash's own back and the centre puts it in the media mode, so the two are locked: no
+ * The joystick page: in the dash's map mode, up is the dash's own "Exit navigation?" (it sends 0x12 on the rider's yes) and the centre puts it in the media mode, so the two are locked: no
  * action, whatever was saved for them before. Down is REau's info ring by default and can be given another action ([JoystickInfoRingTest]).
  */
 class JoystickLocksTest {
@@ -48,41 +48,49 @@ class JoystickLocksTest {
         assertEquals("", JoystickBindings.DEFAULT.with(centre, Action.ASSISTANT).encode())
     }
 
-    // ── the rider is never left without "back" ─────────────────────────────────────────────────────────────
+    // ── the dash's own back (0x12): the rider's yes to "Exit navigation?", on every page ──────────────────
 
     private val dashBack = DashButtonEvent.JoystickBack(0x12)
-    private val androidAutoBack = listOf<AaCommand>(AaCommand.Key(ServiceDiscoveryResponse.KEY_BACK))
+    private val exitLine = listOf("exit navigation confirmed on the dash -> nothing to Android Auto")
 
-    /** The first back press of a fresh map on [page], with the phone in [call]: what it sends. */
+    /** The first back press of a fresh map on [page], with the phone in [call]. */
     private fun firstBack(page: JoystickBindings, call: CallState = CallState.IDLE) =
-        JoystickMap(page, assistant = true, callState = { call }).press(dashBack, 0).sent
+        JoystickMap(page, assistant = true, callState = { call }).press(dashBack, 0)
+
+    private fun assertExitOnly(why: String, press: JoystickMap.Press) {
+        assertEquals(why, emptyList<AaCommand>(), press.sent)
+        assertEquals(why, exitLine, press.lines)
+        assertEquals(why, null, press.echo)
+    }
 
     @Test
-    fun `whatever one control is given, the dash's back is still back`() {
+    fun `whatever one control is given, the dash's back sends nothing to Android Auto`() {
         for (slot in JoystickBindings.SLOTS) for (action in Action.entries) {
             val page = JoystickBindings.DEFAULT.with(slot, action)
-            for (call in CallState.entries) assertEquals("${slot.key}=$action, $call", androidAutoBack, firstBack(page, call))
+            for (call in CallState.entries) {
+                // With the call card off, a ringing phone or a call keeps the dash's back the same: it is no key.
+                assertExitOnly("${slot.key}=$action, $call", firstBack(page, call))
+            }
         }
     }
 
     @Test
-    fun `whatever every control is given at once, the dash's back is still back`() {
-        // The same action on every slot it can be on, and then nothing anywhere: no page leaves the rider without back.
+    fun `whatever every control is given at once, the dash's back sends nothing to Android Auto`() {
         for (action in Action.entries) {
             val everywhere = JoystickBindings.SLOTS.fold(JoystickBindings.DEFAULT) { page, slot -> page.with(slot, action) }
-            assertEquals("everywhere $action", androidAutoBack, firstBack(everywhere))
+            assertExitOnly("everywhere $action", firstBack(everywhere))
         }
         val nothing = JoystickBindings.SLOTS.fold(JoystickBindings.DEFAULT) { page, slot -> page.with(slot, Action.NOTHING) }
-        assertEquals(androidAutoBack, firstBack(nothing))
+        assertExitOnly("nothing anywhere", firstBack(nothing))
     }
 
     @Test
-    fun `a page read from any saved text, however odd, keeps the dash's back`() {
+    fun `a page read from any saved text, however odd, leaves the dash's back the same`() {
         val random = java.util.Random(11)
         val words = Action.entries.map { it.name } + listOf("", "?", "BACK;", "twice")
         repeat(500) {
             val text = JoystickBindings.SLOTS.filter { random.nextBoolean() }.joinToString(";") { "${it.key}=${words[random.nextInt(words.size)]}" }
-            assertEquals(text, androidAutoBack, firstBack(JoystickBindings.decode(text)))
+            assertExitOnly(text, firstBack(JoystickBindings.decode(text)))
         }
     }
 
@@ -96,12 +104,12 @@ class JoystickLocksTest {
     }
 
     @Test
-    fun `back is back again after the other controls were pressed, and two backs are home`() {
+    fun `two backs within a moment are two exits, never the apps menu`() {
         val page = JoystickBindings.SLOTS.fold(JoystickBindings.DEFAULT) { p, slot -> p.with(slot, Action.NOTHING) }
         val map = JoystickMap(page)
         map.press(DashButtonEvent.NextTrack(0x09), 0)
         map.press(DashButtonEvent.PlayPause(0x05), 100)
-        assertEquals(androidAutoBack, map.press(dashBack, 1_000).sent)
-        assertEquals("the second within a moment is home, as before", listOf<AaCommand>(AaCommand.Key(ServiceDiscoveryResponse.KEY_HOME)), map.press(dashBack, 1_300).sent)
+        assertExitOnly("the first", map.press(dashBack, 1_000))
+        for (at in listOf(1_300L, 1_900L, 20_000L)) assertEquals("at $at", emptyList<AaCommand>(), map.press(dashBack, at).sent)
     }
 }

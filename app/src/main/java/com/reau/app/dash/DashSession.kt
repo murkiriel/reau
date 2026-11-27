@@ -223,6 +223,12 @@ class DashSession(
 
     @Volatile private var nav: NavFigures? = null
 
+    /**
+     * The route card and the nav packet held back after the rider said yes to the dash's own "Exit navigation?" ([exitNavigationConfirmed]), until
+     * a new guidance starts ([RouteHold]). Internal so a test reads it.
+     */
+    internal val routeHold = RouteHold()
+
     /** For the tests: the figures the cards are made from now. */
     internal val navNow: NavFigures? get() = nav
     /** What the route card says with no route (the joystick in the dash's map mode depends on it). */
@@ -281,7 +287,7 @@ class DashSession(
      * the rider left it, with the navigation ([ringsAwayForScreen]): that is on the video, with no card.
      */
     fun ringFollowsScreen(screen: com.reau.app.aa.AaScreen) {
-        if (screenMovedRings(screen)) socket?.let { sock -> runCatching { sock.send(liveRouteCard(projectionOn = true)) } }
+        if (screenMovedRings(screen)) socket?.let { sock -> sendRouteCard(sock) }
     }
 
     /** [ringFollowsScreen] without the card: true when the screen put the maneuver ring on or off the glass. */
@@ -374,6 +380,7 @@ class DashSession(
         maneuver: Int, primaryDist: Int, primaryUnit: Int,
         totalDist: Int, totalUnit: Int, etaHHMM: String? = null, road: String = "",
         remainingSeconds: Long = DashCommands.REMAINING_OMIT, nextManeuver: Int = DashCommands.NEXT_MANEUVER_NONE,
+        nowMs: Long = MonotonicClock.nowMs(),
     ) {
         val shown = ringManeuver(maneuver, lastVisibleManeuver)
         if (shown != maneuver) {
@@ -393,14 +400,20 @@ class DashSession(
             if (maneuver != DashManeuverGlyphs.RECALCULATING) lastVisibleManeuver = maneuver
         }
         nav = NavFigures(shown, primaryDist, primaryUnit, totalDist, totalUnit, etaHHMM, road, remainingSeconds, nextManeuver)
+        // After the dash's own exit the card stays held while Android Auto goes on with the same guidance; a new one lets it go, at once.
+        if (routeHold.active(nowMs)) {
+            com.reau.app.data.RideDiagnostics.log("dash", "route card resumed: new guidance")
+            sendTitleNow()
+        }
     }
 
     /** For the tests: what the ring carries now (straight on with no guidance). */
     internal val ringNow: Int get() = nav?.maneuver ?: DashCommands.NAV_MANEUVER_CONTINUE
 
-    /** No guidance any more: the nav packets stop and the route card goes back to the card with no route. */
-    fun clearNavInfo() {
+    /** No guidance any more: the nav packets stop and the route card goes back to the card with no route (held back, if the dash's exit was confirmed: it counts the time without a guidance). */
+    fun clearNavInfo(nowMs: Long = MonotonicClock.nowMs()) {
         nav = null
+        routeHold.inactive(nowMs)
         forgetLastManeuver()
     }
 
@@ -589,7 +602,7 @@ class DashSession(
     private fun ringAfterCall(before: Boolean): Boolean {
         if (ringOn == before) return false
         com.reau.app.data.RideDiagnostics.log("dash", "ring ${if (ringOn) "shown" else "hidden again"} for the call")
-        socket?.let { sock -> runCatching { sock.send(liveRouteCard(projectionOn = true)) } }
+        socket?.let { sock -> sendRouteCard(sock) }
         return true
     }
 
@@ -755,9 +768,20 @@ class DashSession(
         }
     }
 
+    /**
+     * The rider said yes to the dash's own "Exit navigation?" (it sends 0x12 only then): the navigation is turned off on the dash with "projection idle"
+     * (06 05 = 0xAA, [DashCommands.exitProjectionIdle]) after the 06 80 answer, and the route card and the nav packet are held back until a new guidance
+     * ([RouteHold]): they carry 06 05 = 0x55, which puts the dash back in the navigation (the official app does the same). The rest of what goes to the
+     * dash, the video included, goes on. Android Auto is told nothing.
+     */
+    internal fun exitNavigationConfirmed(sock: DashSocket) {
+        routeHold.hold(guiding = nav != null, nowMs = MonotonicClock.nowMs()) { sock.send(DashCommands.exitProjectionIdle()) }
+        com.reau.app.data.RideDiagnostics.log("dash", "exit navigation confirmed on the dash: nav off sent, route card held until a new guidance")
+    }
+
     /** The route card sent now with the title it has now (the echo, or what it was). Nothing is sent out of the streaming. */
     private fun sendTitleNow() {
-        if (_state.value == DashState.STREAMING) socket?.let { sock -> runCatching { sock.send(liveRouteCard(projectionOn = true)) } }
+        if (_state.value == DashState.STREAMING) socket?.let { sock -> sendRouteCard(sock) }
     }
 
     /** The phone's own decimal separator is a comma (pt-BR): the dash writes its distances so (05 0A). */
@@ -765,6 +789,11 @@ class DashSession(
 
     /** The route card as it goes to the dash now (internal, for the tests). */
     internal fun routeCardNow(): ByteArray = liveRouteCard(projectionOn = true)
+
+    /** The route card to the dash, unless the dash's exit was confirmed and no new guidance has come ([routeHold]); a failed send is not an error here. */
+    private fun sendRouteCard(sock: DashSocket) {
+        runCatching { routeHold.sendUnlessHeld { sock.send(liveRouteCard(projectionOn = true)) } }
+    }
 
     /**
      * The maneuver after the next (05 03): shown only from 100 m of the turn (the proximity bar below 5), 0xFF otherwise.
@@ -907,6 +936,7 @@ class DashSession(
         echo.drop(); songEcho.cancel()
         cardTitleOverride = null
         nav = null
+        routeHold.reset()
         forgetLastManeuver()
         socket?.let { sock ->
             val exit = ExitSequence(MonotonicClock::nowMs).also { exitSequence = it }
@@ -1160,6 +1190,7 @@ class DashSession(
      *   → navStart once → route-card confirmation.
      */
     private suspend fun enterNavMode(sock: DashSocket) {
+        routeHold.reset() // a new link enters the navigation: nothing held from the one before
         sock.send(DashCommands.navContext()); delay(40)
         sock.send(DashCommands.emptyLists()); delay(40)
 
@@ -1325,14 +1356,15 @@ class DashSession(
                 // is logged (the log's lock is shared with the video and Android Auto threads), so the ring changes as soon as it can.
                 val answers = repliesToButton(btn, zoomLabel)
                 val ringChanged = ringAfterPress(btn.toInt() and 0xFF)
-                sock.sendBatch(if (ringChanged) answers + liveRouteCard(projectionOn = true) else answers)
+                sock.sendBatch(if (ringChanged && !routeHold.isHeld) answers + liveRouteCard(projectionOn = true) else answers)
+                val event = com.reau.app.dash.protocol.DashButtonEvent.fromByte(btn)
+                if (event is com.reau.app.dash.protocol.DashButtonEvent.JoystickBack) exitNavigationConfirmed(sock)
                 if (ringChanged) logRingByPress(btn.toInt() and 0xFF, (System.nanoTime() - readAtNs) / NS_PER_MS)
                 infoSwitchLine?.let { line ->
                     infoSwitchLine = null
                     com.reau.app.data.RideDiagnostics.log("dash", line)
                 }
                 Dbg.i(TAG) { "JOYSTICK 09 00 → code 0x${(btn.toInt() and 0xFF).toString(16).uppercase()}" }
-                val event = com.reau.app.dash.protocol.DashButtonEvent.fromByte(btn)
                 // Handed on right here, on this receive thread: the main thread was
                 // one more hop, and it waits whenever the REau screen is busy. The handler only maps the press and
                 // queues it to Android Auto's own send thread; a failure in it must not end this loop.
@@ -1557,7 +1589,7 @@ class DashSession(
         routeCardJob = scope.launch(Dispatchers.IO) {
             while (isActive && _state.value == DashState.STREAMING) {
                 val slid = quietBeforeRoutine()
-                socket?.send(liveRouteCard(projectionOn = true))
+                socket?.let { routeHold.sendUnlessHeld { it.send(liveRouteCard(projectionOn = true)) } }
                 delay((ROUTE_CARD_MS - slid).coerceAtLeast(1L))
             }
         }
@@ -1568,7 +1600,7 @@ class DashSession(
         navInfoJob = scope.launch(Dispatchers.IO) {
             while (isActive && _state.value == DashState.STREAMING) {
                 val slid = quietBeforeRoutine()
-                navPacketNow()?.let { socket?.send(it) }
+                socket?.let { sock -> routeHold.sendUnlessHeld { navPacketNow()?.let(sock::send) } }
                 delay((ROUTE_CARD_MS - slid).coerceAtLeast(1L))
             }
         }

@@ -2187,12 +2187,6 @@ MUTATIONS = [
     ('DashSearch: parar não marca que parou', 'app/src/main/java/com/reau/app/DashSearch.kt',
      '        scans.unlisten(results)\n        listening = false', '        scans.unlisten(results)',
      ['DashSearchTest']),
-    ('Joystick: com o telefone tocando o Voltar do painel some', 'app/src/main/java/com/reau/app/aa/JoystickMap.kt',
-     'event is DashButtonEvent.JoystickBack -> backPress(nowMs)', 'event is DashButtonEvent.JoystickBack && callNow() == CallState.IDLE -> backPress(nowMs)',
-     ['JoystickLocksTest']),
-    ('Joystick: uma ação dada a um controle é copiada para o Voltar', 'app/src/main/java/com/reau/app/aa/JoystickMap.kt',
-     '    private fun backPress(nowMs: Long): Press {\n        val key = back(nowMs)', '    private fun backPress(nowMs: Long): Press {\n        val key = if (bindings.encode().isNotEmpty()) AaCommand.Key(ServiceDiscoveryResponse.KEY_HOME) else back(nowMs)',
-     ['JoystickLocksTest']),
     ('Joystick: o controle de cima do modo mapa aceita uma ação de página', 'app/src/main/java/com/reau/app/aa/JoystickBindings.kt',
      'isLocked(slot) || !action.allowedAt(slot) -> JoystickBindings(chosen - slot)', '!action.allowedAt(slot) -> JoystickBindings(chosen - slot)',
      ['JoystickLocksTest']),
@@ -3808,14 +3802,12 @@ MUTATIONS = [
      'bounce -> Press(emptyList(), listOf("bounce, ignored"))', 'bounce -> Press(emptyList(), listOf("bounce, ignored"), EchoLabel.CONFIRM)', ["JoystickEchoTest"]),
     ("P30 Eco: o assistente sem microfone ecoa e aparece na legenda", MAIN + "aa/JoystickMap.kt",
      "takeIf { action.command(assistant) != null || action == Action.INFO_RING }", "takeIf { true }", ["JoystickEchoTest", "JoystickLegendTest"]),
-    ("P30 Eco: o segundo voltar seguido ecoa Voltar e não o menu de apps", MAIN + "aa/JoystickMap.kt",
-     "if (home) EchoLabel.HOME else EchoLabel.BACK", "EchoLabel.BACK", ["JoystickEchoTest"]),
     ("P30 Eco: atender ecoa outro rótulo", MAIN + "aa/JoystickMap.kt",
      "call == AaCommand.AnswerCall -> EchoLabel.ANSWER_CALL", "call == AaCommand.AnswerCall -> EchoLabel.CONFIRM", ["JoystickEchoTest"]),
     ("P30 Eco: recusar a chamada que toca ecoa Encerrar", MAIN + "aa/JoystickMap.kt",
      "callNow() == CallState.RINGING -> EchoLabel.REJECT_CALL", "callNow() == CallState.RINGING -> EchoLabel.END_CALL", ["JoystickEchoTest"]),
-    ("P30 Eco: o cima do modo mapa na legenda deixa de ser o Voltar do painel", MAIN + "aa/JoystickMap.kt",
-     "mode == Mode.MAP && control == Control.UP -> EchoLabel.BACK", "mode == Mode.MAP && control == Control.UP -> EchoLabel.HOME", ["JoystickLegendTest"]),
+    ("P30 Eco: o cima do modo mapa na legenda deixa de ser o Sair da navegação do painel", MAIN + "aa/JoystickMap.kt",
+     "mode == Mode.MAP && control == Control.UP -> EchoLabel.EXIT_NAVIGATION", "mode == Mode.MAP && control == Control.UP -> EchoLabel.HOME", ["JoystickLegendTest"]),
     ("P30 Eco: o centro do modo mapa na legenda vem da página e não do painel", MAIN + "aa/JoystickMap.kt",
      "            mode == Mode.MAP && control == Control.CENTER -> EchoLabel.MEDIA_MODE\n", "", ["JoystickLegendTest"]),
     ("P30 Eco: a rua cala o eco enquanto guia", MAIN + "dash/DashSession.kt",
@@ -5295,6 +5287,23 @@ MUTATIONS += [
      "        anchorMs += (nowMs() - since).coerceAtLeast(0L)\n", "", ["InfoTitleTest"]),
     ("P32 Título: o eco do toque não avisa o relógio das páginas", MAIN + "dash/DashSession.kt",
      "        if (echoNow != null) infoTitle.hold()\n", "", ["DashSessionInfoTitleTest", "InfoTitleSettingsTest"]),
+]
+
+
+# 26/11/2026: o "sim" do painel para "Sair da navegação?" (09 00 0x12): o REau responde com o 06 05 AA, segura o cartão de rota até uma guiagem nova e não manda tecla ao Android Auto.
+MUTATIONS += [
+    ("Sair da navegação 26/11: o 0x12 do painel não manda o 06 05 AA", MAIN + "dash/DashSession.kt",
+     "{ sock.send(DashCommands.exitProjectionIdle()) }", "{ }", ["DashSessionExitNavigationTest"]),
+    ("Sair da navegação 26/11: o cartão de rota de cada segundo ignora a retenção", MAIN + "dash/DashSession.kt",
+     "socket?.let { routeHold.sendUnlessHeld { it.send(liveRouteCard(projectionOn = true)) } }", "socket?.send(liveRouteCard(projectionOn = true))",
+     ["DashSessionExitNavigationTest"]),
+    ("Sair da navegação 26/11: uma recalculagem de poucos segundos solta o cartão", MAIN + "dash/RouteHold.kt",
+     "val fresh = since != null && nowMs - since >= newGuidanceAfterMs", "val fresh = since != null",
+     ["RouteHoldTest", "DashSessionExitNavigationTest"]),
+    ("Sair da navegação 26/11: o 0x12 do painel volta a mandar a tecla Voltar ao Android Auto", MAIN + "aa/JoystickMap.kt",
+     'private fun backPress(): Press = Press(emptyList(), listOf("exit navigation',
+     'private fun backPress(): Press = Press(listOf(AaCommand.Key(ServiceDiscoveryResponse.KEY_BACK)), listOf("exit navigation',
+     ["JoystickGesturesTest", "JoystickLocksTest"]),
 ]
 
 

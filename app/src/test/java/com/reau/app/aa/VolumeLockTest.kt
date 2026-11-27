@@ -63,17 +63,17 @@ class VolumeLockTest {
     }
 
     @Test
-    fun `without the lock the same taps go through (the first back sends the back key)`() {
-        assertTrue(map().press(mapBack, 0).sent.isNotEmpty())
+    fun `without the lock the same taps go through (the map's left sends its step)`() {
+        assertTrue(map().press(mapZoomIn, 0).sent.isNotEmpty())
     }
 
     @Test
     fun `a dropped tap does not renew the lock, so it ends five seconds after the last volume tap`() {
         val joystick = map()
         joystick.press(volumeUp, 0)
-        assertTrue(joystick.press(mapBack, 4_999).sent.isEmpty())
+        assertTrue(joystick.press(mapZoomIn, 4_999).sent.isEmpty())
         assertEquals("the dropped tap did not move the end", 1L, joystick.volumeLock.leftMs(4_999))
-        assertTrue("five seconds after the volume tap the joystick is the page's again", joystick.press(mapBack, 5_000).sent.isNotEmpty())
+        assertTrue("five seconds after the volume tap the joystick is the page's again", joystick.press(mapZoomIn, 5_000).sent.isNotEmpty())
     }
 
     @Test
@@ -82,10 +82,10 @@ class VolumeLockTest {
         joystick.press(volumeUp, 0)
         assertEquals(listOf<AaCommand>(AaCommand.Volume(-1)), joystick.press(volumeDown, 4_000).sent)
         assertEquals(5_000L, joystick.volumeLock.leftMs(4_000))
-        assertTrue("still locked at 8.9 s", joystick.press(mapBack, 8_900).sent.isEmpty())
+        assertTrue("still locked at 8.9 s", joystick.press(mapZoomIn, 8_900).sent.isEmpty())
         assertEquals(listOf<AaCommand>(AaCommand.Volume(1)), joystick.press(volumeUp, 8_950).sent)
-        assertTrue("and at 13.9 s", joystick.press(mapBack, 13_900).sent.isEmpty())
-        assertTrue("free at 13.95 s", joystick.press(mapBack, 13_950).sent.isNotEmpty())
+        assertTrue("and at 13.9 s", joystick.press(mapZoomIn, 13_900).sent.isEmpty())
+        assertTrue("free at 13.95 s", joystick.press(mapZoomIn, 13_950).sent.isNotEmpty())
     }
 
     @Test
@@ -109,7 +109,7 @@ class VolumeLockTest {
         // Nothing of the joystick: the broadcast only shows a card ([VolumeCards.showMs] with no lock), it never renews the lock.
         assertEquals(0L, joystick.volumeLock.leftMs(100))
         assertEquals(2_000L, VolumeCards.showMs(joystick.volumeLock.leftMs(100)))
-        assertTrue(joystick.press(mapBack, 100).sent.isNotEmpty())
+        assertTrue(joystick.press(mapZoomIn, 100).sent.isNotEmpty())
     }
 
     @Test
@@ -121,7 +121,7 @@ class VolumeLockTest {
         assertEquals("the lock is over", 0L, joystick.volumeLock.leftMs(1_001))
         assertEquals("a volume tap goes through and locks nothing while it rings", listOf<AaCommand>(AaCommand.Volume(-1)), joystick.press(volumeDown, 3_000).sent)
         assertEquals(0L, joystick.volumeLock.leftMs(3_000))
-        assertTrue("the other taps are the page's", joystick.press(mapBack, 3_100).sent.isNotEmpty())
+        assertTrue("the other taps are the page's", joystick.press(mapZoomIn, 3_100).sent.isNotEmpty())
     }
 
     @Test
@@ -138,13 +138,13 @@ class VolumeLockTest {
         val off = map(enabled = false)
         off.press(volumeUp, 0)
         assertEquals(0L, off.volumeLock.leftMs(0))
-        assertTrue(off.press(mapBack, 100).sent.isNotEmpty())
+        assertTrue(off.press(mapZoomIn, 100).sent.isNotEmpty())
         val on = map()
         on.press(volumeUp, 0)
         assertTrue(on.press(mapZoomIn, 100).sent.isEmpty())
         on.volumeLock.enabled = false
         assertEquals(0L, on.volumeLock.leftMs(200))
-        assertTrue(on.press(mapBack, 5_000).sent.isNotEmpty())
+        assertTrue(on.press(mapZoomIn, 5_000).sent.isNotEmpty())
         on.volumeLock.enabled = true
         assertEquals("turned on again, nothing is locked until a volume tap", 0L, on.volumeLock.leftMs(5_001))
     }

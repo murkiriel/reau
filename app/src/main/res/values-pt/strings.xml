@@ -652,7 +652,7 @@
     <string name="joystick_locked_center_short">Mídia</string>
     <string name="joystick_action_info_ring">Anel info.</string>
     <string name="joystick_locked_up">Sair da navegação?</string>
-    <string name="joystick_locked_up_note">No modo mapa, a seta pra cima é o voltar do próprio painel: ele pergunta se você quer sair da navegação. O REau não manda ação nenhuma por ela.</string>
+    <string name="joystick_locked_up_note">No modo mapa, a seta pra cima é o voltar do próprio painel: ele pergunta se você quer sair da navegação. Se você disser que sim, o REau desliga a navegação no painel e segura o cartão da rota até começar uma navegação nova; nada é enviado ao Android Auto.</string>
     <string name="joystick_info_ring_note">No modo mapa, a seta pra baixo mostra e esconde o anel de informações quando ele está ligado nos ajustes; não mexe no anel de manobras. Com o anel de manobras escondido, o painel deixa de mandar este botão, e nenhuma ação sai dele. Com outra ação neste botão, o anel deixa de ser ligado e desligado por ele.</string>
     <string name="joystick_locked_center">Abre o controle de mídia</string>
     <string name="joystick_locked_center_note">No modo mapa, o botão central põe o painel no controle de mídia. Não dá para trocar.</string>
@@ -952,6 +952,7 @@
     <string name="call_card_ended">Encerrada · %1$s</string>
     <string name="call_card_missed">Chamada perdida</string>
     <string name="echo_media_mode">Modo mídia</string>
+    <string name="echo_exit_navigation">Sair da navegação</string>
     <string name="action_echo_title">Nome da ação no painel</string>
     <string name="action_echo_sub">Mostra o que cada toque do joystick fez</string>
     <string name="action_echo">Cada toque do joystick que faz alguma coisa mostra o nome curto da ação (Próxima música, Voltar, Atender) por 1,5 segundo no título da faixa dourada do painel, onde fica o nome da rua, e depois o título volta. Com um joystick de guidão que não é preciso, você vê no painel o que o toque realmente fez; um toque que não faz nada não mostra nada. Ligada por padrão; a mudança vale na hora.</string>
