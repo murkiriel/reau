@@ -56,7 +56,7 @@ pela rede Wi-Fi do painel.
 
 ## Instalar e atualizar
 
-Instale o APK publicado, `REau-0.3.1.apk` (applicationId `com.reau.app`, nome "REau"). É um app único: o REau reconhece qual tela do Android Auto está aparecendo (mapa, menu, apps) pela própria imagem, com uma rede neural pequena que roda no celular.
+Instale o APK publicado, `REau-0.4.0.apk` (applicationId `com.reau.app`, nome "REau"). É um app único: o REau reconhece qual tela do Android Auto está aparecendo (mapa, menu, apps) pela própria imagem, com uma rede neural pequena que roda no celular.
 
 Vem da antiga REau Lite (pacote `com.reau.app.lite`)? O REau 0.3.0 é um app novo para você: refaça os ajustes e o pareamento com o painel e depois desinstale a Lite antiga. Vem do REau anterior (pacote `com.reau.app`)? É só atualizar por cima: ajustes e pareamento ficam. Duas instalações juntas disputam o único servidor do Android Auto, que aceita uma sessão por vez.
 
