@@ -64,8 +64,8 @@ class ScreenKeepIsWiredTest {
         for (word in listOf("Sensor", "proximity", "PROBE_MS", "ProximityRead", "probe", "generation")) assertFalse(word, word in keeper)
         val policy = source("service/ScreenKeepPolicy.kt")
         for (word in listOf("proximity", "covered", "SKIP", "NEAR_CM")) assertFalse(word, word in policy)
-        val ask = keeper.substringAfter("private fun ask(").substringBefore("private fun decide(")
-        assertTrue(ask, "if (decide(trigger) == ScreenKeepPolicy.Decision.WAKE) wake(trigger)" in ask)
+        val ask = keeper.substringAfter("private fun ask(").substringBefore("private fun wake(")
+        assertTrue(ask, "if (why == null) wake(trigger)" in ask)
     }
 
     @Test
@@ -144,7 +144,8 @@ class ScreenKeepIsWiredTest {
         assertTrue("RideDiagnostics.log(ScreenKeepPolicy.TAG, it)" in keeper)
         assertFalse("Thread(" in keeper || "Executors" in keeper)
         assertTrue("Handler(Looper.getMainLooper())" in keeper)
-    
+    }
+
     @Test
     fun `the screen going off or on is read from the default display, with the broadcast and a safety tick as other sources, and nothing depends on isInteractive`() {
         val keeper = source("service/ScreenKeeper.kt")
