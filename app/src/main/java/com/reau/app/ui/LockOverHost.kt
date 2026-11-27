@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.SystemClock
 import android.text.format.DateFormat
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -42,8 +43,11 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import com.reau.app.R
 import com.reau.app.data.RideDiagnostics
+import com.reau.app.service.LockLog
 import com.reau.app.service.ScreenKeepFront
 import com.reau.app.service.ScreenKeepPolicy
+import com.reau.app.service.ScreenLockLog
+import com.reau.app.service.ScreenWatch
 import com.reau.app.ui.theme.REauTheme
 import java.util.Date
 import kotlinx.coroutines.delay
@@ -64,8 +68,13 @@ internal class LockOverHost(private val activity: ComponentActivity) {
     private val unlocked = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             over = false
+            // The phone was unlocked (the lock screen state lines take it as the cause of the lock screen going away).
+            ScreenWatch.screenEvent(intent.action)
         }
     }
+
+    /** Follows the window's brightness over the lock screen and says each change (`lockui brightness dim reason=idle`). */
+    private var dimTrack = ScreenLockLog.DimTrack("lockui brightness")
 
     /**
      * From the activity's onPostCreate (after its setContent): adds the layer of [LockOverScreen] on top of the activity's screens (it draws and takes touches only while
@@ -77,10 +86,11 @@ internal class LockOverHost(private val activity: ComponentActivity) {
             ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
         )
         activity.lifecycleScope.launch { ScreenKeepFront.armed.collect { apply(it) } }
-        ContextCompat.registerReceiver(activity, unlocked, IntentFilter(Intent.ACTION_USER_PRESENT), ContextCompat.RECEIVER_NOT_EXPORTED)
+        runCatching { ContextCompat.registerReceiver(activity, unlocked, IntentFilter(Intent.ACTION_USER_PRESENT), ContextCompat.RECEIVER_NOT_EXPORTED) }
+            .onFailure { log(LockLog.warnLine("listening to the unlock", it)) }
         activity.lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onDestroy(owner: LifecycleOwner) {
-                runCatching { activity.unregisterReceiver(unlocked) }
+                runCatching { activity.unregisterReceiver(unlocked) }.onFailure { log(LockLog.warnLine("stop listening to the unlock", it)) }
                 ScreenKeepFront.resumed = false
             }
         })
@@ -111,31 +121,55 @@ internal class LockOverHost(private val activity: ComponentActivity) {
 
     private fun locked() = activity.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true
 
-    /** A touch on the screen: Android is asked to dismiss the lock screen (its own PIN or pattern prompt, if there is one). */
+    private fun log(line: String) = RideDiagnostics.log(ScreenKeepPolicy.TAG, line)
+
+    /**
+     * A touch on the screen: Android is asked to dismiss the lock screen (its own PIN or pattern prompt, if there is one). The ask and each way the answer can come (succeeded,
+     * cancelled, error) are in the log; a failure to ask at all is a warning, and the screen over the lock screen goes away in each case but the ask itself.
+     */
     fun unlock() {
         val keyguard = activity.getSystemService(KeyguardManager::class.java)
         if (keyguard == null) {
+            log(LockLog.unavailableLine("keyguard manager"))
             over = false
             return
         }
-        keyguard.requestDismissKeyguard(
-            activity,
-            object : KeyguardManager.KeyguardDismissCallback() {
-                override fun onDismissSucceeded() {
-                    over = false
-                }
+        log(LockLog.dismissLine(LockLog.DISMISS_ASKED))
+        runCatching {
+            keyguard.requestDismissKeyguard(
+                activity,
+                object : KeyguardManager.KeyguardDismissCallback() {
+                    override fun onDismissSucceeded() {
+                        log(LockLog.dismissLine(LockLog.DISMISS_SUCCEEDED))
+                        ScreenWatch.dismissed()
+                        over = false
+                    }
 
-                override fun onDismissError() {
-                    over = false
-                }
-            },
-        )
+                    override fun onDismissCancelled() {
+                        // The rider cancelled the PIN prompt: the screen of the function stays, to be touched again.
+                        log(LockLog.dismissLine(LockLog.DISMISS_CANCELLED))
+                    }
+
+                    override fun onDismissError() {
+                        log(LockLog.dismissLine(LockLog.DISMISS_ERROR))
+                        over = false
+                    }
+                },
+            )
+        }.onFailure {
+            log(LockLog.warnLine("dismiss of the lock screen", it))
+            over = false
+        }
     }
 
-    /** The window's brightness: [DIMMEST] while the screen of the function has had no touch for [DIM_AFTER_MS], the phone's own otherwise. */
-    fun dim(on: Boolean) {
+    /**
+     * The window's brightness: [DIMMEST] while the screen of the function has had no touch for [DIM_AFTER_MS], the phone's own otherwise. A change is written, with [reason]
+     * (null: `idle` going dim, `exit` coming back; the screen says `enter` or `touch`).
+     */
+    fun dim(on: Boolean, reason: String? = null) {
         val window = activity.window
         window.attributes = window.attributes.also { it.screenBrightness = if (on) DIMMEST else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE }
+        dimTrack.set(on, reason, SystemClock.elapsedRealtime())?.let(::log)
     }
 
     companion object {
@@ -160,7 +194,7 @@ internal fun LockOverScreen(host: LockOverHost) {
     // A touch brings the brightness back and the count to the minimum begins again: the rider who cancelled Android's PIN prompt is still on this screen.
     var touches by remember { mutableIntStateOf(0) }
     LaunchedEffect(touches) {
-        host.dim(false)
+        host.dim(false, if (touches == 0) ScreenLockLog.BRIGHT_ENTER else ScreenLockLog.BRIGHT_TOUCH)
         delay(LockOverHost.DIM_AFTER_MS)
         host.dim(true)
     }

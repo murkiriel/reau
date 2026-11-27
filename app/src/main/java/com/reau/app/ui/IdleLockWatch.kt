@@ -8,6 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import com.reau.app.data.RideDiagnostics
 import com.reau.app.service.IdleLock
+import com.reau.app.service.LockLog
 import com.reau.app.service.ProjectionService
 import com.reau.app.service.ScreenLock
 import com.reau.app.settings.SettingsStore
@@ -30,7 +31,8 @@ internal class IdleLockWatch(private val activity: ComponentActivity, private va
 
     /** From the activity's onPostCreate: reads the switch, follows the lock mode and the projection's phase and dash. */
     fun attach() {
-        switchOn = runCatching { SettingsStore.open(activity).load().lockMode }.getOrDefault(false)
+        switchOn = runCatching { SettingsStore.open(activity).load().lockMode }
+            .onFailure { RideDiagnostics.log(ScreenLock.TAG, LockLog.warnLine("reading the lock mode switch", it)) }.getOrDefault(false)
         mode.onChange = ::evaluate
         activity.lifecycleScope.launch {
             ProjectionService.projection.map { it.phase to it.dash }.distinctUntilChanged().collect { evaluate() }
@@ -64,7 +66,9 @@ internal class IdleLockWatch(private val activity: ComponentActivity, private va
 
     private fun start() {
         if (count != null) return
-        val timeout = IdleLock.timeoutMs(runCatching { systemTimeout() }.getOrDefault(IdleLock.DEFAULT_SYSTEM_MS))
+        val read = runCatching { systemTimeout() }
+            .onFailure { RideDiagnostics.log(ScreenLock.TAG, LockLog.warnLine("reading the screen timeout", it)) }
+        val timeout = IdleLock.timeoutMs(read.getOrDefault(IdleLock.DEFAULT_SYSTEM_MS))
         count = IdleLock.Count(timeout, SystemClock.elapsedRealtime())
         keep.want(SOURCE)
         RideDiagnostics.log(ScreenLock.TAG, IdleLock.onLine(timeout))

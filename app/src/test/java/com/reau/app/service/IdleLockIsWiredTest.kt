@@ -34,7 +34,9 @@ class IdleLockIsWiredTest {
     @Test
     fun `the count is the system's screen timeout, read inside a runCatching, and a touch of the rider begins it again`() {
         assertTrue(watch, "Settings.System.getInt(activity.contentResolver, Settings.System.SCREEN_OFF_TIMEOUT, IdleLock.DEFAULT_SYSTEM_MS)" in watch)
-        assertTrue(watch, "IdleLock.timeoutMs(runCatching { systemTimeout() }.getOrDefault(IdleLock.DEFAULT_SYSTEM_MS))" in watch)
+        // 0.3.99: a failed read of the timeout is a warning in the log (the read is kept in a value, then given the default).
+        assertTrue(watch, "val read = runCatching { systemTimeout() }" in watch && "IdleLock.timeoutMs(read.getOrDefault(IdleLock.DEFAULT_SYSTEM_MS))" in watch)
+        assertTrue(watch, "LockLog.warnLine(\"reading the screen timeout\", it)" in watch)
         val touched = watch.substringAfter("fun touched()").substringBefore("private fun evaluate()")
         assertTrue(touched, "running.touch(SystemClock.elapsedRealtime())" in touched && "schedule()" in touched)
         val main = source("MainActivity.kt")

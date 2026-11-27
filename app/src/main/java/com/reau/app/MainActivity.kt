@@ -531,6 +531,12 @@ class MainActivity : ComponentActivity() {
         super.onPause()
     }
 
+    // The window losing or getting the focus while the lock mode is on (the notification shade, a system dialog, a call) goes to the log.
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        lockMode.focusChanged(hasFocus)
+    }
+
     // Any touch of the rider on the window restarts the idle count.
     override fun onUserInteraction() {
         super.onUserInteraction()

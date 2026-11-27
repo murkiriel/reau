@@ -78,15 +78,19 @@ class ScreenLockTest {
     }
 
     @Test
-    fun `back is said once for each mode, and not outside one`() {
+    fun `back is said at once the first time in each mode, then grouped with its count, and not outside one`() {
         val state = ScreenLock.State()
-        assertNull("not in the mode", state.backIgnored())
+        assertNull("not in the mode", state.backIgnored(0L))
         state.enter(0L)
-        assertEquals("back ignored", state.backIgnored())
-        assertNull("only once", state.backIgnored())
-        state.exit(Exit.SWIPE, 1_000L)
-        state.enter(2_000L)
-        assertEquals("a new mode says it again", "back ignored", state.backIgnored())
+        assertEquals("back ignored", state.backIgnored(1_000L))
+        assertNull("the next one inside the group", state.backIgnored(1_500L))
+        assertEquals("the count so far, the unsaid one included", "back ignored n=3", state.backIgnored(3_000L))
+        assertEquals("every press is counted", 3L, state.backCount)
+        state.exit(Exit.SWIPE, 4_000L)
+        assertNull("out of the mode again", state.backIgnored(4_500L))
+        state.enter(5_000L)
+        assertEquals("a new mode says it again from the start", "back ignored", state.backIgnored(5_500L))
+        assertEquals("and counts again", 1L, state.backCount)
     }
 
     @Test
@@ -95,13 +99,11 @@ class ScreenLockTest {
         assertNull("still on", watch.offer(2))
         val off = watch.offer(1)
         assertNotNull(off)
-        assertEquals("display state=OFF", off!!.line)
-        assertTrue(off.off)
+        assertTrue(off!!.off)
         assertNull("the same state again", watch.offer(1))
-        assertEquals("display state=DOZE", watch.offer(3)!!.line)
+        assertTrue(watch.offer(3)!!.off)
         assertTrue(watch.offer(4)!!.off)
         val on = watch.offer(2)!!
-        assertEquals("display state=ON", on.line)
         assertFalse(on.off)
         assertEquals("state99", ScreenLock.displayName(99))
         assertEquals(listOf("UNKNOWN", "OFF", "ON", "DOZE", "DOZE_SUSPEND", "VR", "ON_SUSPEND"), (0..6).map(ScreenLock::displayName))

@@ -28,6 +28,10 @@ import com.reau.app.settings.REauSettings
  * wake lock ([ProximityLock]) the display goes off on purpose with the sensor covered, the phone still awake, and lighting it would only fight the sensor and spend the
  * battery. A display off while the lock is held and the phone interactive is then not lit ([ScreenKeepPolicy.proximityCovers], with the sensor's reading to tell a real off
  * during a projection of Android Auto, where `isInteractive` stays true); it counts no gap and no dark retry, and a real off is lit as before.
+ *
+ * Since 0.3.99 it is also the watch on the phone's real lock: its receiver (SCREEN_OFF, SCREEN_ON, USER_PRESENT), its display listener and its 5 s tick tell [ScreenWatch], which
+ * writes the display's changes, the lock screen coming up or going away (with the likely cause) and a snapshot every minute ([LockLog]), whether REau's lock mode is on or not.
+ * A failure of the wake lock or of a listener is a warning in the log.
  */
 @Suppress("TooManyFunctions") // one small function per case; splitting them would only scatter the same thing
 internal class ScreenKeeper(
@@ -76,13 +80,19 @@ internal class ScreenKeeper(
         ScreenKeepFront.arm(true)
         if (receiver != null) return
         val heard = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) = seen(intent.action == Intent.ACTION_SCREEN_OFF, ScreenKeepPolicy.Via.BROADCAST)
+            override fun onReceive(context: Context, intent: Intent) {
+                // The unlock (USER_PRESENT) only tells the state lines that the phone was unlocked: it is neither the screen going off nor coming on.
+                ScreenWatch.screenEvent(intent.action)
+                if (intent.action != Intent.ACTION_USER_PRESENT) seen(intent.action == Intent.ACTION_SCREEN_OFF, ScreenKeepPolicy.Via.BROADCAST)
+            }
         }
         receiver = heard
-        val filter = IntentFilter().apply { addAction(Intent.ACTION_SCREEN_OFF); addAction(Intent.ACTION_SCREEN_ON) }
+        val filter = IntentFilter().apply { addAction(Intent.ACTION_SCREEN_OFF); addAction(Intent.ACTION_SCREEN_ON); addAction(Intent.ACTION_USER_PRESENT) }
         runCatching { ContextCompat.registerReceiver(app, heard, filter, ContextCompat.RECEIVER_NOT_EXPORTED) }
-            .onFailure { log("${com.reau.app.data.RideDiagnostics.WARN}listening to the screen failed: ${it.javaClass.simpleName}") }
+            .onFailure { log(LockLog.warnLine("listening to the screen", it)) }
         log(ScreenKeepPolicy.ON_LINE)
+        // The state lines (the lock screen, the display, the minute's snapshot) are on for as long as the keeper is, with REau's own lock mode or without it.
+        ScreenWatch.begin(app, ScreenWatch.SOURCE_KEEPER)
         edge.reset(displayOff())
         watchTheDisplay()
         // The screen is already off as the function begins (the phone in a pocket as the projection starts): no event will say so, so it is lit now.
@@ -92,16 +102,23 @@ internal class ScreenKeeper(
 
     /** The default display's state is the source of "the screen went off or on": each change is seen here, as it happens. */
     private fun watchTheDisplay() {
-        val manager = app.getSystemService(DisplayManager::class.java) ?: return
+        val manager = app.getSystemService(DisplayManager::class.java)
+        if (manager == null) {
+            log(LockLog.unavailableLine("display manager"))
+            return
+        }
         val listener = object : DisplayManager.DisplayListener {
             override fun onDisplayAdded(displayId: Int) = Unit
             override fun onDisplayRemoved(displayId: Int) = Unit
             override fun onDisplayChanged(displayId: Int) {
-                if (displayId == Display.DEFAULT_DISPLAY) seen(displayOff(), ScreenKeepPolicy.Via.LISTENER)
+                if (displayId == Display.DEFAULT_DISPLAY) {
+                    ScreenWatch.displayChanged()
+                    seen(displayOff(), ScreenKeepPolicy.Via.LISTENER)
+                }
             }
         }
         displayListener = listener
-        manager.registerDisplayListener(listener, main)
+        runCatching { manager.registerDisplayListener(listener, main) }.onFailure { log(LockLog.warnLine("display listener", it)) }
     }
 
     /** Whether the default display is not on now (off, doze, suspended); an unreadable display counts as on. */
@@ -125,6 +142,8 @@ internal class ScreenKeeper(
         val next = Runnable {
             safety = null
             if (receiver == null) return@Runnable
+            // The lock screen is looked at at each tick too, in case no event told of it (the phone locks some seconds after the screen goes off).
+            ScreenWatch.look()
             seen(displayOff(), ScreenKeepPolicy.Via.TICK)
             if (edge.off) {
                 // The proximity lock's own off goes through ask() too (it decides "not lit" and says it once) and never reaches the dark retry, so none is counted.
@@ -147,7 +166,7 @@ internal class ScreenKeeper(
         ScreenKeepFront.arm(false)
         val heard = receiver ?: return
         receiver = null
-        runCatching { app.unregisterReceiver(heard) }
+        runCatching { app.unregisterReceiver(heard) }.onFailure { log(LockLog.warnLine("stop listening to the screen", it)) }
         displayListener?.let { app.getSystemService(DisplayManager::class.java)?.unregisterDisplayListener(it) }
         displayListener = null
         safety?.let { main.removeCallbacks(it) }
@@ -158,10 +177,11 @@ internal class ScreenKeeper(
         proximityNoted = false
         proximityCheck?.let { main.removeCallbacks(it) }
         proximityCheck = null
-        lock?.takeIf { it.isHeld }?.release()
+        runCatching { lock?.takeIf { it.isHeld }?.release() }.onFailure { log(LockLog.warnLine("wake lock release", it)) }
         frontCheck?.let { main.removeCallbacks(it) }
         frontCheck = null
         log(ScreenKeepPolicy.OFF_LINE)
+        ScreenWatch.end(ScreenWatch.SOURCE_KEEPER)
     }
 
     private fun screenOff(reason: String = ScreenKeepPolicy.REASON_SCREENOFF) {
@@ -174,7 +194,7 @@ internal class ScreenKeeper(
     private fun screenOn() {
         // The screen is on: nothing to light. The lock is let go at once (the maker's own app does the same), and ON_AFTER_RELEASE keeps the screen
         // on for the phone's own timeout from then, instead of the lock's whole timeout.
-        lock?.takeIf { it.isHeld }?.release()
+        runCatching { lock?.takeIf { it.isHeld }?.release() }.onFailure { log(LockLog.warnLine("wake lock release", it)) }
         retry = false
         lightAsked = false
         darkTries = 0
@@ -214,12 +234,15 @@ internal class ScreenKeeper(
     }
 
     private fun wake(reason: String) {
-        val held = lock ?: power().newWakeLock(WAKE_FLAGS, LOCK_TAG).also {
-            it.setReferenceCounted(false)
-            lock = it
-        }
+        val held = runCatching {
+            lock ?: power().newWakeLock(WAKE_FLAGS, LOCK_TAG).also {
+                it.setReferenceCounted(false)
+                lock = it
+            }
+        }.onFailure { log(LockLog.warnLine("wake lock create", it)) }.getOrNull() ?: return
         // Always with a timeout, so it can never be left held: the screen lights and goes back to the phone's own timeout.
-        held.acquire(LOCK_MS)
+        if (runCatching { held.acquire(LOCK_MS) }.onFailure { log(LockLog.warnLine("wake lock acquire", it)) }.isFailure) return
+        ScreenWatch.wake()
         val at = now()
         lastWakeMs = at
         lightAsked = true

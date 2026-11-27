@@ -17,6 +17,9 @@ internal class KeepScreenOn(private val activity: ComponentActivity) {
         if (sources.want(source)) activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
+    /** Whether the window has the flag now (for the log's snapshot; the flag is set and cleared only by [want] and [release]). */
+    fun isSet(): Boolean = activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON != 0
+
     /** [source] lets go; the flag is cleared when it was the last. */
     fun release(source: String) {
         if (sources.release(source)) activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)

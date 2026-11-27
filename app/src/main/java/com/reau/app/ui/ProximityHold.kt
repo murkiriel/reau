@@ -10,8 +10,10 @@ import android.os.Handler
 import android.os.PowerManager
 import android.os.SystemClock
 import com.reau.app.data.RideDiagnostics
+import com.reau.app.service.LockLog
 import com.reau.app.service.ProximityLock
 import com.reau.app.service.ScreenLock
+import com.reau.app.service.ScreenLockLog
 
 /**
  * The Android side of REau's proximity lock (0.3.99 test build): inside the lock mode, `PROXIMITY_SCREEN_OFF_WAKE_LOCK` (the one the dialer holds at the ear) turns the display
@@ -20,7 +22,8 @@ import com.reau.app.service.ScreenLock
  *
  * The lock is one instance, not reference counted, taken only if the phone supports its level, and taken with no timeout: a timeout that ran out would leave [ProximityLock.held]
  * saying "held" for a lock that is not (and [com.reau.app.service.ScreenKeeper] would then wrongly stay quiet), and every way out calls [release], which is the one that clears both
- * (the process dying frees the lock by itself). Never throws. Main thread.
+ * (the process dying frees the lock by itself). Never throws. Main thread. Every change of the sensor is written (`sensor proximity=near value=0.0`, with the range once at the registration), and
+ * every failure (no power manager, no sensor, a listener that would not register, a release that threw) is a warning.
  */
 internal class ProximityHold(
     private val context: Context,
@@ -41,7 +44,11 @@ internal class ProximityHold(
     @SuppressLint("WakelockTimeout") // no timeout on purpose, see the class doc: every exit calls release()
     fun acquire(reason: String) {
         if (held) return
-        val power = context.getSystemService(PowerManager::class.java) ?: return
+        val power = context.getSystemService(PowerManager::class.java)
+        if (power == null) {
+            log(LockLog.unavailableLine("power manager"))
+            return
+        }
         if (!power.isWakeLockLevelSupported(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK)) {
             if (!unsupportedSaid) log(ScreenLock.PROXIMITY_UNSUPPORTED_LINE)
             unsupportedSaid = true
@@ -58,7 +65,7 @@ internal class ProximityHold(
             log(ScreenLock.proximityLine(true, reason))
         }.onFailure {
             release("failed")
-            log("${RideDiagnostics.WARN}proximity lock failed: ${it.javaClass.simpleName}")
+            log(LockLog.warnLine("proximity lock", it))
         }
     }
 
@@ -77,7 +84,7 @@ internal class ProximityHold(
                 wasHeld = true
                 taken.release(if (waitForFar) PowerManager.RELEASE_FLAG_WAIT_FOR_NO_PROXIMITY else 0)
             }
-        }.onFailure { log("${RideDiagnostics.WARN}proximity lock release failed: ${it.javaClass.simpleName}") }
+        }.onFailure { log(LockLog.warnLine("proximity lock release", it)) }
         // After the release, a thrown one included: the shared state never says "held" for a lock that was let go.
         ProximityLock.letGo()
         if (wasHeld) log(ScreenLock.proximityLine(false, reason))
@@ -85,24 +92,43 @@ internal class ProximityHold(
 
     private fun listen() {
         stopListening()
-        val sensors = context.getSystemService(SensorManager::class.java) ?: return
-        val sensor = sensors.getDefaultSensor(Sensor.TYPE_PROXIMITY) ?: return
+        val sensors = context.getSystemService(SensorManager::class.java)
+        if (sensors == null) {
+            log(LockLog.unavailableLine("sensor manager"))
+            return
+        }
+        val sensor = sensors.getDefaultSensor(Sensor.TYPE_PROXIMITY)
+        if (sensor == null) {
+            log(LockLog.unavailableLine("proximity sensor"))
+            return
+        }
         val reader = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
                 val value = event.values.firstOrNull() ?: return
-                if (ProximityLock.sensor(ProximityLock.isNear(value, sensor.maximumRange), SystemClock.elapsedRealtime())) onSensorChange?.invoke()
+                val near = ProximityLock.isNear(value, sensor.maximumRange)
+                if (ProximityLock.sensor(near, SystemClock.elapsedRealtime())) {
+                    // One line for each change, with the raw value (the range is said once, at the registration).
+                    log(ScreenLockLog.sensorLine(near, value))
+                    onSensorChange?.invoke()
+                }
             }
 
             override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) = Unit
         }
         // Registered only while the lock is held, when the system keeps the sensor on for the lock anyway.
-        if (sensors.registerListener(reader, sensor, SensorManager.SENSOR_DELAY_NORMAL, main)) listener = reader
+        if (sensors.registerListener(reader, sensor, SensorManager.SENSOR_DELAY_NORMAL, main)) {
+            listener = reader
+            log(ScreenLockLog.sensorRegisteredLine(sensor.maximumRange))
+        } else {
+            log(LockLog.unavailableLine("proximity sensor listener"))
+        }
     }
 
     private fun stopListening() {
         val reader = listener ?: return
         listener = null
         runCatching { context.getSystemService(SensorManager::class.java)?.unregisterListener(reader) }
+            .onFailure { log(LockLog.warnLine("proximity sensor listener release", it)) }
     }
 
     private companion object {

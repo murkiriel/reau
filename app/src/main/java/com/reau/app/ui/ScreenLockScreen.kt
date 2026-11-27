@@ -58,6 +58,7 @@ import com.reau.app.data.PhoneNow
 import com.reau.app.service.Projection
 import com.reau.app.service.ProjectionService
 import com.reau.app.service.ScreenLock
+import com.reau.app.service.ScreenLockLog
 import com.reau.app.ui.components.ComponentLogic
 import com.reau.app.ui.components.MsIcon
 import com.reau.app.ui.components.brandTitle
@@ -95,8 +96,10 @@ private val LockOutline = OuroSuave.copy(alpha = 0.15f)
 internal fun ScreenLockScreen(mode: ScreenLockMode) {
     val rule = remember { ScreenLock.BrightnessRule(ScreenLockMode.DIM_AFTER_MS, SystemClock.elapsedRealtime()) }
     var touches by remember { mutableIntStateOf(0) }
+    // What brought the brightness back, for the log: the mode going in, a touch on the track, or a drag that went on after the brightness had gone down.
+    var why by remember { mutableStateOf(ScreenLockLog.BRIGHT_ENTER) }
     LaunchedEffect(touches) {
-        mode.dim(false)
+        mode.dim(false, why)
         delay(rule.msUntilDim(SystemClock.elapsedRealtime()))
         mode.dim(true)
     }
@@ -124,12 +127,19 @@ internal fun ScreenLockScreen(mode: ScreenLockMode) {
                 SlideTrack(
                     Modifier.padding(start = TRACK_MARGIN, end = TRACK_MARGIN, bottom = bottom),
                     onTouch = {
+                        why = ScreenLockLog.BRIGHT_TOUCH
+                        mode.slideTouched()
                         if (rule.touch(SystemClock.elapsedRealtime(), onTrack = true)) touches++
                     },
                     // A drag that lasts more than 5 s is made in the normal brightness: every move of the thumb counts as a touch (refreshed once a second at most).
                     onMove = {
-                        if (rule.move(SystemClock.elapsedRealtime())) touches++
+                        if (rule.move(SystemClock.elapsedRealtime())) {
+                            why = ScreenLockLog.BRIGHT_DRAG
+                            touches++
+                        }
                     },
+                    onAbort = mode::slideAborted,
+                    onDone = mode::slideDone,
                 ) { mode.exit(ScreenLock.Exit.SWIPE) }
             }
         }
@@ -229,7 +239,14 @@ private fun Modifier.swallowTouches(): Modifier = pointerInput(Unit) {
  * [ScreenLock.UNLOCK_AT] of the way and it goes back to the start, past it [onUnlock] is called. A touch that does not start on the thumb drags nothing.
  */
 @Composable
-private fun SlideTrack(modifier: Modifier, onTouch: () -> Unit, onMove: () -> Unit, onUnlock: () -> Unit) {
+private fun SlideTrack(
+    modifier: Modifier,
+    onTouch: () -> Unit,
+    onMove: () -> Unit,
+    onAbort: (Float) -> Unit,
+    onDone: (Long) -> Unit,
+    onUnlock: () -> Unit,
+) {
     val density = LocalDensity.current
     val thumbPx = with(density) { THUMB.toPx() }
     val padPx = with(density) { PAD.toPx() }
@@ -247,6 +264,9 @@ private fun SlideTrack(modifier: Modifier, onTouch: () -> Unit, onMove: () -> Un
                     // Any touch that lands on the track, along its whole strip, brings the brightness back.
                     onTouch()
                     var dx = 0f
+                    // For the log: when the finger went down and how far along the track the thumb got.
+                    val downAtMs = SystemClock.elapsedRealtime()
+                    var farthest = 0f
                     do {
                         val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
                         // The move is read before the change is consumed: positionChange() of a consumed change is zero, which left the thumb still
@@ -257,9 +277,17 @@ private fun SlideTrack(modifier: Modifier, onTouch: () -> Unit, onMove: () -> Un
                         if (onThumb) {
                             dx += step
                             dragPx = dx.coerceIn(0f, travel)
+                            farthest = maxOf(farthest, ScreenLock.progress(dragPx, travel))
                         }
                     } while (change.pressed)
-                    if (onThumb && ScreenLock.unlocked(ScreenLock.progress(dragPx, travel))) onUnlock() else dragPx = 0f
+                    if (onThumb && ScreenLock.unlocked(ScreenLock.progress(dragPx, travel))) {
+                        onDone(SystemClock.elapsedRealtime() - downAtMs)
+                        onUnlock()
+                    } else {
+                        // A drag let go short of the end (the thumb moved at all) is said, with how far it got.
+                        if (onThumb && farthest > 0f) onAbort(farthest)
+                        dragPx = 0f
+                    }
                 }
             },
         contentAlignment = Alignment.Center,

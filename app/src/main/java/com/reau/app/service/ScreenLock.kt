@@ -19,7 +19,7 @@ internal object ScreenLock {
     /** The line when the mode begins, and how. */
     fun onLine(entry: Entry) = "manual on reason=${entry.logName}"
 
-    /** The line when Back is pressed in the mode: it does nothing, and is said once per mode. */
+    /** The line when Back is pressed in the mode: it does nothing. The first is said at once, the next ones grouped with a count ([ScreenLockLog.backLine]). */
     const val BACK_LINE = "back ignored"
 
     /** The thumb past this share of the track, when let go, leaves the mode; short of it, the thumb goes back to the start. */
@@ -106,17 +106,17 @@ internal object ScreenLock {
         else -> "state$state"
     }
 
-    /** A change of the display's state: the log line and whether the screen is no longer on. */
-    class DisplayChange(val line: String, val off: Boolean)
+    /** A change of the display's state: whether the screen is no longer on (the line of the change is [LockLog.displayLine], written by [ScreenWatch]). */
+    class DisplayChange(val off: Boolean)
 
-    /** Follows the default display's state: says a change once, with its line, and nothing while the state stays the same. */
+    /** Follows the default display's state: says a change once, and nothing while the state stays the same. */
     class DisplayWatch(initial: Int = DISPLAY_ON) {
         private var last = initial
 
         fun offer(state: Int): DisplayChange? {
             if (state == last) return null
             last = state
-            return DisplayChange("display state=${displayName(state)}", off = state != DISPLAY_ON)
+            return DisplayChange(off = state != DISPLAY_ON)
         }
     }
 
@@ -156,19 +156,22 @@ internal object ScreenLock {
         }
     }
 
-    /** The mode's state: in or out, since when, and whether Back was already said. */
+    /** The mode's state: in or out, since when, and how many times Back was pressed (said grouped, [ScreenLockLog.Grouper]). */
     class State {
         var active = false
             private set
         private var sinceMs = 0L
-        private var backSaid = false
+        private var backs = ScreenLockLog.Grouper()
+
+        /** How many times Back was pressed in this mode. */
+        val backCount: Long get() = backs.total
 
         /** Goes in at [nowMs], by [entry]; the line to log, or null when it was already in. */
         fun enter(nowMs: Long, entry: Entry = Entry.BUTTON): String? {
             if (active) return null
             active = true
             sinceMs = nowMs
-            backSaid = false
+            backs = ScreenLockLog.Grouper()
             return onLine(entry)
         }
 
@@ -179,11 +182,10 @@ internal object ScreenLock {
             return offLine(reason, ((nowMs - sinceMs).coerceAtLeast(0L)) / MS_PER_S)
         }
 
-        /** Back was pressed: [BACK_LINE] the first time in this mode, null after that (and null when the mode is not on). */
-        fun backIgnored(): String? {
-            if (!active || backSaid) return null
-            backSaid = true
-            return BACK_LINE
+        /** Back was pressed at [nowMs]: [BACK_LINE] the first time in this mode, then a line with the count at most once in [ScreenLockLog.GROUP_MS], else null (and null when the mode is not on). */
+        fun backIgnored(nowMs: Long): String? {
+            if (!active) return null
+            return backs.hit(nowMs)?.let(ScreenLockLog::backLine)
         }
 
         private companion object {

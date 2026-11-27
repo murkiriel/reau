@@ -134,7 +134,7 @@ class ScreenKeepIsWiredTest {
         assertTrue(touch, "awaitFirstDown()" in touch && "onTouch()" in touch && "host.unlock()" in touch)
         assertTrue("the touch moves the count of the brightness", ".overTouch(host) { touches++ }" in over)
         val effect = over.substringAfter("LaunchedEffect(touches) {").substringBefore("DisposableEffect")
-        assertTrue(effect, "host.dim(false)" in effect && "delay(LockOverHost.DIM_AFTER_MS)" in effect && "host.dim(true)" in effect)
+        assertTrue(effect, "host.dim(false, if (touches == 0) ScreenLockLog.BRIGHT_ENTER else ScreenLockLog.BRIGHT_TOUCH)" in effect && "delay(LockOverHost.DIM_AFTER_MS)" in effect && "host.dim(true)" in effect)
     }
 
     @Test

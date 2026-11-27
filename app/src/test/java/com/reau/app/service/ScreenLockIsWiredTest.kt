@@ -63,7 +63,7 @@ class ScreenLockIsWiredTest {
         val watch = mode.substringAfter("private fun watchTheDisplay()").substringBefore("private fun lookAtTheDisplay(")
         assertTrue(watch, "manager.registerDisplayListener(listener, main)" in watch && "displayId != Display.DEFAULT_DISPLAY" in watch)
         // Since 0.3.99 the off is looked at by lookAtTheDisplay, which ends the mode unless the proximity lock's own off explains it (ProximityIsWiredTest).
-        assertTrue(watch, "if (change.off) {" in watch && "lookAtTheDisplay()" in watch && "log(change.line)" in watch)
+        assertTrue(watch, "if (change.off) {" in watch && "lookAtTheDisplay()" in watch && "ScreenWatch.displayChanged()" in watch)
         val look = mode.substringAfter("private fun lookAtTheDisplay()").substringBefore("private fun bars(")
         assertTrue(look, "exit(ScreenLock.Exit.SCREENOFF)" in look && "if (!covered) {" in look)
         assertTrue("unregisterDisplayListener(it)" in mode.substringAfter("fun exit(reason: ScreenLock.Exit)"))
@@ -74,7 +74,7 @@ class ScreenLockIsWiredTest {
         assertTrue("exit(if (off) ScreenLock.Exit.SCREENOFF else ScreenLock.Exit.LEFT)" in mode.substringAfter("fun stopped()"))
         assertTrue("if (it.phase == Phase.STOPPED) exit(ScreenLock.Exit.PROJECTION)" in mode)
         val back = mode.substringAfter("override fun handleOnBackPressed()").substringBefore("}")
-        assertTrue(back, "state.backIgnored()?.let(::log)" in back && "exit(" !in back)
+        assertTrue(back, "state.backIgnored(SystemClock.elapsedRealtime())?.let(::log)" in back && "exit(" !in back)
         val main = source("MainActivity.kt")
         assertTrue("lockMode.stopped()" in main.substringAfter("override fun onStop()"))
         assertTrue("lockMode.attach()" in main.substringAfter("override fun onPostCreate"))
@@ -88,8 +88,11 @@ class ScreenLockIsWiredTest {
         assertTrue("only a touch on the thumb drags", "ScreenLock.hitsThumb(" in screen && "if (onThumb) {" in screen)
         val drag = screen.between("private fun SlideTrack(", "private val THUMB")
         assertTrue("every move of the finger on the track counts as a touch for the brightness, whatever it dragged", "if (step != 0f) onMove()" in drag && "onMove: () -> Unit" in drag)
-        assertTrue("and the screen refreshes the count with it", "if (rule.move(SystemClock.elapsedRealtime())) touches++" in screen)
-        assertTrue("past 90 percent leaves, else back to the start", "if (onThumb && ScreenLock.unlocked(ScreenLock.progress(dragPx, travel))) onUnlock() else dragPx = 0f" in screen)
+        assertTrue("and the screen refreshes the count with it (0.3.99: and says it was a drag that brought the brightness back)", "if (rule.move(SystemClock.elapsedRealtime())) {\n                            why = ScreenLockLog.BRIGHT_DRAG\n                            touches++" in screen)
+        // 0.3.99: the drag that unlocks and the one let go short are written (onDone before onUnlock; onAbort in the else, before the thumb goes back).
+        val gesture = screen.between("if (onThumb && ScreenLock.unlocked(ScreenLock.progress(dragPx, travel))) {", "contentAlignment = Alignment.Center")
+        assertTrue("past 90 percent leaves, else back to the start", "onDone(SystemClock.elapsedRealtime() - downAtMs)\n                        onUnlock()\n                    } else {" in gesture)
+        assertTrue("the drag let go short says how far it got, then the thumb goes back", gesture.indexOf("if (onThumb && farthest > 0f) onAbort(farthest)") in 0 until gesture.indexOf("dragPx = 0f"))
         assertTrue("onUnlock leaves by swipe", ") { mode.exit(ScreenLock.Exit.SWIPE) }" in screen && "SlideTrack(\n                    Modifier.padding(start = TRACK_MARGIN, end = TRACK_MARGIN, bottom = bottom)," in screen)
         for (animated in listOf("animate", "InfiniteTransition", "Animatable", "AnimatedVisibility", "Canvas", "Image(", "painterResource")) assertFalse(animated, animated in code("ui/ScreenLockScreen.kt"))
         assertTrue("the brightness goes to the minimum after 5 s and comes back", "DIM_AFTER_MS = 5_000L" in mode && "mode.dim(true)" in screen && "mode.dim(false)" in screen)
@@ -147,7 +150,7 @@ class ScreenLockIsWiredTest {
         assertTrue("the device look feeds the percent", "batteryPct = it.batteryPct" in source("service/DeviceStateReader.kt"))
         assertTrue("the thumb's touch alone", "if (rule.touch(SystemClock.elapsedRealtime(), onTrack = true)) touches++" in screen && "onTouch()" in screen)
         val effect = screen.substringAfter("LaunchedEffect(touches) {").substringBefore("DisposableEffect")
-        assertTrue(effect, "mode.dim(false)" in effect && "delay(rule.msUntilDim(SystemClock.elapsedRealtime()))" in effect && "mode.dim(true)" in effect)
+        assertTrue(effect, "mode.dim(false, why)" in effect && "delay(rule.msUntilDim(SystemClock.elapsedRealtime()))" in effect && "mode.dim(true)" in effect)
         assertEquals("only the thumb's touch and its moves, the swallowing of the rest of the screen touches nothing", 2, Regex("""touches\+\+""").findAll(screen).count())
     }
 

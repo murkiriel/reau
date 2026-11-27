@@ -87,7 +87,7 @@ class ProximityIsWiredTest {
 
     @Test
     fun `every way out lets the lock go at once, the end of the projection waits for the sensor, and nothing else is a way to take it`() {
-        val exit = mode.between("fun exit(reason: ScreenLock.Exit)", "fun dim(on: Boolean)")
+        val exit = mode.between("fun exit(reason: ScreenLock.Exit)", "fun dim(on: Boolean")
         assertTrue("first thing after the flag", exit.indexOf("active = false") < exit.indexOf("proximity.release(") && exit.indexOf("proximity.release(") < exit.indexOf("state.exit("))
         assertTrue(exit, "proximity.release(reason.logName, waitForFar = reason == ScreenLock.Exit.PROJECTION)" in exit)
         val paused = mode.between("fun paused()", "private fun front()")
@@ -115,7 +115,9 @@ class ProximityIsWiredTest {
         assertTrue(listener, "lookAtTheDisplay()" in listener && "proximityEdge.on()?.let(::log)" in listener)
         assertFalse("the listener no longer ends the mode by itself", "if (change.off) exit(" in listener)
         assertTrue("a sensor change looks again", "proximity.onSensorChange = ::lookAtTheDisplay" in mode)
-        assertTrue("the broadcast is a real off by its nature", "override fun onReceive(context: Context, intent: Intent) = exit(ScreenLock.Exit.SCREENOFF)" in mode)
+        // 0.3.99: the receiver also tells the state lines of the screen event (ScreenWatch), then ends the mode as before.
+        val receiver = mode.between("override fun onReceive(context: Context, intent: Intent) {", "screenOff = off")
+        assertTrue("the broadcast is a real off by its nature", "ScreenWatch.screenEvent(intent.action)" in receiver && "exit(ScreenLock.Exit.SCREENOFF)" in receiver)
     }
 
     @Test
