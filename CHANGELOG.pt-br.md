@@ -12,6 +12,13 @@ aparecem).
 
 ## [Unreleased]
 
+## [0.3.92] - 2026-11-26
+
+> **Versão de teste para pilotos, sobre a 0.3.1** (série 0.3.9x: builds de teste, não publicadas). Próxima rodada da 0.3.91.
+
+### Adicionado
+- **Botão "Bloquear a tela"** na tela principal, com a projeção ligada (**ainda não testado na moto**): abre a tela escura do próprio REau, na frente e com a tela acesa no brilho mínimo, para o fabricante do celular não ter o que fechar. Não é o bloqueio do sistema (sem administrador do dispositivo e sem acessibilidade). Funciona mesmo com a chave "Tela acesa com o celular bloqueado" desligada. Sai deslizando para cima, pelo Voltar, quando a projeção para ou se você apertar o botão de energia; o registro diz `[screen-keep] manual on` e `manual off reason=...`.
+
 ## [0.3.91] - 2026-11-26
 
 > **Versão de teste para pilotos, sobre a 0.3.1** (série 0.3.9x: builds de teste, não publicadas). Próxima rodada da 0.3.90.

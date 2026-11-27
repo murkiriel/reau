@@ -11,6 +11,13 @@ English: [CHANGELOG.md](CHANGELOG.md) · Português (pt-BR): [CHANGELOG.pt-br.md
 
 ## [Unreleased]
 
+## [0.3.92] - 2026-11-26
+
+> **Versión de prueba para pilotos, sobre la 0.3.1** (serie 0.3.9x: builds de prueba, no publicadas). La próxima ronda después de la 0.3.91.
+
+### Añadido
+- **Botón "Bloquear la pantalla"** en la pantalla principal, con la proyección encendida (**aún no probado en la moto**): abre la pantalla oscura de REau, al frente y con la pantalla encendida al brillo mínimo, para que el fabricante del teléfono no tenga qué cerrar. No es el bloqueo del sistema (sin administrador del dispositivo ni accesibilidad). Funciona aunque el interruptor "Pantalla encendida con el teléfono bloqueado" esté apagado. Se sale deslizando hacia arriba, con Atrás, cuando la proyección se detiene o al apretar el botón de encendido; el registro dice `[screen-keep] manual on` y `manual off reason=...`.
+
 ## [0.3.91] - 2026-11-26
 
 > **Versión de prueba para pilotos, sobre la 0.3.1** (serie 0.3.9x: builds de prueba, no publicadas). La próxima ronda después de la 0.3.90.

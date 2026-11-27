@@ -11,6 +11,13 @@ Português (pt-BR): [CHANGELOG.pt-br.md](CHANGELOG.pt-br.md) · Español: [CHANG
 
 ## [Unreleased]
 
+## [0.3.92] - 2026-11-26
+
+> **Test version for pilots, on top of 0.3.1** (0.3.9x series: test builds, not published). The next round after 0.3.91.
+
+### Added
+- **"Lock the screen" button** on the main screen, with the projection on (**not yet tested on the bike**): it opens REau's own dark screen, in front and with the screen kept lit at the minimum brightness, so the phone maker has nothing to close. It is not the system lock (no device administrator, no accessibility). It works even with the switch "Screen on with the phone locked" off. You leave it by swiping up, with Back, when the projection stops or when you press the power button; the log says `[screen-keep] manual on` and `manual off reason=...`.
+
 ## [0.3.91] - 2026-11-26
 
 > **Test version for pilots, on top of 0.3.1** (0.3.9x series: test builds, not published). The next round after 0.3.90.
