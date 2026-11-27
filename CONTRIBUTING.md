@@ -173,6 +173,7 @@ clean tree, at the commit that the tag `v<version>` points to, and nothing chang
 - it builds with `./gradlew :app:assembleRelease`, runs `apksigner verify` (the v2 signature must verify, and the certificate's SHA-256 must be `63f5c3ba687699b0b4288a878bd8372bed2c9632222d7f673ea71073aa208970`, the one every Release has had, which `ApkAttestationTest` and the install page also hold) and `scripts/apk_audit.py` (nothing new against the baseline);
 - it copies the APK as `REau-0.3.1.apk`, with a `SHA256SUMS`, to `build/release-0.3.1/` (`--saida` changes the folder);
 - with `--publicar` it creates the Release on GitHub as a DRAFT (`gh release create v0.3.1 --draft --verify-tag`), with those two files; without it, it only prints the command it would run, and `--so-conferir --apk FILE` only runs the checks on an APK that is already built.
+- `--ensaio` (or `--dry-run`) walks the whole path with no side effect, so it can be run before tagging: the checks and the build run for real (the build with the debug key, `-PreauDebugSigned=true`, never the release key, so the APK's certificate is not the project's), and what would change the repository, the output folder or GitHub is only printed as `[ensaio] faria: <command>`. A check that fails becomes a pending item listed at the end (the exit is 1) instead of stopping the script, and it always ends with `Ensaio terminado: nada foi publicado.`
 
 What stays with the maintainer, since the script publishes nothing and pushes nothing:
 
