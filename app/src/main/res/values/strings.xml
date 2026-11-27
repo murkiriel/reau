@@ -978,6 +978,24 @@
     <string name="tip_gemini_swap_text">Gemini talks by voice and needs an intercom in the helmet. If you do not have one, on the Dash joystick screen (Media control, the Down button) you can swap the Gemini action for “Switch map and music”: one tap takes you from the map to the music app and back.</string>
     <string name="tip_video_fps_title">Why the video does not go above 6 fps</string>
     <string name="tip_video_fps_text">The dash accepts more frames per second, but the same processor that shows the video also draws the screen and handles the buttons. In tests on the bike, at 8 fps the reserve icon started to flicker, and at 12 fps the dash began to ignore the buttons. At 6 fps everything worked without glitches, so REau never goes above it. Even so, the app comes with the Original pace (4 fps on A, 2 on B), which is lighter on the dash; for a smoother picture, pick REau (6 fps on A, 3 on B) in the \"Video pace\" setting.</string>
+    <!-- "Tela acesa com o celular bloqueado" (0.3.90 test build): ScreenKeeper, ui/LockOverHost, ui/SettingsScreenKeep. -->
+    <string name="group_screen_keep">Locked phone</string>
+    <string name="screen_keep_title">Screen on with the phone locked (test)</string>
+    <string name="screen_keep_sub">On the ride, REau lights the screen when it goes off, so the phone does not close it. Uses more battery</string>
+    <string name="screen_keep_info">REau does not turn the screen off: Android does (or you). After it goes off, REau lights it again for a few seconds, at once or, in the other modes, from 30 seconds to 4 minutes after it went off. It is a test: it comes off, uses more battery and only works with the projection on.</string>
+    <string name="screen_keep_mode_title">When to light the screen again</string>
+    <string name="screen_keep_mode_sub">The intervals count after Android turns the screen off; REau lights it for a few seconds</string>
+    <string name="screen_keep_mode_off">Every time the screen goes off</string>
+    <string name="screen_keep_mode_60">Every 1 minute</string>
+    <string name="screen_keep_mode_30">Every 30 seconds</string>
+    <string name="screen_keep_mode_120">Every 2 minutes</string>
+    <string name="screen_keep_mode_180">Every 3 minutes</string>
+    <string name="screen_keep_mode_240">Every 4 minutes</string>
+    <string name="screen_keep_lock_ui_title">Show REau over the lock screen</string>
+    <string name="screen_keep_lock_ui_sub">The screen that lights shows REau, not the system lock screen. Only if REau is in front when you lock the phone</string>
+    <string name="screen_keep_lock_projecting">Projecting to the dash</string>
+    <string name="screen_keep_lock_swipe">Swipe up to unlock</string>
+    <string name="screen_keep_lock_pause">Turn the screen off for this ride</string>
     <!-- "Bloquear a tela" (0.3.93 test build): ScreenLock, ui/ScreenLockMode, ui/ScreenLockScreen. -->
     <string name="action_lock_screen">Lock the screen</string>
     <string name="lock_projecting">Projecting to the dash</string>

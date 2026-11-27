@@ -97,15 +97,4 @@ class ScreenLockIsWiredTest {
         assertTrue("under the bridge card", "ModeButtons(p, extras)" in source("ui/MainScreen.kt"))
         assertTrue("val onLockScreen: () -> Unit = {}" in source("ui/UiState.kt"))
     }
-
-    @Test
-    fun `the automatic function is gone, and with it its setting, its service and its wake lock`() {
-        for (gone in listOf("service/ScreenKeeper.kt", "service/ScreenKeepPolicy.kt", "service/ScreenKeepFront.kt", "settings/ScreenKeepMode.kt", "ui/SettingsScreenKeep.kt", "ui/LockOverHost.kt", "ui/ManualLock.kt")) {
-            assertFalse(gone, File("src/main/java/com/reau/app/$gone").exists())
-        }
-        val everything = File("src/main/java/com/reau/app").walkTopDown().filter { it.extension == "kt" }.joinToString("\n") { it.readText() }
-        for (word in listOf("screenKeep", "ScreenKeeper", "SCREEN_DIM_WAKE_LOCK", "ACQUIRE_CAUSES_WAKEUP", "reau:screen-keep", "LockOverHost")) assertFalse(word, word in everything)
-        val strings = File("src/main/res/values-pt/strings.xml").readText()
-        assertFalse("screen_keep_" in strings || "group_screen_keep" in strings)
-    }
 }

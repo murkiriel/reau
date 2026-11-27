@@ -1,0 +1,164 @@
+package com.reau.app.service
+
+import com.reau.app.service.ScreenKeepPolicy.Decision
+import com.reau.app.service.ScreenKeepPolicy.Trigger
+import com.reau.app.settings.ScreenKeepMode
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/** The decision of "Tela acesa com o celular bloqueado": when the screen is lit, when it is not, and when the next try is. Pure, no Android. */
+class ScreenKeepPolicyTest {
+    private fun decide(
+        mode: ScreenKeepMode = ScreenKeepMode.ON_SCREEN_OFF,
+        trigger: Trigger = Trigger.SCREEN_OFF,
+        enabled: Boolean = true,
+        screenOn: Boolean = false,
+        since: Long? = null,
+        paused: Boolean = false,
+    ) = ScreenKeepPolicy.decide(enabled, mode, trigger, screenOn, since, paused)
+
+    @Test
+    fun `the screen going off lights it in the mode that lights at every screen-off`() {
+        assertEquals(Decision.WAKE, decide())
+    }
+
+    @Test
+    fun `with the switch off nothing is ever lit`() {
+        for (mode in ScreenKeepMode.entries) for (trigger in Trigger.entries) {
+            assertEquals("$mode $trigger", Decision.NOTHING, decide(mode = mode, trigger = trigger, enabled = false))
+        }
+    }
+
+    @Test
+    fun `the modes with an interval do not light at the screen-off itself, only their timer does`() {
+        for (mode in ScreenKeepMode.entries.filter { it.intervalSec != null }) {
+            assertEquals(mode.toString(), Decision.NOTHING, decide(mode = mode, trigger = Trigger.SCREEN_OFF))
+            assertEquals(mode.toString(), Decision.WAKE, decide(mode = mode, trigger = Trigger.TIMER))
+        }
+    }
+
+    @Test
+    fun `the mode of every screen-off has no timer`() {
+        assertEquals(Decision.NOTHING, decide(mode = ScreenKeepMode.ON_SCREEN_OFF, trigger = Trigger.TIMER))
+    }
+
+    @Test
+    fun `a timer that finds the screen on lights nothing`() {
+        assertEquals(Decision.NOTHING, decide(mode = ScreenKeepMode.EVERY_30_S, trigger = Trigger.TIMER, screenOn = true))
+    }
+
+    @Test
+    fun `nothing is lit again within the minimum gap, so the screen cannot loop`() {
+        assertEquals(Decision.NOTHING, decide(since = 0L))
+        assertEquals(Decision.NOTHING, decide(since = ScreenKeepPolicy.MIN_GAP_MS - 1))
+        assertEquals(Decision.WAKE, decide(since = ScreenKeepPolicy.MIN_GAP_MS))
+        assertEquals(Decision.WAKE, decide(since = 60_000L))
+    }
+
+    @Test
+    fun `the next light of a timer is at the next multiple of the interval since the screen went off`() {
+        val sixty = ScreenKeepMode.EVERY_60_S
+        assertEquals(60_000L, ScreenKeepPolicy.nextDelayMs(sixty, offSinceMs = 1_000L, nowMs = 1_000L))
+        assertEquals(40_000L, ScreenKeepPolicy.nextDelayMs(sixty, offSinceMs = 1_000L, nowMs = 21_000L))
+        assertEquals("exactly on a multiple waits the next one", 60_000L, ScreenKeepPolicy.nextDelayMs(sixty, offSinceMs = 0L, nowMs = 60_000L))
+        assertEquals("a skip does not move the others", 59_000L, ScreenKeepPolicy.nextDelayMs(sixty, offSinceMs = 0L, nowMs = 61_000L))
+        val thirty = ScreenKeepMode.EVERY_30_S
+        assertEquals(1L, ScreenKeepPolicy.nextDelayMs(thirty, offSinceMs = 0L, nowMs = 29_999L))
+        assertEquals(30_000L, ScreenKeepPolicy.nextDelayMs(thirty, offSinceMs = 5_000L, nowMs = 4_000L))
+    }
+
+    @Test
+    fun `every interval of the selector has its own next light, a whole interval from the moment the screen went off`() {
+        val expected = mapOf(
+            ScreenKeepMode.EVERY_30_S to 30_000L, ScreenKeepMode.EVERY_60_S to 60_000L, ScreenKeepMode.EVERY_120_S to 120_000L,
+            ScreenKeepMode.EVERY_180_S to 180_000L, ScreenKeepMode.EVERY_240_S to 240_000L,
+        )
+        for ((mode, interval) in expected) {
+            assertEquals("$mode at the moment it went off", interval, ScreenKeepPolicy.nextDelayMs(mode, offSinceMs = 10_000L, nowMs = 10_000L))
+            assertEquals("$mode a second later", interval - 1_000L, ScreenKeepPolicy.nextDelayMs(mode, offSinceMs = 10_000L, nowMs = 11_000L))
+            assertEquals("$mode just before it", 1L, ScreenKeepPolicy.nextDelayMs(mode, offSinceMs = 0L, nowMs = interval - 1))
+            assertEquals("$mode on the second multiple", interval, ScreenKeepPolicy.nextDelayMs(mode, offSinceMs = 0L, nowMs = interval))
+            assertEquals("$mode the interval the mode says", interval, ScreenKeepMode.entries.first { it == mode }.intervalSec!! * 1_000L)
+        }
+        assertEquals("the five timer modes", 5, expected.size)
+    }
+
+    @Test
+    fun `the mode with no interval has no next light`() {
+        assertNull(ScreenKeepPolicy.nextDelayMs(ScreenKeepMode.ON_SCREEN_OFF, 0L, 10_000L))
+    }
+
+    @Test
+    fun `the ride log lines are short and tell the mode, the reason and the seconds`() {
+        assertEquals("on mode=off lockui=off", ScreenKeepPolicy.onLine(ScreenKeepMode.ON_SCREEN_OFF, false))
+        assertEquals("on mode=n60 lockui=on", ScreenKeepPolicy.onLine(ScreenKeepMode.EVERY_60_S, true))
+        assertEquals("on mode=n30 lockui=off", ScreenKeepPolicy.onLine(ScreenKeepMode.EVERY_30_S, false))
+        assertEquals("on mode=n120 lockui=off", ScreenKeepPolicy.onLine(ScreenKeepMode.EVERY_120_S, false))
+        assertEquals("on mode=n180 lockui=on", ScreenKeepPolicy.onLine(ScreenKeepMode.EVERY_180_S, true))
+        assertEquals("on mode=n240 lockui=off", ScreenKeepPolicy.onLine(ScreenKeepMode.EVERY_240_S, false))
+        assertEquals("wake reason=screenoff after=0s", ScreenKeepPolicy.wakeLine(Trigger.SCREEN_OFF, 0))
+        assertEquals("wake reason=timer after=60s", ScreenKeepPolicy.wakeLine(Trigger.TIMER, 60))
+        assertEquals("off", ScreenKeepPolicy.OFF_LINE)
+        assertEquals("screen-keep", ScreenKeepPolicy.TAG)
+        assertEquals(61L, ScreenKeepPolicy.secondsOff(offSinceMs = 1_000L, nowMs = 62_999L))
+        assertEquals("a clock that went back is zero", 0L, ScreenKeepPolicy.secondsOff(offSinceMs = 5_000L, nowMs = 1_000L))
+    }
+
+    @Test
+    fun `a moment after a light the log says when the app's activity was not in front, or had no lock screen to show over`() {
+        assertEquals("lockui not-front", ScreenKeepPolicy.frontLine(activityResumed = false, keyguardLocked = true))
+        assertEquals("not resumed counts first, locked or not", "lockui not-front", ScreenKeepPolicy.frontLine(activityResumed = false, keyguardLocked = false))
+        assertEquals("lockui no-keyguard", ScreenKeepPolicy.frontLine(activityResumed = true, keyguardLocked = false))
+        assertNull("in front over the lock screen: the activity says shown itself", ScreenKeepPolicy.frontLine(activityResumed = true, keyguardLocked = true))
+        assertEquals("lockui armed", ScreenKeepPolicy.ARMED_LINE)
+        assertEquals("lockui shown", ScreenKeepPolicy.SHOWN_LINE)
+    }
+
+    @Test
+    fun `with the rider's pause nothing is lit, in any mode and by any trigger, and without it the same call lights`() {
+        for (mode in ScreenKeepMode.entries) for (trigger in Trigger.entries) {
+            assertEquals("$mode $trigger", Decision.NOTHING, decide(mode = mode, trigger = trigger, paused = true))
+        }
+        assertEquals(Decision.WAKE, decide(paused = false))
+        assertEquals("paused by rider", ScreenKeepPolicy.PAUSED_LINE)
+    }
+
+    @Test
+    fun `the reason not to light is one word, and null when the screen is to be lit`() {
+        fun why(enabled: Boolean = true, mode: ScreenKeepMode = ScreenKeepMode.ON_SCREEN_OFF, trigger: Trigger = Trigger.SCREEN_OFF, screenOn: Boolean = false,
+            since: Long? = null, paused: Boolean = false) = ScreenKeepPolicy.why(enabled, mode, trigger, screenOn, since, paused)
+        assertNull(why())
+        assertEquals("off", why(enabled = false))
+        assertEquals("paused", why(paused = true))
+        assertEquals("wrong-trigger", why(mode = ScreenKeepMode.EVERY_30_S))
+        assertEquals("wrong-trigger", why(trigger = Trigger.TIMER))
+        assertEquals("screen-on", why(mode = ScreenKeepMode.EVERY_30_S, trigger = Trigger.TIMER, screenOn = true))
+        assertEquals("gap", why(since = 1_000L))
+        assertEquals("nothing trigger=screenoff reason=gap", ScreenKeepPolicy.nothingLine(Trigger.SCREEN_OFF, "gap"))
+        assertEquals("nothing trigger=timer reason=paused", ScreenKeepPolicy.nothingLine(Trigger.TIMER, ScreenKeepPolicy.WHY_PAUSED))
+    }
+
+    @Test
+    fun `a change of the screen is said once, from whoever sees it first, with the line of the log`() {
+        val edge = ScreenKeepPolicy.DisplayEdge()
+        assertNull("still on", edge.heard(false, ScreenKeepPolicy.Via.TICK))
+        assertEquals("display off via=listener", edge.heard(true, ScreenKeepPolicy.Via.LISTENER))
+        assertNull("the broadcast says it again", edge.heard(true, ScreenKeepPolicy.Via.BROADCAST))
+        assertNull("so does the tick", edge.heard(true, ScreenKeepPolicy.Via.TICK))
+        assertEquals("display on via=broadcast", edge.heard(false, ScreenKeepPolicy.Via.BROADCAST))
+        assertEquals("display off via=tick", edge.heard(true, ScreenKeepPolicy.Via.TICK))
+        edge.reset(false)
+        assertNull("after a reset the same state says nothing", edge.heard(false, ScreenKeepPolicy.Via.LISTENER))
+        assertEquals(listOf("listener", "broadcast", "tick"), ScreenKeepPolicy.Via.entries.map { it.logName })
+        assertEquals(5_000L, ScreenKeepPolicy.TICK_MS)
+    }
+
+    @Test
+    fun `only a display that is on is the screen on, off and doze and the suspended ones are the screen gone`() {
+        assertFalse(ScreenKeepPolicy.displayOff(2))
+        for (state in listOf(1, 3, 4, 5, 6, 0)) assertTrue("state $state", ScreenKeepPolicy.displayOff(state))
+    }
+}

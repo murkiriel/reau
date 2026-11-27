@@ -217,6 +217,9 @@ class MainActivity : ComponentActivity() {
 
     private var resumedAtMs = 0L
 
+    // "Mostrar o REau sobre o bloqueio" (0.3.90 test build): this activity is shown over the lock screen, as the maker's own app does (LockOverHost).
+    private val lockOver = com.reau.app.ui.LockOverHost(this)
+
     // "Bloquear a tela" (0.3.93 test build): REau's own dark screen in front, the screen kept lit by the window itself (ScreenLockMode).
     private val lockMode = com.reau.app.ui.ScreenLockMode(this)
 
@@ -433,7 +436,9 @@ class MainActivity : ComponentActivity() {
         if (after.logKeepDays != before.logKeepDays) thread(name = "log-age") { RideDiagnostics.applyKeepDays(after.logKeepDays) }
         // A running projection takes a new fit at once, to adjust it looking at the dash; so does every video
         // setting (LiveTuning).
-        val refit = LiveTuning.steps(before, after).isNotEmpty()
+        val refit = LiveTuning.steps(before, after).isNotEmpty() ||
+            // "Tela acesa com o celular bloqueado": a running projection takes the switch, its mode and the lock screen choice at once.
+            after.screenKeep != before.screenKeep || after.screenKeepMode != before.screenKeepMode || after.screenKeepLockUi != before.screenKeepLockUi
         if (after.useLocation != before.useLocation) {
             // The place is learned here, on the screen (the service cannot read it); the refit goes after, so the dash's day or night uses it.
             learnSunPlace(this, then = { if (refit) ProjectionService.refit(this) })
@@ -503,11 +508,13 @@ class MainActivity : ComponentActivity() {
     // After onCreate's setContent: the layer of the lock screen is added on top of the screens (ScreenLockMode).
     override fun onPostCreate(savedInstanceState: Bundle?) {
         super.onPostCreate(savedInstanceState)
+        lockOver.attach()
         lockMode.attach()
     }
 
     override fun onPause() {
         onScreen = false
+        lockOver.paused()
         super.onPause()
     }
 
@@ -524,6 +531,7 @@ class MainActivity : ComponentActivity() {
 
     private fun resume() {
         onScreen = true
+        lockOver.resumed()
         resumedAtMs = com.reau.app.util.MonotonicClock.nowMs()
         if (leftForAaSettingsAtMs != 0L) {
             val away = (android.os.SystemClock.elapsedRealtime() - leftForAaSettingsAtMs) / 1_000

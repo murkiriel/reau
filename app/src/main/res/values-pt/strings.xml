@@ -967,6 +967,24 @@
     <string name="tip_gemini_swap_text">O Gemini conversa por voz e precisa de um intercomunicador no capacete. Se você não tem um, troque na tela Joystick do painel (Controle de mídia, botão “Pra baixo”) a ação do Gemini por “Alternar mapa e música”: um toque leva do mapa para o app de música e de volta.</string>
     <string name="tip_video_fps_title">Por que o vídeo não passa de 6 fps</string>
     <string name="tip_video_fps_text">O painel aceita mais quadros por segundo, mas o mesmo processador que mostra o vídeo também desenha a tela e atende os botões. Nos testes na moto, a 8 fps o ícone da reserva passou a piscar e a 12 fps o painel começou a ignorar os botões. A 6 fps tudo funcionou sem falhas, por isso o REau nunca passa disso. Mesmo assim, o app vem com o ritmo Original (4 fps no A, 2 no B), mais leve para o painel; para uma imagem mais fluida, escolha o REau (6 fps no A, 3 no B) no ajuste \"Ritmo do vídeo\".</string>
+    <!-- "Tela acesa com o celular bloqueado" (0.3.90 test build): ScreenKeeper, ui/LockOverHost, ui/SettingsScreenKeep. -->
+    <string name="group_screen_keep">Celular bloqueado</string>
+    <string name="screen_keep_title">Tela acesa com o celular bloqueado (teste)</string>
+    <string name="screen_keep_sub">Na viagem, o REau acende a tela quando ela apaga, para o celular não fechá-lo. Gasta mais bateria</string>
+    <string name="screen_keep_info">O REau não apaga a tela: quem apaga é o Android (ou você). Depois que ela apaga, o REau a acende de novo por alguns segundos, na hora ou, nos outros modos, de 30 segundos a 4 minutos depois de ela apagar. É um teste: vem desligado, gasta mais bateria e só vale com a projeção ligada.</string>
+    <string name="screen_keep_mode_title">Quando acender de novo a tela</string>
+    <string name="screen_keep_mode_sub">Os intervalos contam depois de o Android apagar a tela; o REau a acende por alguns segundos</string>
+    <string name="screen_keep_mode_off">Sempre que a tela apagar</string>
+    <string name="screen_keep_mode_60">A cada 1 minuto</string>
+    <string name="screen_keep_mode_30">A cada 30 segundos</string>
+    <string name="screen_keep_mode_120">A cada 2 minutos</string>
+    <string name="screen_keep_mode_180">A cada 3 minutos</string>
+    <string name="screen_keep_mode_240">A cada 4 minutos</string>
+    <string name="screen_keep_lock_ui_title">Mostrar o REau sobre o bloqueio</string>
+    <string name="screen_keep_lock_ui_sub">A tela que acende mostra o REau, e não a tela de bloqueio do sistema. Só se o REau estiver na frente quando você bloquear</string>
+    <string name="screen_keep_lock_projecting">Projetando no painel</string>
+    <string name="screen_keep_lock_swipe">Deslize para cima para desbloquear</string>
+    <string name="screen_keep_lock_pause">Apagar a tela nesta viagem</string>
     <!-- "Bloquear a tela" (0.3.93 test build): ScreenLock, ui/ScreenLockMode, ui/ScreenLockScreen. -->
     <string name="action_lock_screen">Bloquear a tela</string>
     <string name="lock_projecting">Projetando no painel</string>
