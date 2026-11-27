@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChangeIgnoreConsumed
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -135,7 +136,7 @@ internal fun ScreenLockScreen(mode: ScreenLockMode) {
 @Composable
 private fun LockHeader() {
     val context = LocalContext.current
-    val locale = context.resources.configuration.locales[0]
+    val locale = LocalConfiguration.current.locales[0]
     val format = remember(locale) { DateFormat.getTimeFormat(context) }
     val dateFormat = remember(locale) { SimpleDateFormat(DateFormat.getBestDateTimePattern(locale, "EEEEdMMMM"), locale) }
     var now by remember { mutableStateOf(Date()) }
