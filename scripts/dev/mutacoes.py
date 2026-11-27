@@ -6152,17 +6152,48 @@ MUTATIONS += [
 # 26/11/2026: o "sim" do painel para "Sair da navegação?" (09 00 0x12): o REau responde com o 06 05 AA, segura o cartão de rota até uma guiagem nova e não manda tecla ao Android Auto.
 MUTATIONS += [
     ("Sair da navegação 26/11: o 0x12 do painel não manda o 06 05 AA", MAIN + "dash/DashSession.kt",
-     "{ sock.send(DashCommands.exitProjectionIdle()) }", "{ }", ["DashSessionExitNavigationTest"]),
+     "{ sock.send(DashCommands.exitProjectionIdle()) }", "{ true }", ["DashSessionExitNavigationTest"]),
     ("Sair da navegação 26/11: o cartão de rota de cada segundo ignora a retenção", MAIN + "dash/DashSession.kt",
      "socket?.let { routeHold.sendUnlessHeld { it.send(liveRouteCard(projectionOn = true)) } }", "socket?.send(liveRouteCard(projectionOn = true))",
      ["DashSessionExitNavigationTest"]),
     ("Sair da navegação 26/11: uma recalculagem de poucos segundos solta o cartão", MAIN + "dash/RouteHold.kt",
-     "val fresh = since != null && nowMs - since >= newGuidanceAfterMs", "val fresh = since != null",
+     "val fresh = endsOnActive || (since != null && nowMs - since >= newGuidanceAfterMs)", "val fresh = endsOnActive || since != null",
      ["RouteHoldTest", "DashSessionExitNavigationTest"]),
     ("Sair da navegação 26/11: o 0x12 do painel volta a mandar a tecla Voltar ao Android Auto", MAIN + "aa/JoystickMap.kt",
      'private fun backPress(): Press = Press(emptyList(), listOf("exit navigation',
      'private fun backPress(): Press = Press(listOf(AaCommand.Key(ServiceDiscoveryResponse.KEY_BACK)), listOf("exit navigation',
      ["JoystickGesturesTest", "JoystickLocksTest"]),
+]
+
+
+# 27/11/2026: a revisão do "Sair da navegação?": a retenção que solta na primeira guiagem depois de um 0x12 sem guiagem, o estado de "guiando" dentro do RouteHold,
+# o registro que não diz "enviado" quando o envio falhou, e o que faltava pegar (o pacote 05 02, o lote do anel, o reset do disconnect e do enterNavMode).
+MUTATIONS += [
+    ("Sair da navegação 27/11: o 0x12 sem guiagem espera dez segundos em vez de soltar na primeira guiagem", MAIN + "dash/RouteHold.kt",
+     "endsOnActive = !guiding", "endsOnActive = false", ["RouteHoldTest", "DashSessionExitNavigationTest"]),
+    ("Sair da navegação 27/11: o 0x12 com guiagem solta na primeira guiagem, sem a recalculagem", MAIN + "dash/RouteHold.kt",
+     "endsOnActive = !guiding", "endsOnActive = true", ["RouteHoldTest", "DashSessionExitNavigationTest"]),
+    ("Sair da navegação 27/11: a retenção não lembra que a guiagem acabou (inactive sem retenção não marca)", MAIN + "dash/RouteHold.kt",
+     "        guiding = false\n        if (held && inactiveSinceMs == null)", "        if (held && inactiveSinceMs == null)", ["RouteHoldTest"]),
+    ("Sair da navegação 27/11: a retenção não lembra que a guiagem começou (active sem retenção não marca)", MAIN + "dash/RouteHold.kt",
+     "        guiding = true\n        if (!held) return@synchronized false", "        if (!held) return@synchronized false", ["RouteHoldTest"]),
+    ("Sair da navegação 27/11: o registro diz que o 06 05 AA saiu mesmo quando o envio falhou", MAIN + "dash/DashSession.kt",
+     'val navOff = if (sent) "nav off sent" else "nav off NOT sent (send failed)"', 'val navOff = if (true) "nav off sent" else "nav off NOT sent (send failed)"',
+     ["DashSessionExitNavigationTest"]),
+    ("Sair da navegação 27/11: o envio que falhou não deixa a retenção ligada", MAIN + "dash/RouteHold.kt",
+     "        held = true\n        endsOnActive = !guiding\n        inactiveSinceMs = null\n        send()", "        held = false\n        endsOnActive = !guiding\n        inactiveSinceMs = null\n        send()",
+     ["RouteHoldTest", "DashSessionExitNavigationTest"]),
+    ("Sair da navegação 27/11: o pacote 05 02 de cada segundo ignora a retenção", MAIN + "dash/DashSession.kt",
+     "socket?.let { sock -> routeHold.sendUnlessHeld { navPacketNow()?.let(sock::send) } }", "socket?.let { sock -> navPacketNow()?.let(sock::send) }",
+     ["DashSessionExitNavigationTest"]),
+    ("Sair da navegação 27/11: o lote do anel manda o cartão retido", MAIN + "dash/DashSession.kt",
+     "if (ringChanged && !routeHold.isHeld) answers", "if (ringChanged) answers", ["DashSessionExitNavigationTest"]),
+    ("Sair da navegação 27/11: o disconnect deixa a retenção ligada", MAIN + "dash/DashSession.kt",
+     "        nav = null\n        routeHold.reset()\n", "        nav = null\n", ["DashSessionExitNavigationTest"]),
+    ("Sair da navegação 27/11: o enterNavMode deixa a retenção do enlace anterior", MAIN + "dash/DashSession.kt",
+     "        routeHold.reset() // a new link enters the navigation: nothing held from the one before\n", "", ["DashSessionExitNavigationTest"]),
+    ("Sair da navegação 27/11: o disconnect não diz à retenção que a guiagem acabou", MAIN + "dash/DashSession.kt",
+     "        routeHold.inactive(MonotonicClock.nowMs()) // no guidance any more", "        // no guidance any more", ["DashSessionExitNavigationTest"]),
 ]
 
 

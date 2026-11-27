@@ -808,12 +808,15 @@ class DashSession(
     /**
      * The rider said yes to the dash's own "Exit navigation?" (it sends 0x12 only then): the navigation is turned off on the dash with "projection idle"
      * (06 05 = 0xAA, [DashCommands.exitProjectionIdle]) after the 06 80 answer, and the route card and the nav packet are held back until a new guidance
-     * ([RouteHold]): they carry 06 05 = 0x55, which puts the dash back in the navigation (the official app does the same). The rest of what goes to the
+     * ([RouteHold]): they carry 06 05 = 0x55, which puts the dash back in the navigation. The rest of what goes to the
      * dash, the video included, goes on. Android Auto is told nothing.
      */
     internal fun exitNavigationConfirmed(sock: DashSocket) {
-        routeHold.hold(guiding = nav != null, nowMs = MonotonicClock.nowMs()) { sock.send(DashCommands.exitProjectionIdle()) }
-        com.reau.app.data.RideDiagnostics.log("dash", "exit navigation confirmed on the dash: nav off sent, route card held until a new guidance")
+        // The hold knows by itself whether Android Auto's guidance is active, under its own lock (not `nav != null` read before it).
+        val sent = routeHold.hold { sock.send(DashCommands.exitProjectionIdle()) }
+        // The hold is on either way: with the "nav off" lost the dash stays in the navigation, but a card sent now would only keep it there.
+        val navOff = if (sent) "nav off sent" else "nav off NOT sent (send failed)"
+        com.reau.app.data.RideDiagnostics.log("dash", "exit navigation confirmed on the dash: $navOff, route card held until a new guidance")
     }
 
     /** The route card sent now with the title it has now (the echo, or what it was). Nothing is sent out of the streaming. */
@@ -986,6 +989,7 @@ class DashSession(
         cardTitleOverride = null
         nav = null
         routeHold.reset()
+        routeHold.inactive(MonotonicClock.nowMs()) // no guidance any more: the next one is new, as for a hold that starts later
         // The one session of the process outlives the link: the next link must not start from the figures held back before it (26/11/2026).
         arrival.reset()
         forgetLastManeuver()

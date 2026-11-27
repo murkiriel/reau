@@ -9,7 +9,7 @@ import kotlin.math.roundToInt
  *
  * The maneuver type is Android Auto's NavigationManeuver.NavigationType wire number; each one becomes the dash glyph
  * of the catalog ([DashManeuverGlyphs], the glyph table observed on the dash, still to be checked
- * on the bike): turns by sharpness and side, ramps on and off with the bytes the official app gives them (the start of the route too), keep-left/right and forks as the Y fork, merges
+ * on the bike): turns by sharpness and side, ramps on and off with bytes of their own (the start of the route too), keep-left/right and forks as the Y fork, merges
  * through the catalog's own rule, roundabouts with their exit (in the direction Android Auto says; when it does not, the way the
  * driving side goes: counter-clockwise in right-hand traffic, clockwise in left-hand), ferries, arrivals. Anything else is the hidden bubble here, which the session never
  * sends while guiding (DashSession.ringManeuver keeps the last drawable maneuver); rerouting shows the spinning
@@ -41,7 +41,7 @@ object AaManeuvers {
     // Android Auto's NavigationType numbers, by what the dash draws for them.
     private val BY_TYPE: Map<Int, Int> = buildMap {
         for (t in listOf(2, 29, 36)) put(t, DashManeuverGlyphs.STRAIGHT) // name change, merge (no side), straight
-        put(1, DashManeuverGlyphs.DEPART) // the start of the route: the pin alone, as the official app sends it
+        put(1, DashManeuverGlyphs.DEPART) // the start of the route: the pin alone
         put(3, DashManeuverGlyphs.FORK_LEFT)
         put(4, DashManeuverGlyphs.FORK_RIGHT)
         put(25, DashManeuverGlyphs.FORK_LEFT)
@@ -52,7 +52,7 @@ object AaManeuvers {
             DashManeuverGlyphs.TURN_RIGHT, DashManeuverGlyphs.SHARP_LEFT, DashManeuverGlyphs.SHARP_RIGHT,
         )
         turns.forEachIndexed { i, glyph -> put(5 + i, glyph) }
-        // Ramps on (13..18), the same order, with the bytes the official app gives them (not yet seen on the bike).
+        // Ramps on (13..18), the same order, with bytes of their own (not yet seen on the bike).
         listOf(
             DashManeuverGlyphs.ON_RAMP_SLIGHT_LEFT, DashManeuverGlyphs.ON_RAMP_SLIGHT_RIGHT, DashManeuverGlyphs.ON_RAMP_LEFT,
             DashManeuverGlyphs.ON_RAMP_RIGHT, DashManeuverGlyphs.ON_RAMP_SHARP_LEFT, DashManeuverGlyphs.ON_RAMP_SHARP_RIGHT,
