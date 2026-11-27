@@ -222,7 +222,7 @@ class MainActivity : ComponentActivity() {
 
     // "Bloquear a tela" (0.3.93 test build): REau's own dark screen in front, the screen kept lit by the window itself (ScreenLockMode).
     private val keepOn = com.reau.app.ui.KeepScreenOn(this)
-    private val lockMode = com.reau.app.ui.ScreenLockMode(this, keepOn)
+    private val lockMode = com.reau.app.ui.ScreenLockMode(this, keepOn) { lockOver.over }
 
     // The idle count of the 0.3.97 test build: REau in front, the dash ready and the switch on, the screen does not go off by itself, it goes into the lock (IdleLockWatch).
     private val idleWatch = com.reau.app.ui.IdleLockWatch(this, lockMode, keepOn)

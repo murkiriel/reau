@@ -57,12 +57,27 @@ internal object ScreenLock {
      * anywhere along it). A touch outside the track does not bring it back (the screen swallows those touches, they say nothing). Times are of one clock, in ms.
      */
     class BrightnessRule(private val dimAfterMs: Long, startMs: Long) {
+        companion object {
+            /** A move of the thumb refreshes the brightness at most this often. */
+            const val MOVE_REFRESH_MS = 1_000L
+        }
+
         private var brightSince = startMs
 
         /** A touch at [nowMs]; true when it was on the track, so the brightness comes back now and the count to the minimum begins again. */
         fun touch(nowMs: Long, onTrack: Boolean): Boolean {
             if (onTrack) brightSince = nowMs
             return onTrack
+        }
+
+        /**
+         * The thumb moved at [nowMs] with the finger down: the count to the minimum begins again, so a drag that lasts longer than [dimAfterMs] is made in the normal
+         * brightness. True when the brightness is to be refreshed now: at most once in [MOVE_REFRESH_MS] (a move comes every frame, and each refresh is a pass over the window).
+         */
+        fun move(nowMs: Long): Boolean {
+            if (nowMs - brightSince < MOVE_REFRESH_MS) return false
+            brightSince = nowMs
+            return true
         }
 
         /** Whether the brightness is at the minimum at [nowMs]. */

@@ -115,6 +115,24 @@ class ScreenLockTest {
     }
 
     @Test
+    fun `a move of the thumb counts as a touch, once a second at most, so a drag longer than five seconds keeps the brightness`() {
+        val rule = ScreenLock.BrightnessRule(dimAfterMs = 5_000L, startMs = 0L)
+        assertTrue(rule.touch(0L, onTrack = true))
+        assertFalse("a move right after the touch changes nothing", rule.move(500L))
+        assertTrue("a second after, it counts", rule.move(1_000L))
+        assertFalse(rule.move(1_999L))
+        var now = 2_000L
+        while (now <= 20_000L) {
+            rule.move(now)
+            assertFalse("a drag of ${now / 1_000} s is bright", rule.dimmed(now))
+            now += 100L
+        }
+        assertTrue("five seconds after the last move it goes down", rule.dimmed(25_000L))
+        assertTrue("a move brings it back after that, too", rule.move(25_000L))
+        assertFalse(rule.dimmed(25_000L))
+    }
+
+    @Test
     fun `a touch anywhere on the track brings the brightness back and starts the five seconds again, a touch outside it does nothing`() {
         val rule = ScreenLock.BrightnessRule(dimAfterMs = 5_000L, startMs = 1_000L)
         assertFalse("bright at the start", rule.dimmed(1_000L))

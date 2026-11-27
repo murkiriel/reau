@@ -54,8 +54,8 @@ class ScreenKeepIsWiredTest {
     fun `it listens to the screen going off and on, and lets everything go when it stops`() {
         val keeper = source("service/ScreenKeeper.kt")
         assertTrue("Intent.ACTION_SCREEN_OFF" in keeper && "Intent.ACTION_SCREEN_ON" in keeper)
-        val off = keeper.substringAfter("private fun turnOff()").substringBefore("private fun screenOff()")
-        val steps = listOf("app.unregisterReceiver(heard)", "cancelTimer()", "release()", "ScreenKeepFront.arm(false)", "main.removeCallbacks(it)")
+        val off = keeper.substringAfter("private fun turnOff()").substringBefore("private fun screenOff(")
+        val steps = listOf("app.unregisterReceiver(heard)", "unregisterDisplayListener(it)", "displayListener = null", "safety = null", "release()", "ScreenKeepFront.arm(false)", "main.removeCallbacks(it)", "frontCheck = null")
         for (step in steps + "ScreenKeepPolicy.OFF_LINE") assertTrue(step, step in off)
     }
 
@@ -66,7 +66,7 @@ class ScreenKeepIsWiredTest {
         val policy = source("service/ScreenKeepPolicy.kt")
         for (word in listOf("proximity", "covered", "SKIP", "NEAR_CM")) assertFalse(word, word in policy)
         val ask = keeper.substringAfter("private fun ask(").substringBefore("private fun wake(")
-        assertTrue(ask, "if (why == null) wake(trigger)" in ask)
+        assertTrue(ask, "if (why == null) wake(reason) else log(ScreenKeepPolicy.nothingLine(why))" in ask)
     }
 
     @Test
@@ -74,7 +74,7 @@ class ScreenKeepIsWiredTest {
         val keeper = source("service/ScreenKeeper.kt")
         assertFalse("startActivity" in keeper || "PendingIntent" in keeper || "fullScreenIntent" in keeper || "SYSTEM_ALERT_WINDOW" in keeper)
         assertTrue("ScreenKeepFront.arm(true)" in keeper.substringAfter("private fun turnOn("))
-        assertTrue("ScreenKeepFront.arm(true)" in keeper.substringAfter("private fun screenOff()"))
+        assertTrue("ScreenKeepFront.arm(true)" in keeper.substringAfter("private fun screenOff("))
         assertTrue("the one switch decides", "if (settings().lockMode) turnOn() else turnOff()" in keeper && "if (!settings().lockMode) return turnOff()" in keeper)
         assertTrue("ScreenKeepFront.arm(false)" in keeper.substringAfter("private fun turnOff()").substringBefore("val heard"))
         val check = keeper.substringAfter("private fun checkFront()").substringBefore("private fun power()")
@@ -123,6 +123,19 @@ class ScreenKeepIsWiredTest {
     }
 
     @Test
+    fun `every touch over the lock screen asks Android again, so a cancelled prompt leaves the screen alive, and a touch brings the brightness back`() {
+        val over = source("ui/LockOverHost.kt")
+        assertTrue("the anchor is gone", "private fun Modifier.overTouch(" in over)
+        val touch = over.substringAfter("private fun Modifier.overTouch(").substringBefore("private const val CLOCK_MS")
+        assertTrue(touch, "pointerInput(Unit) {\n    awaitEachGesture {" in touch)
+        assertFalse("not the pointer scope that ends after the first touch", "awaitPointerEventScope" in touch)
+        assertTrue(touch, "awaitFirstDown()" in touch && "onTouch()" in touch && "host.unlock()" in touch)
+        assertTrue("the touch moves the count of the brightness", ".overTouch(host) { touches++ }" in over)
+        val effect = over.substringAfter("LaunchedEffect(touches) {").substringBefore("DisposableEffect")
+        assertTrue(effect, "host.dim(false)" in effect && "delay(LockOverHost.DIM_AFTER_MS)" in effect && "host.dim(true)" in effect)
+    }
+
+    @Test
     fun `the screen of the function draws nothing animated`() {
         val code = source("ui/LockOverHost.kt").lines().filterNot { it.trimStart().startsWith("*") || it.trimStart().startsWith("//") }.joinToString("\n")
         for (animated in listOf("animate", "infiniteTransition", "rememberInfiniteTransition", "Animatable", "AnimatedVisibility", "Canvas", "Image(", "painterResource")) {
@@ -158,12 +171,38 @@ class ScreenKeepIsWiredTest {
         assertTrue("seen(intent.action == Intent.ACTION_SCREEN_OFF, ScreenKeepPolicy.Via.BROADCAST)" in keeper)
         val safety = keeper.substringAfter("private fun armSafety()").substringBefore("private fun turnOff()")
         assertTrue(safety, "seen(displayOff(), ScreenKeepPolicy.Via.TICK)" in safety && "main.postDelayed(next, ScreenKeepPolicy.TICK_MS)" in safety)
-        assertTrue(safety, "if (retry && edge.off) ask()" in safety)
+        assertTrue(safety, "if (edge.off) {" in safety && "if (retry) {" in safety)
         val seen = keeper.substringAfter("private fun seen(").substringBefore("/** The safety net")
         assertTrue(seen, "val line = edge.heard(off, via) ?: return" in seen && "log(line)" in seen && "if (off) screenOff() else screenOn()" in seen)
-        val turnOff = keeper.substringAfter("private fun turnOff()").substringBefore("private fun screenOff()")
+        val turnOff = keeper.substringAfter("private fun turnOff()").substringBefore("private fun screenOff(")
         assertTrue(turnOff, "unregisterDisplayListener(it)" in turnOff && "safety?.let { main.removeCallbacks(it) }" in turnOff)
         assertTrue("it begins from what the display says now", "edge.reset(displayOff())" in keeper.substringAfter("private fun turnOn("))
+    }
+
+    @Test
+    fun `the function begins by lighting a screen that is already off, and the tick lights again one that stayed dark, with the reason in the log`() {
+        val keeper = source("service/ScreenKeeper.kt")
+        val on = keeper.substringAfter("private fun turnOn()").substringBefore("/** The default display's state is the source")
+        assertTrue(on, "edge.reset(displayOff())" in on && "if (edge.off) screenOff(ScreenKeepPolicy.REASON_START)" in on)
+        assertTrue("the safety tick is armed after", on.indexOf("if (edge.off) screenOff(") in 0 until on.indexOf("armSafety()"))
+        val safety = keeper.substringAfter("private fun armSafety()").substringBefore("private fun turnOff()")
+        assertTrue(safety, "ScreenKeepPolicy.darkRetry(true, lightAsked, lastWakeMs?.let { now() - it }, darkTries)" in safety)
+        assertTrue(safety, "darkTries++" in safety && "ask(ScreenKeepPolicy.REASON_DARK)" in safety)
+        val wake = keeper.substringAfter("private fun wake(reason: String)").substringBefore("private fun checkFront()")
+        assertTrue(wake, "lightAsked = true" in wake && "ScreenKeepPolicy.wakeLine(ScreenKeepPolicy.secondsOff(offSinceMs, at), reason)" in wake)
+        val screenOff = keeper.substringAfter("private fun screenOff(").substringBefore("private fun screenOn()")
+        assertTrue(screenOff, "ask(reason)" in screenOff)
+        val screenOn = keeper.substringAfter("private fun screenOn()").substringBefore("/** The decision, and the light")
+        assertTrue(screenOn, "lightAsked = false" in screenOn && "darkTries = 0" in screenOn)
+        val off = keeper.substringAfter("private fun turnOff()").substringBefore("private fun screenOff(")
+        assertTrue(off, "lightAsked = false" in off && "darkTries = 0" in off)
+    }
+
+    @Test
+    fun `a change of the switch while the projection prepares reaches the screen kept lit when it runs`() {
+        val service = source("service/ProjectionService.kt")
+        val change = service.substringAfter("tellTheRider(lastReported, state)").substringBefore("lastReported = state")
+        assertTrue(change, "if (lastReported.phase != Phase.RUNNING && state.phase == Phase.RUNNING) screenKeeper.sync()" in change)
     }
 
     @Test
@@ -179,6 +218,6 @@ class ScreenKeepIsWiredTest {
         for (word in listOf("armTimer", "cancelTimer", "fire()", "nextDelayMs", "ScreenKeepMode", "Trigger.TIMER", "intervalSec")) assertFalse(word, word in keeper)
         val policy = source("service/ScreenKeepPolicy.kt").lines().filterNot { it.trimStart().startsWith("*") || it.trimStart().startsWith("//") }.joinToString("\n")
         for (word in listOf("nextDelayMs", "ScreenKeepMode", "Trigger", "Decision")) assertFalse(word, word in policy)
-        assertTrue("the safety tick and the retry of the gap stay", "armSafety()" in keeper && "if (retry && edge.off) ask()" in keeper)
+        assertTrue("the safety tick and the retry of the gap stay", "armSafety()" in keeper && "if (retry) {" in keeper.substringAfter("private fun armSafety()"))
     }
 }

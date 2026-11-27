@@ -357,6 +357,8 @@ class ProjectionService : Service() {
                     current.value = state
                 }
                 tellTheRider(lastReported, state)
+                // The switch changed in "Preparando" never reached the screen kept lit (the refit counts only while running): it takes the setting as the projection runs.
+                if (lastReported.phase != Phase.RUNNING && state.phase == Phase.RUNNING) screenKeeper.sync()
                 lastReported = state
                 // "Desligando" goes up at once: the stop blocks this worker, which the pacer's wait runs on. Not when a newer start
                 // already holds the foreground (its notification is the one to keep).

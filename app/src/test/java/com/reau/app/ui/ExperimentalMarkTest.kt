@@ -40,7 +40,7 @@ class ExperimentalMarkTest {
             .filter { it.endsWith("_sub") || it.endsWith("_title") }
             .filter { ExperimentalMark.marks(text(it)) }
             .toSet()
-        // The experimental switches are gone (20/11/2026) and "Anunciar como moto" is a plain setting: no row is red today, except the one of the 0.3.5 test build
+        // The experimental switches are gone (20/11/2026) and "Anunciar como moto" is a plain setting: no row is red today, except the one of the 0.3.97 test build
         // (the pilots' "Modo de bloqueio do REau (teste)").
         assertEquals(setOf("lock_mode_title"), marked)
         assertFalse("the motorcycle row is a normal one", ExperimentalMark.marks(text("announce_motorcycle_title"), text("announce_motorcycle_sub")))

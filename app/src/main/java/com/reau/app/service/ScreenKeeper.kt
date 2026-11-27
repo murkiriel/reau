@@ -46,6 +46,10 @@ internal class ScreenKeeper(
 
     /** The last try to light the screen was held back by the gap, and the screen is still off: the safety tick tries again. */
     private var retry = false
+
+    /** A light was taken and the screen was not seen on since: if it is still off a while after, the safety tick lights it again ([ScreenKeepPolicy.darkRetry]). */
+    private var lightAsked = false
+    private var darkTries = 0
     private var frontCheck: Runnable? = null
 
     /** Takes the switch as it is now (on the main thread): goes on or goes off. Called when the projection runs and when a setting changes. */
@@ -74,7 +78,8 @@ internal class ScreenKeeper(
         log(ScreenKeepPolicy.ON_LINE)
         edge.reset(displayOff())
         watchTheDisplay()
-        if (edge.off) offSinceMs = now()
+        // The screen is already off as the function begins (the phone in a pocket as the projection starts): no event will say so, so it is lit now.
+        if (edge.off) screenOff(ScreenKeepPolicy.REASON_START)
         armSafety()
     }
 
@@ -104,14 +109,24 @@ internal class ScreenKeeper(
         if (off) screenOff() else screenOn()
     }
 
-    /** The safety net: every [ScreenKeepPolicy.TICK_MS] the display is read, in case an event did not come, and a try held back by the gap is made again. */
+    /**
+     * The safety net: every [ScreenKeepPolicy.TICK_MS] the display is read, in case an event did not come, a try held back by the gap is made again, and so is a light that
+     * did not light the screen (it is still off [ScreenKeepPolicy.DARK_AFTER_MS] after it: the maker may ignore the wake-up, and no event comes when nothing changed).
+     */
     private fun armSafety() {
         safety?.let { main.removeCallbacks(it) }
         val next = Runnable {
             safety = null
             if (receiver == null) return@Runnable
             seen(displayOff(), ScreenKeepPolicy.Via.TICK)
-            if (retry && edge.off) ask()
+            if (edge.off) {
+                if (retry) {
+                    ask()
+                } else if (ScreenKeepPolicy.darkRetry(true, lightAsked, lastWakeMs?.let { now() - it }, darkTries)) {
+                    darkTries++
+                    ask(ScreenKeepPolicy.REASON_DARK)
+                }
+            }
             armSafety()
         }
         safety = next
@@ -130,17 +145,19 @@ internal class ScreenKeeper(
         safety?.let { main.removeCallbacks(it) }
         safety = null
         retry = false
+        lightAsked = false
+        darkTries = 0
         lock?.takeIf { it.isHeld }?.release()
         frontCheck?.let { main.removeCallbacks(it) }
         frontCheck = null
         log(ScreenKeepPolicy.OFF_LINE)
     }
 
-    private fun screenOff() {
+    private fun screenOff(reason: String = ScreenKeepPolicy.REASON_SCREENOFF) {
         offSinceMs = now()
         if (!settings().lockMode) return turnOff()
         ScreenKeepFront.arm(true)
-        ask()
+        ask(reason)
     }
 
     private fun screenOn() {
@@ -148,17 +165,19 @@ internal class ScreenKeeper(
         // on for the phone's own timeout from then, instead of the lock's whole timeout.
         lock?.takeIf { it.isHeld }?.release()
         retry = false
+        lightAsked = false
+        darkTries = 0
     }
 
-    /** The decision, and the light of the screen at once when it is to be lit. */
-    private fun ask() {
+    /** The decision, and the light of the screen at once when it is to be lit; [reason] is what asked for it, for the log's `wake` line. */
+    private fun ask(reason: String = ScreenKeepPolicy.REASON_SCREENOFF) {
         val why = ScreenKeepPolicy.why(receiver != null, lastWakeMs?.let { now() - it }, ScreenKeepFront.paused)
         // Held back by the gap, the screen still off: the safety tick asks again (a screen-off right after a light would otherwise stay dark).
         retry = why == ScreenKeepPolicy.WHY_GAP
-        if (why == null) wake() else log(ScreenKeepPolicy.nothingLine(why))
+        if (why == null) wake(reason) else log(ScreenKeepPolicy.nothingLine(why))
     }
 
-    private fun wake() {
+    private fun wake(reason: String) {
         val held = lock ?: power().newWakeLock(WAKE_FLAGS, LOCK_TAG).also {
             it.setReferenceCounted(false)
             lock = it
@@ -167,7 +186,8 @@ internal class ScreenKeeper(
         held.acquire(LOCK_MS)
         val at = now()
         lastWakeMs = at
-        log(ScreenKeepPolicy.wakeLine(ScreenKeepPolicy.secondsOff(offSinceMs, at)))
+        lightAsked = true
+        log(ScreenKeepPolicy.wakeLine(ScreenKeepPolicy.secondsOff(offSinceMs, at), reason))
         checkFront()
     }
 

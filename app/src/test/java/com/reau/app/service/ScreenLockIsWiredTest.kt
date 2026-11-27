@@ -20,14 +20,26 @@ class ScreenLockIsWiredTest {
 
     private val mode = source("ui/ScreenLockMode.kt")
 
+    /** The text between two anchors, failing when either is gone (`substringAfter` of a missing anchor gives the whole text, and the check passes by chance). */
+    private fun String.between(start: String, end: String): String {
+        assertTrue("the anchor is gone: $start", contains(start))
+        val rest = substringAfter(start)
+        assertTrue("the end anchor is gone after '$start': $end", rest.contains(end))
+        return rest.substringBefore(end)
+    }
+
+    private val enterMode get() = mode.between("fun enter(entry: ScreenLock.Entry = ScreenLock.Entry.BUTTON) {", "/** The activity left the front")
+
     @Test
     fun `the window keeps the screen on while the mode lasts and lets it go on the way out`() {
-        val enter = mode.substringAfter("fun enter()").substringBefore("/** The activity left the front")
+        val enter = enterMode
         assertTrue(enter, "keep.want(SOURCE)" in enter)
         assertTrue(enter, "bars(hidden = true)" in enter && "ScreenLock.available(" in enter)
-        val exit = mode.substringAfter("fun exit(reason: ScreenLock.Exit)").substringBefore("/** The window's brightness")
+        val exit = mode.between("fun exit(reason: ScreenLock.Exit) {", "/** The window's brightness")
         assertTrue(exit, "keep.release(SOURCE)" in exit && "bars(hidden = false)" in exit)
         assertTrue(exit, "back?.remove()" in exit && "activity.unregisterReceiver(it)" in exit)
+        assertTrue("the brightness comes back on the way out, not only when the composition is let go, unless the screen over the lock screen is up on the same window", "if (!overTheLockScreen()) dim(false)" in exit)
+        assertTrue("MainActivity tells it", "ScreenLockMode(this, keepOn) { lockOver.over }" in source("MainActivity.kt"))
     }
 
     @Test
@@ -46,7 +58,7 @@ class ScreenLockIsWiredTest {
 
     @Test
     fun `the screen going off is read from the display's state, with the broadcast as a second source, and the listener is removed`() {
-        val enter = mode.substringAfter("fun enter()").substringBefore("/** The activity left the front")
+        val enter = enterMode
         assertTrue(enter, "watchTheDisplay()" in enter && "Intent.ACTION_SCREEN_OFF" in enter)
         val watch = mode.substringAfter("private fun watchTheDisplay()").substringBefore("private fun bars(")
         assertTrue(watch, "manager.registerDisplayListener(listener, main)" in watch && "displayId != Display.DEFAULT_DISPLAY" in watch)
@@ -71,6 +83,9 @@ class ScreenLockIsWiredTest {
         val screen = source("ui/ScreenLockScreen.kt")
         assertTrue("every touch is taken", "private fun Modifier.swallowTouches()" in screen && "Modifier.fillMaxSize().swallowTouches()" in screen)
         assertTrue("only a touch on the thumb drags", "ScreenLock.hitsThumb(" in screen && "if (onThumb) {" in screen)
+        val drag = screen.between("private fun SlideTrack(", "private val THUMB")
+        assertTrue("every move of the finger on the track counts as a touch for the brightness, whatever it dragged", "if (step != 0f) onMove()" in drag && "onMove: () -> Unit" in drag)
+        assertTrue("and the screen refreshes the count with it", "if (rule.move(SystemClock.elapsedRealtime())) touches++" in screen)
         assertTrue("past 90 percent leaves, else back to the start", "if (onThumb && ScreenLock.unlocked(ScreenLock.progress(dragPx, travel))) onUnlock() else dragPx = 0f" in screen)
         assertTrue("onUnlock leaves by swipe", ") { mode.exit(ScreenLock.Exit.SWIPE) }" in screen && "SlideTrack(\n                    Modifier.padding(start = TRACK_MARGIN, end = TRACK_MARGIN, bottom = bottom)," in screen)
         for (animated in listOf("animate", "InfiniteTransition", "Animatable", "AnimatedVisibility", "Canvas", "Image(", "painterResource")) assertFalse(animated, animated in code("ui/ScreenLockScreen.kt"))
@@ -130,7 +145,7 @@ class ScreenLockIsWiredTest {
         assertTrue("the thumb's touch alone", "if (rule.touch(SystemClock.elapsedRealtime(), onTrack = true)) touches++" in screen && "onTouch()" in screen)
         val effect = screen.substringAfter("LaunchedEffect(touches) {").substringBefore("DisposableEffect")
         assertTrue(effect, "mode.dim(false)" in effect && "delay(rule.msUntilDim(SystemClock.elapsedRealtime()))" in effect && "mode.dim(true)" in effect)
-        assertEquals("the swallowing of the rest of the screen touches nothing", 1, Regex("""touches\+\+""").findAll(screen).count())
+        assertEquals("only the thumb's touch and its moves, the swallowing of the rest of the screen touches nothing", 2, Regex("""touches\+\+""").findAll(screen).count())
     }
 
     @Test

@@ -18,6 +18,9 @@ English: [CHANGELOG.md](CHANGELOG.md) · Português (pt-BR): [CHANGELOG.pt-br.md
 ### Añadido
 - **Con el "Modo de bloqueo de REau" encendido, el tablero listo y REau al frente, la pantalla no se apaga sola: entra en el bloqueo de REau** (el mismo del botón), así que Android nunca bloquea ni pide el PIN. REau mantiene la pantalla encendida y cuenta el tiempo de pantalla del propio teléfono (entre 15 s y 10 min) desde el último toque; al vencer, entra en el bloqueo. Si el tablero sale de "Pronto", la proyección se detiene, el interruptor se apaga o REau sale del frente, la cuenta se detiene y la pantalla vuelve a lo normal. Si la pantalla se apaga igual (el botón de encendido), vale lo de antes: REau la vuelve a encender y aparece sobre el bloqueo. El registro dice `[lock] idle timer on timeout=Ns`, `idle timer off reason=...` y `manual on reason=idle|button`.
 
+### Corregido
+- **Misma ronda, correcciones pequeñas:** el teléfono que empieza la proyección con la pantalla ya apagada ahora la enciende al instante (y una luz que no encendió la pantalla se pide de nuevo en el tic de 5 s, hasta 3 veces, con `reason=start` o `reason=dark` en el registro); la pantalla sobre el bloqueo acepta cada toque (un PIN cancelado ya no la deja muerta y oscura) y ahora dice "Toca para desbloquear"; un arrastre largo en la pantalla de bloqueo mantiene el brillo normal; salir del bloqueo devuelve el brillo al instante; un cambio del interruptor durante el "Preparando" llega a la pantalla encendida cuando la proyección corre; las etiquetas de la tarjeta de la pantalla de bloqueo tienen 12 sp.
+
 ## [0.3.96] - 2026-11-27
 
 > **Versión de prueba para pilotos, sobre la 0.3.1** (serie 0.3.9x: builds de prueba, no publicadas). La próxima ronda después de la 0.3.95.

@@ -35,7 +35,12 @@ import kotlinx.coroutines.launch
  * the front ([stopped]), when the screen goes off (the default display's state, with the SCREEN_OFF broadcast as a second source) and when the projection stops.
  * Back does nothing, and is logged once per mode. Every call is on the main thread.
  */
-internal class ScreenLockMode(private val activity: ComponentActivity, private val keep: KeepScreenOn) {
+internal class ScreenLockMode(
+    private val activity: ComponentActivity,
+    private val keep: KeepScreenOn,
+    /** Whether [LockOverHost]'s screen is up over the phone's lock screen: it dims the same window, so leaving the lock does not touch the brightness then. */
+    private val overTheLockScreen: () -> Boolean = { false },
+) {
     /** Whether the mode is on now; the screen reads it. */
     var active by mutableStateOf(false)
         private set
@@ -91,7 +96,11 @@ internal class ScreenLockMode(private val activity: ComponentActivity, private v
         exit(if (off) ScreenLock.Exit.SCREENOFF else ScreenLock.Exit.LEFT)
     }
 
-    /** Out, for [reason]: the flag, the bars, Back's callback, the display listener and the receiver go; the brightness goes back with the screen leaving the composition. */
+    /**
+     * Out, for [reason]: the flag, the bars, Back's callback, the display listener and the receiver go, and the window's brightness comes back at once (the screen's own
+     * `onDispose` does it too, when the composition is let go, which may wait for the activity to be back). The window is the one [LockOverHost] dims over the lock screen,
+     * so the brightness is left alone while that screen is up.
+     */
     fun exit(reason: ScreenLock.Exit) {
         if (!active) return
         active = false
@@ -104,6 +113,7 @@ internal class ScreenLockMode(private val activity: ComponentActivity, private v
         displayListener = null
         screenOff?.let { runCatching { activity.unregisterReceiver(it) } }
         screenOff = null
+        if (!overTheLockScreen()) dim(false)
         onChange?.invoke()
     }
 

@@ -69,8 +69,26 @@ internal object ScreenKeepPolicy {
     /** The line for the function going on (`mode=off` is the one mode of the light, "sempre que a tela apagar", and `lockui=on` the screen over the lock: kept as the readers of the log know them). */
     const val ON_LINE = "on mode=off lockui=on"
 
-    /** The line for a light of the screen. */
-    fun wakeLine(afterSeconds: Long) = "wake reason=screenoff after=${afterSeconds}s"
+    /** The line for a light of the screen, with what asked for it: the screen going off ([REASON_SCREENOFF]), the function beginning with the screen already off ([REASON_START]) or the safety tick finding it still dark ([REASON_DARK]). */
+    fun wakeLine(afterSeconds: Long, reason: String = REASON_SCREENOFF) = "wake reason=$reason after=${afterSeconds}s"
+
+    const val REASON_SCREENOFF = "screenoff"
+    const val REASON_START = "start"
+    const val REASON_DARK = "dark"
+
+    /** How long after a light the screen must still be off for the safety tick to light it again (the gap [MIN_GAP_MS] is respected by the decision as always). */
+    const val DARK_AFTER_MS = MIN_GAP_MS
+
+    /** How many times in a row the tick lights a screen that stays dark: a phone that ignores the light is not asked for ever (the count starts again when the screen is seen on). */
+    const val MAX_DARK_TRIES = 3
+
+    /**
+     * Whether the safety tick lights the screen again: the display is still off ([displayOff]) after a light was asked ([lightAsked], and the screen not seen on since),
+     * [sinceLastWakeMs] ago, which is at least [DARK_AFTER_MS], and fewer than [MAX_DARK_TRIES] tries were made. A light that did not light the screen is not repeated by any event,
+     * for the state of the display did not change.
+     */
+    fun darkRetry(displayOff: Boolean, lightAsked: Boolean, sinceLastWakeMs: Long?, tries: Int): Boolean =
+        displayOff && lightAsked && sinceLastWakeMs != null && sinceLastWakeMs >= DARK_AFTER_MS && tries < MAX_DARK_TRIES
 
     const val OFF_LINE = "off"
 

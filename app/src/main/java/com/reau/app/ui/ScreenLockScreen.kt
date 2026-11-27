@@ -126,6 +126,10 @@ internal fun ScreenLockScreen(mode: ScreenLockMode) {
                     onTouch = {
                         if (rule.touch(SystemClock.elapsedRealtime(), onTrack = true)) touches++
                     },
+                    // A drag that lasts more than 5 s is made in the normal brightness: every move of the thumb counts as a touch (refreshed once a second at most).
+                    onMove = {
+                        if (rule.move(SystemClock.elapsedRealtime())) touches++
+                    },
                 ) { mode.exit(ScreenLock.Exit.SWIPE) }
             }
         }
@@ -201,7 +205,7 @@ private fun LockCard() {
             ) {
                 Text(
                     label.uppercase(), color = LockLabel,
-                    style = MaterialTheme.typography.labelMedium.copy(fontFamily = JetBrainsMono, fontSize = 10.5.sp, letterSpacing = 1.5.sp),
+                    style = MaterialTheme.typography.labelMedium.copy(fontFamily = JetBrainsMono, fontSize = 12.sp, letterSpacing = 1.sp),
                 )
                 Text(value, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp), color = LockValue)
             }
@@ -225,7 +229,7 @@ private fun Modifier.swallowTouches(): Modifier = pointerInput(Unit) {
  * [ScreenLock.UNLOCK_AT] of the way and it goes back to the start, past it [onUnlock] is called. A touch that does not start on the thumb drags nothing.
  */
 @Composable
-private fun SlideTrack(modifier: Modifier, onTouch: () -> Unit, onUnlock: () -> Unit) {
+private fun SlideTrack(modifier: Modifier, onTouch: () -> Unit, onMove: () -> Unit, onUnlock: () -> Unit) {
     val density = LocalDensity.current
     val thumbPx = with(density) { THUMB.toPx() }
     val padPx = with(density) { PAD.toPx() }
@@ -249,6 +253,7 @@ private fun SlideTrack(modifier: Modifier, onTouch: () -> Unit, onUnlock: () -> 
                         // (0.3.93 on the owner's phone, 26/11/2026). The ignore-consumed reading also stands if something above consumed it first.
                         val step = change.positionChangeIgnoreConsumed().x
                         change.consume()
+                        if (step != 0f) onMove()
                         if (onThumb) {
                             dx += step
                             dragPx = dx.coerceIn(0f, travel)

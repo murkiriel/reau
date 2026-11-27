@@ -42,12 +42,29 @@ class ScreenKeepPolicyTest {
         assertEquals("on mode=off lockui=on", ScreenKeepPolicy.ON_LINE)
         assertEquals("wake reason=screenoff after=0s", ScreenKeepPolicy.wakeLine(0))
         assertEquals("wake reason=screenoff after=61s", ScreenKeepPolicy.wakeLine(61))
+        assertEquals("wake reason=start after=0s", ScreenKeepPolicy.wakeLine(0, ScreenKeepPolicy.REASON_START))
+        assertEquals("wake reason=dark after=7s", ScreenKeepPolicy.wakeLine(7, ScreenKeepPolicy.REASON_DARK))
         assertEquals("off", ScreenKeepPolicy.OFF_LINE)
         assertEquals("screen-keep", ScreenKeepPolicy.TAG)
         assertEquals(61L, ScreenKeepPolicy.secondsOff(offSinceMs = 1_000L, nowMs = 62_999L))
         assertEquals("a clock that went back is zero", 0L, ScreenKeepPolicy.secondsOff(offSinceMs = 5_000L, nowMs = 1_000L))
         assertEquals("nothing trigger=screenoff reason=gap", ScreenKeepPolicy.nothingLine("gap"))
         assertEquals("nothing trigger=screenoff reason=paused", ScreenKeepPolicy.nothingLine(ScreenKeepPolicy.WHY_PAUSED))
+    }
+
+    @Test
+    fun `a light that did not light the screen is asked again by the tick, after the gap, a few times and only while the screen is still off`() {
+        fun again(off: Boolean = true, asked: Boolean = true, since: Long? = 6_000L, tries: Int = 0) = ScreenKeepPolicy.darkRetry(off, asked, since, tries)
+        assertTrue(again())
+        assertTrue("exactly at the gap", again(since = ScreenKeepPolicy.DARK_AFTER_MS))
+        assertFalse("too soon: the gap is respected", again(since = ScreenKeepPolicy.DARK_AFTER_MS - 1))
+        assertEquals("the same time as the gap that holds a light back", ScreenKeepPolicy.MIN_GAP_MS, ScreenKeepPolicy.DARK_AFTER_MS)
+        assertFalse("the screen is on", again(off = false))
+        assertFalse("no light was asked, or the screen was seen on since", again(asked = false))
+        assertFalse("no light yet", again(since = null))
+        assertTrue(again(tries = ScreenKeepPolicy.MAX_DARK_TRIES - 1))
+        assertFalse("not asked for ever", again(tries = ScreenKeepPolicy.MAX_DARK_TRIES))
+        assertEquals(3, ScreenKeepPolicy.MAX_DARK_TRIES)
     }
 
     @Test

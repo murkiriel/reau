@@ -82,7 +82,7 @@ class ScreenKeepSettingTest {
             for (gone in listOf("screen_keep_title", "screen_keep_sub", "screen_keep_info", "screen_keep_lock_ui", "screen_keep_mode")) assertFalse("$folder $gone", gone in all)
         }
         assertEquals("Projetando no painel", string("values-pt", "screen_keep_lock_projecting"))
-        assertEquals("Deslize para cima para desbloquear", string("values-pt", "screen_keep_lock_swipe"))
+        assertEquals("Toque para desbloquear", string("values-pt", "screen_keep_lock_swipe"))
         assertEquals("Apagar a tela nesta viagem", string("values-pt", "screen_keep_lock_pause"))
         assertEquals("Bloquear a tela", string("values-pt", "action_lock_screen"))
     }

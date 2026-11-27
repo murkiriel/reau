@@ -7,7 +7,7 @@ plugins {
     jacoco
 }
 
-// Semantic version 0.y.z: versionName is "0.3.1" on a release build and "0.3.1-dev+yy.MM.dd-HH.mm" on a debug build, whose
+// Semantic version 0.y.z: versionName is "0.3.97" on a release build and "0.3.97-dev+yy.MM.dd-HH.mm" on a debug build, whose
 // timestamp tells one debug build from another.
 //
 // versionCode of a RELEASE is fixed in this file, so that two builds of one commit give the same APK (it used to be the minutes of the

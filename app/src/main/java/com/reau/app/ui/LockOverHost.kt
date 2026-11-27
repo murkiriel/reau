@@ -9,6 +9,7 @@ import android.text.format.DateFormat
 import android.view.ViewGroup
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -50,8 +52,8 @@ import kotlinx.coroutines.launch
 /**
  * The app's own activity's side of "Mostrar o REau sobre o bloqueio" (the 0.3.90 test build), the way the maker's own app does it: nothing is started from the
  * service. While [ScreenKeepFront.armed] the activity has showWhenLocked and turnScreenOn on (so it stays in front of the lock screen and lights the screen when it
- * resumes), and when it is resumed with the phone locked it shows [LockOverScreen] in place of its own screens: the clock, "Projetando no painel" and "Deslize
- * para cima para desbloquear", dimmed to the minimum after [DIM_AFTER_MS] with no touch; a touch asks Android to dismiss the lock screen. If the rider was in
+ * resumes), and when it is resumed with the phone locked it shows [LockOverScreen] in place of its own screens: the clock, "Projetando no painel" and "Toque
+ * para desbloquear", dimmed to the minimum after [DIM_AFTER_MS] with no touch; a touch asks Android to dismiss the lock screen. If the rider was in
  * another app when the phone locked, this activity is not in front and nothing shows (the service's log says `lockui not-front`). Every call is on the main thread.
  */
 internal class LockOverHost(private val activity: ComponentActivity) {
@@ -155,13 +157,16 @@ internal fun LockOverScreen(host: LockOverHost) {
             delay(CLOCK_MS)
         }
     }
-    LaunchedEffect(Unit) {
+    // A touch brings the brightness back and the count to the minimum begins again: the rider who cancelled Android's PIN prompt is still on this screen.
+    var touches by remember { mutableIntStateOf(0) }
+    LaunchedEffect(touches) {
+        host.dim(false)
         delay(LockOverHost.DIM_AFTER_MS)
         host.dim(true)
     }
     DisposableEffect(Unit) { onDispose { host.dim(false) } }
     REauTheme(dark = true) {
-        Surface(Modifier.fillMaxSize().overTouch(host), color = MaterialTheme.colorScheme.background) {
+        Surface(Modifier.fillMaxSize().overTouch(host) { touches++ }, color = MaterialTheme.colorScheme.background) {
             Column(
                 Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 48.dp),
                 verticalArrangement = Arrangement.SpaceBetween,
@@ -191,10 +196,14 @@ internal fun LockOverScreen(host: LockOverHost) {
     }
 }
 
-/** Over the lock screen any touch unlocks. */
-private fun Modifier.overTouch(host: LockOverHost): Modifier = pointerInput(Unit) {
-    awaitPointerEventScope {
+/**
+ * Over the lock screen any touch unlocks: every touch (one gesture after the other, not the first only) asks Android to dismiss the lock screen, so a rider who cancelled its
+ * PIN prompt can touch again. [onTouch] is told first (the brightness).
+ */
+private fun Modifier.overTouch(host: LockOverHost, onTouch: () -> Unit): Modifier = pointerInput(Unit) {
+    awaitEachGesture {
         awaitFirstDown()
+        onTouch()
         host.unlock()
     }
 }

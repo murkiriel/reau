@@ -27,6 +27,7 @@ class VolumeLockTest {
     private val volumeDown = DashButtonEvent.VolumeDown(0x07)
     private val mapBack = DashButtonEvent.JoystickBack(0x12)
     private val mapZoomIn = DashButtonEvent.ZoomIn(0x14)
+    private val mapDown = DashButtonEvent.Unknown(0x15)
     private val mapCenter = DashButtonEvent.JoystickIn(0x18)
     private val nextTrack = DashButtonEvent.NextTrack(0x09)
     private val callLeft = DashButtonEvent.Unknown(0x02)
@@ -121,7 +122,9 @@ class VolumeLockTest {
         assertEquals("the lock is over", 0L, joystick.volumeLock.leftMs(1_001))
         assertEquals("a volume tap goes through and locks nothing while it rings", listOf<AaCommand>(AaCommand.Volume(-1)), joystick.press(volumeDown, 3_000).sent)
         assertEquals(0L, joystick.volumeLock.leftMs(3_000))
-        assertTrue("the other taps are the page's", joystick.press(mapZoomIn, 3_100).sent.isNotEmpty())
+        // Not the map's up (0x12 is the dash's yes to "Exit navigation?" and sends nothing to Android Auto, so there is no key to wait for) and not a side (the call's own
+        // controls while it rings): the map's down is the page's own, the info ring's switch, which sends nothing but acts, and the lock does not drop it.
+        assertEquals("the other taps are the page's", listOf("map down once -> info ring"), joystick.press(mapDown, 3_100).lines)
     }
 
     @Test
