@@ -54,7 +54,7 @@ class IdleLockIsWiredTest {
     }
 
     @Test
-    fun `the activity feeds it: in front, out of the front, the switch, and the log lines are under the lock tag`() {
+    fun `the activity feeds it with the front, the end of the front and the switch, and the log lines are under the lock tag`() {
         val main = source("MainActivity.kt")
         assertTrue("idleWatch.resumed(true)" in main.substringAfter("private fun resume()").substringBefore("resumedAtMs"))
         assertTrue("idleWatch.resumed(false)" in main.substringAfter("override fun onPause()").substringBefore("super.onPause()"))
