@@ -208,8 +208,8 @@ class DefaultsDocsTest {
     fun `the FAQ does not give another app the video profiles that are REau's own, and does not tag weather and joystick LIVE`() {
         val faqPt = text("../docs/pt/faq.html")
         val faqEn = text("../docs/en/faq.html")
-        assertTrue("O app oficial da Royal Enfield também tem só" !in faqPt)
-        assertTrue("Royal Enfield’s official app also has only" !in faqEn)
+        assertTrue("O app da fabricante também tem só" !in faqPt)
+        assertTrue("The manufacturer’s app also has only" !in faqEn)
         assertTrue("2 quadros por segundo com 100 kbps" !in faqPt)
         assertTrue("2 frames per second at 100 kbps" !in faqEn)
         // The tag marks what the app's own text says it marks; weather and the joystick page apply live but have none.

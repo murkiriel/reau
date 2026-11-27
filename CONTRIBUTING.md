@@ -17,7 +17,7 @@ A contribution is an idea, or code under the AGPL-3.0 or a license that combines
 the like), with its origin named: the project, the file, the commit and the license, in the pull request and in the
 header of the copied file. Never paste into an issue, a pull request, a test, a comment or a file:
 
-- anything from the official Royal Enfield app: decompiled or disassembled code, its images, icons, layouts, fonts, texts and
+- anything from the dash manufacturer's app: decompiled or disassembled code, its images, icons, layouts, fonts, texts and
   translations, its keys, certificates and tokens, its firmware or update files, or screenshots of it;
 - code, text or images from a project that has no license (no license means all rights reserved) or whose license does
   not combine with the AGPL-3.0 (for example a non-commercial license, or GPL-2.0-only);

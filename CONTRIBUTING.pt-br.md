@@ -17,7 +17,7 @@ Uma contribuição é uma ideia, ou código sob a AGPL-3.0 ou uma licença compa
 parecidas), com a origem citada: o projeto, o arquivo, o commit e a licença, no pull request e no cabeçalho do arquivo
 copiado. Nunca cole numa issue, num pull request, num teste, num comentário ou num arquivo:
 
-- nada do app oficial da Royal Enfield: código decompilado ou desmontado, suas imagens, ícones, layouts, fontes, textos e
+- nada do app da fabricante do painel: código decompilado ou desmontado, suas imagens, ícones, layouts, fontes, textos e
   traduções, suas chaves, certificados e tokens, seu firmware ou arquivos de atualização, nem capturas de tela dele;
 - código, texto ou imagens de um projeto sem licença (sem licença quer dizer todos os direitos reservados) ou cuja licença
   não é compatível com a AGPL-3.0 (por exemplo uma licença não comercial, ou GPL-2.0-only);

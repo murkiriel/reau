@@ -17,7 +17,7 @@ Una contribución es una idea, o código bajo la AGPL-3.0 o una licencia compati
 similares), con su origen citado: el proyecto, el archivo, el commit y la licencia, en el pull request y en la
 cabecera del archivo copiado. Nunca pegues en un issue, un pull request, una prueba, un comentario o un archivo:
 
-- nada de la app oficial de Royal Enfield: código descompilado o desensamblado, sus imágenes, iconos, diseños, fuentes,
+- nada de la app del fabricante del tablero: código descompilado o desensamblado, sus imágenes, iconos, diseños, fuentes,
   textos y traducciones, sus claves, certificados y tokens, su firmware o archivos de actualización, ni capturas de pantalla suyas;
 - código, texto o imágenes de un proyecto sin licencia (sin licencia significa todos los derechos reservados) o cuya
   licencia no es compatible con la AGPL-3.0 (por ejemplo una licencia no comercial, o GPL-2.0-only);
