@@ -80,6 +80,15 @@ class ScreenLockIsWiredTest {
     }
 
     @Test
+    fun `the track is kept out of the gesture navigation's edges and its drag is excluded from the system's gestures`() {
+        val screen = source("ui/ScreenLockScreen.kt")
+        assertTrue("the whole track is excluded from the system gestures", ".systemGestureExclusion()" in screen.substringAfter("private fun SlideTrack("))
+        assertTrue("a margin of 32 dp from each side", "private val TRACK_MARGIN = 32.dp" in screen && "Modifier.padding(start = TRACK_MARGIN, end = TRACK_MARGIN, bottom = bottom)" in screen)
+        assertTrue("up from the bottom edge: at least 72 dp, or the gesture inset plus 24 dp", "private val TRACK_BOTTOM_MIN = 72.dp" in screen &&
+            "maxOf(TRACK_BOTTOM_MIN, WindowInsets.systemGestures.asPaddingValues().calculateBottomPadding() + 24.dp)" in screen)
+    }
+
+    @Test
     fun `the button is on the main screen only with the projection on, outlined`() {
         val buttons = source("ui/MainModeButtons.kt").substringAfter("internal fun ColumnScope.ModeButtons(")
         assertTrue(buttons, "if (ScreenLock.available(p.phase != Phase.STOPPED)) {" in buttons)
