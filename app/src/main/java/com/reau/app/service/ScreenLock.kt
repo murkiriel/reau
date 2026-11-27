@@ -37,6 +37,7 @@ internal object ScreenLock {
     fun unlocked(progress: Float): Boolean = progress >= UNLOCK_AT
 
     /** Whether a touch at ([x], [y]) is on the thumb, a circle of [radiusPx] around ([centerX], [centerY]) with [slopPx] to spare: only then does the touch drag it. */
+    @Suppress("LongParameterList") // the touch, the circle's centre and radius, and the slop: six plain numbers of one geometry
     fun hitsThumb(x: Float, y: Float, centerX: Float, centerY: Float, radiusPx: Float, slopPx: Float = 0f): Boolean =
         hypot(x - centerX, y - centerY) <= radiusPx + slopPx
 
