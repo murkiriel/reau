@@ -64,7 +64,7 @@ class JoystickCallCardTest {
             }
         }
         assertEquals("media down is the page's home with the card off", listOf<AaCommand>(AaCommand.Key(ServiceDiscoveryResponse.KEY_HOME)), sent(false, CallState.RINGING, mediaDown))
-        assertTrue("the dash's back goes to Android Auto with the card off", sent(false, CallState.RINGING, mapBack).isNotEmpty())
+        assertEquals("the dash's back sends nothing to Android Auto with the card off either", emptyList<AaCommand>(), sent(false, CallState.RINGING, mapBack))
     }
 
     @Test
@@ -238,13 +238,13 @@ class JoystickCallCardTest {
         assertEquals(listOf<AaCommand>(AaCommand.Key(ServiceDiscoveryResponse.KEY_HOME)), sent(false, CallState.IN_CALL, mediaDown))
         assertEquals("the dash's own call codes", listOf<AaCommand>(AaCommand.EndCall), sent(false, CallState.IN_CALL, DashButtonEvent.Unknown(0x16)))
         assertEquals(listOf<AaCommand>(AaCommand.CallVolume(1)), sent(false, CallState.IN_CALL, DashButtonEvent.Unknown(0x03)))
-        assertTrue(sent(false, CallState.IN_CALL, mapBack).isNotEmpty())
+        assertEquals("the dash's back is its own exit, nothing for Android Auto", emptyList<AaCommand>(), sent(false, CallState.IN_CALL, mapBack))
     }
 
     @Test
     fun `with no call the card changes nothing`() {
         for (event in ringingEvents) assertEquals("$event", sent(false, CallState.IDLE, event), sent(true, CallState.IDLE, event))
-        assertTrue(sent(true, CallState.IDLE, mapBack).isNotEmpty())
+        assertEquals(emptyList<AaCommand>(), sent(true, CallState.IDLE, mapBack))
     }
 
     @Test

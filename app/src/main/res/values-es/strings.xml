@@ -667,7 +667,7 @@
     <string name="joystick_locked_center_short">Multimedia</string>
     <string name="joystick_action_info_ring">Anillo de información</string>
     <string name="joystick_locked_up">¿Salir de la navegación?</string>
-    <string name="joystick_locked_up_note">En el modo mapa, la flecha hacia arriba es el botón de retroceso propio del tablero: pregunta si quieres salir de la navegación. REau no envía ninguna acción para ella.</string>
+    <string name="joystick_locked_up_note">En el modo mapa, la flecha hacia arriba es el botón de retroceso propio del tablero: pregunta si quieres salir de la navegación. Si dices que sí, REau apaga la navegación en el tablero y retiene la tarjeta de ruta hasta que empiece una navegación nueva; no se envía nada a Android Auto.</string>
     <string name="joystick_info_ring_note">En el modo mapa, la flecha hacia abajo muestra y oculta el anillo de información cuando está activado en los ajustes; no toca el anillo de maniobras. Con el anillo de maniobras oculto, el tablero deja de enviar este botón y no sale ninguna acción de él. Con otra acción en este botón, el anillo ya no se conmuta con él.</string>
     <string name="joystick_locked_center">Abre el control multimedia</string>
     <string name="joystick_locked_center_note">En el modo mapa, el botón central pone el tablero en control multimedia. No se puede cambiar.</string>
@@ -967,6 +967,7 @@
     <string name="battery_pill_level">Batería %1$d %%</string>
     <string name="battery_pill_hint">Conecta el cargador</string>
     <string name="echo_media_mode">Modo multimedia</string>
+    <string name="echo_exit_navigation">Salir navegación</string>
     <string name="action_echo_title">Nombre de la acción en el tablero</string>
     <string name="action_echo_sub">Muestra qué hizo cada toque del joystick</string>
     <string name="action_echo">Cada toque del joystick que hace algo muestra el nombre corto de la acción (Canción siguiente, Atrás, Contestar) durante 1,5 segundos en el título de la franja dorada del tablero, donde va el nombre de la calle, y luego el título vuelve. Con un joystick de manillar que no es preciso, ves en el tablero lo que el toque realmente hizo; un toque que no hace nada no muestra nada. Activado por defecto; el cambio se aplica de inmediato.</string>

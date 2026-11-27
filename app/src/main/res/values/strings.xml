@@ -678,7 +678,7 @@
     <string name="joystick_locked_center_short">Media</string>
     <string name="joystick_action_info_ring">Info ring</string>
     <string name="joystick_locked_up">Exit navigation?</string>
-    <string name="joystick_locked_up_note">In map mode, the up arrow is the dash’s own back button: it asks whether you want to exit navigation. REau sends no action for it.</string>
+    <string name="joystick_locked_up_note">In map mode, the up arrow is the dash’s own back button: it asks whether you want to exit navigation. If you say yes, REau turns the navigation off on the dash and holds the route card back until a new navigation starts; nothing is sent to Android Auto.</string>
     <string name="joystick_info_ring_note">In map mode, the down arrow shows and hides the info ring when it is on in the settings; it does not touch the maneuver ring. With the maneuver ring hidden, the dash stops sending this button, so no action comes out of it. With another action on this button, the ring is no longer switched by it.</string>
     <string name="joystick_locked_center">Opens media control</string>
     <string name="joystick_locked_center_note">In map mode, the center button puts the dash in media control. It can’t be changed.</string>
@@ -977,6 +977,7 @@
     <string name="battery_pill_level">Battery %1$d %%</string>
     <string name="battery_pill_hint">Plug in the charger</string>
     <string name="echo_media_mode">Media mode</string>
+    <string name="echo_exit_navigation">Exit navigation</string>
     <string name="action_echo_title">Action name on the dash</string>
     <string name="action_echo_sub">Shows what each joystick tap did</string>
     <string name="action_echo">Each joystick tap that does something shows the action’s short name (Next song, Back, Answer) for 1.5 seconds in the title of the dash’s gold band, where the street name goes, and then the title comes back. With a handlebar joystick that is not precise, you see on the dash what the tap really did; a tap that does nothing shows nothing. On by default; a change applies at once.</string>

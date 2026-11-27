@@ -645,7 +645,7 @@
     <string name="joystick_locked_center_short">मीडिया</string>
     <string name="joystick_action_info_ring">इन्फ़ो रिंग</string>
     <string name="joystick_locked_up">नेविगेशन से बाहर?</string>
-    <string name="joystick_locked_up_note">मैप मोड में ऊपर का तीर डैश का अपना वापस बटन है: वह पूछता है कि क्या आप नेविगेशन से बाहर निकलना चाहते हैं। REau इसके लिए कोई कार्रवाई नहीं भेजता।</string>
+    <string name="joystick_locked_up_note">मैप मोड में ऊपर का तीर डैश का अपना वापस बटन है: वह पूछता है कि क्या आप नेविगेशन से बाहर निकलना चाहते हैं। यदि आप हाँ कहते हैं, तो REau डैश पर नेविगेशन बंद कर देता है और नया नेविगेशन शुरू होने तक रूट कार्ड रोके रखता है; Android Auto को कुछ नहीं भेजा जाता।</string>
     <string name="joystick_info_ring_note">मैप मोड में नीचे का तीर इन्फ़ो रिंग को दिखाता और छिपाता है, अगर वह सेटिंग्स में चालू हो; यह मोड़ वाली रिंग को नहीं छूता। मोड़ वाली रिंग छिपी हो तो डैश यह बटन भेजना बंद कर देता है, इसलिए इससे कोई कार्रवाई नहीं होती। इस बटन पर कोई और कार्रवाई हो तो रिंग इससे नहीं बदलती।</string>
     <string name="joystick_locked_center">मीडिया कंट्रोल खोलता है</string>
     <string name="joystick_locked_center_note">मैप मोड में बीच का बटन डैश को मीडिया कंट्रोल में ले जाता है। इसे बदला नहीं जा सकता।</string>
@@ -923,6 +923,7 @@
     <string name="battery_pill_level">बैटरी %1$d %%</string>
     <string name="battery_pill_hint">चार्जर लगाएँ</string>
     <string name="echo_media_mode">मीडिया मोड</string>
+    <string name="echo_exit_navigation">नेविगेशन से बाहर</string>
     <string name="action_echo_title">डैश पर एक्शन का नाम</string>
     <string name="action_echo_sub">दिखाता है कि जॉयस्टिक टैप ने क्या किया</string>
     <string name="action_echo">जॉयस्टिक का हर वह टैप जो कुछ करता है, 1.5 सेकंड के लिए डैश की सुनहरी पट्टी के शीर्षक में, जहाँ सड़क का नाम आता है, उस एक्शन का छोटा नाम (अगला गाना, वापस, उठाएँ) दिखाता है, फिर शीर्षक लौट आता है। हैंडलबार का जॉयस्टिक सटीक न हो तो आप डैश पर देख सकते हैं कि टैप ने असल में क्या किया; जो टैप कुछ नहीं करता, वह कुछ नहीं दिखाता। डिफ़ॉल्ट रूप से चालू; बदलाव तुरंत लागू होता है।</string>
