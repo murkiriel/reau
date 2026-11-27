@@ -192,7 +192,8 @@ fun PrimaryPowerButton(on: Boolean, elapsed: () -> String?, onClick: () -> Unit,
     val fill = modifier.fillMaxWidth().height(72.dp).testTag("toggle")
     val padding = PaddingValues(horizontal = 16.dp)
     if (!on) {
-        GoldBigButton(R.drawable.ic_ms_power_settings_new, stringResource(if (stopping) R.string.action_stopping else R.string.action_start), onClick, fill, enabled = !stopping)
+        val label = stringResource(if (stopping) R.string.action_stopping else R.string.action_start)
+        GoldBigButton(R.drawable.ic_ms_power_settings_new, label, onClick, fill, enabled = !stopping)
         return
     }
     val content: @Composable RowScope.() -> Unit = {

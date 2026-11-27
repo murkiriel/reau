@@ -973,15 +973,7 @@
     <string name="group_screen_keep">Teléfono bloqueado</string>
     <string name="screen_keep_title">Pantalla encendida con el teléfono bloqueado (prueba)</string>
     <string name="screen_keep_sub">En el viaje, REau enciende la pantalla cuando se apaga, para que el teléfono no lo cierre. Gasta más batería</string>
-    <string name="screen_keep_info">REau no apaga la pantalla: la apaga Android (o tú). Después de que se apaga, REau la vuelve a encender por unos segundos, al instante o, en los otros modos, de 30 segundos a 4 minutos después de que se apagó. Es una prueba: viene apagado, gasta más batería y solo vale con la proyección encendida.</string>
-    <string name="screen_keep_mode_title">Cuándo volver a encender la pantalla</string>
-    <string name="screen_keep_mode_sub">Los intervalos cuentan después de que Android apaga la pantalla; REau la enciende por unos segundos</string>
-    <string name="screen_keep_mode_off">Cada vez que la pantalla se apague</string>
-    <string name="screen_keep_mode_60">Cada 1 minuto</string>
-    <string name="screen_keep_mode_30">Cada 30 segundos</string>
-    <string name="screen_keep_mode_120">Cada 2 minutos</string>
-    <string name="screen_keep_mode_180">Cada 3 minutos</string>
-    <string name="screen_keep_mode_240">Cada 4 minutos</string>
+    <string name="screen_keep_info">REau no apaga la pantalla: la apaga Android (o tú). Después de que se apaga, REau la vuelve a encender al instante, por unos segundos, con el brillo normal. Es una prueba: gasta más batería y solo vale con la proyección encendida.</string>
     <string name="screen_keep_lock_ui_title">Mostrar REau sobre el bloqueo</string>
     <string name="screen_keep_lock_ui_sub">La pantalla que se enciende muestra REau, y no la pantalla de bloqueo del sistema. Solo si REau está al frente cuando bloqueas</string>
     <string name="screen_keep_lock_projecting">Proyectando en el tablero</string>

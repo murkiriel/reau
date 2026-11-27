@@ -25,7 +25,7 @@ object SettingsInUse {
         "maneuverRing", "webView", "webTouch", "webAudio",
         "videoFrame",
         "announceMotorcycle",
-        "screenKeep", "screenKeepMode", "screenKeepLockUi",
+        "screenKeep", "screenKeepLockUi",
     )
 
     /** Left out on purpose: the fine placement of the picture and the numbers on it (said when they change), and the joystick's text. */

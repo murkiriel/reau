@@ -265,13 +265,11 @@ data class REauSettings(
      */
     val announceMotorcycle: Boolean = true,
     /**
-     * "Tela acesa com o celular bloqueado (teste)", only in the 0.3.1-tela test build and off by default: while the projection runs, REau turns the screen on again
-     * when it goes off, so that the phone's own task killer (realme, Xiaomi) never finds "screen off and app in the background" ([com.reau.app.service.ScreenKeeper]).
-     * Read at each screen-off, so a change counts at once.
+     * "Tela acesa com o celular bloqueado (teste)", only in the 0.3.9x test builds and on by default there (the pilots' test: nothing is saved of the 0.3.94's off, see the key's
+     * name in the store): while the projection runs, REau turns the screen on again, for 10 s, when the display goes off, so that the phone's own task killer (realme, Xiaomi)
+     * never finds "screen off and app in the background" ([com.reau.app.service.ScreenKeeper]). Read at each screen-off, so a change counts at once.
      */
-    val screenKeep: Boolean = false,
-    /** How often [screenKeep] turns the screen on: at every screen-off, or every 60 or 30 seconds since it went off ([ScreenKeepMode]). */
-    val screenKeepMode: ScreenKeepMode = ScreenKeepMode.ON_SCREEN_OFF,
+    val screenKeep: Boolean = true,
     /** With [screenKeep] on: the screen that lights shows REau over the lock screen ([com.reau.app.ui.LockOverHost], the app's own activity), not the system's lock screen. Off by default. */
     val screenKeepLockUi: Boolean = false,
     /**

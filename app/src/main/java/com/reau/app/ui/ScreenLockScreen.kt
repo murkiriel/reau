@@ -108,9 +108,15 @@ internal fun ScreenLockScreen(mode: ScreenLockMode) {
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 LockHeader()
-                Column(Modifier.padding(horizontal = TRACK_MARGIN), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(
+                    Modifier.padding(horizontal = TRACK_MARGIN), horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
                     LockCard()
-                    Text(stringResource(R.string.lock_stop_first), style = MaterialTheme.typography.bodyMedium, color = LockDetail, textAlign = TextAlign.Center)
+                    Text(
+                        stringResource(R.string.lock_stop_first), style = MaterialTheme.typography.bodyMedium, color = LockDetail,
+                        textAlign = TextAlign.Center,
+                    )
                 }
                 // Up from the bottom edge (the home gesture) and in from the sides (the back gesture): the track's margin, and its bottom padding, keep the thumb out of both.
                 val bottom = maxOf(TRACK_BOTTOM_MIN, WindowInsets.systemGestures.asPaddingValues().calculateBottomPadding() + 24.dp)
@@ -141,7 +147,8 @@ private fun LockHeader() {
     }
     Column(Modifier.padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
-            brandTitle(stringResource(R.string.app_name), Ouro.copy(alpha = 0.7f)), style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp), color = LockClock,
+            brandTitle(stringResource(R.string.app_name), Ouro.copy(alpha = 0.7f)),
+            style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp), color = LockClock,
         )
         Text(format.format(now), style = MaterialTheme.typography.displaySmall.copy(fontSize = 64.sp, lineHeight = 68.sp), color = LockClock)
         Text(dateFormat.format(now), style = MaterialTheme.typography.bodyMedium, color = LockLabel)
@@ -187,8 +194,14 @@ private fun LockCard() {
     Column(Modifier.fillMaxWidth().border(1.dp, LockOutline, RoundedCornerShape(20.dp)).padding(horizontal = 16.dp, vertical = 6.dp)) {
         rows.forEachIndexed { i, (label, value) ->
             if (i > 0) HorizontalDivider(thickness = 1.dp, color = LockOutline)
-            Row(Modifier.fillMaxWidth().padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(label.uppercase(), style = MaterialTheme.typography.labelMedium.copy(fontFamily = JetBrainsMono, fontSize = 10.5.sp, letterSpacing = 1.5.sp), color = LockLabel)
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    label.uppercase(), color = LockLabel,
+                    style = MaterialTheme.typography.labelMedium.copy(fontFamily = JetBrainsMono, fontSize = 10.5.sp, letterSpacing = 1.5.sp),
+                )
                 Text(value, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp), color = LockValue)
             }
         }

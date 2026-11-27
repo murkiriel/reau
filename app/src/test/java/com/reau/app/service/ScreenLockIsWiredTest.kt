@@ -94,7 +94,8 @@ class ScreenLockIsWiredTest {
     fun `the button is under the bridge card only with the projection on, gold like Ligar and with the same component, and the wallpaper stays for the stopped projection`() {
         val buttons = source("ui/MainModeButtons.kt").substringAfter("internal fun ColumnScope.ModeButtons(")
         assertTrue(buttons, "if (ScreenLock.available(p.phase != Phase.STOPPED)) {" in buttons)
-        assertTrue(buttons, "GoldBigButton(R.drawable.ic_ms_lock, stringResource(R.string.action_lock_screen), extras.onLockScreen, Modifier.fillMaxWidth().height(72.dp).testTag(\"lock_screen\"))" in buttons)
+        assertTrue(buttons, "GoldBigButton(\n            R.drawable.ic_ms_lock, stringResource(R.string.action_lock_screen), extras.onLockScreen," in buttons)
+        assertTrue(buttons, "Modifier.fillMaxWidth().height(72.dp).testTag(\"lock_screen\")" in buttons)
         assertTrue("the wallpaper only while stopped", "if (p.phase == Phase.STOPPED && !p.stopping) {" in buttons.substringBefore("ScreenLock.available") && "extras.onCard" in buttons)
         assertFalse("not a second gold one: the outlined stop is Desligar", "PrimaryPowerButton" in buttons)
         val bridge = source("ui/components/Bridge.kt")

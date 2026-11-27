@@ -19,6 +19,7 @@ object PhoneNow {
     @Volatile private var batteryPctAtMs = Long.MIN_VALUE
 
     /** The device state just read (a null part leaves what was known). [batteryTempC] is the battery temperature of the same read ([batteryTempNow]). */
+    @Suppress("LongParameterList") // the device read's parts, each with its default: one call from the reader, many from the tests
     fun update(
         charging: Boolean?, screenOn: Boolean?, dozing: Boolean?, batteryTempC: Float? = null, nowMs: Long = MonotonicClock.nowMs(), batteryPct: Int? = null,
     ) {

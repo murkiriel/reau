@@ -8,16 +8,18 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** The three settings of "Tela acesa com o celular bloqueado (teste)": off by default, kept, logged, and in the settings screen in the three languages. */
+/**
+ * The two settings of "Tela acesa com o celular bloqueado (teste)": the switch comes ON by default in the 0.3.9x test builds and "Mostrar o REau sobre o bloqueio" comes off;
+ * both are kept, logged, and in the settings screen in the three languages. The interval modes of 0.3.94 are gone, and what an older build saved of them is never read.
+ */
 class ScreenKeepSettingTest {
     private fun string(folder: String, name: String) =
         Regex("""<string name="$name">(.*?)</string>""", RegexOption.DOT_MATCHES_ALL).find(File("src/main/res/$folder/strings.xml").readText())!!.groupValues[1]
 
     @Test
-    fun `it comes off on a new install and with nothing stored, in the mode of every screen-off and with no lock screen`() {
+    fun `the switch comes on and the lock screen choice comes off, on a new install and with nothing stored`() {
         for (s in listOf(REauSettings(), SettingsStore(KeystoreBackedPrefsTest.FakePrefs()).load(), REauSettings().sanitized())) {
-            assertFalse(s.screenKeep)
-            assertEquals(ScreenKeepMode.ON_SCREEN_OFF, s.screenKeepMode)
+            assertTrue(s.screenKeep)
             assertFalse(s.screenKeepLockUi)
         }
     }
@@ -25,70 +27,53 @@ class ScreenKeepSettingTest {
     @Test
     fun `the rider's choices are kept`() {
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
-        SettingsStore(prefs).save(REauSettings(screenKeep = true, screenKeepMode = ScreenKeepMode.EVERY_30_S, screenKeepLockUi = true))
+        SettingsStore(prefs).save(REauSettings(screenKeep = false, screenKeepLockUi = true))
         val loaded = SettingsStore(prefs).load()
-        assertTrue(loaded.screenKeep)
-        assertEquals(ScreenKeepMode.EVERY_30_S, loaded.screenKeepMode)
+        assertFalse(loaded.screenKeep)
         assertTrue(loaded.screenKeepLockUi)
-        SettingsStore(prefs).save(REauSettings())
-        assertFalse(SettingsStore(prefs).load().screenKeep)
+        SettingsStore(prefs).save(REauSettings(screenKeep = true))
+        assertTrue(SettingsStore(prefs).load().screenKeep)
+        assertFalse(SettingsStore(prefs).load().screenKeepLockUi)
     }
 
     @Test
-    fun `a value saved by the first version as 60 or 30 seconds is still read as it was, and the new ones are kept`() {
-        for ((saved, mode) in mapOf("EVERY_60_S" to ScreenKeepMode.EVERY_60_S, "EVERY_30_S" to ScreenKeepMode.EVERY_30_S, "ON_SCREEN_OFF" to ScreenKeepMode.ON_SCREEN_OFF)) {
-            val prefs = KeystoreBackedPrefsTest.FakePrefs()
-            prefs.map["screen_keep_mode"] = saved
-            assertEquals(saved, mode, SettingsStore(prefs).load().screenKeepMode)
-        }
-        for (mode in ScreenKeepMode.entries) {
-            val prefs = KeystoreBackedPrefsTest.FakePrefs()
-            SettingsStore(prefs).save(REauSettings(screenKeepMode = mode))
-            assertEquals(mode.name, mode, SettingsStore(prefs).load().screenKeepMode)
-        }
-    }
-
-    @Test
-    fun `a mode the store does not know goes back to the default`() {
+    fun `what an older build saved is never read, the off the 0_3_94 saved with every setting and the interval modes`() {
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
-        prefs.map["screen_keep_mode"] = "EVERY_5_S"
-        assertEquals(ScreenKeepMode.ON_SCREEN_OFF, SettingsStore(prefs).load().screenKeepMode)
+        prefs.map["screen_keep"] = false
+        prefs.map["screen_keep_mode"] = "EVERY_60_S"
+        val loaded = SettingsStore(prefs).load()
+        assertTrue("the old off does not hold the new default off", loaded.screenKeep)
+        for (saved in listOf("EVERY_30_S", "EVERY_240_S", "ON_SCREEN_OFF", "nonsense")) {
+            prefs.map["screen_keep_mode"] = saved
+            assertTrue(saved, SettingsStore(prefs).load().screenKeep)
+        }
+        assertFalse("no field of the interval is left", REauSettings::class.java.declaredFields.any { it.name.contains("screenKeepMode") })
     }
 
     @Test
-    fun `the modes say their interval and the short word of the log`() {
-        assertEquals(listOf("off", "n30", "n60", "n120", "n180", "n240"), ScreenKeepMode.entries.map { it.logName })
-        assertEquals(listOf(null, 30, 60, 120, 180, 240), ScreenKeepMode.entries.map { it.intervalSec })
-        assertEquals("the saved names of the first version stay", ScreenKeepMode.EVERY_60_S, ScreenKeepMode.valueOf("EVERY_60_S"))
-        assertEquals(ScreenKeepMode.EVERY_30_S, ScreenKeepMode.valueOf("EVERY_30_S"))
+    fun `the settings line of the ride log says both and the change is said`() {
+        val changed = REauSettings(screenKeep = false, screenKeepLockUi = true)
+        assertTrue(" screenKeep=true screenKeepLockUi=false" in SettingsInUse.line(REauSettings()))
+        assertTrue("screenKeep=false screenKeepLockUi=true" in SettingsInUse.line(changed))
+        assertEquals(listOf("screenKeep: true -> false", "screenKeepLockUi: false -> true"), REauSettings().changesTo(changed))
     }
 
     @Test
-    fun `the settings line of the ride log says all three and the change is said`() {
-        val on = REauSettings(screenKeep = true, screenKeepMode = ScreenKeepMode.EVERY_60_S, screenKeepLockUi = true)
-        assertTrue(" screenKeep=false screenKeepMode=ON_SCREEN_OFF screenKeepLockUi=false" in SettingsInUse.line(REauSettings()))
-        assertTrue("screenKeep=true screenKeepMode=EVERY_60_S screenKeepLockUi=true" in SettingsInUse.line(on))
-        assertEquals(
-            listOf("screenKeep: false -> true", "screenKeepMode: ON_SCREEN_OFF -> EVERY_60_S", "screenKeepLockUi: false -> true"),
-            REauSettings().changesTo(on),
-        )
-    }
-
-    @Test
-    fun `the group is in the settings screen, with the two other rows only while the switch is on`() {
+    fun `the group is in the settings screen, with the lock screen row only while the switch is on, and no selector`() {
         val group = File("src/main/java/com/reau/app/ui/SettingsScreenKeep.kt").readText()
         assertTrue("{ change(s.copy(screenKeep = it)) }, \"screen_keep\"" in group)
         assertTrue("if (s.screenKeep) {" in group.substringAfter("val rows = buildList"))
-        assertTrue("change(s.copy(screenKeepMode = ScreenKeepMode.entries[it]))" in group)
         assertTrue("{ change(s.copy(screenKeepLockUi = it)) }, \"screen_keep_lock_ui\"" in group)
+        assertFalse("SegmentedRow" in group || "ScreenKeepMode" in group)
         assertTrue("ScreenKeepGroup(settings, change)" in File("src/main/java/com/reau/app/ui/SettingsScreen.kt").readText())
+        assertFalse(File("src/main/java/com/reau/app/settings/ScreenKeepMode.kt").exists())
     }
 
     @Test
     fun `the switch is called a test in Portuguese, so its row is red, and no other row of the group is`() {
         assertEquals("Tela acesa com o celular bloqueado (teste)", string("values-pt", "screen_keep_title"))
         assertTrue(ExperimentalMark.marks(string("values-pt", "screen_keep_title"), string("values-pt", "screen_keep_sub")))
-        for (name in listOf("screen_keep_mode_title", "screen_keep_lock_ui_title", "screen_keep_lock_ui_sub")) {
+        for (name in listOf("screen_keep_lock_ui_title", "screen_keep_lock_ui_sub")) {
             assertFalse(name, ExperimentalMark.marks(string("values-pt", name)))
         }
         assertEquals(
@@ -98,18 +83,15 @@ class ScreenKeepSettingTest {
     }
 
     @Test
-    fun `every text of the function is in the three languages`() {
+    fun `every text of the function is in the three languages, and the interval texts are gone`() {
         val names = listOf(
-            "group_screen_keep", "screen_keep_title", "screen_keep_sub", "screen_keep_info", "screen_keep_mode_title", "screen_keep_mode_off",
-            "screen_keep_mode_60", "screen_keep_mode_30", "screen_keep_mode_120", "screen_keep_mode_180", "screen_keep_mode_240", "screen_keep_lock_ui_title", "screen_keep_lock_ui_sub", "screen_keep_lock_projecting",
-            "screen_keep_lock_swipe", "screen_keep_lock_pause", "action_lock_screen", "screen_keep_mode_sub",
+            "group_screen_keep", "screen_keep_title", "screen_keep_sub", "screen_keep_info", "screen_keep_lock_ui_title", "screen_keep_lock_ui_sub",
+            "screen_keep_lock_projecting", "screen_keep_lock_swipe", "screen_keep_lock_pause", "action_lock_screen",
         )
-        for (folder in listOf("values", "values-pt", "values-es")) for (name in names) assertTrue("$folder $name", string(folder, name).isNotBlank())
-        assertEquals("Sempre que a tela apagar", string("values-pt", "screen_keep_mode_off"))
-        assertEquals(
-            listOf("A cada 30 segundos", "A cada 1 minuto", "A cada 2 minutos", "A cada 3 minutos", "A cada 4 minutos"),
-            listOf("30", "60", "120", "180", "240").map { string("values-pt", "screen_keep_mode_$it") },
-        )
+        for (folder in listOf("values", "values-pt", "values-es")) {
+            for (name in names) assertTrue("$folder $name", string(folder, name).isNotBlank())
+            assertFalse("$folder: no interval text", File("src/main/res/$folder/strings.xml").readText().contains("screen_keep_mode"))
+        }
         assertEquals("Mostrar o REau sobre o bloqueio", string("values-pt", "screen_keep_lock_ui_title"))
         assertEquals("Projetando no painel", string("values-pt", "screen_keep_lock_projecting"))
         assertEquals("Deslize para cima para desbloquear", string("values-pt", "screen_keep_lock_swipe"))

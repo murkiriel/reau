@@ -27,20 +27,21 @@ class ScreenKeepIsWiredTest {
     }
 
     @Test
-    fun `a change of the three settings reaches a running projection`() {
+    fun `a change of the two settings reaches a running projection`() {
         val main = source("MainActivity.kt")
         val refit = main.substringAfter("val refit = LiveTuning.steps(before, after).isNotEmpty()").substringBefore("if (after.useLocation")
-        for (field in listOf("screenKeep", "screenKeepMode", "screenKeepLockUi")) assertTrue(field, "after.$field != before.$field" in refit)
+        for (field in listOf("screenKeep", "screenKeepLockUi")) assertTrue(field, "after.$field != before.$field" in refit)
     }
 
     @Test
-    fun `the screen is lit with a dim wake lock that wakes it, always with a timeout, and never with KEEP_SCREEN_ON`() {
+    fun `the screen is lit with a bright wake lock that wakes it and keeps it on after, always with a timeout, and never with KEEP_SCREEN_ON`() {
         val keeper = source("service/ScreenKeeper.kt")
-        assertTrue("PowerManager.SCREEN_DIM_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP" in keeper)
+        assertTrue("PowerManager.FULL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE" in keeper)
+        assertFalse("not the dim one", "SCREEN_DIM_WAKE_LOCK" in keeper.lines().filterNot { it.trimStart().startsWith("*") || it.trimStart().startsWith("//") }.joinToString("\n"))
         assertTrue("the deprecation says why", "@Suppress(\"DEPRECATION\") //" in keeper)
         assertEquals("one acquire, with its timeout", 1, Regex("""\.acquire\(""").findAll(keeper).count())
-        assertTrue("held.acquire(if (trigger == ScreenKeepPolicy.Trigger.SCREEN_OFF) SCREEN_OFF_LOCK_MS else TIMER_LOCK_MS)" in keeper)
-        assertTrue("SCREEN_OFF_LOCK_MS = 10_000L" in keeper && "TIMER_LOCK_MS = 5_000L" in keeper)
+        assertTrue("held.acquire(LOCK_MS)" in keeper)
+        assertTrue("LOCK_MS = 10_000L" in keeper && "TIMER" !in keeper)
         // The function of the switch never asks for it; only the lock of the button does (ScreenLockMode).
         for (file in listOf("service/ScreenKeeper.kt", "ui/LockOverHost.kt")) {
             val comment = Regex("""^\s*(\*|//|/\*)""")
@@ -108,9 +109,9 @@ class ScreenKeepIsWiredTest {
     @Test
     fun `the screen turning on lets the lock go at once, and the rider's pause is asked at every decision and ends with the projection`() {
         val keeper = source("service/ScreenKeeper.kt")
-        val on = keeper.substringAfter("private fun screenOn()").substringBefore("private fun armTimer()")
+        val on = keeper.substringAfter("private fun screenOn()").substringBefore("/** The decision, and the light")
         assertTrue(on, "lock?.takeIf { it.isHeld }?.release()" in on)
-        assertTrue("pausedByRider = ScreenKeepFront.paused" in keeper.substringAfter("private fun decide("))
+        assertTrue("ScreenKeepPolicy.why(receiver != null, lastWakeMs?.let { now() - it }, ScreenKeepFront.paused)" in keeper.substringAfter("private fun ask("))
         assertTrue("ScreenKeepFront.clearPause()" in keeper.substringAfter("private fun turnOff()").substringBefore("val heard"))
         val over = source("ui/LockOverHost.kt")
         val pause = over.substringAfter("fun pauseByRider()").substringBefore("private fun locked()")
@@ -156,7 +157,7 @@ class ScreenKeepIsWiredTest {
         assertTrue("seen(intent.action == Intent.ACTION_SCREEN_OFF, ScreenKeepPolicy.Via.BROADCAST)" in keeper)
         val safety = keeper.substringAfter("private fun armSafety()").substringBefore("private fun turnOff()")
         assertTrue(safety, "seen(displayOff(), ScreenKeepPolicy.Via.TICK)" in safety && "main.postDelayed(next, ScreenKeepPolicy.TICK_MS)" in safety)
-        assertTrue(safety, "retry?.takeIf { edge.off }?.let { ask(it) }" in safety)
+        assertTrue(safety, "if (retry && edge.off) ask()" in safety)
         val seen = keeper.substringAfter("private fun seen(").substringBefore("/** The safety net")
         assertTrue(seen, "val line = edge.heard(off, via) ?: return" in seen && "log(line)" in seen && "if (off) screenOff() else screenOn()" in seen)
         val turnOff = keeper.substringAfter("private fun turnOff()").substringBefore("private fun screenOff()")
@@ -167,7 +168,16 @@ class ScreenKeepIsWiredTest {
     @Test
     fun `a decision not to light the screen says why in the log`() {
         val ask = source("service/ScreenKeeper.kt").substringAfter("private fun ask(").substringBefore("private fun wake(")
-        assertTrue(ask, "ScreenKeepPolicy.why(" in ask && "log(ScreenKeepPolicy.nothingLine(trigger, why))" in ask)
-        assertTrue(ask, "retry = trigger.takeIf { why == ScreenKeepPolicy.WHY_GAP }" in ask)
+        assertTrue(ask, "ScreenKeepPolicy.why(" in ask && "log(ScreenKeepPolicy.nothingLine(why))" in ask)
+        assertTrue(ask, "retry = why == ScreenKeepPolicy.WHY_GAP" in ask)
+    }
+
+    @Test
+    fun `the intervals are gone, only the light at the screen going off is left`() {
+        val keeper = source("service/ScreenKeeper.kt").lines().filterNot { it.trimStart().startsWith("*") || it.trimStart().startsWith("//") }.joinToString("\n")
+        for (word in listOf("armTimer", "cancelTimer", "fire()", "nextDelayMs", "ScreenKeepMode", "Trigger.TIMER", "intervalSec")) assertFalse(word, word in keeper)
+        val policy = source("service/ScreenKeepPolicy.kt").lines().filterNot { it.trimStart().startsWith("*") || it.trimStart().startsWith("//") }.joinToString("\n")
+        for (word in listOf("nextDelayMs", "ScreenKeepMode", "Trigger", "Decision")) assertFalse(word, word in policy)
+        assertTrue("the safety tick and the retry of the gap stay", "armSafety()" in keeper && "if (retry && edge.off) ask()" in keeper)
     }
 }

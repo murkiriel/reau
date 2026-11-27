@@ -437,8 +437,8 @@ class MainActivity : ComponentActivity() {
         // A running projection takes a new fit at once, to adjust it looking at the dash; so does every video
         // setting (LiveTuning).
         val refit = LiveTuning.steps(before, after).isNotEmpty() ||
-            // "Tela acesa com o celular bloqueado": a running projection takes the switch, its mode and the lock screen choice at once.
-            after.screenKeep != before.screenKeep || after.screenKeepMode != before.screenKeepMode || after.screenKeepLockUi != before.screenKeepLockUi
+            // "Tela acesa com o celular bloqueado": a running projection takes the switch and the lock screen choice at once.
+            after.screenKeep != before.screenKeep || after.screenKeepLockUi != before.screenKeepLockUi
         if (after.useLocation != before.useLocation) {
             // The place is learned here, on the screen (the service cannot read it); the refit goes after, so the dash's day or night uses it.
             learnSunPlace(this, then = { if (refit) ProjectionService.refit(this) })

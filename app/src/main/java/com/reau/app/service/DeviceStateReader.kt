@@ -42,7 +42,9 @@ class DeviceStateReader(private val context: Context, private val bikeNetwork: (
     private val procMemory = MemoryProc(onPressureUnreadable = { RideDiagnostics.log("device", MemoryProc.UNREADABLE_LINE) })
 
     /** The state now; what it says of the charger, the screen and doze is also kept for the line on a link's end. */
-    fun read(): DeviceState = readNow().also { com.reau.app.data.PhoneNow.update(it.charging, it.screenOn, it.dozing, it.batteryTempC, batteryPct = it.batteryPct) }
+    fun read(): DeviceState = readNow().also {
+        com.reau.app.data.PhoneNow.update(it.charging, it.screenOn, it.dozing, it.batteryTempC, batteryPct = it.batteryPct)
+    }
 
     /**
      * REau's standby bucket and whether its background use is restricted (both API 28, own package, no permission), and the USB debugging and developer options switches;

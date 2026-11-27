@@ -13,14 +13,13 @@ import android.os.SystemClock
 import android.view.Display
 import androidx.core.content.ContextCompat
 import com.reau.app.settings.REauSettings
-import com.reau.app.settings.ScreenKeepMode
 
 /**
  * "Tela acesa com o celular bloqueado (teste)": while the projection runs and the rider's switch is on, the screen is lit again when it goes off
- * (a short screen wake lock that wakes it up), so the phone's own task killer (realme, Xiaomi) never finds REau in the background with the screen off.
+ * (a bright screen wake lock that wakes it up, for 10 s), so the phone's own task killer (realme, Xiaomi) never finds REau in the background with the screen off.
  * The decisions are [ScreenKeepPolicy]'s; this holds the Android parts: the default display's listener (the screen going off or on is read from its state:
  * during a projection of Android Auto the phone stays "interactive" and no SCREEN_OFF broadcast comes), the broadcast as a second source, a safety tick of
- * [ScreenKeepPolicy.TICK_MS], the timer, the wake lock and, if the
+ * [ScreenKeepPolicy.TICK_MS], the wake lock and, if the
  * rider asked, the arming of the app's own activity over the lock screen ([ScreenKeepFront], [com.reau.app.ui.LockOverHost]): the service never starts an activity.
  * Every call and every callback is on the main thread, so nothing here needs a lock.
  *
@@ -39,20 +38,18 @@ internal class ScreenKeeper(
 
     private var receiver: BroadcastReceiver? = null
     private var lock: PowerManager.WakeLock? = null
-    private var mode = ScreenKeepMode.ON_SCREEN_OFF
     private var lockUi = false
     private var offSinceMs = 0L
     private var lastWakeMs: Long? = null
-    private var tick: Runnable? = null
     private var safety: Runnable? = null
     private var displayListener: DisplayManager.DisplayListener? = null
     private val edge = ScreenKeepPolicy.DisplayEdge()
 
     /** The last try to light the screen was held back by the gap, and the screen is still off: the safety tick tries again. */
-    private var retry: ScreenKeepPolicy.Trigger? = null
+    private var retry = false
     private var frontCheck: Runnable? = null
 
-    /** Takes the switch as it is now (on the main thread): goes on, changes its mode, or goes off. Called when the projection runs and when a setting changes. */
+    /** Takes the switch as it is now (on the main thread): goes on, changes its lock screen choice, or goes off. Called when the projection runs and when a setting changes. */
     fun sync() {
         main.post {
             val s = settings()
@@ -60,21 +57,19 @@ internal class ScreenKeeper(
         }
     }
 
-    /** Lets everything go (the projection stopped): the receiver, the timer, the sensor, the lock and the screen over the lock screen. */
+    /** Lets everything go (the projection stopped): the receiver, the display listener, the safety tick, the lock and the screen over the lock screen. */
     fun stop() {
         main.post { turnOff() }
     }
 
     private fun turnOn(s: REauSettings) {
-        val changed = s.screenKeepMode != mode || s.screenKeepLockUi != lockUi
-        mode = s.screenKeepMode
+        val changed = s.screenKeepLockUi != lockUi
         lockUi = s.screenKeepLockUi
         // The app's activity shows over the lock screen from now on, as the maker's own app does (it is the activity in front when the rider locks the phone).
         ScreenKeepFront.arm(lockUi)
         if (receiver != null) {
             if (!changed) return
-            log(ScreenKeepPolicy.onLine(mode, lockUi))
-            if (edge.off) armTimer()
+            log(ScreenKeepPolicy.onLine(lockUi))
             return
         }
         val heard = object : BroadcastReceiver() {
@@ -84,13 +79,10 @@ internal class ScreenKeeper(
         val filter = IntentFilter().apply { addAction(Intent.ACTION_SCREEN_OFF); addAction(Intent.ACTION_SCREEN_ON) }
         runCatching { ContextCompat.registerReceiver(app, heard, filter, ContextCompat.RECEIVER_NOT_EXPORTED) }
             .onFailure { log("${com.reau.app.data.RideDiagnostics.WARN}listening to the screen failed: ${it.javaClass.simpleName}") }
-        log(ScreenKeepPolicy.onLine(mode, lockUi))
+        log(ScreenKeepPolicy.onLine(lockUi))
         edge.reset(displayOff())
         watchTheDisplay()
-        if (edge.off) {
-            offSinceMs = now()
-            armTimer()
-        }
+        if (edge.off) offSinceMs = now()
         armSafety()
     }
 
@@ -127,7 +119,7 @@ internal class ScreenKeeper(
             safety = null
             if (receiver == null) return@Runnable
             seen(displayOff(), ScreenKeepPolicy.Via.TICK)
-            retry?.takeIf { edge.off }?.let { ask(it) }
+            if (retry && edge.off) ask()
             armSafety()
         }
         safety = next
@@ -145,8 +137,7 @@ internal class ScreenKeeper(
         displayListener = null
         safety?.let { main.removeCallbacks(it) }
         safety = null
-        retry = null
-        cancelTimer()
+        retry = false
         lock?.takeIf { it.isHeld }?.release()
         frontCheck?.let { main.removeCallbacks(it) }
         frontCheck = null
@@ -155,68 +146,38 @@ internal class ScreenKeeper(
 
     private fun screenOff() {
         offSinceMs = now()
-        cancelTimer()
         val s = settings()
         if (!s.screenKeep) return turnOff()
-        mode = s.screenKeepMode
         lockUi = s.screenKeepLockUi
         ScreenKeepFront.arm(lockUi)
-        if (mode == ScreenKeepMode.ON_SCREEN_OFF) ask(ScreenKeepPolicy.Trigger.SCREEN_OFF) else armTimer()
+        ask()
     }
 
     private fun screenOn() {
-        // The screen is on: nothing to light. The lock is let go at once (the maker's own app does the same),
-        // so the screen follows the phone's own timeout instead of being held for the lock's whole timeout.
+        // The screen is on: nothing to light. The lock is let go at once (the maker's own app does the same), and ON_AFTER_RELEASE keeps the screen
+        // on for the phone's own timeout from then, instead of the lock's whole timeout.
         lock?.takeIf { it.isHeld }?.release()
-        retry = null
-        cancelTimer()
+        retry = false
     }
 
-    private fun armTimer() {
-        cancelTimer()
-        val delay = ScreenKeepPolicy.nextDelayMs(mode, offSinceMs, now()) ?: return
-        val next = Runnable { fire() }
-        tick = next
-        main.postDelayed(next, delay)
-    }
-
-    private fun cancelTimer() {
-        tick?.let { main.removeCallbacks(it) }
-        tick = null
-    }
-
-    /** The interval of a timer mode is up: the screen is lit if it is still off, and the next try is set. */
-    private fun fire() {
-        tick = null
-        val s = settings()
-        if (!s.screenKeep) return turnOff()
-        // A screen that is on again re-arms the timer when it goes off.
-        if (!edge.off) return
-        ask(ScreenKeepPolicy.Trigger.TIMER)
-        armTimer()
-    }
-
-    /** The decision for [trigger], and the light of the screen at once when it is to be lit. */
-    private fun ask(trigger: ScreenKeepPolicy.Trigger) {
-        val why = ScreenKeepPolicy.why(
-            enabled = receiver != null, mode = mode, trigger = trigger, screenOn = !edge.off,
-            sinceLastWakeMs = lastWakeMs?.let { now() - it }, pausedByRider = ScreenKeepFront.paused,
-        )
+    /** The decision, and the light of the screen at once when it is to be lit. */
+    private fun ask() {
+        val why = ScreenKeepPolicy.why(receiver != null, lastWakeMs?.let { now() - it }, ScreenKeepFront.paused)
         // Held back by the gap, the screen still off: the safety tick asks again (a screen-off right after a light would otherwise stay dark).
-        retry = trigger.takeIf { why == ScreenKeepPolicy.WHY_GAP }
-        if (why == null) wake(trigger) else log(ScreenKeepPolicy.nothingLine(trigger, why))
+        retry = why == ScreenKeepPolicy.WHY_GAP
+        if (why == null) wake() else log(ScreenKeepPolicy.nothingLine(why))
     }
 
-    private fun wake(trigger: ScreenKeepPolicy.Trigger) {
+    private fun wake() {
         val held = lock ?: power().newWakeLock(WAKE_FLAGS, LOCK_TAG).also {
             it.setReferenceCounted(false)
             lock = it
         }
         // Always with a timeout, so it can never be left held: the screen lights and goes back to the phone's own timeout.
-        held.acquire(if (trigger == ScreenKeepPolicy.Trigger.SCREEN_OFF) SCREEN_OFF_LOCK_MS else TIMER_LOCK_MS)
+        held.acquire(LOCK_MS)
         val at = now()
         lastWakeMs = at
-        log(ScreenKeepPolicy.wakeLine(trigger, ScreenKeepPolicy.secondsOff(offSinceMs, at)))
+        log(ScreenKeepPolicy.wakeLine(ScreenKeepPolicy.secondsOff(offSinceMs, at)))
         if (lockUi) checkFront()
     }
 
@@ -242,16 +203,15 @@ internal class ScreenKeeper(
         const val LOCK_TAG = "reau:screen-keep"
 
         /**
-         * A dim screen wake lock that wakes the screen up: the dimmest that lights it, since a bright one costs more battery. SCREEN_DIM_WAKE_LOCK is
-         * deprecated since Android 4.2 (the window's FLAG_KEEP_SCREEN_ON is the advised way), and it is the only way to light a screen from a service
-         * with no window; the activity over the lock screen does not use KEEP_SCREEN_ON either.
+         * A bright screen wake lock that wakes the screen up and keeps it on for the phone's own timeout after the lock is let go (ON_AFTER_RELEASE), as the maker's own
+         * app does: the dim one lit the screen too dark to see it was on. FULL_WAKE_LOCK is deprecated since Android 4.2 (the window's FLAG_KEEP_SCREEN_ON is the advised way),
+         * and it is the only way to light a screen from a service with no window.
          */
-        @Suppress("DEPRECATION") // SCREEN_DIM_WAKE_LOCK is the only way to light the screen from a service with no window (see above)
-        internal const val WAKE_FLAGS = PowerManager.SCREEN_DIM_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP
+        @Suppress("DEPRECATION") // FULL_WAKE_LOCK is the only way to light the screen from a service with no window (see above)
+        internal const val WAKE_FLAGS = PowerManager.FULL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE
 
-        /** How long the lock of a screen-off lights, and of a timer's light: the lock is let go by Android itself when it runs out. */
-        internal const val SCREEN_OFF_LOCK_MS = 10_000L
-        internal const val TIMER_LOCK_MS = 5_000L
+        /** How long the lock lights: it is let go by Android itself when it runs out (and by [screenOn] when the screen is on). */
+        internal const val LOCK_MS = 10_000L
 
         /** How long after a light of the screen the log says whether the app's activity was in front. */
         internal const val FRONT_CHECK_MS = 1_500L

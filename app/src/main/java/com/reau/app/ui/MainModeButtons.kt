@@ -27,6 +27,9 @@ internal fun ColumnScope.ModeButtons(p: Projection, extras: MainExtras) {
         GhostButton(R.drawable.ic_ms_image, stringResource(R.string.action_card), "card", extras.onCard, Modifier.align(Alignment.CenterHorizontally))
     }
     if (ScreenLock.available(p.phase != Phase.STOPPED)) {
-        GoldBigButton(R.drawable.ic_ms_lock, stringResource(R.string.action_lock_screen), extras.onLockScreen, Modifier.fillMaxWidth().height(72.dp).testTag("lock_screen"))
+        GoldBigButton(
+            R.drawable.ic_ms_lock, stringResource(R.string.action_lock_screen), extras.onLockScreen,
+            Modifier.fillMaxWidth().height(72.dp).testTag("lock_screen"),
+        )
     }
 }

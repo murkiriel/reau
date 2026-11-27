@@ -264,7 +264,6 @@ class SettingsStore(private val prefs: SharedPreferences) {
             webAudio = WebAudioMode.entries.firstOrNull { it.name == prefs.getString(KEY_WEB_AUDIO, null) } ?: defaults.webAudio,
             announceMotorcycle = prefs.getBoolean(KEY_ANNOUNCE_MOTORCYCLE, defaults.announceMotorcycle),
             screenKeep = prefs.getBoolean(KEY_SCREEN_KEEP, defaults.screenKeep),
-            screenKeepMode = enumOr(prefs.getString(KEY_SCREEN_KEEP_MODE, null), defaults.screenKeepMode),
             screenKeepLockUi = prefs.getBoolean(KEY_SCREEN_KEEP_LOCK_UI, defaults.screenKeepLockUi),
             updateNotice = prefs.getBoolean(KEY_UPDATE_NOTICE, defaults.updateNotice),
         ).sanitized()
@@ -375,7 +374,6 @@ class SettingsStore(private val prefs: SharedPreferences) {
             putString(KEY_WEB_AUDIO, s.webAudio.name)
             putBoolean(KEY_ANNOUNCE_MOTORCYCLE, s.announceMotorcycle)
             putBoolean(KEY_SCREEN_KEEP, s.screenKeep)
-            putString(KEY_SCREEN_KEEP_MODE, s.screenKeepMode.name)
             putBoolean(KEY_SCREEN_KEEP_LOCK_UI, s.screenKeepLockUi)
             putBoolean(KEY_UPDATE_NOTICE, s.updateNotice)
         }
@@ -492,8 +490,9 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val KEY_GEMINI = "gemini"
         /** "Anunciar como moto" (20/11/2026). The key of the debug build's experiment it came from, `experiment_motorcycle`, is ignored: everyone starts with it on. */
         private const val KEY_ANNOUNCE_MOTORCYCLE = "announce_motorcycle"
-        private const val KEY_SCREEN_KEEP = "screen_keep"
-        private const val KEY_SCREEN_KEEP_MODE = "screen_keep_mode"
+        // A new name in 0.3.95: the switch came on by default, and the "off" the 0.3.94 saved with every other setting must not hold it off. The old `screen_keep` and
+        // `screen_keep_mode` (the interval modes, gone) stay in the file unread.
+        private const val KEY_SCREEN_KEEP = "screen_keep_on"
         private const val KEY_SCREEN_KEEP_LOCK_UI = "screen_keep_lock_ui"
         private const val KEY_UPDATE_NOTICE = "update_notice"
         private const val OLD_KEY_AA_SLOW_PACE = "aa_slow_pace"
