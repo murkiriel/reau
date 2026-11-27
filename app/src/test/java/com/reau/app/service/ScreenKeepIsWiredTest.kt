@@ -166,9 +166,9 @@ class ScreenKeepIsWiredTest {
 
     @Test
     fun `the button is on the main screen only with the projection on, outlined, and reaches the manual mode`() {
-        val screen = source("ui/MainScreen.kt")
-        assertTrue("under the bridge card", "ModeButtons(p, extras)" in screen)
-        val button = screen.substringAfter("private fun ColumnScope.ModeButtons(").substringBefore("/** One line of the foot")
+        assertTrue("under the bridge card", "ModeButtons(p, extras)" in source("ui/MainScreen.kt"))
+        val screen = source("ui/MainModeButtons.kt")
+        val button = screen.substringAfter("internal fun ColumnScope.ModeButtons(")
         assertTrue(button, "if (ScreenKeepManual.available(p.phase != Phase.STOPPED)) {" in button)
         assertTrue(button, "GhostButton(" in button && "R.string.action_lock_screen" in button && "extras.onLockScreen" in button)
         assertFalse("not the gold button", "PrimaryPowerButton" in button)

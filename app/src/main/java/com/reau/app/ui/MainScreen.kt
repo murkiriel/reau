@@ -3,7 +3,6 @@ package com.reau.app.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -40,13 +39,11 @@ import com.reau.app.ui.MainLook.Warning
 import com.reau.app.ui.components.BridgeCard
 import com.reau.app.ui.components.BridgeSide
 import com.reau.app.ui.components.ComponentLogic
-import com.reau.app.ui.components.GhostButton
 import com.reau.app.ui.components.GroupLabel
 import com.reau.app.ui.components.MsIcon
 import com.reau.app.ui.components.PrimaryPowerButton
 import com.reau.app.ui.components.REauTopBar
 import com.reau.app.ui.theme.REauMono
-import com.reau.app.service.ScreenKeepManual
 import com.reau.app.ui.theme.LocalREauNight
 import com.reau.app.ui.theme.REauTheme
 import kotlinx.coroutines.delay
@@ -137,23 +134,6 @@ fun MainScreen(
                 PrimaryPowerButton(p.phase != Phase.STOPPED, elapsed, onToggle, stopping = p.stopping)
             }
         }
-    }
-}
-
-/**
- * The outlined button under the bridge card: the card mode while stopped, and with the projection on "Bloquear a tela" (outlined, not gold: Desligar is the screen's
- * one main button; it is there whatever the switch "Tela acesa com o celular bloqueado" says).
- */
-@Composable
-private fun ColumnScope.ModeButtons(p: Projection, extras: MainExtras) {
-    if (p.phase == Phase.STOPPED && !p.stopping) {
-        GhostButton(R.drawable.ic_ms_image, stringResource(R.string.action_card), "card", extras.onCard, Modifier.align(Alignment.CenterHorizontally))
-    }
-    if (ScreenKeepManual.available(p.phase != Phase.STOPPED)) {
-        GhostButton(
-            R.drawable.ic_ms_lock, stringResource(R.string.action_lock_screen), "lock_screen", extras.onLockScreen,
-            Modifier.align(Alignment.CenterHorizontally),
-        )
     }
 }
 
