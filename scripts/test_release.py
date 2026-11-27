@@ -310,6 +310,8 @@ class DryRunTest(ReleaseCase):
     def setUp(self):
         super().setUp()
         self.r.guard_git()
+        # The dry run builds with the debug key, so its APK carries another certificate than the project's (the official one would stop it, below).
+        fake_apksigner(self.r.sdk / "build-tools" / "36.1.0" / "apksigner", OTHER)
         self.before = (self.r.git("rev-parse", "HEAD"), self.r.git("tag", "--list"), self.r.git("status", "--porcelain"))
 
     def assertNothingChanged(self, done):
@@ -355,6 +357,20 @@ class DryRunTest(ReleaseCase):
         self.assertEqual(0, done.returncode, done.stdout + done.stderr)
         self.assertIn(OTHER, done.stdout)
         self.assertIn(f"exige o certificado do projeto: {OFFICIAL}", done.stdout)
+
+    def test_the_project_certificate_in_a_dry_run_stops_it(self):
+        # The release key must never reach the dry run's build: if the APK comes out with the project's certificate, it got there some other way.
+        fake_apksigner(self.r.sdk / "build-tools" / "36.1.0" / "apksigner", OFFICIAL)
+        done = self.r.run("0.3.1", "--ensaio")
+        self.assertEqual(1, done.returncode, done.stdout + done.stderr)
+        self.assertIn("saiu assinado com o certificado do projeto", done.stderr)
+        self.assertIn("Ensaio interrompido: nada foi publicado.", done.stderr)
+        self.assertNothingChanged(done)
+
+    def test_a_description_in_the_callers_environment_is_not_printed(self):
+        done = self.r.run("0.3.1", "--ensaio", env={"DESCRICAO": "texto de fora"})
+        self.assertEqual(0, done.returncode, done.stdout + done.stderr)
+        self.assertNotIn("texto de fora", done.stdout)
 
     def test_publishing_only_prints_the_gh_command(self):
         done = self.r.run("0.3.1", "--ensaio", "--publicar", "--notas", str(self.r.notes))
@@ -407,6 +423,7 @@ class DryRunTest(ReleaseCase):
 
     def test_without_the_dry_run_the_guards_would_have_been_hit(self):
         """Proves the guard works: the real run calls gh, so the test above that finds no gh call means something."""
+        fake_apksigner(self.r.sdk / "build-tools" / "36.1.0" / "apksigner", OFFICIAL)  # a real run is signed with the release key
         done = self.r.run("0.3.1", "--publicar", "--notas", str(self.r.notes))
         self.assertEqual(0, done.returncode, done.stdout + done.stderr)
         self.assertTrue(self.r.called("gh release create"))

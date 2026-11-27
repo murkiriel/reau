@@ -45,6 +45,7 @@ uso() { sed -n '/^# Uso:/,/^# Variáveis/p' "$0" | sed '$d;s/^# \{0,1\}//' >&2; 
 passo() { echo "== $1"; }
 
 ENSAIO=0
+DESCRICAO=""     # set only on the call to fazer that needs it; never taken from the caller's environment
 PENDENCIAS=()   # no ensaio: o que a publicação de verdade não deixaria passar
 FARIA=()        # no ensaio: o que a publicação de verdade faria e o ensaio só imprimiu
 falha() {
@@ -200,7 +201,10 @@ if ! echo "$SAIDA_SIGNER" | grep -Eq 'Verified using v2 scheme.*: true'; then
 fi
 CERTS="$(echo "$SAIDA_SIGNER" | sed -n 's/.*certificate SHA-256 digest: *\([0-9A-Fa-f]\{64\}\).*/\1/p' | tr 'A-F' 'a-f')"
 if [ -z "$CERTS" ]; then falha "o apksigner não mostrou o SHA-256 do certificado"; fi
-if [ "$ENSAIO" -eq 1 ]; then
+if [ "$ENSAIO" -eq 1 ] && echo "$CERTS" | grep -qx "$CERT_OFICIAL"; then
+  # O ensaio nunca deve ver a chave de release: se o certificado do projeto aparece aqui, ela chegou ao Gradle por outro caminho.
+  falha "o APK do ensaio saiu assinado com o certificado do projeto ($CERT_OFICIAL): a chave de release chegou ao Gradle no ensaio; descubra por onde antes de publicar"
+elif [ "$ENSAIO" -eq 1 ]; then
   echo "ok: assinatura v2 verificada. Certificado do APK do ensaio (chave de depuração): $(echo "$CERTS" | sort -u | paste -sd' ')"
   echo "[ensaio] a publicação de verdade exige o certificado do projeto: $CERT_OFICIAL (não conferível sem a chave de release)"
 elif [ "$(echo "$CERTS" | sort -u)" != "$CERT_OFICIAL" ]; then
@@ -249,6 +253,7 @@ if [ "$ENSAIO" -eq 1 ]; then
   echo "== Resumo do ensaio"
   echo "  versão:       REau $VERSAO (tag $TAG), commit $COMMIT"
   echo "  APK do ensaio sha256: $APK_SHA (chave de depuração; não é o que seria publicado)"
+  echo "  $APK é o APK do ensaio, assinado com a chave de depuração: não copie nem publique esse arquivo (a rodada de verdade o apaga e refaz)"
   echo "O que a publicação de verdade faria e o ensaio não fez:"
   for item in "${FARIA[@]}"; do echo "  - $item"; done
   if [ "${#PENDENCIAS[@]}" -gt 0 ]; then
