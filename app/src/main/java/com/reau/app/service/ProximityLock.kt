@@ -44,8 +44,14 @@ internal object ProximityLock {
         return true
     }
 
-    /** A reading of the sensor, [value] with its [maxRange]: anything under the range is covered (the way the system's own dialer reads it). */
-    fun isNear(value: Float, maxRange: Float): Boolean = value < maxRange
+    /** The distance, in cm, under which the system's own proximity controller of the display calls the sensor covered, whatever the sensor's range is (a range under it wins). */
+    const val NEAR_CM = 5f
+
+    /**
+     * A reading of the sensor, [value] with its [maxRange]: covered when it is under the smaller of the range and [NEAR_CM], as AOSP reads it (`value < min(maxRange, 5)`): a
+     * sensor with a range of 8 or 10 cm that says 5 is not covered. A negative value is no reading.
+     */
+    fun isNear(value: Float, maxRange: Float): Boolean = value >= 0f && value < minOf(maxRange, NEAR_CM)
 
     /**
      * Whether a display that is off since [displayOffSinceMs] is off because of the lock, at [nowMs] ([interactive]: `PowerManager.isInteractive` now); see

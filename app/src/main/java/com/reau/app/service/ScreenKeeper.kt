@@ -128,8 +128,8 @@ internal class ScreenKeeper(
     /** The screen was seen off or on by [via]: said once, from whoever sees it first, and then acted on. */
     private fun seen(off: Boolean, via: ScreenKeepPolicy.Via) {
         if (receiver == null) return
-        val line = edge.heard(off, via) ?: return
-        log(line)
+        val change = edge.heard(off, via, now()) ?: return
+        change.line?.let(log)
         if (off) screenOff() else screenOn()
     }
 
@@ -167,7 +167,8 @@ internal class ScreenKeeper(
         val heard = receiver ?: return
         receiver = null
         runCatching { app.unregisterReceiver(heard) }.onFailure { log(LockLog.warnLine("stop listening to the screen", it)) }
-        displayListener?.let { app.getSystemService(DisplayManager::class.java)?.unregisterDisplayListener(it) }
+        runCatching { displayListener?.let { app.getSystemService(DisplayManager::class.java)?.unregisterDisplayListener(it) } }
+            .onFailure { log(LockLog.warnLine("stop listening to the display", it)) }
         displayListener = null
         safety?.let { main.removeCallbacks(it) }
         safety = null
@@ -216,7 +217,7 @@ internal class ScreenKeeper(
     }
 
     /**
-     * The display is off by the proximity lock: said once per change, and, while the sensor reads uncovered (the sensor's event may be late, or the off may be real), looked at
+     * The display is off by the proximity lock: said once per change, and, while the sensor reads uncovered or has said nothing yet (the sensor's event may be late, or the off may be real), looked at
      * again once the grace of [ScreenKeepPolicy.PROXIMITY_GRACE_MS] has passed. A sensor that stays covered is looked at by the tick, which stays silent.
      */
     private fun holdBackForProximity() {
@@ -224,7 +225,8 @@ internal class ScreenKeeper(
             proximityNoted = true
             log(ScreenKeepPolicy.nothingLine(ScreenKeepPolicy.WHY_PROXIMITY))
         }
-        if (ProximityLock.near != false || proximityCheck != null) return
+        // Uncovered or not heard yet (both are covered only for the grace, [ScreenKeepPolicy.proximityCovers]): looked at again after it.
+        if (ProximityLock.near == true || proximityCheck != null) return
         val check = Runnable {
             proximityCheck = null
             if (receiver != null && edge.off) ask()

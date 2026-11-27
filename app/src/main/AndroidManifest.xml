@@ -86,10 +86,12 @@
 
         <!-- The language is changed on the settings: the screen is told and redraws its texts, it is not destroyed and rebuilt (that
              showed as a flash). A Compose screen reads its strings again on the change. The same for turning the phone: the "Tela do Android
-             Auto" goes full screen on its side (AaFullScreen), and a rebuilt Activity would drop its picture's surface and show it again. -->
+             Auto" goes full screen on its side (AaFullScreen), and a rebuilt Activity would drop its picture's surface and show it again.
+             The system's light/dark switch (uiMode) is handled too: the theme is the rider's "Tema" (LocalREauNight), never the system's, so there is nothing to redraw, and a
+             rebuilt Activity would end the lock mode and let the proximity lock go (the screen lit in a pocket). -->
         <activity
             android:name=".MainActivity"
-            android:configChanges="locale|layoutDirection|orientation|screenSize|smallestScreenSize|screenLayout"
+            android:configChanges="locale|layoutDirection|orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

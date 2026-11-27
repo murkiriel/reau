@@ -77,19 +77,31 @@ class ScreenKeepPolicyTest {
         assertEquals("lockui shown", ScreenKeepPolicy.SHOWN_LINE)
     }
 
+    private fun ScreenKeepPolicy.DisplayEdge.line(off: Boolean, via: ScreenKeepPolicy.Via, nowMs: Long = 0L): String? = heard(off, via, nowMs)!!.line
+
     @Test
     fun `a change of the screen is said once, from whoever sees it first, with the line of the log`() {
         val edge = ScreenKeepPolicy.DisplayEdge()
-        assertNull("still on", edge.heard(false, ScreenKeepPolicy.Via.TICK))
-        assertEquals("display off via=listener", edge.heard(true, ScreenKeepPolicy.Via.LISTENER))
-        assertNull("the broadcast says it again", edge.heard(true, ScreenKeepPolicy.Via.BROADCAST))
-        assertNull("so does the tick", edge.heard(true, ScreenKeepPolicy.Via.TICK))
-        assertEquals("display on via=broadcast", edge.heard(false, ScreenKeepPolicy.Via.BROADCAST))
-        assertEquals("display off via=tick", edge.heard(true, ScreenKeepPolicy.Via.TICK))
+        assertNull("still on", edge.heard(false, ScreenKeepPolicy.Via.TICK, 0L))
+        assertEquals("display off via=listener", edge.line(true, ScreenKeepPolicy.Via.LISTENER))
+        assertNull("the broadcast says it again", edge.heard(true, ScreenKeepPolicy.Via.BROADCAST, 100L))
+        assertNull("so does the tick", edge.heard(true, ScreenKeepPolicy.Via.TICK, 200L))
+        assertEquals("a change inside the gap is taken but its line is grouped", null, edge.line(false, ScreenKeepPolicy.Via.BROADCAST, 300L))
+        assertFalse("and it is taken: the screen is on", edge.off)
+        assertEquals("the line after the gap says the count of changes so far", "display off via=tick n=3", edge.line(true, ScreenKeepPolicy.Via.TICK, 2_300L))
         edge.reset(false)
-        assertNull("after a reset the same state says nothing", edge.heard(false, ScreenKeepPolicy.Via.LISTENER))
+        assertNull("after a reset the same state says nothing", edge.heard(false, ScreenKeepPolicy.Via.LISTENER, 5_000L))
+        assertEquals("a reset begins the count again", "display off via=listener", edge.line(true, ScreenKeepPolicy.Via.LISTENER, 5_100L))
         assertEquals(listOf("listener", "broadcast", "tick"), ScreenKeepPolicy.Via.entries.map { it.logName })
         assertEquals(5_000L, ScreenKeepPolicy.TICK_MS)
+    }
+
+    @Test
+    fun `a sensor that flaps in a pocket says one display line in each window, with the count`() {
+        val edge = ScreenKeepPolicy.DisplayEdge()
+        val said = (0 until 20).mapNotNull { n -> edge.heard(n % 2 == 0, ScreenKeepPolicy.Via.LISTENER, n * 100L)!!.line }
+        assertEquals("20 changes in 2 s: one line, the first, at once", listOf("display off via=listener"), said)
+        assertEquals("the next window's line has the total", "display off via=listener n=21", edge.line(true, ScreenKeepPolicy.Via.LISTENER, 2_000L))
     }
 
     @Test
@@ -123,7 +135,10 @@ class ScreenKeepPolicyTest {
     fun `the sensor tells a real off from the lock's during a projection, where the phone stays interactive`() {
         assertTrue("covered", covers(near = true, quietMs = 0L))
         assertTrue("covered for an hour", covers(near = true, quietMs = 3_600_000L))
-        assertTrue("a sensor not known (none, or no reading yet) leaves it to the lock and the phone", covers(near = null, quietMs = 60_000L))
+        assertFalse("a sensor not known (none, or no reading yet) is the lock's only for the grace: after it a real off is not taken for the lock for ever", covers(near = null, quietMs = ScreenKeepPolicy.PROXIMITY_GRACE_MS))
+        assertFalse(covers(near = null, quietMs = 60_000L))
+        assertTrue("an unknown sensor inside the grace: its first reading may be late", covers(near = null, quietMs = ScreenKeepPolicy.PROXIMITY_GRACE_MS - 1))
+        assertTrue(covers(near = null, quietMs = 0L))
         assertFalse("uncovered for a while and the display still off: not the lock", covers(near = false, quietMs = ScreenKeepPolicy.PROXIMITY_GRACE_MS))
         assertTrue("uncovered but the display or the sensor changed a moment ago: the other road may be late", covers(near = false, quietMs = ScreenKeepPolicy.PROXIMITY_GRACE_MS - 1))
         assertTrue(covers(near = false, quietMs = 0L))

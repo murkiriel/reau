@@ -52,6 +52,14 @@ class ScreenLockLogTest {
     }
 
     @Test
+    fun `a sensor that flaps says its first line at once and then one in each window with the count`() {
+        val group = ScreenLockLog.Grouper()
+        val lines = (0 until 40).mapNotNull { n -> group.hit(n * 100L)?.let { ScreenLockLog.sensorLine(n % 2 == 0, 0f, it) } }
+        assertEquals("40 changes in 4 s: the first and one at 2 s", listOf("sensor proximity=near value=0.0", "sensor proximity=near value=0.0 n=21"), lines)
+        assertEquals("all are counted", 40L, group.total)
+    }
+
+    @Test
     fun `a clock that went back says the line rather than hide it`() {
         val group = ScreenLockLog.Grouper()
         assertEquals(1L, group.hit(10_000L))
@@ -99,6 +107,8 @@ class ScreenLockLogTest {
     fun `the sensor lines carry the raw value and the range`() {
         assertEquals("sensor proximity=near value=0.0", ScreenLockLog.sensorLine(true, 0f))
         assertEquals("sensor proximity=far value=5.0", ScreenLockLog.sensorLine(false, 5f))
+        assertEquals("the first of a group has no count", "sensor proximity=near value=0.0", ScreenLockLog.sensorLine(true, 0f, 1L))
+        assertEquals("a later one says the changes so far", "sensor proximity=far value=5.0 n=12", ScreenLockLog.sensorLine(false, 5f, 12L))
         assertEquals("sensor proximity registered max=5.0", ScreenLockLog.sensorRegisteredLine(5f))
     }
 

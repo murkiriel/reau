@@ -67,9 +67,81 @@ class ProximityIsWiredTest {
         assertTrue(listen, "Sensor.TYPE_PROXIMITY" in listen && "ProximityLock.isNear(value, sensor.maximumRange)" in listen)
         assertTrue(listen, "sensors.registerListener(reader, sensor, SensorManager.SENSOR_DELAY_NORMAL, main)" in listen)
         assertTrue(listen, "if (ProximityLock.sensor(" in listen && "onSensorChange?.invoke()" in listen)
-        assertTrue("it is registered after the lock is taken", hold.indexOf("ProximityLock.hold(") < hold.indexOf("            listen()"))
+        assertTrue("it is registered after the lock is taken", hold.indexOf("ProximityLock.hold(") < hold.indexOf("val listening = listen()"))
         assertTrue("unregistered with the lock", "unregisterListener(reader)" in hold.between("private fun stopListening()", "private companion"))
         assertEquals("the keeper reads no sensor of its own", 0, Regex("""SensorManager|Sensor\.""").findAll(keeper).count())
+    }
+
+    @Test
+    fun `a sensor that cannot be heard lets the lock go at once, so a real off is never taken for the lock for ever`() {
+        val listen = hold.between("private fun listen(): Boolean {", "private fun register(")
+        assertTrue(listen, "sensors == null -> false.also { log(LockLog.unavailableLine(\"sensor manager\")) }" in listen)
+        assertTrue(listen, "sensor == null -> false.also { log(LockLog.unavailableLine(\"proximity sensor\")) }" in listen)
+        val register = hold.between("private fun register(", "private fun stopListening()")
+        assertTrue(register, "if (!sensors.registerListener(reader, sensor, SensorManager.SENSOR_DELAY_NORMAL, main)) {\n            log(LockLog.unavailableLine(\"proximity sensor listener\"))\n            return false" in register)
+        assertTrue("a registered listener is true", "listener = reader\n        log(ScreenLockLog.sensorRegisteredLine(sensor.maximumRange))\n        return true" in register)
+        val acquire = hold.between("fun acquire(reason: String)", "fun release(")
+        assertTrue(acquire, "val listening = listen()" in acquire && "if (!listening) release(ScreenLock.PROXIMITY_NO_SENSOR)" in acquire)
+        assertTrue("it is let go after the lock is taken and said", acquire.indexOf("ProximityLock.hold(") < acquire.indexOf("if (!listening) release(") && acquire.indexOf("log(ScreenLock.proximityLine(true, reason))") < acquire.indexOf("if (!listening) release("))
+        assertEquals("no-sensor", ScreenLock.PROXIMITY_NO_SENSOR)
+    }
+
+    @Test
+    fun `the sensor's lines are grouped, and only the sensor's and the keeper's display lines are`() {
+        val listen = hold.between("private fun register(", "private fun stopListening()")
+        assertTrue(listen, "val lines = ScreenLockLog.Grouper()" in listen && "lines.hit(SystemClock.elapsedRealtime())?.let { log(ScreenLockLog.sensorLine(near, value, it)) }" in listen)
+        assertTrue("the mode is told of each change, said or not", listen.indexOf("lines.hit(") < listen.indexOf("onSensorChange?.invoke()"))
+        val seen = keeper.between("private fun seen(", "private fun armSafety()")
+        assertTrue(seen, "val change = edge.heard(off, via, now()) ?: return" in seen && "change.line?.let(log)" in seen)
+        assertTrue("it acts on the change, said or not", seen.indexOf("change.line?.let(log)") < seen.indexOf("if (off) screenOff() else screenOn()"))
+        val trace = code("service/ScreenTrace.kt")
+        assertFalse("the lock screen's lines are never grouped: each one matters", "Grouper" in trace)
+    }
+
+    @Test
+    fun `the system's light and dark switch does not rebuild the activity, which would end the lock mode, and the theme never reads the system`() {
+        val manifest = File("src/main/AndroidManifest.xml").readText()
+        val activity = manifest.between("android:name=\".MainActivity\"", "android:exported")
+        val changes = Regex("""android:configChanges="([^"]*)"""").find(activity)!!.groupValues[1].split("|")
+        assertTrue(changes.toString(), "uiMode" in changes)
+        for (kept in listOf("locale", "layoutDirection", "orientation", "screenSize", "smallestScreenSize", "screenLayout")) assertTrue(kept, kept in changes)
+        // Why nothing is to be redone on the change: the theme is the rider's, drawn from [LocalREauNight], and every REauTheme call passes it.
+        val calls = listOf("ui/MainScreen.kt", "ui/ScreenLockScreen.kt", "ui/LockOverHost.kt").map { code(it) }
+        for (call in calls) assertTrue("REauTheme(dark = " in call)
+        assertEquals("only the unused default reads the system's theme", 1, Regex("""isSystemInDarkTheme\(""").findAll(allSources()).count())
+        assertFalse("no night resources to switch", File("src/main/res").listFiles()!!.any { it.name.contains("night") })
+        assertFalse("nothing reads the mode of the configuration", Regex("""UI_MODE|uiMode|isNightModeActive""").containsMatchIn(allSources()))
+    }
+
+    private fun allSources(): String = File("src/main/java/com/reau/app").walkTopDown().filter { it.extension == "kt" }.joinToString("\n") { f ->
+        f.readLines().filterNot { Regex("""^\s*(\*|//|/\*)""").containsMatchIn(it) }.joinToString("\n")
+    }
+
+    @Test
+    fun `the end of the keeper and of the lock mode run every step, each guarded alone with a warning`() {
+        val turnOff = keeper.between("private fun turnOff()", "private fun screenOff(")
+        assertTrue(turnOff, "runCatching { displayListener?.let { app.getSystemService(DisplayManager::class.java)?.unregisterDisplayListener(it) } }" in turnOff)
+        assertTrue(turnOff, "LockLog.warnLine(\"stop listening to the display\", it)" in turnOff)
+        assertTrue("the rest of the way out is after it", turnOff.indexOf("stop listening to the display") < turnOff.indexOf("lock?.takeIf") && turnOff.indexOf("lock?.takeIf") < turnOff.indexOf("ScreenWatch.end(ScreenWatch.SOURCE_KEEPER)"))
+        val exit = mode.between("fun exit(reason: ScreenLock.Exit)", "fun dim(on: Boolean")
+        val steps = listOf(
+            "runCatching { keep.release(SOURCE) }" to "keep screen on release",
+            "runCatching { bars(hidden = false) }" to "system bars show",
+            "runCatching { back?.remove() }" to "back callback remove",
+            "runCatching { displayListener?.let {" to "stop listening to the display",
+            "runCatching { screenOff?.let { activity.unregisterReceiver(it) } }" to "stop listening to the screen going off",
+            "runCatching { if (!overTheLockScreen()) dim(false) }" to "brightness back",
+            "runCatching { ScreenWatch.end(ScreenWatch.SOURCE_LOCK) }" to "state lines stop",
+        )
+        var at = -1
+        for ((step, warning) in steps) {
+            val place = exit.indexOf(step)
+            assertTrue("guarded: $step", place > at)
+            at = place
+            assertTrue("with its warning: $warning", "LockLog.warnLine(\"$warning\", it)" in exit.substring(place))
+        }
+        assertTrue("the summary is guarded too", "runCatching {\n            val at = SystemClock.elapsedRealtime()" in exit && "LockLog.warnLine(\"summary\", it)" in exit)
+        assertEquals("nothing outside a runCatching undoes the registrations", 0, Regex("""(?m)^        (displayListener\?\.let|screenOff\?\.let|back\?\.remove|keep\.release|bars\()""").findAll(exit).count())
     }
 
     @Test
@@ -109,7 +181,7 @@ class ProximityIsWiredTest {
         assertTrue(look, "ProximityLock.covers(interactive, offSinceMs, SystemClock.elapsedRealtime())" in look)
         assertTrue(look, "activity.getSystemService(PowerManager::class.java)?.isInteractive == true" in look)
         assertTrue(look, "if (!covered) {\n            exit(ScreenLock.Exit.SCREENOFF)" in look)
-        assertTrue("the sensor's late event is waited for", "} else if (ProximityLock.near == false) {\n            main.postDelayed(offCheck, ScreenKeepPolicy.PROXIMITY_GRACE_MS + OFF_CHECK_SLACK_MS)" in look)
+        assertTrue("the sensor's late event is waited for", "} else if (ProximityLock.near != true) {\n            main.postDelayed(offCheck, ScreenKeepPolicy.PROXIMITY_GRACE_MS + OFF_CHECK_SLACK_MS)" in look)
         assertTrue("said once per change", "proximityEdge.off(covered, ScreenKeepPolicy.proximityNearText(ProximityLock.near))?.let(::log)" in look)
         val listener = mode.between("val listener = object : DisplayManager.DisplayListener", "displayListener = listener")
         assertTrue(listener, "lookAtTheDisplay()" in listener && "proximityEdge.on()?.let(::log)" in listener)
@@ -133,7 +205,7 @@ class ProximityIsWiredTest {
         assertTrue("the dark retry comes after, so its count is not touched", safety.indexOf("proximityNow()") < safety.indexOf("darkTries++"))
         val hold = keeper.between("private fun holdBackForProximity()", "private fun wake(")
         assertTrue(hold, "if (!proximityNoted) {" in hold && "log(ScreenKeepPolicy.nothingLine(ScreenKeepPolicy.WHY_PROXIMITY))" in hold)
-        assertTrue("one look after the grace when the sensor reads uncovered", "if (ProximityLock.near != false || proximityCheck != null) return" in hold && "main.postDelayed(check, ScreenKeepPolicy.PROXIMITY_GRACE_MS + CHECK_SLACK_MS)" in hold)
+        assertTrue("one look after the grace when the sensor reads uncovered", "if (ProximityLock.near == true || proximityCheck != null) return" in hold && "main.postDelayed(check, ScreenKeepPolicy.PROXIMITY_GRACE_MS + CHECK_SLACK_MS)" in hold)
         assertTrue("it forgets with the screen on and when it stops", "proximityNoted = false" in keeper.between("private fun screenOn()", "private fun proximityNow()") && "proximityCheck = null" in keeper.between("private fun turnOff()", "private fun screenOff("))
     }
 

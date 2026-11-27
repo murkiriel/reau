@@ -983,7 +983,7 @@
     <string name="group_screen_keep">Locked phone</string>
     <string name="lock_mode_title">REau lock mode (test)</string>
     <string name="lock_mode_sub">Shows the Lock the screen button, lights the screen when it goes off and shows REau over the lock screen. Uses more battery</string>
-    <string name="lock_mode_info">On, the “Lock the screen” button appears on the main screen (with the dash ready) and, with REau in front, the screen goes into REau’s lock instead of turning off by itself, with no PIN asked. If it goes off anyway (the power button), REau lights it again and shows over the lock screen, if it was in front. In a pocket, the proximity sensor turns the screen off without locking the phone. It is a test: it comes off, uses more battery and only works with the projection on.</string>
+    <string name="lock_mode_info">On, the “Lock the screen” button appears on the main screen (with the dash ready) and, with REau in front, the screen goes into REau’s lock instead of turning off by itself, with no PIN asked. If it goes off anyway (the power button), REau lights it again and shows over the lock screen, if it was in front; in a pocket, the proximity sensor turns the screen off without locking the phone. It is a test: it comes off, uses more battery and only works with the projection on.</string>
     <string name="screen_keep_lock_projecting">Projecting to the dash</string>
     <string name="screen_keep_lock_swipe">Tap to unlock</string>
     <string name="screen_keep_lock_pause">Turn the screen off for this ride</string>

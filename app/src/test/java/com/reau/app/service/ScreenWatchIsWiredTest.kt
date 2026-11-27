@@ -92,7 +92,7 @@ class ScreenWatchIsWiredTest {
         val receiver = mode.between("override fun onReceive(context: Context, intent: Intent) {", "screenOff = off")
         assertTrue(receiver, "ScreenWatch.screenEvent(intent.action)" in receiver && receiver.indexOf("ScreenWatch.screenEvent(") < receiver.indexOf("exit(ScreenLock.Exit.SCREENOFF)"))
         assertTrue("its registrations say when they fail", "LockLog.warnLine(\"listening to the screen going off\", it)" in mode && "LockLog.warnLine(\"display listener\", it)" in mode)
-        assertTrue(mode, "LockLog.warnLine(\"stop listening to the screen going off\", error)" in mode && "LockLog.unavailableLine(\"display manager\")" in mode)
+        assertTrue(mode, "LockLog.warnLine(\"stop listening to the screen going off\", it)" in mode && "LockLog.unavailableLine(\"display manager\")" in mode)
     }
 
     @Test
@@ -211,8 +211,8 @@ class ScreenWatchIsWiredTest {
 
     @Test
     fun `the sensor is written at each change with its raw value and the range once, and its failures are warnings`() {
-        assertTrue(hold, "log(ScreenLockLog.sensorLine(near, value))" in hold && "log(ScreenLockLog.sensorRegisteredLine(sensor.maximumRange))" in hold)
-        assertTrue("only a change is written", hold.indexOf("if (ProximityLock.sensor(near, SystemClock.elapsedRealtime())) {") < hold.indexOf("log(ScreenLockLog.sensorLine(near, value))"))
+        assertTrue(hold, "lines.hit(SystemClock.elapsedRealtime())?.let { log(ScreenLockLog.sensorLine(near, value, it)) }" in hold && "val lines = ScreenLockLog.Grouper()" in hold && "log(ScreenLockLog.sensorRegisteredLine(sensor.maximumRange))" in hold)
+        assertTrue("only a change is written", hold.indexOf("if (ProximityLock.sensor(near, SystemClock.elapsedRealtime())) {") < hold.indexOf("lines.hit("))
         for (what in listOf("power manager", "sensor manager", "proximity sensor", "proximity sensor listener")) assertTrue(what, "LockLog.unavailableLine(\"$what\")" in hold)
         assertTrue(hold, "LockLog.warnLine(\"proximity lock\", it)" in hold && "LockLog.warnLine(\"proximity lock release\", it)" in hold && "LockLog.warnLine(\"proximity sensor listener release\", it)" in hold)
     }

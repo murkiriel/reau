@@ -134,6 +134,9 @@ internal object ScreenLock {
     const val PROXIMITY_PAUSE = "paused"
     const val PROXIMITY_DESTROY = "destroyed"
 
+    /** The reason the lock is let go at once after taking it: no sensor could be heard (none, or its listener would not register), so a covered display could never be told. */
+    const val PROXIMITY_NO_SENSOR = "no-sensor"
+
     /**
      * Says the display going off and coming back because of the proximity lock, once per change (the same off is heard by the listener and the check after it).
      * [off] is given what [com.reau.app.service.ScreenKeepPolicy.proximityCovers] said for a display that is not on.

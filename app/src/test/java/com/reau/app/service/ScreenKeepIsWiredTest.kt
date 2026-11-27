@@ -178,7 +178,7 @@ class ScreenKeepIsWiredTest {
         assertTrue(safety, "seen(displayOff(), ScreenKeepPolicy.Via.TICK)" in safety && "main.postDelayed(next, ScreenKeepPolicy.TICK_MS)" in safety)
         assertTrue(safety, "if (edge.off) {" in safety && "if (retry || proximityNoted || proximityNow()) {" in safety)
         val seen = keeper.substringAfter("private fun seen(").substringBefore("/** The safety net")
-        assertTrue(seen, "val line = edge.heard(off, via) ?: return" in seen && "log(line)" in seen && "if (off) screenOff() else screenOn()" in seen)
+        assertTrue(seen, "val change = edge.heard(off, via, now()) ?: return" in seen && "change.line?.let(log)" in seen && "if (off) screenOff() else screenOn()" in seen)
         val turnOff = keeper.substringAfter("private fun turnOff()").substringBefore("private fun screenOff(")
         assertTrue(turnOff, "unregisterDisplayListener(it)" in turnOff && "safety?.let { main.removeCallbacks(it) }" in turnOff)
         assertTrue("it begins from what the display says now", "edge.reset(displayOff())" in keeper.substringAfter("private fun turnOn("))

@@ -40,11 +40,13 @@ internal object ScreenKeepPolicy {
      * Whether a display that is not on is off because REau's proximity wake lock ([ProximityLock]) holds it so (0.3.99), and not for another reason (the power button, a
      * timeout): [held] the lock is held now, [interactive] `PowerManager.isInteractive` (the proximity lock does not change it, a real sleep does, but during a projection of
      * Android Auto it stays true, so it is not enough alone), [near] the proximity sensor's last reading (covered, uncovered or not known: no sensor, or none yet), and
-     * [quietMs] how long both the display's state and the sensor have been unchanged. Not held or not interactive: a real off. A sensor that is covered or unknown: the
-     * lock. A sensor that says uncovered: not the lock, unless it or the display changed less than [PROXIMITY_GRACE_MS] ago (the other road may be late).
+     * [quietMs] how long both the display's state and the sensor have been unchanged. Not held or not interactive: a real off. A sensor that is covered: the lock. A sensor
+     * that says uncovered, or has not said anything yet (none, or no reading since the lock was taken): not the lock, unless it or the display changed less than
+     * [PROXIMITY_GRACE_MS] ago (the other road may be late). An unknown sensor is covered only for that grace, never for good: with no sensor to be heard a real off during a
+     * projection (where `isInteractive` stays true) would otherwise be taken for the lock's for ever, and the screen would stay dark with nothing to bring it back.
      */
     fun proximityCovers(held: Boolean, interactive: Boolean, near: Boolean?, quietMs: Long): Boolean =
-        held && interactive && (near != false || quietMs < PROXIMITY_GRACE_MS)
+        held && interactive && (near == true || quietMs < PROXIMITY_GRACE_MS)
 
     /** The sensor's last reading, as one word for the log. */
     fun proximityNearText(near: Boolean?): String = when (near) {
@@ -69,17 +71,28 @@ internal object ScreenKeepPolicy {
     class DisplayEdge(off: Boolean = false) {
         var off = off
             private set
+        private var group = ScreenLockLog.Grouper()
 
-        /** [nowOff] was seen by [via]: the log line of the change, or null when the screen was already known to be so. */
-        fun heard(nowOff: Boolean, via: Via): String? {
+        /** What [heard] says of a change: [line] is what to write, or null when the change is taken but its line is left out (grouped, see [heard]). */
+        class Change(val line: String?)
+
+        /**
+         * [nowOff] was seen by [via] at [nowMs]: null when the screen was already known to be so, else the change. Its line is the first one at once and then at most one in
+         * [ScreenLockLog.GROUP_MS] with the count of changes so far (`display off via=listener n=7`): a sensor that flaps in a pocket would fill the log with them.
+         */
+        fun heard(nowOff: Boolean, via: Via, nowMs: Long): Change? {
             if (nowOff == off) return null
             off = nowOff
-            return "display ${if (nowOff) "off" else "on"} via=${via.logName}"
+            val line = group.hit(nowMs)?.let { count ->
+                "display ${if (nowOff) "off" else "on"} via=${via.logName}" + if (count > 1L) " n=$count" else ""
+            }
+            return Change(line)
         }
 
         /** The screen is known to be [nowOff] with no change to say (the function begins). */
         fun reset(nowOff: Boolean) {
             off = nowOff
+            group = ScreenLockLog.Grouper()
         }
     }
 

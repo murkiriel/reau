@@ -189,21 +189,23 @@ internal class ScreenLockMode(
         counters.proximityOn(SystemClock.elapsedRealtime())
         displayOff = false
         state.exit(reason, SystemClock.elapsedRealtime())?.let(::log)
-        keep.release(SOURCE)
-        bars(hidden = false)
-        back?.remove()
+        // Each step is guarded alone (a warning in the log), so one that throws never leaves the next ones undone: the receiver and the display listener registered, the state lines running.
+        runCatching { keep.release(SOURCE) }.onFailure { log(LockLog.warnLine("keep screen on release", it)) }
+        runCatching { bars(hidden = false) }.onFailure { log(LockLog.warnLine("system bars show", it)) }
+        runCatching { back?.remove() }.onFailure { log(LockLog.warnLine("back callback remove", it)) }
         back = null
-        displayListener?.let { activity.getSystemService(DisplayManager::class.java)?.unregisterDisplayListener(it) }
+        runCatching { displayListener?.let { activity.getSystemService(DisplayManager::class.java)?.unregisterDisplayListener(it) } }
+            .onFailure { log(LockLog.warnLine("stop listening to the display", it)) }
         displayListener = null
-        screenOff?.let {
-            runCatching { activity.unregisterReceiver(it) }.onFailure { error -> log(LockLog.warnLine("stop listening to the screen going off", error)) }
-        }
+        runCatching { screenOff?.let { activity.unregisterReceiver(it) } }.onFailure { log(LockLog.warnLine("stop listening to the screen going off", it)) }
         screenOff = null
-        if (!overTheLockScreen()) dim(false)
+        runCatching { if (!overTheLockScreen()) dim(false) }.onFailure { log(LockLog.warnLine("brightness back", it)) }
         // The way out says what the mode did, right after `manual off`; the state lines stop with it (the keeper's own go on).
-        val at = SystemClock.elapsedRealtime()
-        log(counters.summary(at, dimTrack.dimMs(at), state.backCount, ScreenWatch.wakes, ScreenWatch.keyguardLocks).line())
-        ScreenWatch.end(ScreenWatch.SOURCE_LOCK)
+        runCatching {
+            val at = SystemClock.elapsedRealtime()
+            log(counters.summary(at, dimTrack.dimMs(at), state.backCount, ScreenWatch.wakes, ScreenWatch.keyguardLocks).line())
+        }.onFailure { log(LockLog.warnLine("summary", it)) }
+        runCatching { ScreenWatch.end(ScreenWatch.SOURCE_LOCK) }.onFailure { log(LockLog.warnLine("state lines stop", it)) }
         onChange?.invoke()
     }
 
@@ -274,9 +276,9 @@ internal class ScreenLockMode(
     }
 
     /**
-     * The display is not on: if it is the proximity lock's own off (held, interactive, the sensor covered or the other road still to come: [ProximityLock.covers]) the mode
+     * The display is not on: if it is the proximity lock's own off (held, interactive, the sensor covered or the other road still to come, which a sensor with no reading gets only for the grace: [ProximityLock.covers]) the mode
      * stays, said once; any other off (the power button, a timeout) ends it as `screenoff`, as before 0.3.99. Looked at again when the sensor changes and, while the sensor reads
-     * uncovered, after the grace the sensor's event is given to arrive. The hypothesis, to be confirmed on the phone: a proximity off leaves `isInteractive` true and sends no
+     * uncovered or has said nothing, after the grace the sensor's event is given to arrive. The hypothesis, to be confirmed on the phone: a proximity off leaves `isInteractive` true and sends no
      * SCREEN_OFF; a real one during a projection of Android Auto may leave it true too, so the sensor is asked as well.
      */
     private fun lookAtTheDisplay() {
@@ -288,7 +290,7 @@ internal class ScreenLockMode(
         if (covered) counters.proximityOff(SystemClock.elapsedRealtime())
         if (!covered) {
             exit(ScreenLock.Exit.SCREENOFF)
-        } else if (ProximityLock.near == false) {
+        } else if (ProximityLock.near != true) {
             main.postDelayed(offCheck, ScreenKeepPolicy.PROXIMITY_GRACE_MS + OFF_CHECK_SLACK_MS)
         }
     }

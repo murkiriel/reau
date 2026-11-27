@@ -94,8 +94,9 @@ internal object ScreenLockLog {
     fun activityLine(event: String, awayMs: Long?): String =
         "activity $event" + (if (event == RESUMED && awayMs != null) " after=${awayMs.coerceAtLeast(0L) / MS_PER_S}s" else "")
 
-    /** The proximity sensor changed while the lock is held: `sensor proximity=near value=0.0`. */
-    fun sensorLine(near: Boolean, value: Float) = "sensor proximity=${if (near) "near" else "far"} value=$value"
+    /** The proximity sensor changed while the lock is held: `sensor proximity=near value=0.0`; [count] changes so far when the line is not the first of a [Grouper]: `... n=7`. */
+    fun sensorLine(near: Boolean, value: Float, count: Long = 1L) =
+        "sensor proximity=${if (near) "near" else "far"} value=$value" + if (count > 1L) " n=$count" else ""
 
     /** The sensor listener was registered (said once per registration): `sensor proximity registered max=5.0`. */
     fun sensorRegisteredLine(maxRange: Float) = "sensor proximity registered max=$maxRange"

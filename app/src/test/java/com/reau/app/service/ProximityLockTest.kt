@@ -40,10 +40,27 @@ class ProximityLockTest {
     }
 
     @Test
+    fun `a reading is covered under the smaller of the range and 5 cm, as the system's own controller reads it`() {
+        assertEquals(5f, ProximityLock.NEAR_CM)
+        for (range in listOf(8f, 10f)) {
+            assertFalse("range $range: 5 cm is far", ProximityLock.isNear(5f, range))
+            assertTrue("range $range: 0 is near", ProximityLock.isNear(0f, range))
+            assertTrue("range $range: just under 5 is near", ProximityLock.isNear(4.9f, range))
+            assertFalse("range $range: the range itself is far", ProximityLock.isNear(range, range))
+        }
+        assertTrue("a binary sensor of range 1: 0 is near", ProximityLock.isNear(0f, 1f))
+        assertTrue(ProximityLock.isNear(0.5f, 1f))
+        assertFalse("a binary sensor of range 1: 1 is far", ProximityLock.isNear(1f, 1f))
+        assertFalse("a negative value is no reading", ProximityLock.isNear(-1f, 5f))
+    }
+
+    @Test
     fun `it covers a display that is off only with the lock held, and the quiet time is the shorter of the display's and the sensor's`() {
         assertFalse("not held", ProximityLock.covers(interactive = true, displayOffSinceMs = 0L, nowMs = 60_000L))
         ProximityLock.hold(0L)
-        assertTrue("held, interactive, sensor unknown", ProximityLock.covers(interactive = true, displayOffSinceMs = 0L, nowMs = 60_000L))
+        assertFalse("held, interactive, sensor unknown for good: not the lock", ProximityLock.covers(interactive = true, displayOffSinceMs = 0L, nowMs = 60_000L))
+        assertTrue("sensor unknown, inside the grace of the lock being taken", ProximityLock.covers(interactive = true, displayOffSinceMs = 0L, nowMs = 1_000L))
+        assertFalse("sensor unknown, after the grace", ProximityLock.covers(interactive = true, displayOffSinceMs = 0L, nowMs = ScreenKeepPolicy.PROXIMITY_GRACE_MS))
         assertFalse("not interactive: a real off", ProximityLock.covers(interactive = false, displayOffSinceMs = 0L, nowMs = 60_000L))
         ProximityLock.sensor(true, 1_000L)
         assertTrue("covered", ProximityLock.covers(interactive = true, displayOffSinceMs = 2_000L, nowMs = 60_000L))
