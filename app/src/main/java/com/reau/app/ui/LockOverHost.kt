@@ -171,8 +171,7 @@ internal fun LockOverScreen(host: LockOverHost) {
     DisposableEffect(Unit) { onDispose { host.dim(false) } }
     val manual = host.manual.active
     REauTheme(dark = true) {
-        val touch = lockTouch(host, manual)
-        Surface(Modifier.fillMaxSize().then(touch), color = MaterialTheme.colorScheme.background) {
+        Surface(Modifier.fillMaxSize().lockTouch(host, manual), color = MaterialTheme.colorScheme.background) {
             Column(
                 Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 48.dp),
                 verticalArrangement = Arrangement.SpaceBetween,
@@ -205,9 +204,8 @@ internal fun LockOverScreen(host: LockOverHost) {
 }
 
 /** Over the lock screen any touch unlocks; in the manual mode a loose touch does nothing and only a swipe up leaves. */
-@Composable
-private fun lockTouch(host: LockOverHost, manual: Boolean): Modifier = if (manual) {
-    Modifier.pointerInput(true) {
+private fun Modifier.lockTouch(host: LockOverHost, manual: Boolean): Modifier = if (manual) {
+    pointerInput(true) {
         var total = 0f
         val threshold = ScreenKeepManual.SWIPE_UP_DP.dp.toPx()
         detectVerticalDragGestures(
@@ -220,7 +218,7 @@ private fun lockTouch(host: LockOverHost, manual: Boolean): Modifier = if (manua
         }
     }
 } else {
-    Modifier.pointerInput(false) {
+    pointerInput(false) {
         awaitPointerEventScope {
             awaitFirstDown()
             host.unlock()
