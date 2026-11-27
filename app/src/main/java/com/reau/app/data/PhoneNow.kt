@@ -15,10 +15,12 @@ object PhoneNow {
     @Volatile private var screenEventMs = -1L
     @Volatile private var batteryTempC: Float? = null
     @Volatile private var batteryTempAtMs = Long.MIN_VALUE
+    @Volatile private var batteryPct: Int? = null
+    @Volatile private var batteryPctAtMs = Long.MIN_VALUE
 
     /** The device state just read (a null part leaves what was known). [batteryTempC] is the battery temperature of the same read ([batteryTempNow]). */
     fun update(
-        charging: Boolean?, screenOn: Boolean?, dozing: Boolean?, batteryTempC: Float? = null, nowMs: Long = MonotonicClock.nowMs(),
+        charging: Boolean?, screenOn: Boolean?, dozing: Boolean?, batteryTempC: Float? = null, nowMs: Long = MonotonicClock.nowMs(), batteryPct: Int? = null,
     ) {
         charging?.let { this.charging = it }
         screenOn?.let { this.screenOn = it }
@@ -27,7 +29,16 @@ object PhoneNow {
             this.batteryTempC = it
             batteryTempAtMs = nowMs
         }
+        // The battery percent of the same read, for the lock screen's card ([batteryPctNow]).
+        batteryPct?.let {
+            this.batteryPct = it
+            batteryPctAtMs = nowMs
+        }
     }
+
+    /** The battery percent of the last device read; null when none was read or the last is older than [maxAgeMs] (see [batteryTempNow]). */
+    fun batteryPctNow(nowMs: Long = MonotonicClock.nowMs(), maxAgeMs: Long = TEMP_FRESH_MS): Int? =
+        batteryPct?.takeIf { nowMs - batteryPctAtMs <= maxAgeMs }
 
     /**
      * The battery temperature of the last device read, in degrees Celsius; null when none was read or the last is older than [maxAgeMs] (the device
@@ -77,6 +88,8 @@ object PhoneNow {
         screenEventMs = -1L
         batteryTempC = null
         batteryTempAtMs = Long.MIN_VALUE
+        batteryPct = null
+        batteryPctAtMs = Long.MIN_VALUE
     }
 
     /** Six device looks (30 s): a temperature older than this is no longer what the battery says. */

@@ -105,4 +105,31 @@ class ScreenLockTest {
         assertEquals("manual off reason=projection after=0s", ScreenLock.offLine(Exit.PROJECTION, 0))
         assertEquals(2, ScreenLock.DISPLAY_ON)
     }
+
+    @Test
+    fun `a touch on the thumb brings the brightness back and starts the five seconds again, a touch elsewhere does nothing`() {
+        val rule = ScreenLock.BrightnessRule(dimAfterMs = 5_000L, startMs = 1_000L)
+        assertFalse("bright at the start", rule.dimmed(1_000L))
+        assertEquals(5_000L, rule.msUntilDim(1_000L))
+        assertFalse(rule.dimmed(5_999L))
+        assertTrue("dim five seconds after the start", rule.dimmed(6_000L))
+        assertEquals(0L, rule.msUntilDim(9_000L))
+        assertFalse("a touch outside the thumb says nothing", rule.touch(7_000L, onThumb = false))
+        assertTrue("still dim", rule.dimmed(7_000L))
+        assertTrue("a touch on the thumb", rule.touch(8_000L, onThumb = true))
+        assertFalse("bright at once, with no drag", rule.dimmed(8_000L))
+        assertEquals(5_000L, rule.msUntilDim(8_000L))
+        assertFalse(rule.dimmed(12_999L))
+        assertTrue("and down again five seconds after the last touch on the thumb", rule.dimmed(13_000L))
+        assertFalse("a touch elsewhere does not bring it back", rule.touch(14_000L, onThumb = false).also { assertTrue(rule.dimmed(14_000L)) })
+    }
+
+    @Test
+    fun `the battery line of the card says the percent and the temperature, and a dash for what is not known`() {
+        assertEquals("64 % · 37 °C", ScreenLock.batteryText(64, 37.2f))
+        assertEquals("64 % · 38 °C", ScreenLock.batteryText(64, 37.5f))
+        assertEquals("100 % · -", ScreenLock.batteryText(100, null))
+        assertEquals("- · 41 °C", ScreenLock.batteryText(null, 40.6f))
+        assertEquals("-", ScreenLock.batteryText(null, null))
+    }
 }

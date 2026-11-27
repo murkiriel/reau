@@ -72,10 +72,12 @@ class ScreenLockIsWiredTest {
         assertTrue("every touch is taken", "private fun Modifier.swallowTouches()" in screen && "Modifier.fillMaxSize().swallowTouches()" in screen)
         assertTrue("only a touch on the thumb drags", "ScreenLock.hitsThumb(" in screen && "if (onThumb) {" in screen)
         assertTrue("past 90 percent leaves, else back to the start", "if (onThumb && ScreenLock.unlocked(ScreenLock.progress(dragPx, travel))) onUnlock() else dragPx = 0f" in screen)
-        assertTrue("onUnlock leaves by swipe", "bottom)) { mode.exit(ScreenLock.Exit.SWIPE) }" in screen && "SlideTrack(Modifier.padding(" in screen)
+        assertTrue("onUnlock leaves by swipe", ") { mode.exit(ScreenLock.Exit.SWIPE) }" in screen && "SlideTrack(\n                    Modifier.padding(start = TRACK_MARGIN, end = TRACK_MARGIN, bottom = bottom)," in screen)
         for (animated in listOf("animate", "InfiniteTransition", "Animatable", "AnimatedVisibility", "Canvas", "Image(", "painterResource")) assertFalse(animated, animated in code("ui/ScreenLockScreen.kt"))
         assertTrue("the brightness goes to the minimum after 5 s and comes back", "DIM_AFTER_MS = 5_000L" in mode && "mode.dim(true)" in screen && "mode.dim(false)" in screen)
-        for (text in listOf("R.string.lock_projecting", "R.string.lock_stop_first", "R.string.lock_slide", "R.drawable.ic_ms_lock")) assertTrue(text, text in screen)
+        for (text in listOf("R.string.lock_projecting", "R.string.lock_stop_first", "R.string.lock_slide", "R.string.lock_card_panel", "R.string.lock_card_projection", "R.string.lock_card_battery")) {
+            assertTrue(text, text in screen)
+        }
         assertTrue("the layer is on top of the screens, drawn only while the mode is on", "if (active) ScreenLockScreen(this@ScreenLockMode)" in mode && "activity.addContentView(" in mode)
     }
 
@@ -89,13 +91,44 @@ class ScreenLockIsWiredTest {
     }
 
     @Test
-    fun `the button is on the main screen only with the projection on, outlined`() {
+    fun `the button is under the bridge card only with the projection on, gold like Ligar and with the same component, and the wallpaper stays for the stopped projection`() {
         val buttons = source("ui/MainModeButtons.kt").substringAfter("internal fun ColumnScope.ModeButtons(")
         assertTrue(buttons, "if (ScreenLock.available(p.phase != Phase.STOPPED)) {" in buttons)
-        assertTrue(buttons, "GhostButton(" in buttons && "R.string.action_lock_screen" in buttons && "extras.onLockScreen" in buttons)
-        assertFalse("not the gold button", "PrimaryPowerButton" in buttons)
+        assertTrue(buttons, "GoldBigButton(R.drawable.ic_ms_lock, stringResource(R.string.action_lock_screen), extras.onLockScreen, Modifier.fillMaxWidth().height(72.dp).testTag(\"lock_screen\"))" in buttons)
+        assertTrue("the wallpaper only while stopped", "if (p.phase == Phase.STOPPED && !p.stopping) {" in buttons.substringBefore("ScreenLock.available") && "extras.onCard" in buttons)
+        assertFalse("not a second gold one: the outlined stop is Desligar", "PrimaryPowerButton" in buttons)
+        val bridge = source("ui/components/Bridge.kt")
+        val gold = bridge.substringAfter("fun GoldBigButton(")
+        assertTrue(gold, "fontSize = 22.sp" in gold && "MsIcon(icon, 32.dp, LocalContentColor.current)" in gold && "containerColor = colors.primary, contentColor = colors.onPrimary" in gold)
+        assertTrue("Ligar is made of the same component", "GoldBigButton(R.drawable.ic_ms_power_settings_new," in bridge.substringAfter("fun PrimaryPowerButton("))
         assertTrue("under the bridge card", "ModeButtons(p, extras)" in source("ui/MainScreen.kt"))
         assertTrue("val onLockScreen: () -> Unit = {}" in source("ui/UiState.kt"))
+    }
+
+    @Test
+    fun `the lock screen is on absolute black, dim, and its card has an outline and no fill`() {
+        val screen = source("ui/ScreenLockScreen.kt")
+        assertTrue("the ground is #000000, a conscious exception to Aurum", "internal val LockBlack = Color(0xFF000000)" in screen && "color = LockBlack" in screen)
+        assertTrue("the exception says why", "AMOLED" in screen.substringBefore("internal val LockBlack"))
+        assertFalse("the screen's ground is not the theme's", "MaterialTheme.colorScheme.background" in code("ui/ScreenLockScreen.kt"))
+        val card = screen.substringAfter("private fun LockCard()").substringBefore("/** The dash's side of the card")
+        assertTrue(card, ".border(1.dp, LockOutline, RoundedCornerShape(20.dp))" in card)
+        assertFalse("no fill on the card", ".background(" in card || "Surface(" in card || "containerColor" in card)
+        for (white in listOf("Color.White", "0xFFFFFFFF", "Color(0xFFFFFF")) assertFalse(white, white in screen)
+        assertTrue("dim inks: ivory at 70 % or less, soft gold at 60 % or less", "Marfim.copy(alpha = 0.70f)" in screen && "OuroSuave.copy(alpha = 0.60f)" in screen && "OuroSuave.copy(alpha = 0.15f)" in screen)
+        assertTrue("the seal's dot is an outline", "Box(Modifier.size(8.dp).border(1.5.dp, green, CircleShape))" in screen)
+    }
+
+    @Test
+    fun `the card's data comes from what the app already has, and the brightness comes back only by a touch on the thumb`() {
+        val screen = source("ui/ScreenLockScreen.kt")
+        assertTrue("the projection and when it began", "ProjectionService.projection.collectAsStateWithLifecycle()" in screen && "ProjectionService.startedAt.collectAsStateWithLifecycle()" in screen)
+        assertTrue("the battery of the last device look", "PhoneNow.batteryPctNow()" in screen && "PhoneNow.batteryTempNow()" in screen)
+        assertTrue("the device look feeds the percent", "batteryPct = it.batteryPct" in source("service/DeviceStateReader.kt"))
+        assertTrue("the thumb's touch alone", "if (rule.touch(SystemClock.elapsedRealtime(), onThumb)) touches++" in screen && "onTouch(onThumb)" in screen)
+        val effect = screen.substringAfter("LaunchedEffect(touches) {").substringBefore("DisposableEffect")
+        assertTrue(effect, "mode.dim(false)" in effect && "delay(rule.msUntilDim(SystemClock.elapsedRealtime()))" in effect && "mode.dim(true)" in effect)
+        assertEquals("the swallowing of the rest of the screen touches nothing", 1, Regex("""touches\+\+""").findAll(screen).count())
     }
 
     @Test

@@ -992,4 +992,7 @@
     <string name="lock_projecting">Proyectando en el tablero</string>
     <string name="lock_stop_first">Detén la moto antes de desbloquear</string>
     <string name="lock_slide">Desliza para desbloquear</string>
+    <string name="lock_card_panel">Tablero</string>
+    <string name="lock_card_projection">Proyección</string>
+    <string name="lock_card_battery">Batería</string>
 </resources>

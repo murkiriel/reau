@@ -1002,4 +1002,7 @@
     <string name="lock_projecting">Projecting to the dash</string>
     <string name="lock_stop_first">Stop the bike before unlocking</string>
     <string name="lock_slide">Slide to unlock</string>
+    <string name="lock_card_panel">Dash</string>
+    <string name="lock_card_projection">Projection</string>
+    <string name="lock_card_battery">Battery</string>
 </resources>

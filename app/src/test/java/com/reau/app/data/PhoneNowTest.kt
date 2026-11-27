@@ -69,6 +69,6 @@ class PhoneNowTest {
     @Test
     fun `the device read feeds the temperature to it`() {
         val reader = java.io.File("src/main/java/com/reau/app/service/DeviceStateReader.kt").readText()
-        assertEquals(true, reader.contains("PhoneNow.update(it.charging, it.screenOn, it.dozing, it.batteryTempC)"))
+        assertEquals(true, reader.contains("PhoneNow.update(it.charging, it.screenOn, it.dozing, it.batteryTempC, batteryPct = it.batteryPct)"))
     }
 }

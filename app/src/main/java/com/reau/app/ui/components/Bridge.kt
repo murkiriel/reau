@@ -192,15 +192,7 @@ fun PrimaryPowerButton(on: Boolean, elapsed: () -> String?, onClick: () -> Unit,
     val fill = modifier.fillMaxWidth().height(72.dp).testTag("toggle")
     val padding = PaddingValues(horizontal = 16.dp)
     if (!on) {
-        Button(
-            onClick, fill, enabled = !stopping, shape = shape, contentPadding = padding,
-            colors = ButtonDefaults.buttonColors(containerColor = colors.primary, contentColor = colors.onPrimary),
-        ) {
-            MsIcon(R.drawable.ic_ms_power_settings_new, 32.dp, LocalContentColor.current)
-            Spacer(Modifier.width(12.dp))
-            val label = if (stopping) R.string.action_stopping else R.string.action_start
-            Text(stringResource(label), style =MaterialTheme.typography.labelLarge.copy(fontSize = 22.sp, lineHeight = 26.sp))
-        }
+        GoldBigButton(R.drawable.ic_ms_power_settings_new, stringResource(if (stopping) R.string.action_stopping else R.string.action_start), onClick, fill, enabled = !stopping)
         return
     }
     val content: @Composable RowScope.() -> Unit = {
@@ -219,6 +211,23 @@ fun PrimaryPowerButton(on: Boolean, elapsed: () -> String?, onClick: () -> Unit,
             onClick, fill, shape = shape, contentPadding = padding,
             colors = ButtonDefaults.buttonColors(containerColor = status.chrome, contentColor = status.onChrome), content = content,
         )
+    }
+}
+
+/**
+ * The big gold button of the main screen, 72 dp, full width: Ouro with dark text (Hanken 600, 22 sp) and a 32 dp icon. It is Ligar's own, and "Bloquear a tela" (with the
+ * projection on, when Desligar is outlined) is the same component, so the two are one button in the screen's eyes. [modifier] carries the width, the height and the tag.
+ */
+@Composable
+fun GoldBigButton(@DrawableRes icon: Int, label: String, onClick: () -> Unit, modifier: Modifier, enabled: Boolean = true) {
+    val colors = MaterialTheme.colorScheme
+    Button(
+        onClick, modifier, enabled = enabled, shape = MaterialTheme.shapes.large, contentPadding = PaddingValues(horizontal = 16.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = colors.primary, contentColor = colors.onPrimary),
+    ) {
+        MsIcon(icon, 32.dp, LocalContentColor.current)
+        Spacer(Modifier.width(12.dp))
+        Text(label, style = MaterialTheme.typography.labelLarge.copy(fontSize = 22.sp, lineHeight = 26.sp))
     }
 }
 

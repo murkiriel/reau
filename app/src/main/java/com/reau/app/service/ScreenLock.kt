@@ -1,6 +1,7 @@
 package com.reau.app.service
 
 import kotlin.math.hypot
+import kotlin.math.roundToInt
 
 /**
  * The rules of the "Bloquear a tela" button (the 0.3.93 test build), with no Android in it. The button opens REau's own dark screen in front, with the window keeping the
@@ -40,6 +41,30 @@ internal object ScreenLock {
     @Suppress("LongParameterList") // the touch, the circle's centre and radius, and the slop: six plain numbers of one geometry
     fun hitsThumb(x: Float, y: Float, centerX: Float, centerY: Float, radiusPx: Float, slopPx: Float = 0f): Boolean =
         hypot(x - centerX, y - centerY) <= radiusPx + slopPx
+
+    /**
+     * The brightness of the lock screen: down to the minimum [dimAfterMs] after the screen began and after the last touch ON THE THUMB. A touch anywhere else does not
+     * bring it back (the screen swallows those touches, they say nothing). Times are of one clock, in ms.
+     */
+    class BrightnessRule(private val dimAfterMs: Long, startMs: Long) {
+        private var brightSince = startMs
+
+        /** A touch at [nowMs]; true when it was on the thumb, so the brightness comes back now and the count to the minimum begins again. */
+        fun touch(nowMs: Long, onThumb: Boolean): Boolean {
+            if (onThumb) brightSince = nowMs
+            return onThumb
+        }
+
+        /** Whether the brightness is at the minimum at [nowMs]. */
+        fun dimmed(nowMs: Long): Boolean = nowMs - brightSince >= dimAfterMs
+
+        /** How long until the minimum, from [nowMs]; 0 when it is there already. */
+        fun msUntilDim(nowMs: Long): Long = (dimAfterMs - (nowMs - brightSince)).coerceAtLeast(0L)
+    }
+
+    /** The card's battery line: `64 % · 37 °C`; a part that is not known is `-` (and `-` alone when neither is). */
+    fun batteryText(percent: Int?, tempC: Float?): String =
+        if (percent == null && tempC == null) "-" else "${percent?.let { "$it %" } ?: "-"} · ${tempC?.let { "${it.roundToInt()} °C" } ?: "-"}"
 
     /** `Display.STATE_ON`: any other state of the default display (off, doze, suspended) is the screen gone off. */
     const val DISPLAY_ON = 2
