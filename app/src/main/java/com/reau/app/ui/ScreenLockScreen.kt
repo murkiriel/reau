@@ -34,7 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.positionChangeIgnoreConsumed
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -136,9 +136,12 @@ private fun SlideTrack(modifier: Modifier, onUnlock: () -> Unit) {
                     var dx = 0f
                     do {
                         val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                        // The move is read before the change is consumed: positionChange() of a consumed change is zero, which left the thumb still
+                        // (0.3.93 on the owner's phone, 26/11/2026). The ignore-consumed reading also stands if something above consumed it first.
+                        val step = change.positionChangeIgnoreConsumed().x
                         change.consume()
                         if (onThumb) {
-                            dx += change.positionChange().x
+                            dx += step
                             dragPx = dx.coerceIn(0f, travel)
                         }
                     } while (change.pressed)

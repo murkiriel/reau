@@ -97,4 +97,14 @@ class ScreenLockIsWiredTest {
         assertTrue("under the bridge card", "ModeButtons(p, extras)" in source("ui/MainScreen.kt"))
         assertTrue("val onLockScreen: () -> Unit = {}" in source("ui/UiState.kt"))
     }
+
+    @Test
+    fun `the thumb reads how far the finger moved before it consumes the move, or it never leaves its place`() {
+        val track = source("ui/ScreenLockScreen.kt").substringAfter("private fun SlideTrack(")
+        val read = track.indexOf("val step = change.positionChangeIgnoreConsumed().x")
+        val consumed = track.indexOf("change.consume()", startIndex = track.indexOf("awaitPointerEvent()"))
+        assertTrue("the move is read", read >= 0)
+        assertTrue("before the consume (26/11/2026: the thumb stood still on the owner's phone)", read in 0 until consumed)
+        assertTrue("and that reading is what moves the thumb", "dx += step" in track)
+    }
 }
