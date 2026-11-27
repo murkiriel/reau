@@ -12,6 +12,14 @@ aparecem).
 
 ## [Unreleased]
 
+## [0.3.94] - 2026-11-26
+
+> **Versão de teste para pilotos, sobre a 0.3.1** (série 0.3.9x: builds de teste, não publicadas). Próxima rodada da 0.3.93.
+
+### Alterado
+- **0.3.94: volta a tela acesa automática, agora detectando a tela apagada pelo display.** Voltam a chave "Tela acesa com o celular bloqueado (teste)" (desligada por padrão), o seletor de quando acender (sempre que apagar, a cada 30 segundos, 1, 2, 3 ou 4 minutos) e "Mostrar o REau sobre o bloqueio". Durante a projeção do Android Auto o celular continua "interativo" e o Android não manda o aviso de tela apagada, então a 0.3.92 nunca disparava: agora o REau lê o estado do display (um ouvinte do display, o broadcast como segunda fonte e um tique de segurança a cada 5 segundos), registra cada apagar e acender (`[screen-keep] display off|on via=listener|broadcast|tick`) e o motivo de cada vez que não acendeu (`nothing ... reason=...`). Os textos dizem que o REau não apaga a tela: quem apaga é o Android; os intervalos contam depois disso e ele acende por alguns segundos.
+- **O botão "Bloquear a tela" usa o bloqueio do REau da 0.3.93** (a tela acesa pela própria janela, brilho mínimo, arrastar o polegar para a direita), não mais o modo da 0.3.92.
+
 ## [0.3.93] - 2026-11-26
 
 > **Versão de teste para pilotos, sobre a 0.3.1** (série 0.3.9x: builds de teste, não publicadas). Próxima rodada da 0.3.92.

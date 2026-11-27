@@ -11,6 +11,14 @@ Português (pt-BR): [CHANGELOG.pt-br.md](CHANGELOG.pt-br.md) · Español: [CHANG
 
 ## [Unreleased]
 
+## [0.3.94] - 2026-11-26
+
+> **Test version for pilots, on top of 0.3.1** (0.3.9x series: test builds, not published). The next round after 0.3.93.
+
+### Changed
+- **0.3.94: the automatic lit screen is back, now detecting the screen going off from the display.** The switch "Screen on with the phone locked (test)" (off by default), the selector of when to light (every time it goes off, every 30 seconds, 1, 2, 3 or 4 minutes) and "Show REau over the lock screen" are back. During an Android Auto projection the phone stays "interactive" and Android does not send the screen-off notice, so 0.3.92 never fired: now REau reads the display's state (a display listener, the broadcast as a second source and a safety tick every 5 seconds), logs every off and on (`[screen-keep] display off|on via=listener|broadcast|tick`) and the reason each time it did not light (`nothing ... reason=...`). The texts say REau does not turn the screen off: Android does; the intervals count after that and it lights the screen for a few seconds.
+- **The "Lock the screen" button uses 0.3.93's REau lock** (the screen kept lit by the window itself, minimum brightness, dragging the thumb to the right), no longer 0.3.92's mode.
+
 ## [0.3.93] - 2026-11-26
 
 > **Test version for pilots, on top of 0.3.1** (0.3.9x series: test builds, not published). The next round after 0.3.92.

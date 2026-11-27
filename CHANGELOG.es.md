@@ -11,6 +11,14 @@ English: [CHANGELOG.md](CHANGELOG.md) · Português (pt-BR): [CHANGELOG.pt-br.md
 
 ## [Unreleased]
 
+## [0.3.94] - 2026-11-26
+
+> **Versión de prueba para pilotos, sobre la 0.3.1** (serie 0.3.9x: builds de prueba, no publicadas). La próxima ronda después de la 0.3.93.
+
+### Cambiado
+- **0.3.94: vuelve la pantalla encendida automática, ahora detectando la pantalla apagada por el display.** Vuelven el interruptor "Pantalla encendida con el teléfono bloqueado (prueba)" (apagado por defecto), el selector de cuándo encender (cada vez que se apague, cada 30 segundos, 1, 2, 3 o 4 minutos) y "Mostrar REau sobre el bloqueo". Durante la proyección de Android Auto el teléfono sigue "interactivo" y Android no manda el aviso de pantalla apagada, así que la 0.3.92 nunca se disparaba: ahora REau lee el estado del display (un oyente del display, el broadcast como segunda fuente y un tic de seguridad cada 5 segundos), registra cada apagar y encender (`[screen-keep] display off|on via=listener|broadcast|tick`) y el motivo de cada vez que no encendió (`nothing ... reason=...`). Los textos dicen que REau no apaga la pantalla: la apaga Android; los intervalos cuentan después de eso y la enciende por unos segundos.
+- **El botón "Bloquear la pantalla" usa el bloqueo de REau de la 0.3.93** (la pantalla encendida por la propia ventana, brillo mínimo, arrastrar el pulgar a la derecha), ya no el modo de la 0.3.92.
+
 ## [0.3.93] - 2026-11-26
 
 > **Versión de prueba para pilotos, sobre la 0.3.1** (serie 0.3.9x: builds de prueba, no publicadas). La próxima ronda después de la 0.3.92.
