@@ -3,6 +3,7 @@ package com.reau.app.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -115,19 +116,7 @@ fun MainScreen(
                         },
                         stopping = p.stopping,
                     )
-                    if (p.phase == Phase.STOPPED && !p.stopping) {
-                        GhostButton(
-                            R.drawable.ic_ms_image, stringResource(R.string.action_card), "card", extras.onCard,
-                            Modifier.align(Alignment.CenterHorizontally),
-                        )
-                    }
-                    // Outlined, not gold: Desligar is the screen's one main button. With the projection on, whatever the switch "Tela acesa com o celular bloqueado" says.
-                    if (ScreenKeepManual.available(p.phase != Phase.STOPPED)) {
-                        GhostButton(
-                            R.drawable.ic_ms_lock, stringResource(R.string.action_lock_screen), "lock_screen", extras.onLockScreen,
-                            Modifier.align(Alignment.CenterHorizontally),
-                        )
-                    }
+                    ModeButtons(p, extras)
                     GroupLabel(null, stringResource(R.string.shortcuts_label))
                     Shortcuts(state, onOpenAndroidAutoSettings, onOpenSettings, extras, say)
                     Column(Modifier.fillMaxWidth().padding(top = 2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -148,6 +137,23 @@ fun MainScreen(
                 PrimaryPowerButton(p.phase != Phase.STOPPED, elapsed, onToggle, stopping = p.stopping)
             }
         }
+    }
+}
+
+/**
+ * The outlined button under the bridge card: the card mode while stopped, and with the projection on "Bloquear a tela" (outlined, not gold: Desligar is the screen's
+ * one main button; it is there whatever the switch "Tela acesa com o celular bloqueado" says).
+ */
+@Composable
+private fun ColumnScope.ModeButtons(p: Projection, extras: MainExtras) {
+    if (p.phase == Phase.STOPPED && !p.stopping) {
+        GhostButton(R.drawable.ic_ms_image, stringResource(R.string.action_card), "card", extras.onCard, Modifier.align(Alignment.CenterHorizontally))
+    }
+    if (ScreenKeepManual.available(p.phase != Phase.STOPPED)) {
+        GhostButton(
+            R.drawable.ic_ms_lock, stringResource(R.string.action_lock_screen), "lock_screen", extras.onLockScreen,
+            Modifier.align(Alignment.CenterHorizontally),
+        )
     }
 }
 

@@ -171,28 +171,7 @@ internal fun LockOverScreen(host: LockOverHost) {
     DisposableEffect(Unit) { onDispose { host.dim(false) } }
     val manual = host.manual.active
     REauTheme(dark = true) {
-        // Over the lock screen any touch unlocks; in the manual mode a loose touch does nothing and only a swipe up leaves.
-        val touch = if (manual) {
-            Modifier.pointerInput(true) {
-                var total = 0f
-                val threshold = ScreenKeepManual.SWIPE_UP_DP.dp.toPx()
-                detectVerticalDragGestures(
-                    onDragStart = { total = 0f },
-                    onDragEnd = { if (ScreenKeepManual.swipedUp(total, threshold)) host.manual.exit(ScreenKeepManual.Exit.SWIPE) },
-                    onDragCancel = { total = 0f },
-                ) { change, dy ->
-                    change.consume()
-                    total += dy
-                }
-            }
-        } else {
-            Modifier.pointerInput(false) {
-                awaitPointerEventScope {
-                    awaitFirstDown()
-                    host.unlock()
-                }
-            }
-        }
+        val touch = lockTouch(host, manual)
         Surface(Modifier.fillMaxSize().then(touch), color = MaterialTheme.colorScheme.background) {
             Column(
                 Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 48.dp),
@@ -221,6 +200,30 @@ internal fun LockOverScreen(host: LockOverHost) {
                     }
                 }
             }
+        }
+    }
+}
+
+/** Over the lock screen any touch unlocks; in the manual mode a loose touch does nothing and only a swipe up leaves. */
+@Composable
+private fun lockTouch(host: LockOverHost, manual: Boolean): Modifier = if (manual) {
+    Modifier.pointerInput(true) {
+        var total = 0f
+        val threshold = ScreenKeepManual.SWIPE_UP_DP.dp.toPx()
+        detectVerticalDragGestures(
+            onDragStart = { total = 0f },
+            onDragEnd = { if (ScreenKeepManual.swipedUp(total, threshold)) host.manual.exit(ScreenKeepManual.Exit.SWIPE) },
+            onDragCancel = { total = 0f },
+        ) { change, dy ->
+            change.consume()
+            total += dy
+        }
+    }
+} else {
+    Modifier.pointerInput(false) {
+        awaitPointerEventScope {
+            awaitFirstDown()
+            host.unlock()
         }
     }
 }
