@@ -11,6 +11,15 @@ Português (pt-BR): [CHANGELOG.pt-br.md](CHANGELOG.pt-br.md) · Español: [CHANG
 
 ## [Unreleased]
 
+## [0.3.96] - 2026-11-27
+
+> **Test version for pilots, on top of 0.3.1** (0.3.9x series: test builds, not published). The next round after 0.3.95.
+
+### Changed
+- **0.3.96: one switch, "REau lock mode (test)", off by default.** It replaces the two of the lit screen. On, it enables everything: the "Lock the screen" button on the main screen, the screen that lights again when Android turns it off and REau over the lock screen when it lights (if REau was in front). Its storage key is new (`lock_mode_on`): what the 0.3.9x builds saved of the old switches does not count.
+- **The "Lock the screen" button only appears with the dash "Pronto"** (and the switch on): it is smaller (56 dp, 18 sp text, a 26 dp icon), still gold and full width. In any other state of the dash (connecting, preparing, stopped, error) it is not there.
+- **On the lock screen the brightness comes back with a touch anywhere on the track** (the strip the thumb runs on), not only on the circle; touches outside the track still do not touch it.
+
 ## [0.3.95] - 2026-11-26
 
 > **Test version for pilots, on top of 0.3.1** (0.3.9x series: test builds, not published). The next round after 0.3.94.

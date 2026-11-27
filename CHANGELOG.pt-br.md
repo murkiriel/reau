@@ -12,6 +12,15 @@ aparecem).
 
 ## [Unreleased]
 
+## [0.3.96] - 2026-11-27
+
+> **Versão de teste para pilotos, sobre a 0.3.1** (série 0.3.9x: builds de teste, não publicadas). Próxima rodada da 0.3.95.
+
+### Alterado
+- **0.3.96: uma chave só, o "Modo de bloqueio do REau (teste)", desligada por padrão.** Ela substitui as duas da tela acesa. Ligada, habilita tudo: o botão "Bloquear a tela" na tela principal, a tela que acende de novo quando o Android a apaga e o REau sobre o bloqueio quando ela acende (se o REau estava na frente). A chave de armazenamento é nova (`lock_mode_on`): o que as 0.3.9x guardaram das chaves antigas não vale.
+- **O botão "Bloquear a tela" só aparece com o painel "Pronto"** (e a chave ligada): fica menor (56 dp, texto de 18 sp, ícone de 26 dp), sempre dourado e com a largura toda. Em qualquer outro estado do painel (conectando, preparando, parado, erro) ele não aparece.
+- **Na tela de bloqueio, o brilho volta ao tocar em qualquer ponto do trilho** (a faixa por onde o polegar corre), não só no círculo; toques fora do trilho continuam sem mexer nele.
+
 ## [0.3.95] - 2026-11-26
 
 > **Versão de teste para pilotos, sobre a 0.3.1** (série 0.3.9x: builds de teste, não publicadas). Próxima rodada da 0.3.94.

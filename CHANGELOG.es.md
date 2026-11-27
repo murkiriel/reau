@@ -11,6 +11,15 @@ English: [CHANGELOG.md](CHANGELOG.md) · Português (pt-BR): [CHANGELOG.pt-br.md
 
 ## [Unreleased]
 
+## [0.3.96] - 2026-11-27
+
+> **Versión de prueba para pilotos, sobre la 0.3.1** (serie 0.3.9x: builds de prueba, no publicadas). La próxima ronda después de la 0.3.95.
+
+### Cambiado
+- **0.3.96: un solo interruptor, "Modo de bloqueo de REau (prueba)", apagado por defecto.** Reemplaza los dos de la pantalla encendida. Encendido, habilita todo: el botón "Bloquear la pantalla" en la pantalla principal, la pantalla que se vuelve a encender cuando Android la apaga y REau sobre el bloqueo cuando se enciende (si REau estaba al frente). La clave de almacenamiento es nueva (`lock_mode_on`): lo que las 0.3.9x guardaron de los interruptores viejos no vale.
+- **El botón "Bloquear la pantalla" solo aparece con el tablero "Pronto"** (y el interruptor encendido): es más pequeño (56 dp, texto de 18 sp, ícono de 26 dp), sigue dorado y de ancho completo. En cualquier otro estado del tablero (conectando, preparando, detenido, error) no aparece.
+- **En la pantalla de bloqueo el brillo vuelve con un toque en cualquier punto del carril** (la franja por donde corre el pulgar), no solo en el círculo; los toques fuera del carril siguen sin tocarlo.
+
 ## [0.3.95] - 2026-11-26
 
 > **Versión de prueba para pilotos, sobre la 0.3.1** (serie 0.3.9x: builds de prueba, no publicadas). La próxima ronda después de la 0.3.94.
