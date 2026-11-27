@@ -66,8 +66,9 @@ class DashSessionExitNavigationTest {
         s.updateNavInfo(0x14, 80, DashCommands.NAV_UNIT_METERS, 32, DashCommands.NAV_UNIT_KM_TENTHS, nowMs = nowMs)
 
     /** The cards and packets that put the dash in its navigation: every TLV 06 05 = 0x55 (the route card's and the nav packet's projection flag). */
-    private fun navOn(fake: FakeDashPeer) = fake.received.count { it.type == 0x06 && it.sub == 0x05 && it.value.singleOrNull()?.toInt() == 0x55 }
+    private fun navOn(fake: FakeDashPeer) = fake.received.count { it.type == 0x06 && it.sub == 0x05 && it.value.singleOrNull()?.toInt()?.and(0xFF) == 0x55 }
 
+    // A TLV value is a signed Byte: 0xAA reads as -86 through toInt(), so the compare masks it (the first version of this test waited for ever for the 06 05 AA that was on the wire).
     private fun logged(): List<String> {
         com.reau.app.data.RideDiagnostics.logAndWait("end", "marker", timeoutMs = 10_000)
         return logFile.readLines()
@@ -80,10 +81,10 @@ class DashSessionExitNavigationTest {
         await("the route card") { navOn(fake) >= 2 }
         val before = fake.received.size
         fake.pressButton(0x12)
-        await("the navigation off") { fake.received.drop(before).any { it.type == 0x06 && it.sub == 0x05 && it.value.singleOrNull()?.toInt() == 0xAA } }
+        await("the navigation off") { fake.received.drop(before).any { it.type == 0x06 && it.sub == 0x05 && it.value.singleOrNull()?.toInt()?.and(0xFF) == 0xAA } }
         val after = fake.received.drop(before)
-        val answer = after.indexOfFirst { it.type == 0x06 && it.sub == 0x80 && it.value.singleOrNull()?.toInt() == 0x12 }
-        val off = after.indexOfFirst { it.type == 0x06 && it.sub == 0x05 && it.value.singleOrNull()?.toInt() == 0xAA }
+        val answer = after.indexOfFirst { it.type == 0x06 && it.sub == 0x80 && it.value.singleOrNull()?.toInt()?.and(0xFF) == 0x12 }
+        val off = after.indexOfFirst { it.type == 0x06 && it.sub == 0x05 && it.value.singleOrNull()?.toInt()?.and(0xFF) == 0xAA }
         assertTrue("the 06 80 12 answer, then the off: $answer, $off", answer in 0 until off)
         assertTrue(s.routeHold.isHeld)
         assertTrue(logged().any { it.contains("exit navigation confirmed on the dash: nav off sent, route card held until a new guidance") })
