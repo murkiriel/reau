@@ -527,6 +527,7 @@ class MainActivity : ComponentActivity() {
         onScreen = false
         lockOver.paused()
         idleWatch.resumed(false)
+        lockMode.paused()
         super.onPause()
     }
 
@@ -551,6 +552,7 @@ class MainActivity : ComponentActivity() {
         onScreen = true
         lockOver.resumed()
         idleWatch.resumed(true)
+        lockMode.resumed()
         resumedAtMs = com.reau.app.util.MonotonicClock.nowMs()
         if (leftForAaSettingsAtMs != 0L) {
             val away = (android.os.SystemClock.elapsedRealtime() - leftForAaSettingsAtMs) / 1_000

@@ -11,6 +11,12 @@ English: [CHANGELOG.md](CHANGELOG.md) · Português (pt-BR): [CHANGELOG.pt-br.md
 
 ## [Unreleased]
 
+## [0.3.99] - 2026-11-27
+
+> **Versión de prueba para pilotos, sobre la 0.3.1** (serie 0.3.9x: builds de prueba, no publicadas). La próxima ronda después de la 0.3.98.
+
+### Añadido
+- **En el bolsillo, el bloqueo de REau apaga la pantalla con el sensor de proximidad, sin bloquear el teléfono.** Dentro del bloqueo (el interruptor "Modo de bloqueo de REau (prueba)" encendido, REau al frente), REau toma el mismo bloqueo de proximidad que usa el marcador en la oreja: con el sensor tapado la pantalla se apaga, y destapado vuelve, con las reglas de brillo del bloqueo como antes (1 % tras 5 s, un toque en la franja lo devuelve). Android no bloquea y la app no es matada. La función que enciende la pantalla de nuevo y el propio bloqueo distinguen ese apagado de una pantalla que se apaga por otro motivo (el botón de encendido): esa se enciende de nuevo como antes. El bloqueo se suelta cuando el modo termina de cualquier manera, cuando REau sale del frente y cuando la pantalla se apaga de verdad; en un teléfono sin el bloqueo de proximidad nada cambia (el registro dice "proximity lock not supported"). Sin interruptor nuevo.
 ## [0.3.98] - 2026-11-27
 
 > **Versión de prueba para pilotos, sobre la 0.3.1** (serie 0.3.9x: builds de prueba, no publicadas). La próxima ronda después de la 0.3.97.

@@ -24,7 +24,10 @@ import com.reau.app.settings.REauSettings
  * Every call and every callback is on the main thread, so nothing here needs a lock.
  *
  * It lights with a wake lock that always has a timeout and is never held past it, and it never asks for KEEP_SCREEN_ON. It lights in a pocket too: the rider
- * wanted the function to hold the phone awake wherever it is, so it reads no sensor.
+ * wanted the function to hold the phone awake wherever it is, so it reads no sensor of its own. The one exception (0.3.99): while REau's lock mode holds the proximity
+ * wake lock ([ProximityLock]) the display goes off on purpose with the sensor covered, the phone still awake, and lighting it would only fight the sensor and spend the
+ * battery. A display off while the lock is held and the phone interactive is then not lit ([ScreenKeepPolicy.proximityCovers], with the sensor's reading to tell a real off
+ * during a projection of Android Auto, where `isInteractive` stays true); it counts no gap and no dark retry, and a real off is lit as before.
  */
 @Suppress("TooManyFunctions") // one small function per case; splitting them would only scatter the same thing
 internal class ScreenKeeper(
@@ -51,6 +54,10 @@ internal class ScreenKeeper(
     private var lightAsked = false
     private var darkTries = 0
     private var frontCheck: Runnable? = null
+
+    /** The last decision was "not lit, the proximity lock turned it off" (said once in the log, looked at again by the tick and after the sensor's grace). */
+    private var proximityNoted = false
+    private var proximityCheck: Runnable? = null
 
     /** Takes the switch as it is now (on the main thread): goes on or goes off. Called when the projection runs and when a setting changes. */
     fun sync() {
@@ -120,7 +127,8 @@ internal class ScreenKeeper(
             if (receiver == null) return@Runnable
             seen(displayOff(), ScreenKeepPolicy.Via.TICK)
             if (edge.off) {
-                if (retry) {
+                // The proximity lock's own off goes through ask() too (it decides "not lit" and says it once) and never reaches the dark retry, so none is counted.
+                if (retry || proximityNoted || proximityNow()) {
                     ask()
                 } else if (ScreenKeepPolicy.darkRetry(true, lightAsked, lastWakeMs?.let { now() - it }, darkTries)) {
                     darkTries++
@@ -147,6 +155,9 @@ internal class ScreenKeeper(
         retry = false
         lightAsked = false
         darkTries = 0
+        proximityNoted = false
+        proximityCheck?.let { main.removeCallbacks(it) }
+        proximityCheck = null
         lock?.takeIf { it.isHeld }?.release()
         frontCheck?.let { main.removeCallbacks(it) }
         frontCheck = null
@@ -167,14 +178,39 @@ internal class ScreenKeeper(
         retry = false
         lightAsked = false
         darkTries = 0
+        proximityNoted = false
     }
+
+    /** Whether the display that is off now is off because REau's proximity lock holds it so ([ScreenKeepPolicy.proximityCovers], read from [ProximityLock] and from the phone's interactive state). */
+    private fun proximityNow(): Boolean =
+        ProximityLock.held.value && ProximityLock.covers(power().isInteractive, offSinceMs, now())
 
     /** The decision, and the light of the screen at once when it is to be lit; [reason] is what asked for it, for the log's `wake` line. */
     private fun ask(reason: String = ScreenKeepPolicy.REASON_SCREENOFF) {
-        val why = ScreenKeepPolicy.why(receiver != null, lastWakeMs?.let { now() - it }, ScreenKeepFront.paused)
+        val why = ScreenKeepPolicy.why(receiver != null, lastWakeMs?.let { now() - it }, ScreenKeepFront.paused, proximityNow())
         // Held back by the gap, the screen still off: the safety tick asks again (a screen-off right after a light would otherwise stay dark).
         retry = why == ScreenKeepPolicy.WHY_GAP
+        if (why == ScreenKeepPolicy.WHY_PROXIMITY) return holdBackForProximity()
+        proximityNoted = false
         if (why == null) wake(reason) else log(ScreenKeepPolicy.nothingLine(why))
+    }
+
+    /**
+     * The display is off by the proximity lock: said once per change, and, while the sensor reads uncovered (the sensor's event may be late, or the off may be real), looked at
+     * again once the grace of [ScreenKeepPolicy.PROXIMITY_GRACE_MS] has passed. A sensor that stays covered is looked at by the tick, which stays silent.
+     */
+    private fun holdBackForProximity() {
+        if (!proximityNoted) {
+            proximityNoted = true
+            log(ScreenKeepPolicy.nothingLine(ScreenKeepPolicy.WHY_PROXIMITY))
+        }
+        if (ProximityLock.near != false || proximityCheck != null) return
+        val check = Runnable {
+            proximityCheck = null
+            if (receiver != null && edge.off) ask()
+        }
+        proximityCheck = check
+        main.postDelayed(check, ScreenKeepPolicy.PROXIMITY_GRACE_MS + CHECK_SLACK_MS)
     }
 
     private fun wake(reason: String) {
@@ -225,5 +261,8 @@ internal class ScreenKeeper(
 
         /** How long after a light of the screen the log says whether the app's activity was in front. */
         internal const val FRONT_CHECK_MS = 1_500L
+
+        /** Added to the proximity grace for the second look, so it is surely past it. */
+        private const val CHECK_SLACK_MS = 100L
     }
 }

@@ -60,13 +60,15 @@ class ScreenKeepIsWiredTest {
     }
 
     @Test
-    fun `it lights in a pocket too, so no sensor is read and the light is direct`() {
+    fun `it lights in a pocket too, so it reads no sensor of its own and the light is direct, except while REau's proximity lock holds the display off`() {
         val keeper = source("service/ScreenKeeper.kt")
-        for (word in listOf("Sensor", "proximity", "PROBE_MS", "ProximityRead", "probe", "generation")) assertFalse(word, word in keeper)
+        for (word in listOf("SensorManager", "Sensor.", "PROBE_MS", "ProximityRead", "probe", "generation")) assertFalse(word, word in keeper)
         val policy = source("service/ScreenKeepPolicy.kt")
-        for (word in listOf("proximity", "covered", "SKIP", "NEAR_CM")) assertFalse(word, word in policy)
-        val ask = keeper.substringAfter("private fun ask(").substringBefore("private fun wake(")
+        for (word in listOf("covered(", "SKIP", "NEAR_CM", "SensorManager")) assertFalse(word, word in policy)
+        val ask = keeper.substringAfter("private fun ask(").substringBefore("private fun holdBackForProximity(")
         assertTrue(ask, "if (why == null) wake(reason) else log(ScreenKeepPolicy.nothingLine(why))" in ask)
+        // The one exception (0.3.99) is the lock's own off, read from the shared state and nothing else (ProximityIsWiredTest holds the rest).
+        assertTrue("ProximityLock.held.value && ProximityLock.covers(power().isInteractive, offSinceMs, now())" in keeper)
     }
 
     @Test
@@ -112,7 +114,7 @@ class ScreenKeepIsWiredTest {
         val keeper = source("service/ScreenKeeper.kt")
         val on = keeper.substringAfter("private fun screenOn()").substringBefore("/** The decision, and the light")
         assertTrue(on, "lock?.takeIf { it.isHeld }?.release()" in on)
-        assertTrue("ScreenKeepPolicy.why(receiver != null, lastWakeMs?.let { now() - it }, ScreenKeepFront.paused)" in keeper.substringAfter("private fun ask("))
+        assertTrue("ScreenKeepPolicy.why(receiver != null, lastWakeMs?.let { now() - it }, ScreenKeepFront.paused, proximityNow())" in keeper.substringAfter("private fun ask("))
         assertTrue("ScreenKeepFront.clearPause()" in keeper.substringAfter("private fun turnOff()").substringBefore("val heard"))
         val over = source("ui/LockOverHost.kt")
         val pause = over.substringAfter("fun pauseByRider()").substringBefore("private fun locked()")
@@ -162,16 +164,19 @@ class ScreenKeepIsWiredTest {
     }
 
     @Test
-    fun `the screen going off or on is read from the default display, with the broadcast and a safety tick as other sources, and nothing depends on isInteractive`() {
+    fun `the screen going off or on is read from the default display, with the broadcast and a safety tick as other sources, and nothing but the proximity lock's off depends on isInteractive`() {
         val keeper = source("service/ScreenKeeper.kt")
-        assertFalse("isInteractive" in keeper.lines().filterNot { it.trimStart().startsWith("*") || it.trimStart().startsWith("//") }.joinToString("\n"))
+        val code = keeper.lines().filterNot { it.trimStart().startsWith("*") || it.trimStart().startsWith("//") }.joinToString("\n")
+        // Only the proximity lock's own off asks it (0.3.99), in one place: a real sleep is told from the lock's off by it.
+        assertEquals("one place reads isInteractive", 1, Regex("""isInteractive""").findAll(code).count())
+        assertTrue("isInteractive" in code.substringAfter("private fun proximityNow()").substringBefore("/** The decision"))
         val watch = keeper.substringAfter("private fun watchTheDisplay()").substringBefore("/** Whether the default display is not on now")
         assertTrue(watch, "manager.registerDisplayListener(listener, main)" in watch && "displayId == Display.DEFAULT_DISPLAY" in watch)
         assertTrue(watch, "seen(displayOff(), ScreenKeepPolicy.Via.LISTENER)" in watch)
         assertTrue("seen(intent.action == Intent.ACTION_SCREEN_OFF, ScreenKeepPolicy.Via.BROADCAST)" in keeper)
         val safety = keeper.substringAfter("private fun armSafety()").substringBefore("private fun turnOff()")
         assertTrue(safety, "seen(displayOff(), ScreenKeepPolicy.Via.TICK)" in safety && "main.postDelayed(next, ScreenKeepPolicy.TICK_MS)" in safety)
-        assertTrue(safety, "if (edge.off) {" in safety && "if (retry) {" in safety)
+        assertTrue(safety, "if (edge.off) {" in safety && "if (retry || proximityNoted || proximityNow()) {" in safety)
         val seen = keeper.substringAfter("private fun seen(").substringBefore("/** The safety net")
         assertTrue(seen, "val line = edge.heard(off, via) ?: return" in seen && "log(line)" in seen && "if (off) screenOff() else screenOn()" in seen)
         val turnOff = keeper.substringAfter("private fun turnOff()").substringBefore("private fun screenOff(")
@@ -218,6 +223,6 @@ class ScreenKeepIsWiredTest {
         for (word in listOf("armTimer", "cancelTimer", "fire()", "nextDelayMs", "ScreenKeepMode", "Trigger.TIMER", "intervalSec")) assertFalse(word, word in keeper)
         val policy = source("service/ScreenKeepPolicy.kt").lines().filterNot { it.trimStart().startsWith("*") || it.trimStart().startsWith("//") }.joinToString("\n")
         for (word in listOf("nextDelayMs", "ScreenKeepMode", "Trigger", "Decision")) assertFalse(word, word in policy)
-        assertTrue("the safety tick and the retry of the gap stay", "armSafety()" in keeper && "if (retry) {" in keeper.substringAfter("private fun armSafety()"))
+        assertTrue("the safety tick and the retry of the gap stay", "armSafety()" in keeper && "if (retry || proximityNoted || proximityNow()) {" in keeper.substringAfter("private fun armSafety()"))
     }
 }

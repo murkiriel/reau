@@ -11,12 +11,16 @@ internal object ScreenKeepPolicy {
 
     /**
      * Why nothing is lit, in one word for the log, or null when the screen is to be lit. [sinceLastWakeMs] is null before the first light. [pausedByRider]: the rider
-     * paused the function for this projection. It lights wherever the phone is, a pocket too: the rider wanted the function to hold the phone awake, so no sensor is asked.
+     * paused the function for this projection. It lights wherever the phone is, a pocket too: the rider wanted the function to hold the phone awake, so the function itself
+     * asks no sensor. The one exception is [proximity] (0.3.99): REau's own lock holds the proximity wake lock and [proximityCovers] says the display is off because the
+     * sensor is covered, so lighting it would only fight the sensor.
      */
-    fun why(enabled: Boolean, sinceLastWakeMs: Long?, pausedByRider: Boolean = false): String? = when {
+    fun why(enabled: Boolean, sinceLastWakeMs: Long?, pausedByRider: Boolean = false, proximity: Boolean = false): String? = when {
         !enabled -> WHY_OFF
         // "Apagar a tela nesta viagem": the rider asked for the screen to go off, for this projection only.
         pausedByRider -> WHY_PAUSED
+        // The proximity lock turned the display off on purpose (a pocket): no light, and no count of the gap or of the dark retries.
+        proximity -> WHY_PROXIMITY
         sinceLastWakeMs != null && sinceLastWakeMs in 0L until MIN_GAP_MS -> WHY_GAP
         else -> null
     }
@@ -24,6 +28,30 @@ internal object ScreenKeepPolicy {
     const val WHY_OFF = "off"
     const val WHY_PAUSED = "paused"
     const val WHY_GAP = "gap"
+    const val WHY_PROXIMITY = "proximity"
+
+    /**
+     * How long a display that went off is given for the sensor to say "covered" (and a sensor that said "far" is given after it changed): the display's change and the sensor's
+     * event come by two roads and either may be first. Inside this time a "far" reading is not yet proof that the screen went off for another reason.
+     */
+    const val PROXIMITY_GRACE_MS = 1_500L
+
+    /**
+     * Whether a display that is not on is off because REau's proximity wake lock ([ProximityLock]) holds it so (0.3.99), and not for another reason (the power button, a
+     * timeout): [held] the lock is held now, [interactive] `PowerManager.isInteractive` (the proximity lock does not change it, a real sleep does, but during a projection of
+     * Android Auto it stays true, so it is not enough alone), [near] the proximity sensor's last reading (covered, uncovered or not known: no sensor, or none yet), and
+     * [quietMs] how long both the display's state and the sensor have been unchanged. Not held or not interactive: a real off. A sensor that is covered or unknown: the
+     * lock. A sensor that says uncovered: not the lock, unless it or the display changed less than [PROXIMITY_GRACE_MS] ago (the other road may be late).
+     */
+    fun proximityCovers(held: Boolean, interactive: Boolean, near: Boolean?, quietMs: Long): Boolean =
+        held && interactive && (near != false || quietMs < PROXIMITY_GRACE_MS)
+
+    /** The sensor's last reading, as one word for the log. */
+    fun proximityNearText(near: Boolean?): String = when (near) {
+        true -> "near"
+        false -> "far"
+        null -> "unknown"
+    }
 
     /** The line of a decision not to light the screen: the reason. */
     fun nothingLine(why: String) = "nothing trigger=screenoff reason=$why"

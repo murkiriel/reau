@@ -12,6 +12,12 @@ aparecem).
 
 ## [Unreleased]
 
+## [0.3.99] - 2026-11-27
+
+> **Versão de teste para pilotos, sobre a 0.3.1** (série 0.3.9x: builds de teste, não publicadas). Próxima rodada da 0.3.98.
+
+### Adicionado
+- **No bolso, o bloqueio do REau apaga a tela pelo sensor de proximidade, sem trancar o celular.** Dentro do bloqueio (a chave "Modo de bloqueio do REau (teste)" ligada, o REau na frente), o REau pega a mesma trava de proximidade que o discador usa na orelha: com o sensor coberto a tela apaga, e descoberto ela volta, com as regras de brilho do bloqueio como antes (1 % após 5 s, um toque na faixa devolve). O Android não tranca e o app não é morto. A função que acende a tela de novo e o próprio bloqueio distinguem esse apagar de uma tela que apaga por outro motivo (o botão de ligar): essa é acesa de novo como antes. A trava é solta quando o modo termina por qualquer caminho, quando o REau sai da frente e quando a tela apaga de verdade; num celular sem a trava de proximidade nada muda (o registro diz "proximity lock not supported"). Sem chave nova.
 ## [0.3.98] - 2026-11-27
 
 > **Versão de teste para pilotos, sobre a 0.3.1** (série 0.3.9x: builds de teste, não publicadas). Próxima rodada da 0.3.97.

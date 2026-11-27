@@ -11,6 +11,12 @@ Português (pt-BR): [CHANGELOG.pt-br.md](CHANGELOG.pt-br.md) · Español: [CHANG
 
 ## [Unreleased]
 
+## [0.3.99] - 2026-11-27
+
+> **Test version for pilots, on top of 0.3.1** (0.3.9x series: test builds, not published). The next round after 0.3.98.
+
+### Added
+- **In a pocket, REau's lock turns the screen off with the proximity sensor, without locking the phone.** Inside the lock (the switch "REau lock mode (test)" on, REau in front), REau takes the same proximity lock the dialer uses at the ear: with the sensor covered the screen goes off, and with it uncovered it comes back, with the brightness rules of the lock as before (1 % after 5 s, a touch on the track brings it back). Android does not lock, and the app is not killed. The function that lights the screen again and the lock itself tell this off from the screen going off for another reason (the power button): that one is lit again as before. The lock is let go when the mode ends in any way, when REau leaves the front and when the screen goes off for real; on a phone without the proximity lock nothing changes (the log says "proximity lock not supported"). No new switch.
 ## [0.3.98] - 2026-11-27
 
 > **Test version for pilots, on top of 0.3.1** (0.3.9x series: test builds, not published). The next round after 0.3.97.

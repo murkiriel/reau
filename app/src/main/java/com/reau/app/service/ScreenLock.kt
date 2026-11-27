@@ -120,6 +120,42 @@ internal object ScreenLock {
         }
     }
 
+    /** The line of the proximity lock (0.3.99) taken or let go, and why: `proximity lock on (enter)`, `proximity lock off (swipe)`. */
+    fun proximityLine(on: Boolean, reason: String) = "proximity lock ${if (on) "on" else "off"} ($reason)"
+
+    /** Said once when the phone has no proximity wake lock: the mode goes on exactly as it did before 0.3.99. */
+    const val PROXIMITY_UNSUPPORTED_LINE = "proximity lock not supported"
+
+    /** The reasons the lock is taken: the mode went in, or the app came back to the front with the mode still on. */
+    const val PROXIMITY_ENTER = "enter"
+    const val PROXIMITY_RESUME = "resume"
+
+    /** The reasons the lock is let go besides the mode's own [Exit]s: the app left the front without the mode ending (onPause), or the activity was destroyed. */
+    const val PROXIMITY_PAUSE = "paused"
+    const val PROXIMITY_DESTROY = "destroyed"
+
+    /**
+     * Says the display going off and coming back because of the proximity lock, once per change (the same off is heard by the listener and the check after it).
+     * [off] is given what [com.reau.app.service.ScreenKeepPolicy.proximityCovers] said for a display that is not on.
+     */
+    class ProximityEdge {
+        private var byProximity = false
+
+        /** The display went off, [covered] says by the lock, with the sensor reading [sensor]; the line, or null when it is not the lock's or was already said. */
+        fun off(covered: Boolean, sensor: String): String? {
+            if (!covered || byProximity) return null
+            byProximity = true
+            return "display off by proximity sensor=$sensor"
+        }
+
+        /** The display came back on: the line when it had gone off by the lock, else null. */
+        fun on(): String? {
+            if (!byProximity) return null
+            byProximity = false
+            return "display on again (proximity uncovered)"
+        }
+    }
+
     /** The mode's state: in or out, since when, and whether Back was already said. */
     class State {
         var active = false

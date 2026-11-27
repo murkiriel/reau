@@ -60,9 +60,12 @@ class ScreenLockIsWiredTest {
     fun `the screen going off is read from the display's state, with the broadcast as a second source, and the listener is removed`() {
         val enter = enterMode
         assertTrue(enter, "watchTheDisplay()" in enter && "Intent.ACTION_SCREEN_OFF" in enter)
-        val watch = mode.substringAfter("private fun watchTheDisplay()").substringBefore("private fun bars(")
+        val watch = mode.substringAfter("private fun watchTheDisplay()").substringBefore("private fun lookAtTheDisplay(")
         assertTrue(watch, "manager.registerDisplayListener(listener, main)" in watch && "displayId != Display.DEFAULT_DISPLAY" in watch)
-        assertTrue(watch, "if (change.off) exit(ScreenLock.Exit.SCREENOFF)" in watch && "log(change.line)" in watch)
+        // Since 0.3.99 the off is looked at by lookAtTheDisplay, which ends the mode unless the proximity lock's own off explains it (ProximityIsWiredTest).
+        assertTrue(watch, "if (change.off) {" in watch && "lookAtTheDisplay()" in watch && "log(change.line)" in watch)
+        val look = mode.substringAfter("private fun lookAtTheDisplay()").substringBefore("private fun bars(")
+        assertTrue(look, "exit(ScreenLock.Exit.SCREENOFF)" in look && "if (!covered) {" in look)
         assertTrue("unregisterDisplayListener(it)" in mode.substringAfter("fun exit(reason: ScreenLock.Exit)"))
     }
 

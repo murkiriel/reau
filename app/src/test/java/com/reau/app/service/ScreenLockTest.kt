@@ -168,4 +168,22 @@ class ScreenLockTest {
         assertEquals("manual on reason=idle", state.enter(1_000L, ScreenLock.Entry.IDLE))
         assertEquals("manual off reason=swipe after=2s", state.exit(Exit.SWIPE, 3_000L))
     }
+
+    @Test
+    fun `the proximity lock lines are short, and the display's proximity off and on are said once per change`() {
+        assertEquals("proximity lock on (enter)", ScreenLock.proximityLine(true, ScreenLock.PROXIMITY_ENTER))
+        assertEquals("proximity lock on (resume)", ScreenLock.proximityLine(true, ScreenLock.PROXIMITY_RESUME))
+        assertEquals("proximity lock off (swipe)", ScreenLock.proximityLine(false, Exit.SWIPE.logName))
+        assertEquals("proximity lock off (paused)", ScreenLock.proximityLine(false, ScreenLock.PROXIMITY_PAUSE))
+        assertEquals("proximity lock off (destroyed)", ScreenLock.proximityLine(false, ScreenLock.PROXIMITY_DESTROY))
+        assertEquals("proximity lock not supported", ScreenLock.PROXIMITY_UNSUPPORTED_LINE)
+        val edge = ScreenLock.ProximityEdge()
+        assertNull("an off that is not the lock's says nothing here", edge.off(covered = false, sensor = "far"))
+        assertNull("and neither does a display coming on that never went off by it", edge.on())
+        assertEquals("display off by proximity sensor=near", edge.off(covered = true, sensor = "near"))
+        assertNull("the same off is said once", edge.off(covered = true, sensor = "near"))
+        assertEquals("display on again (proximity uncovered)", edge.on())
+        assertNull(edge.on())
+        assertEquals("again, the next time", "display off by proximity sensor=unknown", edge.off(covered = true, sensor = "unknown"))
+    }
 }

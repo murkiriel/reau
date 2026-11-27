@@ -97,4 +97,43 @@ class ScreenKeepPolicyTest {
         assertFalse(ScreenKeepPolicy.displayOff(2))
         for (state in listOf(1, 3, 4, 5, 6, 0)) assertTrue("state $state", ScreenKeepPolicy.displayOff(state))
     }
+
+    private fun covers(held: Boolean = true, interactive: Boolean = true, near: Boolean? = true, quietMs: Long = 60_000L) =
+        ScreenKeepPolicy.proximityCovers(held, interactive, near, quietMs)
+
+    @Test
+    fun `a display off with the proximity lock held, the phone interactive and the sensor covered is the lock's own, and lights nothing`() {
+        assertTrue(covers())
+        assertEquals("proximity", ScreenKeepPolicy.why(enabled = true, sinceLastWakeMs = null, pausedByRider = false, proximity = true))
+        assertEquals("nothing trigger=screenoff reason=proximity", ScreenKeepPolicy.nothingLine(ScreenKeepPolicy.WHY_PROXIMITY))
+        assertNull("the same call without it lights", ScreenKeepPolicy.why(enabled = true, sinceLastWakeMs = null))
+        assertEquals("the switch off and the rider's pause come first", "off", ScreenKeepPolicy.why(false, null, pausedByRider = false, proximity = true))
+        assertEquals("paused", ScreenKeepPolicy.why(true, null, pausedByRider = true, proximity = true))
+        assertEquals("the lock's off is not a gap: no retry is asked for", "proximity", ScreenKeepPolicy.why(true, 0L, proximity = true))
+    }
+
+    @Test
+    fun `a display off that is not the lock's is lit as before, with the lock not held or the phone not interactive`() {
+        assertFalse("the lock is not held: the old rule", covers(held = false))
+        assertFalse("the phone went to sleep (the power button): a real off", covers(interactive = false))
+        assertFalse(covers(held = false, interactive = false))
+    }
+
+    @Test
+    fun `the sensor tells a real off from the lock's during a projection, where the phone stays interactive`() {
+        assertTrue("covered", covers(near = true, quietMs = 0L))
+        assertTrue("covered for an hour", covers(near = true, quietMs = 3_600_000L))
+        assertTrue("a sensor not known (none, or no reading yet) leaves it to the lock and the phone", covers(near = null, quietMs = 60_000L))
+        assertFalse("uncovered for a while and the display still off: not the lock", covers(near = false, quietMs = ScreenKeepPolicy.PROXIMITY_GRACE_MS))
+        assertTrue("uncovered but the display or the sensor changed a moment ago: the other road may be late", covers(near = false, quietMs = ScreenKeepPolicy.PROXIMITY_GRACE_MS - 1))
+        assertTrue(covers(near = false, quietMs = 0L))
+        assertEquals(1_500L, ScreenKeepPolicy.PROXIMITY_GRACE_MS)
+    }
+
+    @Test
+    fun `the sensor's reading is one word for the log`() {
+        assertEquals("near", ScreenKeepPolicy.proximityNearText(true))
+        assertEquals("far", ScreenKeepPolicy.proximityNearText(false))
+        assertEquals("unknown", ScreenKeepPolicy.proximityNearText(null))
+    }
 }
