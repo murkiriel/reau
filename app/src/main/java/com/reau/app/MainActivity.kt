@@ -271,7 +271,11 @@ class MainActivity : ComponentActivity() {
             // Nothing of the app is reachable until the rider has accepted the current terms of use.
             val termsStore = remember { com.reau.app.settings.TermsStore.open(this) }
             var termsAccepted by remember { mutableStateOf(!com.reau.app.settings.Terms.needsAcceptance(termsStore.accepted())) }
-            androidx.compose.runtime.CompositionLocalProvider(com.reau.app.ui.theme.LocalREauNight provides rememberNight(this, settings)) {
+            // A touch inside a dialog or a sheet (a window of its own, it never reaches onUserInteraction) restarts the idle count too (countsAsTouch).
+            androidx.compose.runtime.CompositionLocalProvider(
+                com.reau.app.ui.theme.LocalREauNight provides rememberNight(this, settings),
+                com.reau.app.ui.LocalUserTouch provides idleWatch::touched,
+            ) {
             if (!termsAccepted) {
                 com.reau.app.ui.TermsScreen(
                     gate = true,

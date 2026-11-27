@@ -36,6 +36,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.reau.app.R
+import com.reau.app.ui.countsAsTouch
 import com.reau.app.ui.theme.LocalREauDark
 import com.reau.app.ui.theme.REauSpace
 
@@ -88,7 +89,7 @@ private fun REauSheet(onDismiss: () -> Unit, tag: String, content: @Composable (
         dragHandle = {
             Box(Modifier.padding(top = 12.dp, bottom = 14.dp).size(36.dp, 4.dp).background(hairline(0.5f), RoundedCornerShape(2.dp)))
         },
-        modifier = Modifier.testTag(tag),
+        modifier = Modifier.countsAsTouch().testTag(tag),
     ) { content() }
 }
 

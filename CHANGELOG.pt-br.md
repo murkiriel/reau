@@ -12,6 +12,13 @@ aparecem).
 
 ## [Unreleased]
 
+## [0.3.98] - 2026-11-27
+
+> **Versão de teste para pilotos, sobre a 0.3.1** (série 0.3.9x: builds de teste, não publicadas). Próxima rodada da 0.3.97.
+
+### Corrigido
+- **Um toque dentro de um diálogo ou de uma folha reinicia a contagem de inatividade do bloqueio do REau.** Diálogos e folhas são janelas próprias, então a atividade nunca ouvia os toques deles e o bloqueio podia entrar no meio de um (a pergunta "Apagar os registros?", por exemplo). Agora cada dedo que toca o cartão de um diálogo ou de uma folha conta como toque, e os botões funcionam como antes.
+
 ## [0.3.97] - 2026-11-27
 
 > **Versão de teste para pilotos, sobre a 0.3.1** (série 0.3.9x: builds de teste, não publicadas). Próxima rodada da 0.3.96.

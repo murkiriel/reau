@@ -157,6 +157,7 @@ private fun ForgetDashDialog(onCancel: () -> Unit, onForget: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     AlertDialog(
         onDismissRequest = onCancel,
+        modifier = Modifier.countsAsTouch(),
         title = { Text(stringResource(R.string.forget_dash_running_title), style = MaterialTheme.typography.titleLarge) },
         text = { Text(stringResource(R.string.forget_dash_running_text)) },
         confirmButton = {

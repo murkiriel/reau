@@ -150,6 +150,7 @@ private fun FitResetDialog(tab: FitTab, onCancel: () -> Unit, onReset: () -> Uni
     val name = stringResource(if (tab == FitTab.NAV) R.string.tab_nav else R.string.tab_apps)
     AlertDialog(
         onDismissRequest = onCancel,
+        modifier = Modifier.countsAsTouch(),
         title = { Text(stringResource(R.string.fit_reset_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.testTag("fit_reset_title")) },
         text = { Text(stringResource(R.string.fit_reset_text, name), modifier = Modifier.testTag("fit_reset_text")) },
         confirmButton = {

@@ -163,6 +163,7 @@ private fun DeleteDialog(withRecordings: Boolean, onCancel: () -> Unit, onDelete
     val colors = MaterialTheme.colorScheme
     AlertDialog(
         onDismissRequest = onCancel,
+        modifier = Modifier.countsAsTouch(),
         icon = { MsIcon(R.drawable.ic_ms_delete, 28.dp, StatusKind.CONNECTING.color()) },
         title = { Text(stringResource(R.string.delete_logs_title), style = MaterialTheme.typography.titleLarge) },
         text = { Text(stringResource(if (withRecordings) R.string.delete_logs_recordings_text else R.string.delete_logs_text)) },

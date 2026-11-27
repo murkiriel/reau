@@ -11,6 +11,13 @@ English: [CHANGELOG.md](CHANGELOG.md) · Português (pt-BR): [CHANGELOG.pt-br.md
 
 ## [Unreleased]
 
+## [0.3.98] - 2026-11-27
+
+> **Versión de prueba para pilotos, sobre la 0.3.1** (serie 0.3.9x: builds de prueba, no publicadas). La próxima ronda después de la 0.3.97.
+
+### Corregido
+- **Un toque dentro de un diálogo o de una hoja reinicia la cuenta de inactividad del bloqueo de REau.** Los diálogos y las hojas son ventanas propias, así que la actividad nunca oía sus toques y el bloqueo podía entrar en medio de uno (la pregunta "¿Borrar los registros?", por ejemplo). Ahora cada dedo que toca la tarjeta de un diálogo o de una hoja cuenta como toque, y los botones funcionan como antes.
+
 ## [0.3.97] - 2026-11-27
 
 > **Versión de prueba para pilotos, sobre la 0.3.1** (serie 0.3.9x: builds de prueba, no publicadas). La próxima ronda después de la 0.3.96.

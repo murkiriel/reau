@@ -11,6 +11,13 @@ Português (pt-BR): [CHANGELOG.pt-br.md](CHANGELOG.pt-br.md) · Español: [CHANG
 
 ## [Unreleased]
 
+## [0.3.98] - 2026-11-27
+
+> **Test version for pilots, on top of 0.3.1** (0.3.9x series: test builds, not published). The next round after 0.3.97.
+
+### Fixed
+- **A touch inside a dialog or a sheet restarts the idle count of REau's lock.** Dialogs and sheets are windows of their own, so the activity never heard their touches and the lock could come in the middle of one (the "Delete the logs?" question, for instance). Now every finger that goes down on the card of a dialog or a sheet counts as a touch, with the buttons working as before.
+
 ## [0.3.97] - 2026-11-27
 
 > **Test version for pilots, on top of 0.3.1** (0.3.9x series: test builds, not published). The next round after 0.3.96.
