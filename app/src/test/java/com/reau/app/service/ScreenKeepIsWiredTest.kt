@@ -98,7 +98,7 @@ class ScreenKeepIsWiredTest {
         val main = source("MainActivity.kt")
         assertTrue("private val lockOver = com.reau.app.ui.LockOverHost(this)" in main && "lockOver.attach()" in main)
         assertTrue("the layer goes on after setContent", "override fun onPostCreate" in main && "lockOver.attach()" in main.substringAfter("override fun onPostCreate"))
-        assertTrue("the layer is added on top, and draws only while over", "activity.addContentView(" in over && "setContent { if (over) LockOverScreen(this@LockOverHost) }" in over)
+        assertTrue("the layer is added on top, and draws only while over or in the manual mode", "activity.addContentView(" in over && "setContent { if (over || manual.active) LockOverScreen(this@LockOverHost) }" in over)
         assertTrue("lockOver.resumed()" in main.substringAfter("private fun resume()").substringBefore("resumedAtMs"))
         assertTrue("lockOver.paused()" in main.substringAfter("override fun onPause()").substringBefore("super.onPause()"))
         assertFalse("onCreate has no branch of it", "LockOverScreen" in main)
