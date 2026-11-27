@@ -11,6 +11,14 @@ Português (pt-BR): [CHANGELOG.pt-br.md](CHANGELOG.pt-br.md) · Español: [CHANG
 
 ## [Unreleased]
 
+## [0.3.95] - 2026-11-26
+
+> **Test version for pilots, on top of 0.3.1** (0.3.9x series: test builds, not published). The next round after 0.3.94.
+
+### Changed
+- **0.3.95: the "Lock the screen" screen in the prototype's style, on absolute black.** The small "REau", the time and the date, the seal "Projecting to the dash" (with a green dot drawn only as an outline), an outlined card of three lines (Dash, Projection, Battery), the warning "Stop the bike before unlocking" and, at the bottom, the drag track. The ground is `#000000` (a conscious exception to the Aurum rule: on AMOLED black switches the pixels off) and everything is dim, with no white and no large lit area. The brightness goes to the minimum after 5 s and only a touch on the circle brings it back; the rest of the screen does not touch it. The card's "Battery" shows "-" until the phone's first reading, and "Dash" does not say the fps (REau does not have them on screen).
+- **The "Lock the screen" button is the main screen's gold button** (the same component as Ligar: 72 dp, full width), right under the bridge card, with the projection on. "Send the wallpaper" stays only with the projection stopped: with it on, the wallpaper mode does not replace Android Auto (the request is ignored), so the button would do nothing.
+
 ## [0.3.94] - 2026-11-26
 
 > **Test version for pilots, on top of 0.3.1** (0.3.9x series: test builds, not published). The next round after 0.3.93.

@@ -12,6 +12,14 @@ aparecem).
 
 ## [Unreleased]
 
+## [0.3.95] - 2026-11-26
+
+> **Versão de teste para pilotos, sobre a 0.3.1** (série 0.3.9x: builds de teste, não publicadas). Próxima rodada da 0.3.94.
+
+### Alterado
+- **0.3.95: a tela do "Bloquear a tela" no estilo do protótipo, em preto absoluto.** O "REau" pequeno, o relógio e a data, o selo "Projetando no painel" (com um ponto verde só de contorno), um cartão só de contorno com três linhas (Painel, Projeção, Bateria), o aviso "Pare a moto antes de desbloquear" e, embaixo, o trilho de arrastar. O fundo é `#000000` (exceção consciente à regra do Aurum: no AMOLED o preto desliga os pixels) e tudo é apagado, sem branco nem área grande acesa. O brilho vai ao mínimo depois de 5 s e só um toque no círculo o traz de volta; o resto da tela não mexe nele. O "Bateria" do cartão mostra "-" até a primeira leitura do aparelho, e o "Painel" não diz os fps (o REau não os tem na tela).
+- **O botão "Bloquear a tela" é o botão dourado da tela principal** (o mesmo componente do Ligar: 72 dp, a largura toda), logo abaixo do cartão da ponte, com a projeção ligada. "Mandar o wallpaper" continua só com a projeção parada: com ela ligada o modo wallpaper não troca o Android Auto (o pedido é ignorado), então o botão não faria nada.
+
 ## [0.3.94] - 2026-11-26
 
 > **Versão de teste para pilotos, sobre a 0.3.1** (série 0.3.9x: builds de teste, não publicadas). Próxima rodada da 0.3.93.

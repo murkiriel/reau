@@ -14,11 +14,11 @@ plugins {
 // clock). The scheme: 30_000_000 + major * 1_000_000 + minor * 10_000 + patch * 100, which leaves 99 numbers for a rebuild of the same
 // version, and 99 as the limit of minor and patch. The base 30_000_000 is above 29_887_215, the highest versionCode ever published (0.2.0,
 // when it was the minutes), because Android only installs over an app whose versionCode is lower; so 0.3.0 is 30_030_000, 0.3.1 is
-// 30_030_100, 0.4.0 is 30_040_000, 1.0.0 is 31_000_000. The test builds for pilots on top of 0.3.1 are 0.3.90, 0.3.91, ... (30_039_000, 30_039_100, ...), the 0.3.94 being the current one: above 0.3.1 and below 0.4.0. Changing the version means changing the two lines below together:
+// 30_030_100, 0.4.0 is 30_040_000, 1.0.0 is 31_000_000. The test builds for pilots on top of 0.3.1 are 0.3.90, 0.3.91, ... (30_039_000, 30_039_100, ...), the 0.3.95 being the current one: above 0.3.1 and below 0.4.0. Changing the version means changing the two lines below together:
 // VersionCodeSchemeTest checks that they agree, that the number grows and that it stays above the published ones.
 // versionCode of a DEBUG build is still the minutes since the Unix epoch, so each debug build installs over the previous one.
-val appVersionName = "0.3.94"
-val releaseVersionCode = 30_039_400
+val appVersionName = "0.3.95"
+val releaseVersionCode = 30_039_500
 val buildTimestamp: String = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yy.MM.dd-HH.mm"))
 val debugVersionCode = (System.currentTimeMillis() / 60_000L).toInt()
 // The commit the APK was built from, for the ride log header; "?" outside a git checkout.

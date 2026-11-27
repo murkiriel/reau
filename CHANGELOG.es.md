@@ -11,6 +11,14 @@ English: [CHANGELOG.md](CHANGELOG.md) · Português (pt-BR): [CHANGELOG.pt-br.md
 
 ## [Unreleased]
 
+## [0.3.95] - 2026-11-26
+
+> **Versión de prueba para pilotos, sobre la 0.3.1** (serie 0.3.9x: builds de prueba, no publicadas). La próxima ronda después de la 0.3.94.
+
+### Cambiado
+- **0.3.95: la pantalla de "Bloquear la pantalla" al estilo del prototipo, en negro absoluto.** El "REau" pequeño, la hora y la fecha, el sello "Proyectando en el tablero" (con un punto verde solo de contorno), una tarjeta solo de contorno con tres líneas (Tablero, Proyección, Batería), el aviso "Detén la moto antes de desbloquear" y, abajo, el carril de arrastre. El fondo es `#000000` (excepción consciente a la regla de Aurum: en AMOLED el negro apaga los píxeles) y todo es tenue, sin blanco ni áreas grandes encendidas. El brillo baja al mínimo a los 5 s y solo un toque en el círculo lo devuelve; el resto de la pantalla no lo toca. La "Batería" de la tarjeta muestra "-" hasta la primera lectura del teléfono, y el "Tablero" no dice los fps (REau no los tiene en pantalla).
+- **El botón "Bloquear la pantalla" es el botón dorado de la pantalla principal** (el mismo componente que Ligar: 72 dp, todo el ancho), justo debajo de la tarjeta del puente, con la proyección encendida. "Enviar el fondo" sigue solo con la proyección detenida: con ella encendida el modo fondo no reemplaza a Android Auto (el pedido se ignora), así que el botón no haría nada.
+
 ## [0.3.94] - 2026-11-26
 
 > **Versión de prueba para pilotos, sobre la 0.3.1** (serie 0.3.9x: builds de prueba, no publicadas). La próxima ronda después de la 0.3.93.
