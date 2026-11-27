@@ -12,6 +12,13 @@ aparecem).
 
 ## [Unreleased]
 
+## [0.3.97] - 2026-11-27
+
+> **Versão de teste para pilotos, sobre a 0.3.1** (série 0.3.9x: builds de teste, não publicadas). Próxima rodada da 0.3.96.
+
+### Adicionado
+- **Com o "Modo de bloqueio do REau" ligado, o painel pronto e o REau na frente, a tela não apaga sozinha: entra no bloqueio do REau** (o mesmo do botão), então o Android nunca bloqueia nem pede o PIN. O REau segura a tela acesa e conta o tempo de tela do próprio celular (entre 15 s e 10 min) desde o último toque; ao vencer, entra no bloqueio. Se o painel sair do "Pronto", a projeção parar, a chave desligar ou o REau sair da frente, a contagem para e a tela volta ao normal. Se a tela apagar mesmo assim (botão de energia), vale o de antes: o REau a acende de novo e aparece sobre o bloqueio. O registro diz `[lock] idle timer on timeout=Ns`, `idle timer off reason=...` e `manual on reason=idle|button`.
+
 ## [0.3.96] - 2026-11-27
 
 > **Versão de teste para pilotos, sobre a 0.3.1** (série 0.3.9x: builds de teste, não publicadas). Próxima rodada da 0.3.95.

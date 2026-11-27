@@ -11,6 +11,13 @@ Português (pt-BR): [CHANGELOG.pt-br.md](CHANGELOG.pt-br.md) · Español: [CHANG
 
 ## [Unreleased]
 
+## [0.3.97] - 2026-11-27
+
+> **Test version for pilots, on top of 0.3.1** (0.3.9x series: test builds, not published). The next round after 0.3.96.
+
+### Added
+- **With the "REau lock mode" on, the dash ready and REau in front, the screen does not go off by itself: it goes into REau's lock** (the button's own), so Android never locks or asks for the PIN. REau keeps the screen on and counts the phone's own screen timeout (between 15 s and 10 min) from the last touch; when it runs out, it goes into the lock. If the dash leaves "Pronto", the projection stops, the switch goes off or REau leaves the front, the count stops and the screen goes back to normal. If the screen goes off anyway (the power button), the earlier behaviour stands: REau lights it again and shows over the lock screen. The log says `[lock] idle timer on timeout=Ns`, `idle timer off reason=...` and `manual on reason=idle|button`.
+
 ## [0.3.96] - 2026-11-27
 
 > **Test version for pilots, on top of 0.3.1** (0.3.9x series: test builds, not published). The next round after 0.3.95.
