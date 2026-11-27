@@ -11,6 +11,13 @@ English: [CHANGELOG.md](CHANGELOG.md) · Português (pt-BR): [CHANGELOG.pt-br.md
 
 ## [Unreleased]
 
+## [0.3.93] - 2026-11-26
+
+> **Versión de prueba para pilotos, sobre la 0.3.1** (serie 0.3.9x: builds de prueba, no publicadas). La próxima ronda después de la 0.3.92.
+
+### Cambiado
+- **0.3.93: sin bloqueo automático; solo el botón "Bloquear la pantalla"; la pantalla queda encendida y se sale arrastrando.** Salieron el interruptor "Pantalla encendida con el teléfono bloqueado", el selector de modos, "Mostrar REau sobre el bloqueo" y todo lo automático (durante la proyección de Android Auto el teléfono sigue "interactivo" y Android no avisa que la pantalla se apagó, así que nunca se disparaba). Queda el botón, con la proyección encendida: abre la pantalla oscura de REau con la ventana manteniendo la pantalla encendida (Android nunca bloquea y el PIN del teléfono no se toca ni se pide), la hora, "Proyectando en el tablero", un candado y "Detén la moto antes de desbloquear". Para salir, toca el círculo y arrástralo a la derecha hasta el final; los toques sueltos y Atrás no hacen nada. El modo también termina si REau sale del frente, si la pantalla se apaga (el estado del display, no el broadcast) o si la proyección se detiene. El registro dice `[lock] manual on`, `manual off reason=swipe|left|screenoff|projection`, `back ignored` y `display state=...`.
+
 ## [0.3.92] - 2026-11-26
 
 > **Versión de prueba para pilotos, sobre la 0.3.1** (serie 0.3.9x: builds de prueba, no publicadas). La próxima ronda después de la 0.3.91.

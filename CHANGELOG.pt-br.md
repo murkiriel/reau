@@ -12,6 +12,13 @@ aparecem).
 
 ## [Unreleased]
 
+## [0.3.93] - 2026-11-26
+
+> **Versão de teste para pilotos, sobre a 0.3.1** (série 0.3.9x: builds de teste, não publicadas). Próxima rodada da 0.3.92.
+
+### Alterado
+- **0.3.93: sem bloqueio automático; só o botão "Bloquear a tela"; a tela fica acesa e se sai arrastando.** Saíram a chave "Tela acesa com o celular bloqueado", o seletor de modos, "Mostrar o REau sobre o bloqueio" e tudo o que era automático (durante a projeção do Android Auto o celular continua "interativo" e o Android não avisa que a tela apagou, então aquilo nunca disparava). Fica o botão, com a projeção ligada: abre a tela escura do REau com a janela mantendo a tela acesa (o Android nunca bloqueia e o PIN do celular não é tocado nem pedido), relógio, "Projetando no painel", um cadeado e "Pare a moto antes de desbloquear". Para sair, encoste no círculo e arraste-o para a direita até o fim; toques soltos e o Voltar não fazem nada. O modo também termina se o REau sair da frente, se a tela apagar (o estado do display, não o broadcast) ou se a projeção parar. O registro diz `[lock] manual on`, `manual off reason=swipe|left|screenoff|projection`, `back ignored` e `display state=...`.
+
 ## [0.3.92] - 2026-11-26
 
 > **Versão de teste para pilotos, sobre a 0.3.1** (série 0.3.9x: builds de teste, não publicadas). Próxima rodada da 0.3.91.

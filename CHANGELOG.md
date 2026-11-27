@@ -11,6 +11,13 @@ Português (pt-BR): [CHANGELOG.pt-br.md](CHANGELOG.pt-br.md) · Español: [CHANG
 
 ## [Unreleased]
 
+## [0.3.93] - 2026-11-26
+
+> **Test version for pilots, on top of 0.3.1** (0.3.9x series: test builds, not published). The next round after 0.3.92.
+
+### Changed
+- **0.3.93: no automatic lock; only the "Lock the screen" button; the screen stays on and you leave by dragging.** Gone are the switch "Screen on with the phone locked", the mode selector, "Show REau over the lock screen" and everything automatic (during an Android Auto projection the phone stays "interactive" and Android does not say the screen went off, so it never fired). What stays is the button, with the projection on: it opens REau's dark screen with the window keeping the screen on (Android never locks and the phone's PIN is neither touched nor asked), the time, "Projecting to the dash", a padlock and "Stop the bike before unlocking". To leave, touch the circle and drag it to the right to the end; loose touches and Back do nothing. The mode also ends if REau leaves the front, if the screen goes off (the display's state, not the broadcast) or if the projection stops. The log says `[lock] manual on`, `manual off reason=swipe|left|screenoff|projection`, `back ignored` and `display state=...`.
+
 ## [0.3.92] - 2026-11-26
 
 > **Test version for pilots, on top of 0.3.1** (0.3.9x series: test builds, not published). The next round after 0.3.91.
