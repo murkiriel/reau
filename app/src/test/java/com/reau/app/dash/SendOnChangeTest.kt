@@ -12,7 +12,10 @@ import java.util.Calendar
  * after anything that makes the dash forget; never for the same content twice. Off, everything goes, always, and nothing is kept.
  */
 class SendOnChangeTest {
-    private fun on() = SendOnChange(enabled = true)
+    /** The test's clock, in ms; it starts far from zero, so a time kept as 0 would look 30 s old at once. */
+    private var nowMs = 1_000_000L
+
+    private fun on(refreshMs: Long = SendOnChange.REFRESH_MS) = SendOnChange(enabled = true, refreshMs = refreshMs, nowMs = { nowMs })
 
     private fun bytes(vararg b: Int) = ByteArray(b.size) { b[it].toByte() }
 
@@ -149,5 +152,59 @@ class SendOnChangeTest {
         c.sent("call", content)
         assertFalse(c.offer("call", bytes(DashCommands.CallState.RINGING.code) + "Ana".toByteArray()))
         assertTrue(c.offer("call", bytes(DashCommands.CallState.IN_CALL.code) + "Ana".toByteArray()))
+    }
+
+    // ── the slow reaffirmation ──────────────────────────────────────────────
+
+    @Test
+    fun `a value that did not change goes again 30 s after it went, not a millisecond before, and then waits 30 s again`() {
+        assertEquals("every 30 s, as the time used to go", 30_000L, SendOnChange.REFRESH_MS)
+        val c = on()
+        c.sent("0556", bytes(0x55))
+        nowMs += 29_999
+        assertFalse("still fresh", c.offer("0556", bytes(0x55)))
+        nowMs += 1
+        assertTrue("30 s: said again", c.offer("0556", bytes(0x55)))
+        var sent = 0
+        assertTrue(c.attempt("0556", bytes(0x55)) { sent++; true })
+        nowMs += 1_000
+        assertFalse("the count starts again from the send", c.offer("0556", bytes(0x55)))
+        nowMs += 29_000
+        assertTrue(c.offer("0556", bytes(0x55)))
+        assertEquals(1, sent)
+    }
+
+    @Test
+    fun `each key counts its own 30 s, from its own last send`() {
+        val c = on()
+        c.sent("status", bytes(1))
+        nowMs += 10_000
+        c.sent("card", bytes(2))
+        nowMs += 20_000
+        assertTrue("the status went 30 s ago", c.offer("status", bytes(1)))
+        assertFalse("the card only 20 s ago", c.offer("card", bytes(2)))
+    }
+
+    @Test
+    fun `a reaffirmation that did not reach the wire is tried again at the next ask`() {
+        val c = on()
+        c.sent("nav", bytes(3))
+        nowMs += 30_000
+        assertTrue(c.attempt("nav", bytes(3)) { false })
+        assertTrue("the failed one did not restart the count", c.offer("nav", bytes(3)))
+    }
+
+    @Test
+    fun `with no reaffirmation (0) only a change sends again, however long it waits`() {
+        val c = on(refreshMs = 0L)
+        c.sent("0556", bytes(0x55))
+        nowMs += 3_600_000
+        assertFalse(c.offer("0556", bytes(0x55)))
+        assertTrue(c.offer("0556", bytes(0xAA)))
+    }
+
+    @Test
+    fun `the session's waits carry the reaffirmation, 30 s unless a test shortens it`() {
+        assertEquals(SendOnChange.REFRESH_MS, DashSession.Timing().reaffirmMs)
     }
 }

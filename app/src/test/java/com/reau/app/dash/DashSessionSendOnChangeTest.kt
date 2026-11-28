@@ -45,10 +45,10 @@ class DashSessionSendOnChangeTest {
     }
 
     /** A session of the switch [on] streaming to a fake dash which talks as a real one; [again] connects the same session to a new fake after a disconnect. */
-    private fun streaming(on: Boolean, prepare: (DashSession) -> Unit = {}): Pair<DashSession, FakeDashPeer> {
+    private fun streaming(on: Boolean, timing: DashSession.Timing = DashSession.Timing(), prepare: (DashSession) -> Unit = {}): Pair<DashSession, FakeDashPeer> {
         com.reau.app.data.RideDiagnostics.testOnlySetFile(logFile)
         val s = DashSession(
-            scope, sendOnChange = { on }, statsEveryMs = 3_600_000L, // the test reads the dash-stats window itself: the session's own line must not close it
+            scope, sendOnChange = { on }, timing = timing, statsEveryMs = 3_600_000L, // the test reads the dash-stats window itself: the session's own line must not close it
             socketFactory = { current!!.let { f -> DashSocket(null, ctrlDest = f.ctrlDest, rtpDest = f.rtpDest) } },
         ).also { session = it }
         // The card with no route without the clock of its ETA, so the idle card is the same all along (a minute's turn would be a real change).
@@ -141,6 +141,21 @@ class DashSessionSendOnChangeTest {
         assertTrue("if (!change.enabled && dataRefreshDue(n, _state.value)) {" in src)
         val (_, fake) = streaming(on = true)
         assertEquals("the burst's ask and nothing else", 1, fake.countOf(0x0A, 0x02))
+    }
+
+    @Test
+    fun `on, what did not change is said again after the reaffirmation's time, the flag, the status and the route card, never the bike's data`() {
+        // 0.7 s here so the test is short (the 1 Hz loops then say it at each turn, the 4 Hz one at every third); 30 s in the app (SendOnChangeTest).
+        val (_, fake) = streaming(on = true, timing = DashSession.Timing(reaffirmMs = 700L))
+        Thread.sleep(1_500)
+        val flags = projectionFlags(fake)
+        val status = statuses(fake)
+        val cards = routeCards(fake)
+        Thread.sleep(3_200)
+        assertTrue("flag: ${projectionFlags(fake) - flags} in 3.2 s, not 4 a second", projectionFlags(fake) - flags in 2..6)
+        assertTrue("status: ${statuses(fake) - status} in 3.2 s", statuses(fake) - status >= 2)
+        assertTrue("route card: ${routeCards(fake) - cards} in 3.2 s", routeCards(fake) - cards >= 2)
+        assertEquals("the burst's ask of the bike's data and nothing else", 1, fake.countOf(0x0A, 0x02))
     }
 
     // ── on: what changes goes, once ─────────────────────────────────────────

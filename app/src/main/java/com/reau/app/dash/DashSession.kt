@@ -87,10 +87,12 @@ class DashSession(
         val watchdogTickMs: Long = WATCHDOG_TICK_MS,
         /** The video failing at every send for longer than this is a loss of the link ([RtpStall]). */
         val rtpStallMs: Long = RtpStall.LIMIT_MS,
+        /** With "send only what changed" on, how long a command that did not change is held as sent before it goes again ([SendOnChange.refreshMs]). */
+        val reaffirmMs: Long = SendOnChange.REFRESH_MS,
     )
 
     /** What the dash was told in this session and has not forgotten: the commands go only when it changes ([SendOnChange]); everything with the switch off. */
-    internal val change = SendOnChange()
+    internal val change = SendOnChange(refreshMs = timing.reaffirmMs)
 
     /** What this session and the dash exchanged. */
     val stats = DashStats(onFirst = { com.reau.app.data.RideDiagnostics.log("dash", it) })

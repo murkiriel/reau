@@ -5725,11 +5725,11 @@ MUTATIONS += [
 # 28/11/2026: "Mandar ao painel só o que mudou" (SendOnChange): só o vídeo é periódico; o resto vai na mudança e de novo a cada enlace.
 MUTATIONS += [
     ('SendOnChange: o mesmo conteúdo vai de novo', MAIN + "dash/SendOnChange.kt",
-     'before == null || !before.contentEquals(content)', 'true', ['SendOnChangeTest', 'DashSessionSendOnChangeTest']),
+     '!before.content.contentEquals(content) || due(before)', 'true', ['SendOnChangeTest', 'DashSessionSendOnChangeTest']),
     ('SendOnChange: o conteúdo que mudou não vai', MAIN + "dash/SendOnChange.kt",
-     'before == null || !before.contentEquals(content)', 'before == null', ['SendOnChangeTest']),
+     '!before.content.contentEquals(content) || due(before)', 'due(before)', ['SendOnChangeTest']),
     ('SendOnChange: desligado, o que foi mandado fica guardado', MAIN + "dash/SendOnChange.kt",
-     'if (enabled) last[key] = content.copyOf()', 'last[key] = content.copyOf()', ['SendOnChangeTest']),
+     'if (enabled) last[key] = Held(content.copyOf(), nowMs())', 'last[key] = Held(content.copyOf(), nowMs())', ['SendOnChangeTest']),
     ('SendOnChange: desligado, não manda', MAIN + "dash/SendOnChange.kt",
      'if (!enabled) return true', 'if (!enabled) return false', ['SendOnChangeTest']),
     ('SendOnChange: o envio que falhou fica como mandado', MAIN + "dash/SendOnChange.kt",
@@ -5741,7 +5741,7 @@ MUTATIONS += [
     ('SendOnChange: o reset não esquece nada', MAIN + "dash/SendOnChange.kt",
      'fun reset() = synchronized(lock) { last.clear() }', 'fun reset() = synchronized(lock) { }', ['SendOnChangeTest']),
     ('SendOnChange: esquecer uma chave esquece todas', MAIN + "dash/SendOnChange.kt",
-     'fun forget(key: String) = synchronized(lock) { last.remove(key) }', 'fun forget(key: String) = synchronized(lock) { last.clear() }', ['SendOnChangeTest']),
+     '        synchronized(lock) { last.remove(key) }', '        synchronized(lock) { last.clear() }', ['SendOnChangeTest']),
     ('SendOnChange: o envio nunca diz que tentou', MAIN + "dash/SendOnChange.kt",
      '        if (send()) sent(key, content)\n        return true', '        if (send()) sent(key, content)\n        return false', ['SendOnChangeTest']),
     ('SendOnChange: o relógio do painel vale com os segundos', MAIN + "dash/protocol/DashCommands.kt",
@@ -5826,8 +5826,22 @@ MUTATIONS += [
      'Vem ligado, mas é um teste e pode sair numa próxima versão.</string>\n    <string name="action_view_logs">', 'Vem ligado.</string>\n    <string name="action_view_logs">', ['ExperimentalMarkTest']),
 ]
 
-# 28/11/2026, revisão da 0.3.100: o seq do comando tomado depois da espera do espaçador.
+# 28/11/2026, revisão da 0.3.100: o reforço lento do "só o que mudou" (o que não mudou vai de novo a cada 30 s) e o seq do comando tomado depois da espera do espaçador.
 MUTATIONS += [
+    ("SendOnChange 30 s: o valor que não mudou nunca vai de novo", MAIN + "dash/SendOnChange.kt",
+     "!before.content.contentEquals(content) || due(before)", "!before.content.contentEquals(content)", ["SendOnChangeTest", "DashSessionSendOnChangeTest"]),
+    ("SendOnChange 30 s: o reforço vai um milissegundo depois", MAIN + "dash/SendOnChange.kt",
+     "nowMs() - held.atMs >= refreshMs", "nowMs() - held.atMs > refreshMs", ["SendOnChangeTest"]),
+    ("SendOnChange 30 s: o reforço desligado (0) manda a cada pedido", MAIN + "dash/SendOnChange.kt",
+     "refreshMs > 0L && nowMs() - held.atMs", "nowMs() - held.atMs", ["SendOnChangeTest"]),
+    ("SendOnChange 30 s: a hora do envio não é guardada", MAIN + "dash/SendOnChange.kt",
+     "last[key] = Held(content.copyOf(), nowMs())", "last[key] = Held(content.copyOf(), 0L)", ["SendOnChangeTest"]),
+    ("SendOnChange 30 s: o reforço vira 1 s", MAIN + "dash/SendOnChange.kt",
+     "const val REFRESH_MS = 30_000L", "const val REFRESH_MS = 1_000L", ["SendOnChangeTest", "DashSessionSendOnChangeTest"]),
+    ("SendOnChange 30 s: a sessão não passa o seu tempo de reforço", MAIN + "dash/DashSession.kt",
+     "internal val change = SendOnChange(refreshMs = timing.reaffirmMs)", "internal val change = SendOnChange()", ["DashSessionSendOnChangeTest"]),
+    ("SendOnChange 30 s: o padrão da sessão é sem reforço", MAIN + "dash/DashSession.kt",
+     "val reaffirmMs: Long = SendOnChange.REFRESH_MS,", "val reaffirmMs: Long = 0L,", ["SendOnChangeTest"]),
     ("Espaçamento e seq: o seq do comando é tomado antes da espera", MAIN + "dash/DashSocket.kt",
      "        pacer.pace()\n        val pkt = K1GPacket.patchSeq(data, seq.getAndIncrement())\n",
      "        val pkt = K1GPacket.patchSeq(data, seq.getAndIncrement())\n        pacer.pace()\n", ["DashSocketPacingTest"]),
