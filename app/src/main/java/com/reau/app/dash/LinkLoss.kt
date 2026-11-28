@@ -118,6 +118,9 @@ internal object DashHeard {
     /** What the session sent in its last seconds ([SendTail]), written next to the trail when the Wi-Fi is lost. */
     @Volatile var tail: SendTail? = null
 
+    /** The session's [BlackBox], where the phone's Wi-Fi events ([com.reau.app.service.SystemEvents]) are kept next to the datagrams; null before the first session. */
+    @Volatile var box: BlackBox? = null
+
     @Volatile var atMs = 0L
         private set
 

@@ -15,6 +15,7 @@ import android.net.wifi.WifiManager
 import android.os.BatteryManager
 import android.os.Bundle
 import android.os.PowerManager
+import android.os.SystemClock
 import android.provider.Settings
 import androidx.core.content.ContextCompat
 import com.reau.app.aa.UsbSessionEnd
@@ -65,6 +66,7 @@ object SystemEvents {
         val battery = LowBattery()
         val supplicant = WifiEvents.Supplicant()
         val networkState = WifiEvents.NetworkState()
+        val joinTiming = WifiEvents.JoinTiming()
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(c: Context, intent: Intent) {
                 val dozing = runCatching { power.isDeviceIdleMode }.getOrNull()
@@ -83,7 +85,7 @@ object SystemEvents {
                         // The projection that runs (if any) is told: with the radio on again, the dash is tried at once.
                         WifiRadio.heard(WifiRadio.of(radio))
                     }
-                    WifiManager.SUPPLICANT_STATE_CHANGED_ACTION -> supplicantLine(intent, supplicant)?.let(::log)
+                    WifiManager.SUPPLICANT_STATE_CHANGED_ACTION -> supplicantLine(intent, supplicant, joinTiming)?.let(::log)
                     WifiManager.NETWORK_STATE_CHANGED_ACTION -> networkStateLine(intent, networkState)?.let(::log)
                     USB_STATE -> log(usbLine(intent.extras?.keySet().orEmpty().associateWith { intent.extras?.getBoolean(it) == true }))
                     else -> {
@@ -203,12 +205,15 @@ object SystemEvents {
 
     /** The supplicant's new state and its error, from the broadcast; the SSID and BSSID that come with it are not read. */
     @Suppress("DEPRECATION") // the broadcast is the only way to hear the supplicant's states without the location permission
-    private fun supplicantLine(intent: Intent, supplicant: WifiEvents.Supplicant): String? {
+    private fun supplicantLine(intent: Intent, supplicant: WifiEvents.Supplicant, join: WifiEvents.JoinTiming): String? {
         val state = androidx.core.content.IntentCompat.getParcelableExtra(
             intent, WifiManager.EXTRA_NEW_STATE, android.net.wifi.SupplicantState::class.java,
         )
         if (WifiEvents.leavesANetwork(state?.name)) PhoneLeftNetwork.shared.left()
-        return supplicant.line(state?.name, intent.getIntExtra(WifiManager.EXTRA_SUPPLICANT_ERROR, 0))
+        val error = intent.getIntExtra(WifiManager.EXTRA_SUPPLICANT_ERROR, 0)
+        // How long each step of a join took, written once when the join ends (the flight recorder's tag, to read next to what came before a silence).
+        join.state(state?.name, error, SystemClock.elapsedRealtime())?.let { RideDiagnostics.log(com.reau.app.dash.BlackBoxReport.TAG, it) }
+        return supplicant.line(state?.name, error)
     }
 
     /** The network state's new detailed state, from the broadcast; the network info's text (it carries the name) is never written. */
@@ -246,8 +251,11 @@ object SystemEvents {
     /** The bike's network, held by REau, came or went. */
     fun bikeNetwork(available: Boolean): String = "bike network " + if (available) "available" else "lost"
 
-    /** Writes [line] under the `system` tag. */
-    fun log(line: String) = RideDiagnostics.log(TAG, line)
+    /** Writes [line] under the `system` tag, and keeps it in the flight recorder of the dash link ([com.reau.app.dash.BlackBox]) with the clock in microseconds. */
+    fun log(line: String) {
+        com.reau.app.dash.DashHeard.box?.event(line)
+        RideDiagnostics.log(TAG, line)
+    }
 
     private fun onOff(b: Boolean?) = when (b) { true -> "on"; false -> "off"; null -> "?" }
 

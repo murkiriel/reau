@@ -503,7 +503,7 @@ class DashWifiManager(
     private fun screenWords(): String = screenWordsOf(context)
 
     /** Log only: what the last Wi-Fi scan says of the dash, and how old that sighting is. */
-    private fun lastScanEvidence(): String = scan.evidence(pendingSsid, pendingPrefix, network)
+    private fun lastScanEvidence(): String = scan.evidence(pendingSsid, pendingPrefix, network).also { DashHeard.box?.event(it) }
 
     /** How long the request about to go out waits: more for a network the rider has not approved yet (DashJoin). */
     private fun chooseTimeout(): Int {

@@ -88,6 +88,7 @@ class DashSession(
     val stats = DashStats(onFirst = { com.reau.app.data.RideDiagnostics.log("dash", it) })
     private var statsJob: Job? = null
     @Volatile private var trailLoggedMs = Long.MIN_VALUE / 2
+    @Volatile private var blackBoxLoggedMs = Long.MIN_VALUE / 2
     @Volatile private var statsWindowStartMs = 0L
 
     private val _state = MutableStateFlow(DashState.IDLE)
@@ -1036,6 +1037,8 @@ class DashSession(
                 socketsOpenedMs = MonotonicClock.nowMs()
                 DashHeard.trail = stats.trail
                 DashHeard.tail = stats.sendTail
+                stats.blackBox.clear()
+                DashHeard.box = stats.blackBox
                 onBindResult?.invoke(network, false)
                 linkNetwork = network
                 linkHistory.clear()
@@ -1302,7 +1305,7 @@ class DashSession(
         val tlvs = parsed.tlvs
         if (parsed.cutShort) sock.stats?.malformed()
         // Read once, counted from the same list (the socket's stats read the packet a second time).
-        sock.stats?.received(tlvs, MonotonicClock.nowMs())
+        sock.stats?.received(tlvs, MonotonicClock.nowMs(), pkt.size)
         // No packet bytes to logcat (the detailed log's DashDump shows them, behind its switch).
         for (tlv in tlvs) {
             if (firstHeartbeat < 0 && tlv.type == 0x01 && tlv.sub == 0x01) noteHeartbeat(tlv.value)
@@ -1453,6 +1456,8 @@ class DashSession(
                     Log.w(TAG, "RX watchdog: no dash packets for ${silent}s — link lost")
                     com.reau.app.data.RideDiagnostics.error("error", "RX watchdog: dash silent ${silent}s → link lost")
                     logLinkAtFailure()
+                    logBlackBox("the RX watchdog fired", silent)
+                    probePanel(silent)
                     com.reau.app.data.ProjectionSummary.current.watchdog("dash-rx")
                     noteSilentEnd(silent, dashSpoke = true, mine)
                     fail("Dash stopped responding — connection lost", mine)
@@ -1555,6 +1560,35 @@ class DashSession(
         stats.trail.report(why, now).forEach { com.reau.app.data.RideDiagnostics.log("link", it) }
         val open = socketsOpenedMs.takeIf { it > 0L }?.let { "session open for ${(now - it) / MS_PER_SECOND} s" }
         stats.sendTail.reportOnce(why, open)?.let { com.reau.app.data.RideDiagnostics.log("link", it) }
+    }
+
+    /**
+     * The flight recorder ([BlackBox]) in the ride log, once for a silence (the watchdog writes it, then [fail] would again): the datagrams of the last seconds with the
+     * phone's clock in microseconds, and the summary of their peaks ([BlackBoxReport]). [silentS] is how long the dash has been silent, when known.
+     */
+    private fun logBlackBox(why: String, silentS: Long?) {
+        val now = MonotonicClock.nowMs()
+        if (now - blackBoxLoggedMs < BLACKBOX_ONCE_MS) return
+        blackBoxLoggedMs = now
+        val box = stats.blackBox
+        val lines = BlackBoxReport.lines(why + (silentS?.let { " (dash silent $it s)" } ?: ""), box.snapshot(), box.nowUs())
+        lines.forEach { com.reau.app.data.RideDiagnostics.log(BlackBoxReport.TAG, it) }
+    }
+
+    /**
+     * One probe of the dash's IP stack through the phone's network to it, when the watchdog fires and that network is still up ([PanelProbe]): on a background thread, its
+     * answer written to the ride log. It does not hold the reconnection: [fail] goes on at once.
+     */
+    private fun probePanel(silentS: Long) {
+        val network = linkNetwork
+        if (network == null || !networkUp(network)) {
+            if (network != null) com.reau.app.data.RideDiagnostics.log(BlackBoxReport.TAG, PanelProbe.skippedLine(silentS))
+            return
+        }
+        scope.launch(Dispatchers.IO) {
+            val result = PanelProbe.probe(network)
+            com.reau.app.data.RideDiagnostics.log(BlackBoxReport.TAG, PanelProbe.line(result, silentS))
+        }
     }
 
     /** One dash-stats line every [statsEveryMs] while the session lives. */
@@ -1690,6 +1724,8 @@ class DashSession(
         Log.e(TAG, "ERROR — $msg")
         ImageGap.clock.lost(MonotonicClock.nowMs(), DashHeard.agoMs(MonotonicClock.nowMs()))
         logTrail("the session failed")
+        // A session that ends with the dash silent (noted just before: [noteSilentEnd]) writes the flight recorder too, once (the RX watchdog already did).
+        if (silentEndOf == generation) logBlackBox("the session failed with the dash silent", null)
         com.reau.app.data.RideDiagnostics.error("error", "session fail: $msg")
         // Any end that is not a silent one (noted just before it) is the end of a run of silent sessions.
         if (silentEndOf != generation) silentDash.reset()
@@ -1904,6 +1940,9 @@ class DashSession(
         private const val MS_PER_SECOND = 1_000L
         /** A watchdog's failure and the [fail] that follows it are one event: the packet trail is written once for both. */
         private const val TRAIL_ONCE_MS = 2_000L
+
+        /** The same for the flight recorder's lines ([BlackBoxReport]): the watchdog's and the failure's that follows it are one silence. */
+        private const val BLACKBOX_ONCE_MS = 5_000L
         /** The bike's data is asked for again every 15 minutes while connected: 900 ticks of the 1 Hz heartbeat. */
         const val DATA_REFRESH_TICKS = 900
 

@@ -36,6 +36,9 @@ class DashStats(private val onFirst: (String) -> Unit = {}) {
     /** The last seconds of what REau sent (RTP per second, the biggest burst, the last keyframe and command), for the line written when the dash goes quiet. */
     val sendTail = SendTail()
 
+    /** The last datagrams in both directions with the phone's clock in microseconds, kept always, for the lines written when the dash goes silent ([BlackBoxReport]). */
+    val blackBox = BlackBox()
+
     private val lock = Any()
     private var window = Counts()
     private val total = Counts()
@@ -67,8 +70,9 @@ class DashStats(private val onFirst: (String) -> Unit = {}) {
     /** One heartbeat sent (status or projection). */
     fun heartbeat() = both { heartbeats++ }
 
-    /** A packet from the dash, at [nowMs], as [K1GPacket.parseIncoming] read it (once, for the session too). */
-    fun received(tlvs: List<Tlv>, nowMs: Long) {
+    /** A packet from the dash of [size] bytes, at [nowMs], as [K1GPacket.parseIncoming] read it (once, for the session too). */
+    fun received(tlvs: List<Tlv>, nowMs: Long, size: Int = 0) {
+        blackBox.rx(size, tlvs)
         val news = ArrayList<String>()
         synchronized(lock) {
             lastRxMs = nowMs

@@ -167,13 +167,16 @@ class DashSocket(
         val pkt = K1GPacket.patchSeq(data, seq.getAndIncrement())
         // UDP fire-and-forget: a dropped/unreachable link (ENETUNREACH, EBADF) must never
         // crash the app — the session will fail and reconnect.
-        return try {
+        val sent = try {
             txSocket.send(DatagramPacket(pkt, pkt.size, ctrlDest.address, ctrlDest.port))
-            pkt
+            true
         } catch (e: Exception) {
             sendFailed(e)
-            null
+            false
         }
+        if (!sent) return null
+        stats?.blackBox?.command(pkt) // the flight recorder, after the send and outside its try: a note must never be taken for a failed send
+        return pkt
     }
 
     /** True when this call of a suppressed link is not the probe and is not sent; the counters move together, under the lock. */
@@ -258,7 +261,10 @@ class DashSocket(
             if (rtpProbeCounter % PROBE_EVERY != 0) { rtpSuppressedTotal++; return }
         }
         try {
+            val box = stats?.blackBox
+            val startUs = box?.nowUs() ?: 0L
             rtpSocket.send(DatagramPacket(data, data.size, rtpDest.address, rtpDest.port))
+            box?.rtp(data, startUs)
             stats?.sendTail?.rtp(data.size)
             rtpStall.sent()
             if (rtpFailStreak > 0) {

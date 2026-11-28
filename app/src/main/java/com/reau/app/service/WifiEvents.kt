@@ -40,6 +40,61 @@ internal object WifiEvents {
         }
     }
 
+    /**
+     * How long the phone's own Wi-Fi took to join a network, from the supplicant's states: the time between ASSOCIATING, ASSOCIATED, FOUR_WAY_HANDSHAKE and where it ended
+     * (COMPLETED, or DISCONNECTED with the broadcast's error, or any other state that is not a join step), as one line when the join ends. The times are those of the
+     * broadcasts' arrival at the app (the supplicant's own are in `wpa_supplicant`'s log, which only adb reads); the network's name is not in the broadcast and not read, so
+     * a join of another network is told too, which the line cannot tell from the dash's. Read for the flight recorder's `[blackbox]` lines, after a silence, to see which step of
+     * the reconnection is slow or fails.
+     */
+    class JoinTiming {
+        private var startMs = NONE
+        private var lastMs = NONE
+        private var lastState: String? = null
+        private val steps = ArrayList<String>()
+        private var error = 0
+
+        @Synchronized
+        fun state(state: String?, error: Int, nowMs: Long): String? {
+            val name = state ?: "?"
+            if (name in JOINING) {
+                step(name, error, nowMs)
+                return null
+            }
+            return if (startMs == NONE) null else end(name, error, nowMs)
+        }
+
+        private fun step(name: String, error: Int, nowMs: Long) {
+            if (startMs == NONE) {
+                startMs = nowMs
+                lastMs = nowMs
+                steps += name
+            } else if (name != lastState) {
+                steps += "$name +${nowMs - lastMs} ms"
+                lastMs = nowMs
+            }
+            lastState = name
+            if (error != 0) this.error = error
+        }
+
+        private fun end(name: String, error: Int, nowMs: Long): String {
+            val code = if (error != 0) error else this.error
+            val line = "wifi join ended in $name after ${nowMs - startMs} ms: ${steps.joinToString(", ")}, $name +${nowMs - lastMs} ms" +
+                (if (code == ERROR_AUTHENTICATING) ", error: authentication failed" else if (code != 0) ", error $code" else "")
+            startMs = NONE
+            lastMs = NONE
+            lastState = null
+            steps.clear()
+            this.error = 0
+            return line
+        }
+
+        private companion object {
+            const val NONE = Long.MIN_VALUE
+            val JOINING = setOf("AUTHENTICATING", "ASSOCIATING", "ASSOCIATED", "FOUR_WAY_HANDSHAKE", "GROUP_HANDSHAKE")
+        }
+    }
+
     /** The network state's changes ([android.net.NetworkInfo.DetailedState] names, such as CONNECTED or DISCONNECTED), once for each change. */
     class NetworkState {
         private var last: String? = null
