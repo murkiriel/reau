@@ -5624,7 +5624,8 @@ MUTATIONS += [
     ("plano35/S Espaçamento: o título do ajuste em inglês perde o (experimental)", "app/src/main/res/values/strings.xml",
      "Space out the packets to the dash (experimental)</string>", "Space out the packets to the dash</string>", ["ExperimentalMarkTest", "PacePacketsSettingTest"]),
     ("plano35/S Espaçamento: o texto longo em espanhol perde a frase de que é uma prueba", "app/src/main/res/values-es/strings.xml",
-     "Viene activado, pero es una prueba y puede salir en una próxima versión.</string>", "Viene activado.</string>", ["ExperimentalMarkTest"]),
+     "respuesta a un botón, y vale desde la próxima proyección. Viene activado, pero es una prueba y puede salir en una próxima versión.</string>",
+     "respuesta a un botón, y vale desde la próxima proyección. Viene activado.</string>", ["ExperimentalMarkTest"]),
 ]
 
 
