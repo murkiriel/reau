@@ -85,7 +85,7 @@ class EncoderLadderTest {
         val encoder = File("src/main/java/com/reau/app/dash/video/DashEncoder.kt").readText()
         assertFalse(encoder.contains("ColorMatrix") || encoder.contains("VendorLowLatency") || encoder.contains("vendor.qti") || encoder.contains("KEY_COLOR_STANDARD"))
         assertTrue(encoder.contains("internal class FormatSpec(val lowLatency: Boolean, val bitrateMode: Int?)"))
-        assertTrue(encoder.contains("Ask(fpsHint, bitrateBps, iFrameIntervalSec, frame)"))
+        assertTrue(encoder.contains("Ask(fpsHint, keyframeCap.effective(bitrateBps), iFrameIntervalSec, frame)"))
         assertFalse(File("src/main/java/com/reau/app/util/CodecReport.kt").readText().contains("vendor.qti"))
         assertFalse(File("src/main/java/com/reau/app/dash/video/EncoderReport.kt").readText().contains("colour"))
     }

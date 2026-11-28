@@ -41,9 +41,10 @@ class ExperimentalMarkTest {
             .filter { ExperimentalMark.marks(text(it)) }
             .toSet()
         // The experimental switches are gone (20/11/2026) and "Anunciar como moto" is a plain setting: no row is red today, except the one of the 0.3.97 test build
-        // (the pilots' "Modo de bloqueio do REau (teste)") and, from the 0.3.100 test build, "Espaçar os pacotes para o painel (experimental)" (the 0.4.0's, not yet proved on the bike).
-        assertEquals(setOf("lock_mode_title", "pace_packets_title"), marked)
+        // (the pilots' "Modo de bloqueio do REau (teste)") and, from the 0.3.100 test build, "Espaçar os pacotes para o painel (experimental)" (the 0.4.0's, not yet proved on the bike) and "Teto do quadro-chave para o painel (experimental)".
+        assertEquals(setOf("lock_mode_title", "pace_packets_title", "keyframe_cap_title"), marked)
         assertTrue(text("pace_packets_title").endsWith("(experimental)"))
+        assertTrue(text("keyframe_cap_title").endsWith("(experimental)"))
         assertFalse("the motorcycle row is a normal one", ExperimentalMark.marks(text("announce_motorcycle_title"), text("announce_motorcycle_sub")))
         // A row becomes red again only by saying so in its own text (a new experiment); the ring's line does not.
         assertFalse(ExperimentalMark.marks(text("ring_title"), text("ring_sub")))
@@ -51,18 +52,20 @@ class ExperimentalMarkTest {
     }
 
     @Test
-    fun `the long text of the packet spacing says in each language that it is a test that may go in a later version`() {
+    fun `the long text of the packet spacing and of the keyframe cap says in each language that it is a test that may go in a later version`() {
         // The (i) of an experimental row tells the rider what "experimental" means; the length is InfoTextsTest's rule (3 sentences, 100 words).
         val said = mapOf(
             "values" to "is a test and may be removed in a later version", "values-pt" to "é um teste e pode sair numa próxima versão",
             "values-es" to "es una prueba y puede salir en una próxima versión",
         )
-        for ((folder, phrase) in said) {
-            val xml = File("src/main/res/$folder/strings.xml").readText()
-            val long = Regex("""<string name="pace_packets">(.*?)</string>""").find(xml)!!.groupValues[1]
-            assertTrue("$folder: $long", phrase in long)
-            val title = Regex("""<string name="pace_packets_title">(.*?)</string>""").find(xml)!!.groupValues[1]
-            assertTrue("$folder: $title", ExperimentalMark.marks(title))
+        for (name in listOf("pace_packets", "keyframe_cap")) {
+            for ((folder, phrase) in said) {
+                val xml = File("src/main/res/$folder/strings.xml").readText()
+                val long = Regex("""<string name="$name">(.*?)</string>""").find(xml)!!.groupValues[1]
+                assertTrue("$folder $name: $long", phrase in long)
+                val title = Regex("""<string name="${name}_title">(.*?)</string>""").find(xml)!!.groupValues[1]
+                assertTrue("$folder $name: $title", ExperimentalMark.marks(title))
+            }
         }
     }
 

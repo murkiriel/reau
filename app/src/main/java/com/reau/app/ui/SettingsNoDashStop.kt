@@ -22,6 +22,14 @@ internal fun NoDashStop(s: REauSettings, change: (REauSettings) -> Unit) {
     )
 }
 
+/** The keyframe held near 48 kB by regulating the bitrate; on by default, read when the stream's encoder is built, so it counts from the next stream (no "now" chip). */
+@Composable
+internal fun KeyframeCapSwitch(s: REauSettings, change: (REauSettings) -> Unit) {
+    SettingSwitch(R.string.keyframe_cap_title, R.string.keyframe_cap_sub, R.string.keyframe_cap, s.keyframeCap, "keyframe_cap") {
+        change(s.copy(keyframeCap = it))
+    }
+}
+
 /** 2 ms between any two packets to the dash (video and commands); on by default, read when the sockets open, so it counts from the next projection (no "now" chip). */
 @Composable
 internal fun PacePackets(s: REauSettings, change: (REauSettings) -> Unit) {

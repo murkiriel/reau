@@ -5,6 +5,7 @@ import com.reau.app.data.RideDiagnostics
 import com.reau.app.dash.BitrateMode
 import com.reau.app.dash.DashConfig
 import com.reau.app.dash.video.DashEncoder
+import com.reau.app.dash.video.KeyframeCap
 import com.reau.app.settings.REauSettings
 import com.reau.app.util.CodecErrors
 import com.reau.app.util.StageStats
@@ -99,6 +100,8 @@ internal class VideoLoop(
         val lightScreenFps: Int = 0,
         /** The size the encoder is built for ([com.reau.app.settings.REauSettings.frameSize]): fixed for the whole stream, so another size is another stream. */
         val frame: DashConfig.FrameSize = DashConfig.FULL_FRAME,
+        /** The regulator of the keyframe's size ([KeyframeCap], [REauSettings.keyframeCap]): off, the encoder gets exactly the bitrate it is asked for. */
+        val keyframeCap: Boolean = true,
     ) {
         /**
          * These settings with what the rider's own settings decide of the stream: the rate ceiling and clock, the bitrate, its mode and keyframe
@@ -112,6 +115,7 @@ internal class VideoLoop(
             keyframeSec = rider.keyframeSec,
             lightScreenFps = REauSettings.lightScreenFps(rider.videoPace),
             frame = rider.frameSize,
+            keyframeCap = rider.keyframeCap,
         )
 
         /**
@@ -134,6 +138,9 @@ internal class VideoLoop(
     private var lastThermal = 0
     private var lastWithheldAskMs: Long? = null
 
+    // One regulator for the whole stream, shared by every encoder it builds (a rebuilt one goes on from the factor the first learned); made by [start] from the setting.
+    private var keyframeCap = KeyframeCap(enabled = false)
+
     // Set by [start] for the encoder it builds, taken by [buildEncoder]: the rebuilt ones do not tell the ride log what the phone offers again.
     private var reportCodecsOfNextEncoder = false
 
@@ -146,6 +153,7 @@ internal class VideoLoop(
     @Synchronized
     fun start(): Boolean {
         if (governor != null) return true
+        keyframeCap = KeyframeCap(settings.keyframeCap)
         val status = thermalStatus()
         lastThermal = status
         val ceiling = ThermalCeiling.capFor(status, settings.ceilingFps)
@@ -303,6 +311,7 @@ internal class VideoLoop(
                         encode = timed?.latency ?: StageStats.EMPTY,
                         fpsTest = testRate,
                         fpsTestAsked = asked,
+                        keyframeCapFactor = keyframeCap.takeIf { it.enabled }?.factor,
                     ),
                 ),
             )
@@ -381,7 +390,7 @@ internal class VideoLoop(
     /** An encoder whose output thread hands every buffer to [out]; [encoderKeyframeSec] is its own keyframe interval (the rider's, or longer: [DashLogic.encoderKeyframeSec]). */
     private fun buildEncoder(out: RtpOutput, fps: Int, bitrateBps: Int, encoderKeyframeSec: Int): DashEncoder? {
         lateinit var created: DashEncoder
-        created = DashEncoder(settings.frame) { data, isKey, ptsMs -> out.onEncoded(created, data, isKey, ptsMs) }
+        created = DashEncoder(settings.frame, keyframeCap) { data, isKey, ptsMs -> out.onEncoded(created, data, isKey, ptsMs) }
         // What the phone offers and what the codec accepted go to the ride log once for a stream: the first encoder tells it, a rebuilt one does not.
         created.reportCodecs = reportCodecsOfNextEncoder
         reportCodecsOfNextEncoder = false

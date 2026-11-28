@@ -291,6 +291,9 @@
     <string name="pace_packets_title">Espaciar los paquetes al tablero (experimental)</string>
     <string name="pace_packets_sub">Al menos 2 ms entre dos paquetes cualesquiera, video y comandos</string>
     <string name="pace_packets">REau deja al menos 2 ms entre dos paquetes cualesquiera que envía al tablero, los del video y los de los comandos juntos, en vez de una ráfaga pegada; algunos tableros se reinician un minuto después de que empieza la transmisión, y las apps que se mantienen estables espacian los paquetes igual. Esto suma unos milisegundos a un cuadro clave y a la respuesta a un botón, y vale desde la próxima proyección. Viene activado, pero es una prueba y puede salir en una próxima versión.</string>
+    <string name="keyframe_cap_title">Tope del cuadro clave para el tablero (experimental)</string>
+    <string name="keyframe_cap_sub">Baja el bitrate cuando un cuadro clave pasa de 48 kB</string>
+    <string name="keyframe_cap">El tablero decodifica el video por software en un procesador débil, y un cuadro clave grande es el pico de trabajo y de tráfico que puede trabar su red. Cuando un cuadro clave pasa de 48 kB, REau baja el bitrate que pide al codificador para que los siguientes salgan más chicos, y lo devuelve poco a poco cuando vuelven a quedar por debajo; en un teléfono cuyos cuadros clave ya quedan por debajo de eso no cambia nada, y vale desde la próxima proyección. Viene activado, pero es una prueba y puede salir en una próxima versión.</string>
     <string name="action_view_logs">Ver el registro</string>
     <string name="log_viewer_title">Registro</string>
     <string name="log_viewer_none">Aún no hay registros.</string>

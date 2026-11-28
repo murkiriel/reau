@@ -76,6 +76,8 @@ internal class StreamGovernor(
          */
         val fpsTest: Int? = null,
         val fpsTestAsked: Int? = null,
+        /** The factor the keyframe's size regulator ([com.reau.app.dash.video.KeyframeCap]) holds the bitrate at, for `idrcap=` at the end of the window's line; null with it off (no field). */
+        val keyframeCapFactor: Double? = null,
     )
 
     /**
@@ -519,7 +521,8 @@ internal class StreamGovernor(
             w.source, w.drawn, w.repeated, perFrame(w.composeNs, w.drawn + w.repeated), perFrame(w.encodeNs, w.frames), w.late,
             com.reau.app.video.TickWait.text(w.tickWaits), judged, if (w.thermalOk) "OK" else "HOT", w.link.text(), keyframeSec,
             w.keyframes, w.keyBytesMax, w.keyPacketsMax, syncSummary(), fullFps, windowVerdict(judged, target, sentFps, kbps, w.thermalOk, activeBitrateBps),
-        ) + StageReport.text(w.compose.stats(), w.encode.stats(), w.look.stats(), w.latch.stats(), w.wakeups, elapsedMs)
+        ) + StageReport.text(w.compose.stats(), w.encode.stats(), w.look.stats(), w.latch.stats(), w.wakeups, elapsedMs) +
+            (p.keyframeCapFactor?.let { String.format(Locale.US, " idrcap=%.2f", it) } ?: "")
         // The line is all a window gives: nothing it measured moves the pace or the keyframe interval, so it asks for no new encoder.
         return listOf(Action.Log(line))
     }

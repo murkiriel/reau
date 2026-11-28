@@ -42,8 +42,14 @@ import com.reau.app.util.CodecReport
  * @param onFrame  called on the output thread with (annexBBytes, isKeyFrame, ptsMs) for each output buffer, ptsMs
  *   being the presentation time the frame was posted to [inputSurface] with.
  */
+@Suppress("TooManyFunctions") // the codec's live parameters and its output, one small function each; splitting them would only scatter the same thing
 class DashEncoder(
     private val frame: DashConfig.FrameSize = DashConfig.FULL_FRAME,
+    /**
+     * The regulator of the keyframe's size: each keyframe that comes out is told to it with the bytes that go to the dash, and the bitrate asked of the codec is
+     * what the others asked ([requestBitrate], [prepare]) times its factor. The default is one that is off: the bitrate is exactly what is asked.
+     */
+    private val keyframeCap: KeyframeCap = KeyframeCap(enabled = false),
     private val onFrame: (ByteArray, Boolean, Long) -> Unit,
 ) {
     companion object {
@@ -165,6 +171,12 @@ class DashEncoder(
     private var outputPump: EncoderOutputPump? = null
     private var codecName: String? = null
 
+    /** The bitrate the others want (the profile's, [requestBitrate]); what the codec is asked is this times [KeyframeCap.factor] ([applyBitrate]). */
+    @Volatile private var baseBps = BITRATE
+
+    /** The size of the encoder's last SPS/PPS buffer, which the processor puts before each keyframe (counted in what the dash is sent, [KeyframeCap.sentBytes]). */
+    @Volatile private var parameterSetBytes = 0
+
     /**
      * Whether this encoder tells the ride log what the phone offers and what the codec accepted (`codecs: encoder …`, `encoder accepted: …`,
      * `encoder output format: …`): once for a stream, so the video loop leaves it on for the encoder it starts with and turns it off for the
@@ -209,7 +221,9 @@ class DashEncoder(
         iFrameIntervalSec: Int = 1,
         bitrateMode: BitrateMode? = null,
     ): Boolean {
-        val ask = Ask(fpsHint, bitrateBps, iFrameIntervalSec, frame)
+        baseBps = bitrateBps
+        // A rebuilt encoder goes on from the factor the regulator holds (1.0 for the first one, and always with it off).
+        val ask = Ask(fpsHint, keyframeCap.effective(bitrateBps), iFrameIntervalSec, frame)
         // Every AVC encoder that can take the size and Baseline, hardware first (a software fallback runs the CPU hot, which
         // is exactly what this whole project exists to avoid); the system's own pick is the last try.
         val names: List<String?> = encoderNames() + null
@@ -217,7 +231,8 @@ class DashEncoder(
         for (name in names) {
             val rate = rateMode(bitrateMode) { mode -> modeOffered(name, mode) }
             val detail = "size=${frame.width}x${frame.height} fpsHint=$fpsHint bitrateBps=$bitrateBps profile=baseline " +
-                "iFrameIntervalSec=${iFrameIntervalText(iFrameIntervalSec, fpsHint)} repeatAfterUs=$REPEAT_AFTER_US bitrateMode=${rate.label}"
+                "iFrameIntervalSec=${iFrameIntervalText(iFrameIntervalSec, fpsHint)} repeatAfterUs=$REPEAT_AFTER_US bitrateMode=${rate.label}" +
+                if (keyframeCap.enabled) " asked=${ask.bitrateBps} ${keyframeCap.text()}" else ""
             val started = startNamed(name, rate, detail) { n, spec, d -> startCodec(n, buildFormat(ask, spec), d) }
             started.onSuccess { c ->
                 lastPrepareError = null
@@ -322,8 +337,11 @@ class DashEncoder(
                 if (isFrame) {
                     lastPtsMs = info.presentationTimeUs / 1000
                     pending.emitted(System.nanoTime(), lastPtsMs)
+                } else if ((info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
+                    parameterSetBytes = data.size
                 }
                 onFrame(data, isKeyFrame(info.flags), lastPtsMs)
+                if (isFrame && isKeyFrame(info.flags)) regulateKeyframe(data)
             }
         } finally {
             codec.releaseOutputBuffer(idx, false)
@@ -337,6 +355,29 @@ class DashEncoder(
      * PARAMETER_KEY_VIDEO_BITRATE to the running session; no IDR or reconfigure needed.
      */
     fun requestBitrate(bps: Int) {
+        baseBps = bps
+        applyBitrate()
+    }
+
+    /**
+     * A keyframe went out (its bytes are in [data]): the regulator says whether the bitrate in force must change, and if so it is asked of the codec at once
+     * (the same live parameter as [requestBitrate]; no IDR, no reconfigure) and the change goes to the ride log.
+     */
+    private fun regulateKeyframe(data: ByteArray) {
+        val change = keyframeCap.onKeyframe(KeyframeCap.sentBytes(data, parameterSetBytes)) ?: return
+        val bps = applyBitrate()
+        com.reau.app.data.RideDiagnostics.log("stream", KeyframeCap.changeLine(change, bps))
+    }
+
+    /** Asks the codec for what the others want times the regulator's factor in force; the one place that does, so two threads cannot leave the older value behind. Returns what was asked. */
+    @Synchronized
+    private fun applyBitrate(): Int {
+        val bps = keyframeCap.effective(baseBps)
+        setBitrate(bps)
+        return bps
+    }
+
+    private fun setBitrate(bps: Int) {
         val c = codec ?: return
         runCatching {
             c.setParameters(android.os.Bundle().apply {

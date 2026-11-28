@@ -112,6 +112,12 @@ data class REauSettings(
      */
     val pacePackets: Boolean = true,
     /**
+     * The keyframe's size is held near 48 kB ([com.reau.app.dash.video.KeyframeCap]; the owner's decision of 28/11/2026): the dash decodes H.264 in software on a weak processor and a big keyframe is the
+     * peak of its work and of its traffic. A keyframe already made is never cut; when one goes over the cap, the bitrate the encoder is asked for is scaled down for the next ones and given back
+     * as they stay well under. On by default; off, the encoder gets exactly the bitrate it is asked for, as before. Read when the stream's encoder is built, so a change counts from the next stream.
+     */
+    val keyframeCap: Boolean = true,
+    /**
      * The joystick answers and ends calls; on by default, but it does nothing until the phone permissions are given (they are asked
      * on the permissions page, or when the rider switches it on again after turning it off).
      */

@@ -243,6 +243,8 @@ private fun OnDashGroup(s: REauSettings, change: (REauSettings) -> Unit) {
         { NoDashStop(s, change) },
         // 2 ms between any two packets to the dash (video and commands); read when the session opens its sockets, so it counts from the next projection.
         { PacePackets(s, change) },
+        // The keyframe held near 48 kB by lowering the bitrate; read when the stream's encoder is built, so it counts from the next stream.
+        { KeyframeCapSwitch(s, change) },
         // The notices said in the headset: off by default; read at each phrase, so it counts at once.
         {
             SettingSwitch(R.string.spoken_alerts_title, R.string.spoken_alerts_sub, R.string.spoken_alerts, s.spokenAlerts, "spoken_alerts", now = true) {
