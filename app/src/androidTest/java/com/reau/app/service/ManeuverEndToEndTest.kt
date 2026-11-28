@@ -150,7 +150,8 @@ class ManeuverEndToEndTest {
         val mark = maneuvers().size
         Thread.sleep(3_000)
         val after = maneuvers().drop(mark)
-        assertTrue("route cards still go out", after.isNotEmpty())
+        // The dash holds the last card it got: with "send only what changed" (the default) nothing new may go once the card with no route went.
+        assertEquals("the last card at the dash is the one with no route: ${maneuvers()}", IDLE, maneuvers().lastOrNull())
         assertTrue("the last turn is not left on the dash: $after", after.all { it == IDLE })
     }
 
@@ -180,7 +181,8 @@ class ManeuverEndToEndTest {
         Thread.sleep(3_000)
         val after = maneuvers().drop(mark)
         assertTrue("no nav packet: ${navPackets().size}", navPackets().isEmpty())
-        assertTrue("route cards still go out", after.isNotEmpty())
+        // The dash holds the last card it got (with "send only what changed", the default, an unchanged card does not go again within 30 s).
+        assertEquals("the last card at the dash is the one with no route: ${maneuvers()}", IDLE, maneuvers().lastOrNull())
         assertTrue("only the card with no route: $after", after.all { it == IDLE })
     }
 
@@ -204,7 +206,9 @@ class ManeuverEndToEndTest {
         }
         Thread.sleep(3_000) // and Waze silent for a while
         val after = maneuvers().drop(mark)
-        assertTrue("the ring still goes out: $after", after.size >= 3)
+        // The dash holds the last card it got: the ring stays as long as no card hides it (with "send only what changed", the default, the unchanged card
+        // does not go again within 30 s; with the switch off it goes every second).
+        assertEquals("the ring kept at the dash: ${maneuvers()}", 0x14, maneuvers().lastOrNull())
         assertTrue("never the hidden bubble while guiding: $after", after.none { it == HIDDEN })
         assertTrue("the last turn kept: $after", after.all { it == 0x14 })
     }

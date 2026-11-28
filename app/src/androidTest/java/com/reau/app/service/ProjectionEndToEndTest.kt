@@ -154,10 +154,15 @@ class ProjectionEndToEndTest {
         assertTrue("the first unit is ${first.take(16)}", isKeyframeBundle(first))
         assertTrue(ProjectionService.projection.value.streaming)
 
-        // The session is streaming, not only ready: the projection keep-alive (05 56 55) goes out at 4 Hz then.
+        // The session is streaming, not only ready: the projection flag (05 56 55) goes out. At 4 Hz with the switch "send only what changed" off; with it on
+        // (the default since 0.3.100) it is a latch, said when the projection starts and reaffirmed every 30 s, the video being what keeps it alive.
         Thread.sleep(2_000)
         val keepAlives = dash.receivedSinceHandshake().count { it.type == 0x05 && it.sub == 0x56 && it.value.firstOrNull() == 0x55.toByte() }
-        assertTrue("projection keep-alives: $keepAlives", keepAlives >= 6)
+        if (SettingsStore.open(context).load().sendOnChange) {
+            assertTrue("projection flag said as a latch: $keepAlives", keepAlives in 1..3)
+        } else {
+            assertTrue("projection keep-alives: $keepAlives", keepAlives >= 6)
+        }
     }
 
     /** The fit chosen in the settings is where Android Auto's picture lands on the dash: decoded and checked. */
