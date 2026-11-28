@@ -5,13 +5,13 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.captureToImage
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -42,7 +42,9 @@ private const val FIND_WAIT_MS = 20_000L
  */
 @RunWith(AndroidJUnit4::class)
 class MainActivityTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order = 0) val granted = GrantedBeforeLaunch()
+
+    @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val originalSides = ProjectionService.sidesFactory
@@ -110,7 +112,8 @@ class MainActivityTest {
     fun theScreensFollowTheThemeChosen() {
         fun background(): Int {
             compose.waitForIdle()
-            val shot = compose.onRoot().captureToImage().asAndroidBitmap()
+            // The activity's own window: a popup or a dialog of the screen is a root too ("expected exactly 1 node but found 3").
+            val shot = compose.onAllNodes(isRoot())[0].captureToImage().asAndroidBitmap()
             return shot.getPixel(4, shot.height / 2)
         }
         SettingsStore.open(context).save(PlanSettings.PLAN.copy(mapTheme = com.reau.app.settings.MapTheme.DAY))

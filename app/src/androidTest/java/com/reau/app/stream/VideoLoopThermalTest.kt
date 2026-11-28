@@ -73,14 +73,14 @@ class VideoLoopThermalTest {
     @Test
     fun aCoolPhoneStartsAtTheRidersCeiling() {
         startLoop(VideoLoop.Settings(ceilingFps = 16))
-        awaitLog("start at 16", EVENT_MS) { "video loop start: 16 fps (ceiling 16)" in it }
+        awaitLog("start at 16", EVENT_MS) { "video loop start: 16 fps (ceiling 16," in it }
     }
 
     @Test
     fun aSeverelyHotPhoneStartsUnderTheHotCeiling() {
         status = 3 // SEVERE
         startLoop(VideoLoop.Settings(ceilingFps = 16))
-        awaitLog("start at 10", EVENT_MS) { "video loop start: 10 fps (ceiling 10)" in it }
+        awaitLog("start at 10", EVENT_MS) { "video loop start: 10 fps (ceiling 10," in it }
         awaitLog("the reason in the log", EVENT_MS) { "thermal severe: ceiling 10 of 16" in it }
     }
 

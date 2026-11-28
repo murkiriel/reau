@@ -461,8 +461,11 @@ class ProjectionEndToEndTest {
         SessionSettle.inUseMs = SessionSettle.WAIT_MS
         com.reau.app.data.RideDiagnostics.logAndWait("test", marker)
         try {
-            repeat(4) { i ->
-                store.save(saved.copy(density = saved.density + 10 * (i + 1)))
+            // Only the densities offered are kept (REauSettings.DENSITIES; any other goes back to 180): two of them, not the one saved, in turn.
+            val others = REauSettings.DENSITIES.filter { it != saved.density }
+            val changes = listOf(others[0], others[1], others[0], others[1])
+            for (density in changes) {
+                store.save(saved.copy(density = density))
                 ProjectionService.refit(context)
                 Thread.sleep(200)
             }
@@ -473,7 +476,7 @@ class ProjectionEndToEndTest {
                 .substringAfter(marker)
             val reconfigured = Regex("AaReceiver: new configuration").findAll(log).count()
             assertEquals("one reconfiguration for the four changes:\n$log", 1, reconfigured)
-            assertTrue("with the last density", log.contains("density ${saved.density + 40}"))
+            assertTrue("with the last density", log.contains("density ${changes.last()}"))
         } finally {
             SessionSettle.inUseMs = savedWait
             store.save(saved)
@@ -483,7 +486,8 @@ class ProjectionEndToEndTest {
     @Test
     fun aDensityChangedWhileRunningReachesAndroidAutoAndTheDashStaysConnected() {
         // Every video setting applies while running: the density goes to a new Android Auto session; the dash keeps its connection and its frames meanwhile.
-        val wanted = SettingsStore.open(context).load().density + 40
+        // One of the densities offered (REauSettings.DENSITIES), not the one saved: any other goes back to 180.
+        val wanted = SettingsStore.open(context).load().density.let { saved -> REauSettings.DENSITIES.first { it != saved } }
         withSettings({ it.copy(density = wanted) }) {
             assertNotNull("Android Auto's session was ended with a bye", awaitMessage(androidAuto, Control.ControlMsgType.MESSAGE_BYEBYE_REQUEST_VALUE))
             val from = SystemClock.elapsedRealtime()
@@ -567,7 +571,8 @@ class ProjectionEndToEndTest {
         val arrived = dash.frameArrivals.size
         assertTrue("frames counted ($frames) as the fake dash got them ($arrived)", kotlin.math.abs(frames - arrived) <= 3)
         assertTrue("the phone's battery known: $line", " battery ?" !in line && " thermal max=?" !in line)
-        assertTrue("no mark: $line", line.endsWith(" marks=0"))
+        // The summary goes on after the marks (the unknown buttons and maneuvers, the time with no image): " marks=0 " in it, not at its end.
+        assertTrue("no mark: $line", " marks=0 " in line || line.endsWith(" marks=0"))
     }
 
     /** What the log folder holds and the end of the newest ride file, for a failure's message. */

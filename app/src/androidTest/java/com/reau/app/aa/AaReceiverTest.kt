@@ -755,13 +755,6 @@ class AaReceiverTest {
         }
     }
 
-    @Test
-    fun withTheSwitchOffNothingIsWoken() {
-        RecordingMuteServer(events).use { server ->
-            AaRestartGap.lastEndedAtMs = android.os.SystemClock.elapsedRealtime() - 60_000
-            wakingReceiverOn(server.port, config = config).start()
-            await("two connections", timeoutMs = 30_000) { events.count { it == "accepted" } >= 2 }
-            assertFalse("no wake: $events", events.contains("wake"))
-        }
-    }
+    // "withTheSwitchOffNothingIsWoken" went on 28/11/2026: the switch of the wake went on 20/11/2026 (the wake is always on, ExperimentsGoneTest),
+    // and the test still passed the default configuration, so it asked for a wake that is no longer off. AaWakeTest checks there is no switch.
 }
