@@ -3,6 +3,7 @@ package com.reau.app.service
 import android.content.Context
 import com.reau.app.R
 import com.reau.app.dash.DashReadings
+import com.reau.app.dash.ProtocolText
 import com.reau.app.dash.TitleEntry
 import com.reau.app.dash.TitleSource
 import com.reau.app.util.MonotonicClock
@@ -142,14 +143,16 @@ object InfoRingFeed {
      */
     fun titleSource(context: Context, useLocation: Boolean, options: RingOptions): TitleSource {
         val mono = MonotonicClock.nowMs()
-        val title = titleWords(context)
+        // The title is a text field of the dash, not the video: its fixed words are in English with the app in Hindi ([ProtocolText]).
+        val fieldWords = ProtocolText.context(context)
+        val title = titleWords(fieldWords)
         val pages = InfoRing.titlePages(
             snapshot = WeatherKeeper.snapshot.value,
             wallNowMs = System.currentTimeMillis(),
             monoNowMs = mono,
             place = SunPlace.saved(context, useLocation),
             units = WeatherUnits.of(DashReadings.settings.value),
-            words = words(context),
+            words = words(fieldWords),
             options = options,
             // The battery only, and only when the rider ticked it: the signal and the GPS are not for the title (no GPS is listened to for it).
             phone = PhoneReadings(battery = PhoneReader.battery(context).takeIf { RingData.shown(options.data, RingData.BATTERY) }),

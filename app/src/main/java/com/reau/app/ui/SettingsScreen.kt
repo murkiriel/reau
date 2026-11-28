@@ -98,13 +98,13 @@ fun SettingsScreen(
     }
 }
 
-/** The language of the app: the phone's own, Portuguese, English or Spanish; the screens are redrawn at once. */
+/** The language of the app: the phone's own, Portuguese, English, Spanish or Hindi; the screens are redrawn at once. */
 @Composable
 private fun LanguageGroup(onLanguage: (AppLanguage) -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val names = mapOf(
         AppLanguage.AUTO to R.string.language_auto, AppLanguage.PT to R.string.language_pt, AppLanguage.EN to R.string.language_en,
-        AppLanguage.ES to R.string.language_es,
+        AppLanguage.ES to R.string.language_es, AppLanguage.HI to R.string.language_hi,
     )
     // Held here, not read from the system at each draw: choosing the language the phone already speaks (Portuguese on a
     // Portuguese phone, or back to Automatic from it) changes no configuration, so the system recreates nothing and
@@ -240,6 +240,12 @@ private fun OnDashGroup(s: REauSettings, change: (REauSettings) -> Unit) {
         // The side of the road, for the arrows Android Auto gives no direction or side to (a roundabout without one, a U-turn): automatic or chosen.
         { DrivingSideChoice(s, change) },
         { NoDashStop(s, change) },
+        // The projection comes back by itself when the phone's system ends REau's process (read when the system restarts the service, so it counts at once).
+        { ResumeAfterKill(s, change) },
+        // 2 ms between any two packets to the dash (video and commands); read when the session opens its sockets, so it counts from the next projection.
+        { PacePackets(s, change) },
+        // The video's encoder, an experimental test (26/11/2026): the phone's own or Android's software one; read when the video opens, so it counts from the next stream.
+        { VideoEncoderChoice(s, change) },
         // The notices said in the headset: off by default; read at each phrase, so it counts at once.
         {
             SettingSwitch(R.string.spoken_alerts_title, R.string.spoken_alerts_sub, R.string.spoken_alerts, s.spokenAlerts, "spoken_alerts", now = true) {

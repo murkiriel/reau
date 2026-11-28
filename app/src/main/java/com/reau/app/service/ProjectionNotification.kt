@@ -26,6 +26,7 @@ object ProjectionNotification {
     private const val ID_WIFI_OFF = 5306
     private const val ID_DASH_TAKEN = 5307
     private const val ID_DASH_SILENT = 5308
+    private const val ID_BATTERY_LOW = 5309
     private const val CHANNEL_ID = "reau_projection"
 
     /** The channel of the notices that must be heard with the phone's screen off in a pocket: high importance, sound and vibration. */
@@ -183,6 +184,8 @@ object ProjectionNotification {
      * Told once for an absence of the dash, apart from the ongoing notification: the dash's Wi-Fi is in the air and refuses every join, which
      * only turning the bike's ignition off and on clears (01/11/2026: 3 min 54 s with the picture gone and the rest of the dash working).
      * Sound and vibration, because the phone's screen is off. [clearDashStuck] takes it away when the dash is back.
+     * The words say to turn the ignition off, WAIT ABOUT 20 SECONDS and turn it on (owner's field test of 26/11/2026): a quick off and on leaves the dash on the same
+     * channel, still refusing; the slow one makes it start from zero on another channel, and REau joins it in 1.4 s.
      */
     fun showDashStuck(context: Context) {
         createAlertChannel(context)
@@ -306,9 +309,44 @@ object ProjectionNotification {
      */
     fun showDashSilent(context: Context) = showAlert(context, ID_DASH_SILENT, R.string.notif_title_dash_silent, R.string.notif_text_dash_silent)
 
+    /** The projection is over: the notice of [showBatteryLow] goes. */
+    fun clearBatteryLow(context: Context) {
+        context.getSystemService(NotificationManager::class.java).cancel(ID_BATTERY_LOW)
+    }
+
     /** The dash talks again (or the projection is off): the notice of [showDashSilent] goes. */
     fun clearDashSilent(context: Context) {
         context.getSystemService(NotificationManager::class.java).cancel(ID_DASH_SILENT)
+    }
+
+    /**
+     * Told once per trip when the phone's battery is at [pct] percent with no charger ([BatteryLowWatch]), in the alert channel so it is heard with the
+     * screen off in a pocket (the ride of 25/11/2026 went from 12 % to 4 % in 2 minutes and the phone shut REau down). Nothing is posted when the rider has
+     * the app's notifications off (Android 13 and later: no POST_NOTIFICATIONS); the answer says whether it was posted, for the ride log. It stays while the
+     * projection runs (a resume after a death by the system keeps it, and does not post it again); [clearBatteryLow] takes it away when the projection ends, so a
+     * notice about a ride that is over (and a phone that may be charging by now) is not left in the bar (26/11/2026).
+     */
+    fun showBatteryLow(context: Context, pct: Int): Boolean {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        if (!manager.areNotificationsEnabled()) return false
+        createAlertChannel(context)
+        val open = PendingIntent.getActivity(
+            context, 0, Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE,
+        )
+        val text = context.getString(R.string.notif_text_battery_low, pct)
+        val notification = Notification.Builder(context, ALERT_CHANNEL_ID)
+            .setContentTitle(context.getString(R.string.notif_title_battery_low))
+            .setContentText(text)
+            .setStyle(Notification.BigTextStyle().bigText(text))
+            .setSmallIcon(R.drawable.ic_stat_reau)
+            .setCategory(Notification.CATEGORY_STATUS)
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setColor(ERROR)
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .build()
+        manager.notify(ID_BATTERY_LOW, notification)
+        return true
     }
 
     /** One notice in the alert channel (sound and vibration), in the colour of a warning; its tap opens the app. */

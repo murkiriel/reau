@@ -146,6 +146,48 @@ class RtpOutputTest {
         assertEquals(listOf("start", "rtp", "end", "rtp"), events)
     }
 
+    @Test
+    fun `each frame that goes out is told with its bytes, packets, key flag and the longest gap between its packets, the held ones and the parameter sets are not`() {
+        val told = mutableListOf<List<Any>>()
+        // Each packet reads the clock once: the first two packets of the big keyframe 4 ms apart (the longest gap), the next ones 1 ms after each other.
+        var reads = 0
+        val clock = { (if (reads++ == 0) 1L else 3L + reads) * 1_000_000L }
+        val telling = RtpOutput(
+            onFrame = { size, count, key, gap -> told += listOf(size, count, key, gap) },
+            nanoTime = clock,
+        ) { packets += it }.also { it.switchTo(encoder) }
+        telling.onEncoded(encoder, pFrame(1), isKey = false, ptsMs = 0) // held back
+        telling.onEncoded(encoder, config, isKey = false, ptsMs = 0) // not a frame
+        val big = bytes(0, 0, 0, 1, 0x65) + ByteArray(3_000) { 0x55 }
+        telling.onEncoded(encoder, big, isKey = true, ptsMs = 62)
+        telling.onEncoded(encoder, pFrame(2), isKey = false, ptsMs = 124)
+
+        assertEquals(2, told.size)
+        assertEquals(big.size, told[0][0])
+        assertEquals("the packets of the frame, not of the one after", packets.size - 1, told[0][1])
+        assertTrue(packets.size >= 4)
+        assertEquals(true, told[0][2])
+        assertEquals("the gap is between the packets of one frame, not from the frame before", 4_000_000L, told[0][3])
+        assertEquals("a frame of one packet has no gap", listOf(pFrame(2).size, 1, false, 0L), told[1])
+    }
+
+    @Test
+    fun `the clock of the gaps is read before each packet goes out, so the gap is the one between two sends and the output waits for nothing`() {
+        // 26/11/2026 (it was a source test of FineTailIsWiredTest): each read of the clock counts, and a send says how many reads came before it. A clock read after the
+        // send would say 0, 1, 2... here, and the gap of a packet would be the time of the send before it.
+        var reads = 0
+        val readsAtSend = mutableListOf<Int>()
+        val clock = { ++reads * 1_000_000L }
+        val told = mutableListOf<Long>()
+        val timed = RtpOutput(onFrame = { _, _, _, gap -> told += gap }, nanoTime = clock) { readsAtSend += reads }.also { it.switchTo(encoder) }
+        timed.onEncoded(encoder, config, isKey = false, ptsMs = 0)
+        timed.onEncoded(encoder, bytes(0, 0, 0, 1, 0x65) + ByteArray(3_000) { 0x55 }, isKey = true, ptsMs = 62)
+        assertTrue("a keyframe of 3 000 bytes takes several packets: $readsAtSend", readsAtSend.size >= 3)
+        assertEquals("the n-th packet goes out after n reads", (1..readsAtSend.size).toList(), readsAtSend)
+        assertEquals("each read is a step of the clock, so the longest gap is the step", listOf(1_000_000L), told)
+        assertEquals("the clock was read once for each packet and for nothing else", readsAtSend.size, reads)
+    }
+
     // ── the tap (the recording of what is sent) ────────────────────────────────────────────────────────────
 
     @Test
@@ -243,6 +285,55 @@ class RtpOutputTest {
         assertEquals("the SPS and PPS ride in the keyframe's own unit: its bundle is 3000 + about 20 bytes, three packets", 3, counts.keyPacketsMax)
         val again = output.takeCounts()
         assertEquals(listOf(0, 0, 0), listOf(again.keyframes, again.keyBytesMax, again.keyPacketsMax))
+    }
+
+    // ── the lines of the stream's SPS and shape (26/11/2026) ───────────────────────────────────────────────
+
+    @Test
+    fun `the SPS of the encoder is written once, as it came and as it goes, and again only for an SPS that is another`() {
+        val written = mutableListOf<String>()
+        val logging = RtpOutput(log = { written += it }) { packets += it }.also { it.switchTo(encoder) }
+        logging.onEncoded(encoder, config, isKey = false, ptsMs = 0)
+        logging.onEncoded(encoder, idr, isKey = true, ptsMs = 0)
+        logging.onEncoded(encoder, config, isKey = false, ptsMs = 1_000)
+        logging.onEncoded(encoder, idr, isKey = true, ptsMs = 1_000)
+        assertEquals(listOf("encoder sps: profile=Baseline(66) level=4.1 constraints=0xC0; original=67 42 C0 29 11; sent=67 42 00 29 11"), written)
+
+        val fresh = Any()
+        logging.switchTo(fresh)
+        logging.onEncoded(fresh, bytes(0, 0, 0, 1, 0x67, 0x42, 0x80, 0x1F, 0x22, 0, 0, 0, 1, 0x68, 0x22), isKey = false, ptsMs = 2_000)
+        logging.onEncoded(fresh, idr, isKey = true, ptsMs = 2_000)
+        assertEquals("a rebuilt encoder with another SPS says it", 2, written.size)
+        assertEquals("encoder sps: profile=Baseline(66) level=3.1 constraints=0x80; original=67 42 80 1F 22; sent=67 42 00 29 22", written[1])
+    }
+
+    @Test
+    fun `the shape line counts the frames that went out, the keyframes with their packets and the slices of a buffer`() {
+        val clock = longArrayOf(0)
+        val shaped = RtpOutput(clockMs = { clock[0] }) { packets += it }.also { it.switchTo(encoder) }
+        assertEquals("no frame yet", null, shaped.shapeLine())
+        shaped.onEncoded(encoder, config, isKey = false, ptsMs = 0)
+        shaped.onEncoded(encoder, pFrame(1), isKey = false, ptsMs = 0) // held back: not a frame
+        shaped.onEncoded(encoder, bytes(0, 0, 0, 1, 0x65) + ByteArray(3_000) { 0x55 }, isKey = true, ptsMs = 0)
+        clock[0] = 250
+        shaped.onEncoded(encoder, bytes(0, 0, 0, 1, 0x41, 1, 0, 0, 0, 1, 0x41, 2), isKey = false, ptsMs = 250) // two slices
+        val line = shaped.shapeLine()!!
+        assertTrue(line, line.startsWith("video shape: frames=2 keyframes=1 keybytes avg=3005 max=3005 keypackets avg=3.0 max=3 slices=2 multi=1/2 peak1s="))
+    }
+
+    @Test
+    fun `the shape line comes by itself every 5 minutes of stream, written to the ride log`() {
+        val written = mutableListOf<String>()
+        val clock = longArrayOf(0)
+        val logging = RtpOutput(clockMs = { clock[0] }, log = { written += it }) { packets += it }.also { it.switchTo(encoder) }
+        logging.onEncoded(encoder, config, isKey = false, ptsMs = 0)
+        logging.onEncoded(encoder, idr, isKey = true, ptsMs = 0)
+        clock[0] = 299_999
+        logging.onEncoded(encoder, pFrame(1), isKey = false, ptsMs = 1)
+        assertEquals(listOf(true), written.map { it.startsWith("encoder sps:") })
+        clock[0] = 300_000
+        logging.onEncoded(encoder, pFrame(2), isKey = false, ptsMs = 2)
+        assertTrue(written.toString(), written.size == 2 && written[1].startsWith("video shape: frames=3 keyframes=1 "))
     }
 
     private fun bytes(vararg values: Int) = ByteArray(values.size) { values[it].toByte() }

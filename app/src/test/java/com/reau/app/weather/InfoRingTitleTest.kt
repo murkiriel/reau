@@ -277,7 +277,7 @@ class InfoRingTitleTest {
     }
 
     private fun phone(percent: Int, charging: Boolean = false) =
-        PhoneReadings(BatteryDetail(percent, charging, saver = false), LinkReading(LinkKind.WIFI), GpsReading(5, 9, 4f, 90f, 10f))
+        PhoneReadings(BatteryDetail(percent, charging, saver = false), LinkReading(LinkKind.WIFI), GpsReading(5, 4f, 90f, 10f))
 
     private val batteryOnly = RingOptions(data = RingData.BATTERY.bit)
 

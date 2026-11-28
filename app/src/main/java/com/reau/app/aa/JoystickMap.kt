@@ -49,8 +49,9 @@ sealed class AaCommand {
  * track (0x09 right, 0x0A left), up and down as volume (0x06, 0x07) and the middle as play/pause (0x05); in its map
  * mode the sides come as zoom (0x13 right, 0x14 left: a capture on the bike and better-dash), the middle as
  * IN (0x18) and down as 0x15 (better-dash reads it so; proven on the bike on 28/10/2026, in the ride log). 0x0B comes once as
- * the dash connects and is no button: ignored. Back (0x12) is not on the page: back, and twice within
- * [DOUBLE_BACK_MS] home, as before.
+ * the dash connects and is no button: ignored. Back (0x12) is not on the page and sends nothing to Android Auto: the dash asks "Exit navigation?" on the
+ * map mode's up and sends 0x12 only when the rider says yes, so it is an answer and not a tap; the dash session turns the navigation off on the dash
+ * ([com.reau.app.dash.DashSession.exitNavigationConfirmed]).
  *
  * One tap, one action, at once (a double tap does not work well on the dash's joystick). "Held" never fires (as far
  * as is known, one code per press, no release).
@@ -84,7 +85,6 @@ class JoystickMap(
      */
     data class Press(val sent: List<AaCommand>, val lines: List<String>, val echo: EchoLabel? = null, val legend: Mode? = null)
 
-    private var lastBackMs = Long.MIN_VALUE / 2
     private var quietUntilMs = Long.MIN_VALUE / 2
     // The control that answered, rejected or ended the call: only it is held back for CALL_QUIET_MS (the same tap again
     // is the accident; another control right after, such as the middle ending a call just answered, is meant).
@@ -203,7 +203,7 @@ class JoystickMap(
         lastCodeMs = nowMs
         val callScreen = callScreenSide(event)
         val press = byCode(event, bounce) ?: callCardPress(event, place, nowMs) ?: centerUndo.pressFor(place, nowMs) ?: when {
-            event is DashButtonEvent.JoystickBack -> backPress(nowMs)
+            event is DashButtonEvent.JoystickBack -> backPress()
             callScreen != null -> {
                 if (callScreen != Control.CENTER) lastSideMs = nowMs
                 callScreenPress(callScreen, nowMs) ?: Press(emptyList(), listOf("not mapped -> nothing"))
@@ -282,12 +282,12 @@ class JoystickMap(
 
     /**
      * What each direction does in [mode] by the rider's page, in the order the legend lists them ([com.reau.app.dash.ActionLegend.ORDER]); null
-     * for one that does nothing. In the map mode the up is the dash's own back (REau sends back, or home when twice) and the middle puts the dash in its
+     * for one that does nothing. In the map mode the up is the dash's own "Exit navigation?" (the dash asks, and its yes ends the navigation on the dash) and the middle puts the dash in its
      * media mode. Read when the legend is built, so a page changed meanwhile counts.
      */
     fun legend(mode: Mode): List<Pair<Control, EchoLabel?>> = ActionLegend.ORDER.map { control ->
         control to when {
-            mode == Mode.MAP && control == Control.UP -> EchoLabel.BACK
+            mode == Mode.MAP && control == Control.UP -> EchoLabel.EXIT_NAVIGATION
             mode == Mode.MAP && control == Control.CENTER -> EchoLabel.MEDIA_MODE
             else -> spoken(bindings[Slot(mode, control, Gesture.ONCE)])
         }
@@ -418,11 +418,11 @@ class JoystickMap(
         return Press(listOf(AaCommand.CallVolume(step)), listOf("call volume ${if (step > 0) "+1" else "-1"}"))
     }
 
-    private fun backPress(nowMs: Long): Press {
-        val key = back(nowMs)
-        val home = key == AaCommand.Key(ServiceDiscoveryResponse.KEY_HOME)
-        return Press(listOf(key), listOf("back -> $key"), if (home) EchoLabel.HOME else EchoLabel.BACK)
-    }
+    /**
+     * The dash's 0x12: the rider said yes to its "Exit navigation?". Nothing goes to Android Auto (a back key sent with it, and the route card
+     * resent at once, kept the dash in its navigation: ride of 26/11/2026) and no name is echoed; the dash session answers on the dash itself.
+     */
+    private fun backPress(): Press = Press(emptyList(), listOf("exit navigation confirmed on the dash -> nothing to Android Auto"))
 
     /** The calls, above the page: a [Press] when the tap was the call's, null when it goes through the page. */
     private fun callFirst(control: Control, nowMs: Long): Press? {
@@ -449,13 +449,6 @@ class JoystickMap(
         else -> EchoLabel.END_CALL
     }
 
-    private fun back(nowMs: Long): AaCommand {
-        val double = nowMs - lastBackMs <= DOUBLE_BACK_MS
-        // A pair is used once: the back after a home starts a new pair.
-        lastBackMs = if (double) Long.MIN_VALUE / 2 else nowMs
-        return AaCommand.Key(if (double) ServiceDiscoveryResponse.KEY_HOME else ServiceDiscoveryResponse.KEY_BACK)
-    }
-
     companion object {
         private val VOLUME_ACTIONS = setOf(Action.VOLUME_UP, Action.VOLUME_DOWN)
 
@@ -478,7 +471,6 @@ class JoystickMap(
 
         private const val MENU_REMOVE_STOP = 0x20
 
-        const val DOUBLE_BACK_MS = 700L
         /** A ride: a second tap on the right came 1.7 s after the reject and moved the focus. */
         const val CALL_QUIET_MS = 3_000L
         const val BOUNCE_MS = 60L

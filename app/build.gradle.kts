@@ -7,7 +7,7 @@ plugins {
     jacoco
 }
 
-// Semantic version 0.y.z: versionName is "0.3.1" on a release build and "0.3.1-dev+yy.MM.dd-HH.mm" on a debug build, whose
+// Semantic version 0.y.z: versionName is "0.4.0" on a release build and "0.4.0-dev+yy.MM.dd-HH.mm" on a debug build, whose
 // timestamp tells one debug build from another.
 //
 // versionCode of a RELEASE is fixed in this file, so that two builds of one commit give the same APK (it used to be the minutes of the
@@ -16,14 +16,20 @@ plugins {
 // when it was the minutes), because Android only installs over an app whose versionCode is lower; so 0.3.0 is 30_030_000, 0.3.1 is
 // 30_030_100, 0.4.0 is 30_040_000, 1.0.0 is 31_000_000. Changing the version means changing the two lines below together:
 // VersionCodeSchemeTest checks that they agree, that the number grows and that it stays above the published ones.
-// versionCode of a DEBUG build is still the minutes since the Unix epoch, so each debug build installs over the previous one.
-val appVersionName = "0.3.1"
-val releaseVersionCode = 30_030_100
+// versionCode of a DEBUG build is the release code + 99, the top of the 99 numbers kept for a rebuild of the version: above the release of the
+// same version (the debug installs over 0.4.0) and below the next one (0.4.1, 30_040_100, installs over the debug). It used to be the minutes
+// since the Unix epoch, which passed the releases in February 2027 (0.3.1 on the 5th, 0.4.0 around the 12th), and from then on a debug build
+// installed blocked every release signed with the same key. Debug builds of one version share the code (Android reinstalls over an equal
+// versionCode; the time stamp of the build stays in the versionName).
+val appVersionName = "0.4.0"
+val releaseVersionCode = 30_040_000
 val buildTimestamp: String = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yy.MM.dd-HH.mm"))
-val debugVersionCode = (System.currentTimeMillis() / 60_000L).toInt()
-// The commit the APK was built from, for the ride log header; "?" outside a git checkout.
+val debugVersionCode = releaseVersionCode + 99
+// The commit the APK was built from, for the ride log header; "?" outside a git checkout (so a check of the published APK needs a clone with
+// its .git). Always 12 characters: a plain --short gives 7 or more by how many objects the repository has, so the same commit gave a longer
+// text in a full clone than in the CI's shallow one and the two APKs differed (review of 26/11/2026, A3).
 val buildGitCommit: String = providers.exec {
-    commandLine("git", "rev-parse", "--short", "HEAD")
+    commandLine("git", "rev-parse", "--short=12", "HEAD")
     isIgnoreExitValue = true
 }.standardOutput.asText.map { it.trim().ifEmpty { "?" } }.getOrElse("?")
 
@@ -72,7 +78,7 @@ android {
         testInstrumentationRunner = "com.reau.app.KeepAppStateRunner"
     }
 
-    // One app, com.reau.app, no product flavors (until 0.2.0 there were two editions, "completa" and "lite"; their sources are not in this repository
+    // One app, com.reau.app, no product flavors (until 0.2.0 there were two editions; their sources are not in this repository
     // any more, only in the git history up to the commit of 20/10/2026). The app has no accessibility service (the one it had until 0.3.0 is
     // not in this repository either, only in that history).
 
@@ -156,9 +162,9 @@ android {
     // Test doubles that both the JVM tests and the instrumented ones use (the fake Android Auto peer) live in one
     // place and are compiled into both. They are plain JVM code: no Android classes.
     sourceSets {
-        getByName("test").kotlin.srcDir("src/sharedTest/java")
-        getByName("androidTest").kotlin.srcDir("src/sharedTest/java")
-        getByName("benchmark").kotlin.srcDir("src/release/java")
+        getByName("test").kotlin.directories.add("src/sharedTest/java")
+        getByName("androidTest").kotlin.directories.add("src/sharedTest/java")
+        getByName("benchmark").kotlin.directories.add("src/release/java")
     }
 
     // A device that Gradle creates, starts and stops by itself, for the instrumented tests (`./gradlew pixel6Api34DebugAndroidTest`; see CONTRIBUTING). It is only
@@ -172,7 +178,7 @@ android {
     }
 }
 
-// The debug build takes its versionCode (and the BuildConfig.VERSION_CODE the ride log prints) from the clock; the release keeps the fixed one.
+// The debug build takes its own versionCode (and the BuildConfig.VERSION_CODE the ride log prints), the release code + 99; the release keeps the fixed one.
 androidComponents {
     onVariants(selector().withBuildType("debug")) { variant ->
         variant.outputs.forEach { it.versionCode.set(debugVersionCode) }

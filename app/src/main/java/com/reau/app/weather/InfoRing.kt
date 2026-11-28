@@ -124,10 +124,9 @@ data class GpsDetail(val bars: Int, val satellites: Int, val bearingDeg: Int?, v
 /** How the phone reaches the world, as read: the [operator]'s name on the mobile network, shown short. */
 data class LinkReading(val kind: LinkKind, val bars: Int = 0, val generation: String? = null, val operator: String? = null)
 
-/** What the GPS says: satellites in the fix and in view, the error, the heading and the speed of the last fix; null where it does not say. */
+/** What the GPS says: satellites in the fix, the error, the heading and the speed of the last fix; null where it does not say. */
 data class GpsReading(
     val usedSatellites: Int,
-    val visibleSatellites: Int,
     val accuracyM: Float?,
     val bearingDeg: Float?,
     val speedMps: Float?,
@@ -316,6 +315,17 @@ object InfoRing {
             perHour > HEAVY_MM_PER_HOUR -> RingIcon.HEAVY_RAIN
             else -> RingIcon.RAIN
         }
+    }
+
+    /**
+     * What the ring's rain page says for [forecast] at [now], for the ride log: the page, its icon and its minutes ("RAIN_SOON(RAIN) in 20 min",
+     * "RAIN_NOW(DRIZZLE) until 15 min"), or "none" when the ring draws no rain page. Never the place.
+     */
+    internal fun rainPageLine(forecast: PointForecast, now: LocalDateTime, real: Boolean): String = when (val rain = rain(forecast, now, real)) {
+        Rain.None -> "none"
+        is Rain.Starts -> "${RingKind.RAIN_SOON}(${rainIcon(rain.quarter, forecast.current, raining = false)}) in ${rain.inMin} min"
+        is Rain.Falling ->
+            "${RingKind.RAIN_NOW}(${rainIcon(rain.quarter, forecast.current, raining = true)})" + (rain.untilMin?.let { " until $it min" }.orEmpty())
     }
 
     /** When the first storm in the next hour is, in minutes (0: it is on now); null for none. */

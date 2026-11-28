@@ -147,6 +147,8 @@ class FatiaTest(unittest.TestCase):
         self.assertEqual(((2, 6), True, ["Once"]), mutacoes.parse(["--fatia", "2/6", "--lista", "Once"]))
         self.assertEqual((None, False, []), mutacoes.parse([]))
         with self.assertRaises(SystemExit):
+            mutacoes.parse(["--list", "dono/"])  # 26/11/2026: a typo of --lista ran mutations as if it were a filter
+        with self.assertRaises(SystemExit):
             mutacoes.parse(["--fatia", "7/6"])
 
 

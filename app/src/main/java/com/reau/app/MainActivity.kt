@@ -44,7 +44,9 @@ import com.reau.app.ui.MainScreen
 import com.reau.app.ui.MainUiState
 import com.reau.app.ui.PairingUi
 import com.reau.app.ui.ServerUi
+import com.reau.app.ui.withKeepAliveDue
 import com.reau.app.ui.withNetwork
+import com.reau.app.ui.withSystemClosed
 import com.reau.app.ui.SettingsActions
 import com.reau.app.ui.SettingsScreen
 import com.reau.app.util.DiagnosticsExport
@@ -57,6 +59,9 @@ import kotlin.concurrent.thread
 @Suppress("TooManyFunctions") // one small function per case; splitting them would only scatter the same thing
 class MainActivity : ComponentActivity() {
     private var androidAutoVersion by mutableStateOf<String?>(null)
+
+    // The server is off because an update of Android Auto turned it off (AaUpdatedServerOff): the card of the server says so.
+    private var aaUpdatedServerOff by mutableStateOf(false)
 
     // Whether REau is on screen (between onResume and onPause), for what opens Android Auto's settings by itself.
     private var onScreen by mutableStateOf(false)
@@ -154,9 +159,6 @@ class MainActivity : ComponentActivity() {
         readAlertLevel()
     }
 
-    // Whether the old "lite" app is installed (read at each return to the screen), for the main screen's card and note.
-    private var otherEditionInstalled by mutableStateOf(false)
-
     // The pairing read again by the screens once a search learned the dash's name.
     private var pairingVersion by mutableIntStateOf(0)
 
@@ -217,17 +219,31 @@ class MainActivity : ComponentActivity() {
 
     private var resumedAtMs = 0L
 
+    /** The phone is a Xiaomi or a realme (a family with steps of its own): the only phones the one notice before the first ride is for. */
+    private val keepAliveEligible: Boolean get() = com.reau.app.ui.KeepAliveGuide.hasNotice(com.reau.app.ui.KeepAliveGuide.current())
+
     @Suppress("LongMethod") // one straight run of setup/serialization; cutting it adds indirection and no clarity
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         com.reau.app.util.FrameJank.watch(this, com.reau.app.util.MonotonicClock.nowMs()) { resumedAtMs }
         lifecycle.addObserver(dashSearch)
         if (savedInstanceState == null) quickStart(intent)
+        // What the last opening found about the system closing REau during a ride, still not dismissed (the opening's thread may add to it: SystemClosedRide.note).
+        // Off the main thread: the first read of the kept preference is the disk (review of the plan 34, B3, 26/11/2026; the notice shows a moment later, as the Android Auto one does).
+        // The one notice before the first ride on a Xiaomi or realme phone (KeepAliveNotice): due or not, as of now; read again at each return to the screen. It reads the SAME
+        // file (SystemClosedRide.lastNotedAt), so it goes in the same IO coroutine, after the load: on the main thread it would take the disk back (review of 26/11/2026, C4).
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching { com.reau.app.data.SystemClosedRide.load(applicationContext) }
+            runCatching { com.reau.app.data.KeepAliveNotice.refresh(applicationContext, keepAliveEligible) }
+        }
         setContent {
             val projection by ProjectionService.projection.collectAsStateWithLifecycle()
             val startedAt by ProjectionService.startedAt.collectAsStateWithLifecycle()
             // The network server is up when it has published its address and PIN (the icon of the main screen blinks for it).
             val networkOn = com.reau.app.web.WebAccess.state.collectAsStateWithLifecycle().value != null
+            // The system closed REau during the last ride, until the rider dismisses the notice (SystemClosedRide, told at the opening).
+            val systemClosedAt = com.reau.app.data.SystemClosedRide.pendingAt.collectAsStateWithLifecycle().value
+            val keepAliveDue = com.reau.app.data.KeepAliveNotice.isDue.collectAsStateWithLifecycle().value
             var inSettings by rememberSaveable { mutableStateOf(false) }
             var inAndroidAuto by rememberSaveable { mutableStateOf(false) }
             var inJoystick by rememberSaveable { mutableStateOf(false) }
@@ -251,6 +267,8 @@ class MainActivity : ComponentActivity() {
                     openAndroidAutoSettings()
                 }
             }
+
+            androidx.compose.runtime.LaunchedEffect(projection.androidAuto, androidAutoVersion) { aaUpdatedServerOff = readAaUpdated(projection.androidAuto) }
 
             val saveSettings: (REauSettings) -> Unit = { settings = saved(store, settings, it) }
             val reload = { settings = store.load(); pairing = pairingStore.toUi() }
@@ -311,7 +329,8 @@ class MainActivity : ComponentActivity() {
             } else {
                 kept.SaveableStateProvider(MAIN_SCREEN) {
                     MainScreen(
-                        mainState(projection, settings, startedAt, pairing.ssid).withNetwork(networkOn),
+                        mainState(projection, settings, startedAt, pairing.ssid).withNetwork(networkOn).withSystemClosed(systemClosedAt)
+                            .withKeepAliveDue(keepAliveDue),
                         onToggle = { toggle(projection) },
                         onOpenAndroidAutoSettings = { openAndroidAutoSettings() },
                         onOpenSettings = { reload(); inSettings = true },
@@ -321,7 +340,7 @@ class MainActivity : ComponentActivity() {
                             onOpenWeather = { page = SettingsPage.WEATHER },
                             onOpenServer = { page = SettingsPage.SERVER },
                             onOpenTips = { page = SettingsPage.TIPS },
-                        ),
+                        ).withKeepAliveTaps(systemClosedAt) { page = SettingsPage.KEEP_ALIVE },
                     )
                 }
             }
@@ -364,6 +383,24 @@ class MainActivity : ComponentActivity() {
         onDeleteLogs = { withRecordings, done -> deleteLogs(this, withRecordings, done) },
     )
 
+    /**
+     * What the cards about the system closing REau and the one-time notice do with the rider's taps (26/11/2026; in a function of its own so onCreate stays simple):
+     * "Ver os passos" goes to the page with [open], and dismisses the card of the closing when there is one ([systemClosedAt]); "Entendi" on either card answers the
+     * one-time notice, so it does not come on top of a closing just told.
+     */
+    private fun MainExtras.withKeepAliveTaps(systemClosedAt: Long?, open: () -> Unit): MainExtras = copy(
+        onOpenKeepAlive = {
+            // The card of the system closing REau goes away with it; the one-time notice has no such card to dismiss (the page answers it).
+            if (systemClosedAt != null) com.reau.app.data.SystemClosedRide.dismiss(this@MainActivity)
+            open()
+        },
+        onDismissSystemClosed = {
+            com.reau.app.data.SystemClosedRide.dismiss(this@MainActivity)
+            com.reau.app.data.KeepAliveNotice.answered(this@MainActivity, keepAliveEligible, "understood, after the system closed REau")
+        },
+        onDismissKeepAliveAdvice = { com.reau.app.data.KeepAliveNotice.answered(this@MainActivity, keepAliveEligible, "understood") },
+    )
+
     /** What the main screen shows: the projection, its start, the card's picture, the server, battery, dash and permissions. */
     private fun mainState(projection: com.reau.app.service.Projection, settings: REauSettings, startedAt: Long?, dashName: String) =
         MainUiState(
@@ -374,9 +411,21 @@ class MainActivity : ComponentActivity() {
             locationOff = locationOff,
             alertLevel = alertLevel,
             alertRoute = alertRoute,
-            otherEditionInstalled = otherEditionInstalled,
             weatherOn = settings.dashWeather,
+            aaUpdatedServerOff = aaUpdatedServerOff,
         )
+
+    /**
+     * Whether the server being off may be the work of an update of Android Auto; the ride log says it once for each time it becomes so.
+     * The package query (a binder call) and the first read of the kept preference (the disk) run off the main thread (review of 26/11/2026, A5).
+     */
+    private suspend fun readAaUpdated(link: com.reau.app.aa.AaLinkState): Boolean {
+        val updated = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            com.reau.app.aa.AaUpdatedServerOff.now(this@MainActivity, link)
+        }
+        if (updated && !aaUpdatedServerOff) RideDiagnostics.log("aa-server", com.reau.app.aa.AaUpdatedServerOff.LOG_LINE)
+        return updated
+    }
 
     /** Reads whether the alert channel would be heard; the ride log says it when it changes (and the main screen's card follows [alertLevel]). */
     private fun readAlertLevel() {
@@ -522,10 +571,23 @@ class MainActivity : ComponentActivity() {
         vpnHoldsREau = com.reau.app.dash.NetworkBlock.vpnHolds(this)
         locationOff = com.reau.app.ui.LocationSwitch.read(this)
         readAlertLevel()
-        otherEditionInstalled = OtherEdition.installed(this)
         permissionRows = PermissionRows.read(this)
+        // The phone may have joined the dash for the first time while REau was behind another app: the notice before the first ride is due from then (KeepAliveNotice).
+        // Off the main thread like the one at the opening: on a Xiaomi or realme phone `refresh` reads the keystore-backed pairing and the kept file, the disk (review of 26/11/2026, D1).
+        val context = applicationContext
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) { runCatching { com.reau.app.data.KeepAliveNotice.refresh(context, keepAliveEligible) } }
         learnDashName()
         learnSunPlace(this, thenWeather = true)
+        forgetRemovalFromRecents()
+    }
+
+    /**
+     * The rider is back in the app: that the rider took it off the recent apps earlier in this ride no longer says the rider wants it closed, so the resume after
+     * a kill is allowed again (25/11/2026: the mark kept "removed" for the rest of the ride and the resume stayed off with no word). Off the main thread.
+     */
+    private fun forgetRemovalFromRecents() {
+        val context = applicationContext
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) { runCatching { com.reau.app.service.ProjectionResumeBook.open(context).reopened() } }
     }
 
 
@@ -628,7 +690,7 @@ private fun forgetDash(context: android.content.Context, pairingStore: DashPairi
  * The pages over the settings that hold no setting, and the bike's Wi-Fi (from the settings or the main screen). The
  * permissions page shows the rows read at the last onResume, read again whenever REau comes back to the front.
  */
-private enum class SettingsPage { NONE, PERMISSIONS, ABOUT_DATA, CREDITS, TERMS, LOGS, WIFI, WEATHER, SERVER, TIPS }
+private enum class SettingsPage { NONE, PERMISSIONS, ABOUT_DATA, CREDITS, TERMS, LOGS, WIFI, WEATHER, SERVER, TIPS, KEEP_ALIVE }
 
 private val forgetScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
 
@@ -657,12 +719,13 @@ private fun SettingsPageFromSettings(
             onBack, onOpenCredits = { goTo(SettingsPage.CREDITS) }, onOpenTerms = { goTo(SettingsPage.TERMS) },
         )
         SettingsPage.TIPS -> com.reau.app.ui.TipsScreen(onBack)
+        SettingsPage.KEEP_ALIVE -> com.reau.app.ui.KeepAliveRoute(activity, back)
         SettingsPage.CREDITS -> com.reau.app.ui.CreditsScreen(back) { copyAddress(activity, it) }
         SettingsPage.TERMS -> com.reau.app.ui.TermsScreen(gate = false, onAccept = {}, onDecline = {}, onBack = back)
         SettingsPage.LOGS -> com.reau.app.ui.LogViewerScreen(RideDiagnostics.logDir(), onBack) {
             DiagnosticsExport.shareFrom(activity, withRecordings = false)
         }
-        else -> PermissionsPage(activity, rows, locationAllowed, functions, onBack)
+        else -> PermissionsPage(activity, rows, locationAllowed, functions, goTo, onBack)
     }
 }
 
@@ -672,6 +735,7 @@ private fun PermissionsPage(
     rows: List<com.reau.app.settings.AppPermissions.Row>,
     locationAllowed: Boolean,
     functions: com.reau.app.settings.AppPermissions.Functions,
+    goTo: (SettingsPage) -> Unit,
     onBack: () -> Unit,
 ) {
     com.reau.app.ui.PermissionsScreen(
@@ -686,6 +750,7 @@ private fun PermissionsPage(
                 }
             },
             onAskAll = activity.askRuntime,
+            onOpenKeepAlive = { goTo(SettingsPage.KEEP_ALIVE) },
         ),
         locationAllowed = locationAllowed,
         functions = functions,

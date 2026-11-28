@@ -3,6 +3,7 @@
     <string name="caller_private">Privado</string>
     <string name="problem_compositor">o compositor de vídeo (OpenGL) não iniciou: sem imagem para o painel</string>
     <string name="notif_mark_done">Marca %1$d gravada às %2$s</string>
+    <string name="notif_resumed">Retomado depois de o sistema fechar o REau</string>
     <string name="card_legibility_sample">Rua 300 m</string>
     <string-array name="wind_points">
         <item>N</item>

@@ -109,18 +109,18 @@ class AndroidAutoScreenFitTest {
 
     @Test
     fun thePartOfTheCropMovesInPixelsByOneAndByTenAndPastTheEdges() {
-        // In pixels: it was % of the slack; changed and declared. At 74% the window is
-        // 711×405, centred at x 44, y 37.
+        // In pixels: it was % of the slack; changed and declared. At 74% of the stream's area (528×304, DashConfig.VIDEO_FRAME;
+        // it was the dash's 526×300) the window is 714×411, centred at x 43, y 34.
         settings = settings.copy(fit = Fit.CROP, cropPercent = 74)
-        text("crop_center_x_value", "44 px")
+        text("crop_center_x_value", "43 px")
         tap("crop_center_x_plus")
-        assertEquals(45, settings.cropX)
+        assertEquals(44, settings.cropX)
         tap("crop_center_x_plus10")
-        assertEquals(55, settings.cropX)
+        assertEquals(54, settings.cropX)
         tap("crop_center_y_minus")
-        assertEquals(36, settings.cropY)
+        assertEquals(33, settings.cropY)
         tap("crop_center_y_minus10")
-        text("crop_center_y_value", "26 px")
+        text("crop_center_y_value", "23 px")
         // past the picture's edge, up to all the window but a pixel (FrameFit.cropRange): 799 is the last across
         settings = settings.copy(cropX = 795)
         repeat(2) { tap("crop_center_x_plus10") }
@@ -130,8 +130,8 @@ class AndroidAutoScreenFitTest {
     @Test
     fun aNewCropSizeKeepsTheWindowsCentre() {
         settings = settings.copy(fit = Fit.CROP, cropPercent = 74, cropX = 44, cropY = 37)
-        tap("crop_minus") // 73%: 721×411, 10 wider and 6 taller
-        assertEquals(39 to 34, settings.cropX to settings.cropY)
+        tap("crop_minus") // 73% of 528×304: 723×416, 9 wider and 5 taller (74%: 714×411); the centre stays, rounded
+        assertEquals(40 to 35, settings.cropX to settings.cropY)
     }
 
     @Test
@@ -307,11 +307,12 @@ class AndroidAutoScreenFitTest {
     @Test
     fun theTouchTargetsOfTheFitAreAtLeast48Dp() {
         val targets = listOf(
-            "fit_reset", "density_minus", "density_plus", "density_minus10", "density_plus10", "move_x_minus", "move_x_plus10",
+            "fit_reset", "density_180", "density_200", "density_220", "move_x_minus", "move_x_plus10",
             "move_y_minus", "move_y_plus10", "fit_tab_nav", "fit_tab_apps", "fit_WHOLE_VISIBLE", "fit_CROP", "aa_screen_mask_switch",
         )
         for (tag in targets) compose.onNodeWithTag(tag).performScrollTo().assertHeightIsAtLeast(48.dp)
-        for (tag in listOf("density_minus", "density_plus", "move_x_minus", "move_x_plus")) compose.onNodeWithTag(tag).assertWidthIsAtLeast(48.dp)
+        // The DPI is three segments now (180, 200, 220), not a counter.
+        for (tag in listOf("density_180", "density_220", "move_x_minus", "move_x_plus")) compose.onNodeWithTag(tag).performScrollTo().assertWidthIsAtLeast(48.dp)
         tap("fit_reset")
         for (tag in listOf("fit_reset_confirm", "fit_reset_cancel")) compose.onNodeWithTag(tag).assertHeightIsAtLeast(48.dp)
     }

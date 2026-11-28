@@ -98,8 +98,10 @@ fun MainScreen(
                         .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    val warnings = MainLook.warnings(p, state.battery, state.vpnHoldsREau, state.otherEditionInstalled, state.locationOff) +
-                        MainLook.alertWarnings(state.alertLevel)
+                    val warnings = MainLook.warnings(p, state.battery, state.vpnHoldsREau, state.locationOff) +
+                        MainLook.alertWarnings(state.alertLevel) +
+                        MainLook.systemClosedWarnings(state.systemClosedAtMs != null) +
+                        MainLook.keepAliveWarnings(state.keepAliveDue, state.systemClosedAtMs != null)
                     for (warning in warnings) {
                         Warning(warning, state, onOpenAndroidAutoSettings, extras)
                     }
@@ -122,14 +124,7 @@ fun MainScreen(
                     }
                     GroupLabel(null, stringResource(R.string.shortcuts_label))
                     Shortcuts(state, onOpenAndroidAutoSettings, onOpenSettings, extras, say)
-                    Column(Modifier.fillMaxWidth().padding(top = 2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        val androidAuto = state.androidAutoVersion?.let { stringResource(R.string.aa_version, it) }
-                        FootLine(androidAuto ?: stringResource(R.string.aa_not_installed), "aa_version")
-                        // REau's own version under Android Auto's.
-                        FootLine(stringResource(R.string.reau_version, state.reauVersion), "reau_version")
-                        // The old app with the seal on its icon, if it is still installed: it is not needed any more.
-                        if (state.otherEditionInstalled) FootLine(stringResource(R.string.old_app_note), "old_app_note")
-                    }
+                    FootLines(state)
                 }
                 SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter)) {
                     Snackbar(it, Modifier.testTag("snackbar"), shape = MaterialTheme.shapes.small)
@@ -141,15 +136,6 @@ fun MainScreen(
             }
         }
     }
-}
-
-/** One line of the foot: the installed Android Auto, REau's own version. */
-@Composable
-private fun FootLine(text: String, tag: String) {
-    Text(
-        text, style = REauMono.copy(fontSize = MaterialTheme.typography.labelMedium.fontSize), color = MaterialTheme.colorScheme.onSurfaceVariant,
-        textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().testTag(tag),
-    )
 }
 
 /**

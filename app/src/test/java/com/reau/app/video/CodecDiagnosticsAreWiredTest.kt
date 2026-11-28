@@ -51,7 +51,7 @@ class CodecDiagnosticsAreWiredTest {
     fun `the codecs line is told once for the decoder and once for a stream's first encoder, never for a rebuilt one`() {
         assertTrue(decoder.contains("if (chosen == reportedCodec) return"))
         assertTrue(encoder.contains("if (reportCodecs) EncoderReport.choice(c, candidateReport, frame)"))
-        assertTrue(encoder.contains("if (reportCodecs) EncoderReport.outputAnnounced(format, inputFormat, f)"))
+        assertTrue(encoder.contains("if (reportCodecs) EncoderReport.outputAnnounced(format, inputFormat, it, rateSent)"))
         val start = loop.substringAfter("fun start(): Boolean {").substringBefore("stats?.panelStarted()")
         assertTrue("start asks for the line, just before it builds the first encoder", start.indexOf("reportCodecsOfNextEncoder = true") in 0 until start.indexOf("buildEncoder("))
         assertFalse("a rebuilt encoder does not", loop.substringAfter("private fun rebuild(").substringBefore("private fun logThermal").contains("reportCodecsOfNextEncoder = true"))

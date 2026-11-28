@@ -30,8 +30,7 @@ def cause(out, limit=1500):
 
 
 def main(classes):
-    # One app since 0.3.0 (no editions): a single test task. The old "--lite" among the classes is ignored.
-    classes = [name for name in classes if name != "--lite"]
+    # One app (no editions): a single test task.
     # -PreauAllowWarnings: the build fails on a compiler warning (app/build.gradle.kts), and a mutation may leave one by itself.
     command = [str(GRADLEW), ":app:testDebugUnitTest", "--console=plain", "-PreauAllowWarnings"]
     for name in classes:

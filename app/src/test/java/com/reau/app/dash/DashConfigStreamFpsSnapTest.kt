@@ -36,49 +36,10 @@ class DashConfigStreamFpsSnapTest {
     }
 
     @Test
-    fun `defaults are valid even values`() {
-        assertEquals(DashConfig.DEFAULT_STREAM_FPS, DashConfig.snapStreamFps(DashConfig.DEFAULT_STREAM_FPS))
-    }
-
-    @Test
     fun `bitrate steps are 200 to 900 by 100, then 1024`() {
         assertEquals(
             listOf(200_000, 300_000, 400_000, 500_000, 600_000, 700_000, 800_000, 900_000, 1_024_000),
             DashConfig.STREAM_BITRATE_STEPS,
         )
-        assertEquals(1_024_000, DashConfig.DEFAULT_STREAM_BITRATE_BPS)
-    }
-
-    @Test
-    fun `stored bitrates snap to the nearest step`() {
-        for (bps in DashConfig.STREAM_BITRATE_STEPS) assertEquals(bps, DashConfig.snapStreamBitrate(bps))
-        assertEquals(200_000, DashConfig.snapStreamBitrate(50_000))
-        assertEquals(200_000, DashConfig.snapStreamBitrate(150_000))
-        assertEquals(400_000, DashConfig.snapStreamBitrate(450_000))
-        assertEquals(1_024_000, DashConfig.snapStreamBitrate(1_000_000))
-        assertEquals(1_024_000, DashConfig.snapStreamBitrate(5_000_000))
-    }
-
-    @Test
-    fun `keyframe interval offers automatic, 1 or 2 seconds, automatic by default`() {
-        assertEquals(listOf(DashConfig.KEYFRAME_INTERVAL_AUTO, 1, 2), DashConfig.KEYFRAME_INTERVAL_OPTIONS)
-        assertEquals(0, DashConfig.KEYFRAME_INTERVAL_AUTO)
-        assertEquals(DashConfig.KEYFRAME_INTERVAL_AUTO, DashConfig.DEFAULT_KEYFRAME_INTERVAL_SEC)
-    }
-
-    @Test
-    fun `older stored keyframe intervals snap into the offered set`() {
-        assertEquals(0, DashConfig.snapKeyframeIntervalSec(0))
-        assertEquals(1, DashConfig.snapKeyframeIntervalSec(1))
-        assertEquals(2, DashConfig.snapKeyframeIntervalSec(2))
-        assertEquals(2, DashConfig.snapKeyframeIntervalSec(3))
-        assertEquals(2, DashConfig.snapKeyframeIntervalSec(5))
-        assertEquals(0, DashConfig.snapKeyframeIntervalSec(-1))
-    }
-
-    @Test
-    fun `the old automatic bitrate sentinel becomes the 1024 ceiling`() {
-        assertEquals(1_024_000, DashConfig.snapStreamBitrate(-1))
-        assertEquals(1_024_000, DashConfig.snapStreamBitrate(0))
     }
 }

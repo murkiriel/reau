@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tradução sem revisão de falante nativo (25/11/2026). -->
+<resources>
+    <string name="group_language">भाषा</string>
+    <string name="language_title">ऐप की भाषा</string>
+    <string name="language_sub">फ़ोन की भाषा, या ऐप में मौजूद चार में से एक</string>
+    <string name="language_auto">Auto</string>
+</resources>

@@ -571,6 +571,28 @@ class Ler(unittest.TestCase):
         tempo = "\n".join(ler_registro.linha_do_tempo(ler_registro.ler([self.arquivo(texto)])))
         self.assertIn("o que o app enviava antes do silêncio: the Wi-Fi was lost (on this network for 59 s)", tempo)
 
+    def test_o_detalhe_fino_do_que_o_app_enviava_entra_na_linha_do_tempo_em_portugues_e_as_linhas_de_baixo_nao(self):
+        texto = projecao(
+            linha("10:01:00.000", "link", "fine tail before a watchdog fired (last 15 s): 3 keyframes in 61 frames, biggest 28728 B in 21 pkts, longest gap between packets 41 ms; 120 commands out, 340 in"),
+            linha("10:01:00.001", "link", "fine tail t-14 s: video K 28728B/21p gap 3ms, P 8100B/6p gap 2ms | tx 0501×3 264B | title 88B same | rx 0101 6B, 0C*×5 40B"))
+        tempo = "\n".join(ler_registro.linha_do_tempo(ler_registro.ler([self.arquivo(texto)])))
+        self.assertIn("detalhe do app antes do silêncio: a watchdog fired: nos últimos 15 s, 3 quadros-chave em 61 quadros, maior quadro 28728 B em 21 pacotes, "
+                      "maior intervalo sem pacote 41 ms; 120 comandos enviados, 340 recebidos", tempo)
+        self.assertEqual(1, tempo.count("detalhe do app antes do silêncio"))
+        self.assertNotIn("t-14 s", tempo)
+
+    def test_o_detalhe_fino_diz_ha_quanto_tempo_o_painel_estava_calado_e_que_a_janela_termina_na_ultima_mensagem_dele(self):
+        # Revisão do plano 34, A2 (26/11/2026): a janela de 15 s termina na última mensagem do painel, não na hora em que o app escreveu.
+        texto = projecao(linha("10:01:00.000", "link", "fine tail before a watchdog fired (last 15 s): 3 keyframes in 61 frames, biggest 28728 B in 21 pkts, "
+                                                       "longest gap between packets 41 ms; 120 commands out, 340 in; the dash had been quiet for 4 s (the window ends at its last message)"))
+        tempo = "\n".join(ler_registro.linha_do_tempo(ler_registro.ler([self.arquivo(texto)])))
+        self.assertIn("a watchdog fired: nos últimos 15 s até a última mensagem do painel (calado há 4 s), 3 quadros-chave em 61 quadros", tempo)
+
+    def test_o_detalhe_fino_sem_resumo_sai_como_veio(self):
+        texto = projecao(linha("10:01:00.000", "link", "fine tail before the Wi-Fi was lost (last 15 s): nothing exchanged"))
+        tempo = "\n".join(ler_registro.linha_do_tempo(ler_registro.ler([self.arquivo(texto)])))
+        self.assertIn("detalhe do app antes do silêncio: the Wi-Fi was lost (last 15 s): nothing exchanged", tempo)
+
     def test_autenticacao_que_expira_e_pedido_de_rede_com_o_painel_na_varredura_entram_nos_problemas(self):
         texto = projecao(
             linha("10:01:00.000", "error", "E: session fail: Auth timed out — the dash answered but never accepted (no 07 01 01). Check SSID matches 'RE_****30'."),
@@ -1410,6 +1432,25 @@ class RegrasNovas(unittest.TestCase):
                   for h in ("10:04:00.000", "10:05:00.000", "10:06:00.000", "10:07:00.000")]
         self.assertEqual([], [x for x in self.problemas(self.apps_por_imagem(*self.NAV, *teclas)) if 'tela "apps"' in x])
 
+    def test_a_tela_de_musica_com_o_spotify_na_frente_nao_alarma(self):
+        # 26/11/2026: a tela de música do Android Auto (o app disse `app spotify` e `music mode on`) foi acusada como o mapa tomado por um app.
+        musica = [self.tela("10:03:00.100", "app spotify (the picture, from none)"), linha("10:03:00.200", "dash", "music mode on: Spotify playing")]
+        self.assertEqual([], [x for x in self.problemas(self.apps_por_imagem(*musica, *self.NAV)) if 'tela "apps"' in x])
+
+    def test_so_o_modo_musica_ligado_na_maior_parte_do_trecho_tambem_nao_alarma(self):
+        musica = [linha("10:03:00.200", "dash", "music mode on: Spotify playing"), linha("10:07:30.000", "dash", "music mode off: Spotify left the screen")]
+        self.assertEqual([], [x for x in self.problemas(self.apps_por_imagem(*musica, *self.NAV)) if 'tela "apps"' in x])
+
+    def test_a_musica_que_so_tocou_um_pedaco_curto_do_trecho_ainda_alarma(self):
+        musica = [self.tela("10:03:00.100", "app spotify (the picture, from none)"), self.tela("10:03:40.000", "app none (the picture, from spotify)")]
+        p = [x for x in self.problemas(self.apps_por_imagem(*musica, *self.NAV)) if 'tela "apps"' in x]
+        self.assertEqual(1, len(p), p)
+
+    def test_so_a_linha_de_midia_sem_o_app_na_frente_nao_desculpa_o_trecho(self):
+        # Music playing in the background with the map on the screen: the picture still may have taken the map for an app.
+        midia = [linha("10:03:00.100", "aa-media", "aa-media: playing, source Spotify")]
+        self.assertEqual(1, len([x for x in self.problemas(self.apps_por_imagem(*midia, *self.NAV)) if 'tela "apps"' in x]))
+
     def test_o_toque_no_celular_e_entrada_e_o_aviso_do_painel_nao_e_tecla(self):
         toques = [linha(h, "aa", "[AA] touch down sent to Android Auto") for h in ("10:04:00.000", "10:05:00.000", "10:06:00.000", "10:07:00.000")]
         self.assertEqual([], [x for x in self.problemas(self.apps_por_imagem(*self.NAV, *toques)) if 'tela "apps"' in x])
@@ -1522,6 +1563,65 @@ class AvisoDeCelularQuente(unittest.TestCase):
     def test_nao_conta_como_marca_do_piloto(self):
         tempo, _ = self.tempo(linha("10:05:00.000", "heat", "W: battery at 45.0 C (charging=false, thermal=none): at or over 44.0 C, rider told the phone is hot"))
         self.assertNotIn("marca do piloto", tempo)
+
+
+class AvisoDeBateriaFraca(unittest.TestCase):
+    """Plano 35, passo E: o aviso de bateria <= 10 % sem carregador (a etiqueta `battery`) vai à linha do tempo, sem virar problema nem marca."""
+
+    def test_a_pill_that_waits_for_the_dash_is_said(self):
+        texto = ("W: battery at 8% with no charger (at or under 10%): rider told the phone may shut down "
+                 "(phone notice: shown; dash pill: waiting for the dash)")
+        self.assertIn("cartão no painel: espera o painel conectar", ler_registro._aviso_bateria(texto))
+
+    def tempo(self, *meio):
+        d = Path(tempfile.mkdtemp())
+        (d / "ride-20261126-100000.log").write_text(projecao(*meio), encoding="utf-8")
+        linhas = ler_registro.ler([d / "ride-20261126-100000.log"])
+        return "\n".join(ler_registro.linha_do_tempo(linhas)), ler_registro.problemas(linhas)
+
+    def test_o_aviso_aparece_na_linha_do_tempo_com_o_nivel(self):
+        tempo, _ = self.tempo(linha(
+            "10:05:00.000", "battery",
+            "W: battery at 9% with no charger (at or under 10%): rider told the phone may shut down (phone notice: shown; dash pill: asked)"))
+        self.assertIn("aviso de bateria fraca: 9 % sem carregador; aviso no celular: feito; cartão no painel: pedido (alterna: 60 s na tela, 60 s fora)", tempo)
+
+    def test_sem_permissao_e_sem_painel_o_aviso_diz_o_que_nao_saiu(self):
+        tempo, _ = self.tempo(linha(
+            "10:05:00.000", "battery",
+            "W: battery at 10% with no charger (at or under 10%): rider told the phone may shut down "
+            "(phone notice: not shown, the app's notifications are off; dash pill: none)"))
+        self.assertIn("aviso no celular: NÃO feito (as notificações do app estão desligadas); cartão no painel: nenhum", tempo)
+
+    def test_nao_conta_como_marca_nem_como_problema(self):
+        tempo, problemas = self.tempo(linha(
+            "10:05:00.000", "battery",
+            "W: battery at 10% with no charger (at or under 10%): rider told the phone may shut down (phone notice: shown; dash pill: asked)"))
+        self.assertNotIn("marca do piloto", tempo)
+        self.assertFalse(any("bateria" in p for p in problemas))
+
+    def test_a_alternancia_do_cartao_comeca_e_para_com_o_motivo(self):
+        tempo, problemas = self.tempo(
+            linha("10:05:00.000", "battery", "battery at 9% with no charger (at or under 10%): rider told the phone may shut down (phone notice: shown; dash pill: asked)"),
+            linha("10:20:00.000", "battery", "battery pill alternation stops at 9%: charger in"),
+            linha("10:30:00.000", "battery", "battery pill alternation starts at 8% (60 s shown, 60 s out)"),
+            linha("10:31:00.000", "battery", "battery pill alternation stops at 12%: battery above the limit"),
+            linha("10:32:00.000", "battery", "battery pill alternation stops at 8%: dash gone, it starts again when the dash is back"),
+            linha("10:40:00.000", "battery", "battery pill alternation stops: projection over"),
+        )
+        self.assertIn("cartão de bateria fraca no painel para de alternar com a bateria a 9 %: o carregador foi ligado", tempo)
+        self.assertIn("cartão de bateria fraca no painel passa a alternar com a bateria a 8 % (60 s na tela, 60 s fora)", tempo)
+        self.assertIn("para de alternar com a bateria a 12 %: a bateria subiu acima de 10 %", tempo)
+        self.assertIn("para de alternar com a bateria a 8 %: o painel caiu (volta a alternar quando ele reconectar)", tempo)
+        self.assertIn("cartão de bateria fraca no painel para de alternar: a projeção acabou", tempo)
+        self.assertNotIn("marca do piloto", tempo)
+        self.assertFalse(any("bateria" in p for p in problemas))
+
+    def test_um_motivo_novo_passa_como_veio(self):
+        self.assertIn("para de alternar: something new", ler_registro._aviso_bateria("battery pill alternation stops: something new"))
+
+    def test_uma_linha_desconhecida_passa_como_veio(self):
+        tempo, _ = self.tempo(linha("10:05:00.000", "battery", "battery: something new"))
+        self.assertIn("battery: something new", tempo)
 
 
 ETAPAS_ANTIGA = ("video fps target=4 sent=3.9 (20frames/5.0s) composed=3.9 kbps=300 set=400k frame=9000B source=152 drawn=20 repeated=0 compose=3.4ms "

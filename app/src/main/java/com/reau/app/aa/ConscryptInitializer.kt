@@ -47,6 +47,5 @@ object ConscryptInitializer {
         "$major.$minor.$patch"
     }.getOrNull()
 
-    fun isAvailable(): Boolean = conscryptAvailable
     fun getProviderName(): String? = if (conscryptAvailable) "Conscrypt" else null
 }

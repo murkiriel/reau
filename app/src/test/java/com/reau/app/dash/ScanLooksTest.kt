@@ -176,4 +176,20 @@ class ScanLooksTest {
         assertTrue(source.contains("ScanLookLog.refileLine(sightingUs, nowUs, sinceLostMs, requests, screenWords())"))
         assertTrue(source.contains("return \"interactive=${'$'}{power?.isInteractive} locked=${'$'}{keyguard?.isKeyguardLocked}\""))
     }
+
+    /** Ride of 25/11/2026, 10:46:07 to 10:46:10: the readings of the request line (the Wi-Fi list among them) held the request 3.3 s while the system's Wi-Fi was busy. */
+    @Test
+    fun `the request line reads the system off the thread that sends the request`() {
+        val source = java.io.File("src/main/java/com/reau/app/dash/DashWifiManager.kt").readText()
+        val sender = source.substringAfter("private fun logRequestContext(timeout: Int) {").substringBefore("private fun logRequestContextLine(")
+        assertTrue("the readings go to the scope", sender.contains("scope.launch"))
+        for (reading in listOf("screenWords()", "lastScanEvidence()", "approvedBefore()")) {
+            assertFalse("$reading is read where the request is sent", sender.contains(reading))
+        }
+        val reader = source.substringAfter("private fun logRequestContextLine(").substringBefore("/** Log only: `interactive")
+        for (reading in listOf("screenWords()", "lastScanEvidence()", "approvedBefore()")) {
+            assertTrue("$reading is read for the line", reader.contains(reading))
+        }
+        assertTrue("a slow reading is said in the line", reader.contains("reading this took"))
+    }
 }

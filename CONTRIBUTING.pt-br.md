@@ -17,7 +17,7 @@ Uma contribuição é uma ideia, ou código sob a AGPL-3.0 ou uma licença compa
 parecidas), com a origem citada: o projeto, o arquivo, o commit e a licença, no pull request e no cabeçalho do arquivo
 copiado. Nunca cole numa issue, num pull request, num teste, num comentário ou num arquivo:
 
-- nada do app oficial da Royal Enfield: código decompilado ou desmontado, suas imagens, ícones, layouts, fontes, textos e
+- nada do app da fabricante do painel: código decompilado ou desmontado, suas imagens, ícones, layouts, fontes, textos e
   traduções, suas chaves, certificados e tokens, seu firmware ou arquivos de atualização, nem capturas de tela dele;
 - código, texto ou imagens de um projeto sem licença (sem licença quer dizer todos os direitos reservados) ou cuja licença
   não é compatível com a AGPL-3.0 (por exemplo uma licença não comercial, ou GPL-2.0-only);
@@ -44,6 +44,8 @@ emulador, como diz o README; os scripts estão em `scripts/emu/`.
 Os scripts em Python têm testes próprios (`python3 -B -m unittest discover -p "test_*.py"` dentro de `scripts/`, `scripts/registro/`,
 `scripts/dev/`, `scripts/emu/`, `scripts/painel_falso/` e `bench/`; o último precisa do Pillow, fixado em `scripts/requirements.txt`), e a
 integração contínua também os roda. Ela também confere o estilo deles: `ruff check .` na raiz (regras em `ruff.toml`), `mypy --ignore-missing-imports *.py` dentro de cada pasta de scripts e `shellcheck -S warning` nos `.sh`; as versões do ruff e do mypy estão em `scripts/requirements-estilo.txt`.
+
+Para ver a navegação chegar ao painel sem sair de casa, `scripts/emu/rota_falsa.py` é um GPS falso: ele percorre uma rota (um GPX, ou uma lista JSON `[[lat, lon], ...]`; há duas, sintéticas, em `scripts/emu/rotas/`) e injeta a posição a cada segundo. No emulador (o padrão): `python3 scripts/emu/rota_falsa.py scripts/emu/rotas/volta_central.gpx` (`--nmea` manda GPGGA e GPRMC em vez de `geo fix`; `--serial` ou `ANDROID_SERIAL` escolhem outro emulador que não o `emulator-5554`). No celular, uma vez por aparelho, com o cabo ou a depuração sem fio: `adb shell appops set --uid 2000 MOCK_LOCATION allow`, e então `--alvo celular`; ao terminar (ou no Ctrl+C) o provedor de teste é removido, e `--alvo celular --limpar` também devolve o appop a `default`. O Google Maps precisa estar navegando (destino escolhido, "Iniciar") para o REau receber a rota: o script só mexe na posição. Outras opções: `--kmh`, `--intervalo`, `--inicio` (metros ou `p12`, um ponto da rota), `--repetir`, `--acelerar N` e `--seco`, que só imprime os comandos do adb. As coordenadas só vão ao stdout e à linha de comando do adb, nunca a um arquivo.
 
 O APK também é auditado: `python3 -B scripts/apk_audit.py <apk>` compara as permissões, as bibliotecas, as bibliotecas nativas e os hosts de URL que um APK traz com o `scripts/apk_audit_baseline.json`, e confere que um APK de release tem a forma de release (não depurável, sem classes de debug, só os componentes da lista). A integração contínua monta o release (`-PreauDebugSigned=true`, já que o repositório não tem chave de assinatura) e o roda; quando algo novo deve entrar no APK, olhe o que é e aceite com `--gravar`.
 
@@ -171,11 +173,13 @@ limpa, no commit para onde a tag `v<versão>` aponta, e nada muda depois da tag:
 - compila com `./gradlew :app:assembleRelease`, roda o `apksigner verify` (a assinatura v2 tem de verificar, e o SHA-256 do certificado tem de ser `63f5c3ba687699b0b4288a878bd8372bed2c9632222d7f673ea71073aa208970`, o de todas as Releases até hoje, que o `ApkAttestationTest` e a página de instalação também guardam) e o `scripts/apk_audit.py` (nada novo em relação à linha de base);
 - copia o APK como `REau-0.3.1.apk`, com um `SHA256SUMS`, para `build/release-0.3.1/` (`--saida` muda a pasta);
 - com `--publicar` cria a Release no GitHub como RASCUNHO (`gh release create v0.3.1 --draft --verify-tag`), com esses dois arquivos; sem ele, só imprime o comando que rodaria, e `--so-conferir --apk ARQUIVO` só roda as conferências num APK já montado.
+- `--ensaio` (ou `--dry-run`) percorre o caminho todo sem efeito algum, e por isso pode rodar antes da tag: as conferências e a compilação rodam de verdade (a compilação com a chave de depuração, `-PreauDebugSigned=true`, nunca a chave de release, então o certificado do APK não é o do projeto), e o que mudaria o repositório, a pasta de saída ou o GitHub só é impresso como `[ensaio] faria: <comando>`. Uma conferência que falha vira pendência, listada no fim (a saída é 1), em vez de parar o script, e ele termina com `Ensaio terminado: nada foi publicado.` (ou `Ensaio interrompido: nada foi publicado.` quando um passo como a compilação quebra)
 
 O que fica com o mantenedor, já que o script não publica nem faz push:
 
 - ler o rascunho no GitHub (título, texto e os dois arquivos) e publicar;
 - baixar o que foi publicado (`gh release download v0.3.1`) e conferir: `sha256sum -c SHA256SUMS`, e o certificado com `apksigner verify --print-certs`;
+- o build é reproduzível, e o CI prova isso a cada push: o job "Auditoria dos APKs" monta a release duas vezes, a segunda do zero numa cópia do commit em outro caminho, e o `scripts/apk_compare.py` falha se os dois diferirem em qualquer coisa além da assinatura (ela leva um sal aleatório, então muda a cada build). Para conferir que um APK publicado sai do código público, baixe a tag, monte com o JDK 21 (`./gradlew :app:assembleRelease -PreauDebugSigned=true`) e rode `python3 scripts/apk_compare.py REau-0.3.1.apk app/build/outputs/apk/release/app-release.apk`: os dois SHA-256 que ele mostra (de cada APK sem a assinatura) têm de ser iguais;
 - avançar a `main` até a tag (`git merge --ff-only v0.3.1`) e fazer o push, para que o ramo principal mostre o código que foi lançado.
 
 ## O que não mudar sem teste na moto

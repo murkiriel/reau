@@ -4,6 +4,7 @@ import com.reau.app.aa.AaAudioFeed
 import com.reau.app.aa.PhoneTouch
 import com.reau.app.settings.WebAudioMode
 import java.net.InetAddress
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * The web server tied to the projection. The service gives it the rider's two switches ([apply]) and Android Auto's
@@ -39,6 +40,11 @@ internal class WebBridge(private val env: Env) {
     // a server that is starting or stopping (audit of 20/10/2026: pings and the picture's acknowledgements were delayed).
     private val lock = Any()
     @Volatile private var running: Running? = null
+
+    // The generation of the server that is up, or NONE. Each server's events and PIN callback carry the generation they were made
+    // for and do nothing once it is not this one: a telling of a server already stopped (the viewers' count goes to the events on a
+    // thread of its own, after the fact) must not reach the screen's count, the touch stroke or the PIN of the server that replaced it.
+    @Volatile private var live = NONE
     @Volatile private var touchOn = false
     @Volatile private var audioOn = false
     @Volatile private var androidAutoOn = false
@@ -83,16 +89,18 @@ internal class WebBridge(private val env: Env) {
     }
 
     private fun start() {
-        val guard = WebGuard(env.network.limits, draw = env.network.draw) { changed ->
-            env.log("web: the pin changed after too many wrong ones")
-            WebAccess.pin(changed)
-        }
+        val generation = generations.incrementAndGet()
+        val guard = WebGuard(env.network.limits, draw = env.network.draw) { changed -> pinChanged(generation, changed) }
         var stream: WebStream? = null
         val source = env.video { bytes, key, config -> stream?.output(bytes, key, config) }
-        val server = WebServer(WebServer.Settings(guard, env.network.ports, allowed = env.network.allowed, thePhone = env.network.thePhone), events { stream })
+        val settings = WebServer.Settings(guard, env.network.ports, allowed = env.network.allowed, thePhone = env.network.thePhone)
+        val server = WebServer(settings, eventsFor(generation) { stream })
         stream = WebStream(source, { server.publish(WebFrames.video(it)) }, env.delayer, { server.viewerCount }, env.log)
+        // Before the server listens: a browser that comes in at once must not be taken for one of an older server.
+        live = generation
         val port = server.start()
         if (port == null) {
+            live = NONE
             env.log("web: no free port in ${env.network.ports}")
             return
         }
@@ -105,6 +113,7 @@ internal class WebBridge(private val env: Env) {
     }
 
     private fun stop() {
+        live = NONE
         strokes.cancel()
         val r = running ?: return
         running = null
@@ -113,24 +122,44 @@ internal class WebBridge(private val env: Env) {
         WebAccess.clear()
     }
 
-    private fun events(stream: () -> WebStream?) = object : WebServer.Events {
+    /** The PIN of the server of [generation] changed after too many wrong ones: the screen shows it, unless that server is gone. */
+    internal fun pinChanged(generation: Long, pin: String) {
+        if (generation != live) return
+        env.log("web: the pin changed after too many wrong ones")
+        WebAccess.pin(pin)
+    }
+
+    /** The generation of the server that is up now, or [NONE]. */
+    internal val liveGeneration: Long get() = live
+
+    internal fun eventsFor(generation: Long, stream: () -> WebStream?) = object : WebServer.Events {
         override fun page(): ByteArray = env.page()
 
         override fun onJoin(viewer: WebViewer) {
+            if (generation != live) return
             viewer.sendText(status())
             stream()?.viewerJoined { viewer.sendBinary(WebFrames.video(it)) }
         }
 
         override fun onText(text: String) {
+            if (generation != live) return
             if (touchOn) strokes.take(text)
         }
 
         override fun onViewers(count: Int) {
+            if (generation != live) return
             if (count == 0) strokes.cancel()
             stream()?.viewersChanged(count)
             WebAccess.viewers(count)
         }
 
         override fun log(line: String) = env.log(line)
+    }
+
+    private companion object {
+        const val NONE = 0L
+
+        // Global, so that the generations of two bridges (a service that was recreated) never repeat.
+        val generations = AtomicLong()
     }
 }

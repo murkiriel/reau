@@ -205,7 +205,7 @@ EVENTO_WPA = re.compile(
 )  # not the signal changes, one every few seconds
 CAMPO_WPA = re.compile(r"\b(reason|status_code|locally_generated|auth_type)=(\S+)")
 DASH = mascarar.DASH_QUALQUER  # the masks are the ones of mascarar.py: one place says what is hidden
-MAC = mascarar.MAC
+esconder_mac = mascarar.esconder_mac
 WIFI_TEXTO_MAX = 140
 
 
@@ -218,7 +218,7 @@ def _resumo_wifi(e):
         campos = " ".join(f"{k}={v}" for k, v in CAMPO_WPA.findall(e.texto))
         return f"wpa_supplicant {evento.group(0)}" + (f" {campos}" if campos else "")
     if e.tag in WIFI_TAGS and DASH.search(e.texto):
-        texto = MAC.sub(mascarar.MASK_MAC, DASH.sub(mascarar.MASK, e.texto)).strip()
+        texto = esconder_mac(DASH.sub(mascarar.MASK, e.texto)).strip()
         return f"{e.tag} {texto[:WIFI_TEXTO_MAX]}"
     return None
 

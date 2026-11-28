@@ -11,7 +11,6 @@ package com.reau.app.aa
 import android.content.Context
 import android.os.SystemClock
 import android.view.Surface
-import com.reau.app.OtherEdition
 import java.io.File
 import java.io.IOException
 import java.net.InetAddress
@@ -234,19 +233,7 @@ internal class AaReceiver(
      * It returns at once (the files are opened here, the bytes copied on another thread). False when there is nothing to keep: the option
      * is off, or no session is open.
      */
-    fun freezeRecording(mark: Int): Boolean {
-        val keeper = freezer ?: return false
-        val snapshot = sentRecorder?.snapshot()
-        if (snapshot == null) {
-            com.reau.app.data.RideDiagnostics.log("mark", "mark $mark: no session recording is open to keep a copy of")
-            return false
-        }
-        freezeIo.execute {
-            runCatching { keeper.freeze(snapshot, mark) }
-                .onFailure { com.reau.app.data.RideDiagnostics.warn("mark", "mark $mark: keeping the session recording failed: $it") }
-        }
-        return true
-    }
+    fun freezeRecording(mark: Int): Boolean = MarkFreezer.keep(freezer, sentRecorder, freezeIo, mark)
 
     /** A key or a wheel step for Android Auto (the dash's joystick); nothing without a session. */
     fun sendInput(command: AaCommand) {
@@ -396,6 +383,8 @@ internal class AaReceiver(
     /** One dialled connection: its state report, and the session on it. */
     private fun serve(mine: Int, socket: Socket, refused: RefusedDials, unanswered: HandshakeStreak, waking: AaWake) {
         refused.connected(android.os.SystemClock.elapsedRealtime())?.let(::logReceiver)
+        // A connection accepted says the server is on: the update time of Android Auto is kept, to tell later whether an update turned it off (AaUpdatedServerOff).
+        runCatching { AaUpdatedServerOff.markSeenOn(context) }
         // A "still closing the previous session" or a "not responding" already said is not taken back by the next
         // dial being accepted: only an answer (or the port refusing) takes it back.
         val held = synchronized(lock) { state }
@@ -504,11 +493,10 @@ internal class AaReceiver(
         // the stop's interrupt swallowed by the video decoder waiting on its own thread).
         if (!isCurrent(mine)) return
         // Android Auto closes its sessions at every change of the USB: said, and (when the handshake had been answered) dialled again at once.
-        val ending = usb.noteEnd { AaLog.i(it) }
-        if (handshook) musicResume.sessionEnded(ending.sinceMs != null, playingAtEnd)
-        if (!unanswered.after(handshook)) {
+        val drop = SessionEnd.settle(usb, unanswered, handshook, say = { AaLog.i(it) }, musicEnded = { musicResume.sessionEnded(it, playingAtEnd) })
+        if (drop != null) {
             report(mine, AaLinkState.DROPPED)
-            ending.pauseAfterDrop(timing.afterDropMs) { Thread.sleep(it) }
+            drop.pauseAfterDrop(timing.afterDropMs) { Thread.sleep(it) }
             return
         }
         // Right after REau's own stop, or from where this process began to dial when a session it did not see may have just
@@ -535,7 +523,7 @@ internal class AaReceiver(
                         PreviousSessionClosing.within(now, AaRestartGap.lastStoppedAtMs) ->
                             CLOSING_NOTE
                         else -> FROZEN_NOTE
-                    } + OtherEdition.logNote(context),
+                    },
             )
         }
         report(mine, kind)

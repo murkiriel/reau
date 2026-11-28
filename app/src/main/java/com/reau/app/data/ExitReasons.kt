@@ -19,6 +19,8 @@ data class PastExit(
     val pssKb: Long,
     val rssKb: Long,
     val description: String?,
+    /** The state summary the process kept for the system ([ProcessStateSummary], `ApplicationExitInfo.getProcessStateSummary`, Android 11+) as ASCII text; null with none. */
+    val stateSummary: String? = null,
 )
 
 /**
@@ -37,8 +39,13 @@ object ExitReasons {
     /** Exits whose line says nothing but the time (the app was replaced by an install): in a row, they are one line. */
     private val REPEATABLE = setOf(16)
 
-    /** An install, a forced stop ("user requested", "user stopped"): REau ended from outside, maybe mid-session. */
-    private val CUT_FROM_OUTSIDE = setOf(10, 11, 16)
+    /**
+     * REau ended from outside, maybe mid-session: an install (16), a forced stop ("user requested", "user stopped") and, since 25/11/2026, the system's own
+     * kills ([SystemClosedRide.BY_THE_SYSTEM]: signaled, low memory, excessive resource use, dependency died, other, freezer). The first version listed only
+     * 10, 11 and 16; on 25/11/2026 at 16:10:55 a LOW_MEMORY kill with importance 125 left Android Auto's server holding the session, the quick restart rule
+     * did not turn on, and the picture never came back.
+     */
+    private val CUT_FROM_OUTSIDE = SystemClosedRide.BY_THE_SYSTEM + 16
 
     /** At most "foreground service": REau was running a projection, not sitting in the background. */
     private const val PROJECTING_IMPORTANCE = 125
@@ -125,6 +132,9 @@ object ExitReasons {
             EXIT_SELF -> append(", exit code ${exit.status}")
         }
         if (exit.pssKb > 0 || exit.rssKb > 0) append(", pss ${exit.pssKb / KB_PER_MB} MB, rss ${exit.rssKb / KB_PER_MB} MB")
+        // What the process said of itself before it died (26/11/2026, S3): the state at its last change, with the screen's time counted to this death. Before the description,
+        // which the reader takes as the last quoted text of the line.
+        ProcessStateSummary.describe(exit.stateSummary, exit.timestampMs)?.let { append(", state \"$it\"") }
         exit.description?.takeIf { it.isNotBlank() }?.let { append(", \"${oneShortLine(it)}\"") }
         traceFile?.let { append(", trace in $it") }
     }

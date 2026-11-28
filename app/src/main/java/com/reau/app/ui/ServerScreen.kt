@@ -31,6 +31,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.reau.app.R
+import com.reau.app.service.DashLink
 import com.reau.app.service.Phase
 import com.reau.app.settings.REauSettings
 import com.reau.app.ui.components.GroupLabel
@@ -73,7 +74,9 @@ fun ServerScreen(state: MainUiState, settings: REauSettings, change: (REauSettin
                 verticalArrangement = Arrangement.spacedBy(GROUP_GAP),
             ) {
                 NetworkCard(state)
-                WebSection(settings, projectionOn = state.projection.phase != Phase.STOPPED, change = change)
+                WebSection(
+                    settings, projectionOn = state.projection.phase != Phase.STOPPED, dashInUse = state.projection.dash != DashLink.OFF, change = change,
+                )
                 AudioSection(settings, change)
             }
         }

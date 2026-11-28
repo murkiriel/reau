@@ -27,7 +27,19 @@ internal class WebViewers(
     ) { r -> Thread(r, "web-viewers-told").apply { isDaemon = true } }
 
     private fun tell(count: Int) {
-        runCatching { tellings.execute { events.onViewers(count) } }
+        // Counted before it is queued and after it ran (or was refused), so a test can wait for every telling in flight to end.
+        tellingsInFlight.incrementAndGet()
+        try {
+            tellings.execute {
+                try {
+                    events.onViewers(count)
+                } finally {
+                    tellingsInFlight.decrementAndGet()
+                }
+            }
+        } catch (_: java.util.concurrent.RejectedExecutionException) {
+            tellingsInFlight.decrementAndGet()
+        }
     }
 
     /** The viewers in, as the server's events were told. */
@@ -100,7 +112,10 @@ internal class WebViewers(
         }
     }
 
-    private companion object {
-        const val MAX_CLIENT_PAYLOAD = 4096
+    internal companion object {
+        private const val MAX_CLIENT_PAYLOAD = 4096
+
+        /** The tellings queued or running, of every server of the process: zero when none is left to reach an events object. */
+        val tellingsInFlight = java.util.concurrent.atomic.AtomicInteger()
     }
 }

@@ -43,6 +43,35 @@ CASOS = [
     # a common network name and a MAC
     ('SSID: "CasaDoZe" up', 'SSID: "<rede>" up'),
     (f"bssid {MAC_FF} ok", f"bssid {mascarar.MASK_MAC} ok"),
+    # a MAC glued to a letter or a digit, with hyphens, and with no separator after its keyword; a date, a hash and a longer run stay (26/11/2026)
+    (f"bssid=x{MAC_FF}", f"bssid=x{mascarar.MASK_MAC}"),
+    (f"{MAC_FF}x up", f"{mascarar.MASK_MAC}x up"),
+    (f"bssid {MAC_FF.replace(':', '-')} up", f"bssid {mascarar.MASK_MAC} up"),
+    (f"BSSID: {MAC_FF.replace(':', '')}", f"BSSID: {mascarar.MASK_MAC}"),
+    (f'wlan_mac="{MAC_FF.replace(":", "").upper()}"', f'wlan_mac="{mascarar.MASK_MAC}"'),
+    (f"commit {MAC_FF.replace(':', '')} built", f"commit {MAC_FF.replace(':', '')} built"),
+    (f"macro={MAC_FF.replace(':', '')}", f"macro={MAC_FF.replace(':', '')}"),
+    (f"mac={MAC_FF.replace(':', '')}0", f"mac={MAC_FF.replace(':', '')}0"),
+    ("2026-11-26-10-30-15 ok", "2026-11-26-10-30-15 ok"),
+    # revisão de 26/11/2026, C5: palavra terminada em hexadecimal + hífen antes do MAC; a data continua
+    (f"bssid-{MAC_FF.replace(':', '-')}", f"bssid-{mascarar.MASK_MAC}"),
+    (f"wlan0-{MAC_FF.replace(':', '-')}", f"wlan0-{mascarar.MASK_MAC}"),
+    (f"feed-{MAC_FF.replace(':', '-')}", f"feed-{mascarar.MASK_MAC}"),
+    ("id-" + "-".join(["1a", "2b", "3c", "4d", "5e", "6f"]), f"id-{mascarar.MASK_MAC}"),
+    ("ts2026-11-26-10-30-15-45 ok", "ts2026-11-26-10-30-15-45 ok"),
+    ("x 2026-11-26-10-30-15-45-59 ok", "x 2026-11-26-10-30-15-45-59 ok"),
+    ("2026-11-26-10-30-15-45 ok", "2026-11-26-10-30-15-45 ok"),
+    # revisão de 26/11/2026, S5: MAC depois de ano e mês não vaza (o par do mês é de dígitos, os pares do MAC têm letras); as datas continuam
+    (f"2026-12-{MAC_FF.replace(':', '-')}", f"2026-{mascarar.MASK_MAC}"),
+    (f"x 2026-12-{MAC_FF.replace(':', '-').upper()} up", f"x 2026-{mascarar.MASK_MAC} up"),
+    ("mac=" + "-".join(["10", "aa", "bb", "cc", "dd", "ee"]), f"mac={mascarar.MASK_MAC}"),
+    ("(" + "-".join(["10", "aa", "bb", "cc", "dd", "ee"]) + ")", f"({mascarar.MASK_MAC})"),
+    ("1-" + "-".join(["10", "aa", "bb", "cc", "dd", "ee"]), f"1-{mascarar.MASK_MAC}"),
+    (f"x 12-{MAC_FF.replace(':', '-')}", f"x {mascarar.MASK_MAC}"),
+    ("2026-11-26-10-30-15-123", "2026-11-26-10-30-15-123"),
+    ("reau-2026-11-26-10-30-15-123.log", "reau-2026-11-26-10-30-15-123.log"),
+    ("2026-11-26 10-30-15", "2026-11-26 10-30-15"),
+    ("log-2026-11-26-10-30-15-45", "log-2026-11-26-10-30-15-45"),
 ]
 
 

@@ -719,7 +719,7 @@ class DashCompositor(private val log: (String) -> Unit) {
     /**
      * The look on the clock too, not only on a new picture: a screen that stands still (the app menu) sends next to no pictures, and the
      * screen needs three looks of it in a row to be sure ([com.reau.app.aa.PictureGate]); with a look only per new picture the screen stayed on
-     * the map for as long as the menu stood still (25/10/2026, the Lite edition). Same pace limit as the looks on a new picture.
+     * the map for as long as the menu stood still (25/10/2026). Same pace limit as the looks on a new picture.
      */
     private val lookTick = object : Runnable {
         override fun run() {

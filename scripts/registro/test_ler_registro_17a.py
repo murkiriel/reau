@@ -527,7 +527,7 @@ class PainelLigadoUnido(unittest.TestCase):
         t = self.textos(self.bloco(pedido("10:01:00.000", 1, "scan of 9 networks, the dash: 'RE_****30' -50 dBm 2417 MHz seen 6 s ago"), self.UNIDO("10:01:07.800"),
                                    self.IDADE("10:01:08.700", 20), self.STREAM("10:01:10.000")))
         self.assertEqual(1, len(t))
-        self.assertIn("unido 19,1 s depois de ligar (idade 20 s no primeiro pacote)", t[0])
+        self.assertIn("unido 19,1 s depois de ligar (idade 20 s no primeiro pacote", t[0])
         self.assertIn("transmitindo 21,3 s depois de ligar", t[0])
         self.assertTrue(t[0].endswith("[partida]"), t[0])
         self.assertNotIn("o app não viu o painel", t[0])
@@ -549,6 +549,84 @@ class PainelLigadoUnido(unittest.TestCase):
     def test_sem_a_idade_do_painel_nao_ha_o_que_medir(self):
         self.assertEqual([], self.textos(self.bloco(self.UNIDO("10:01:07.000"), self.STREAM("10:01:10.000"))))
         self.assertEqual([], self.textos(self.bloco(self.UNIDO("10:01:07.000"), self.IDADE("10:02:00.000", 20))))  # a idade veio depois de 30 s: é de outra conexão
+
+    # A idade dá a volta aos 256 s (pendência N8): a frase "unido X depois de ligar" diz quando X pode ser só o resto.
+    FORA = staticmethod(lambda hora: pedido(hora, 1, "scan of 9 networks, the dash not among them (newest result 0 s old)"))
+    VISTO = staticmethod(lambda hora, visto: pedido(hora, 1, f"scan of 31 networks, the dash: 'RE_****30' -48 dBm 2452 MHz seen {visto} s ago (newest result 3 s old)"))
+
+    def test_o_painel_visto_ligado_ha_mais_que_a_idade_diz_a_volta_e_o_minimo_certo(self):
+        # 22/11 17:34:11: idade 90 s no primeiro pacote, mas o painel já estava na varredura 269 s antes do pedido (291 s antes do pacote): 90 + 256 = 346 s no mínimo.
+        t = self.textos(self.bloco(self.VISTO("10:01:00.000", 269), self.UNIDO("10:01:22.000"), self.IDADE("10:01:22.100", 90), self.STREAM("10:01:24.200")))
+        self.assertEqual(1, len(t))
+        self.assertIn("unido pelo menos 345,9 s depois de ligar (idade 90 s no primeiro pacote; o painel foi visto ligado 291,1 s antes do pacote e o contador dá a volta aos 256 s)", t[0])
+        self.assertIn("transmitindo pelo menos 348,1 s depois de ligar", t[0])
+        self.assertNotIn("módulo", t[0])
+
+    def test_o_painel_visto_ha_duas_voltas_soma_duas_voltas_ao_minimo(self):
+        # visto 500 s antes do pedido (522 s antes do pacote), idade 90 s: 90 + 2 x 256 = 602 s é a menor leitura que cabe nos dois (346 s não chega ao visto).
+        t = self.textos(self.bloco(self.VISTO("10:01:00.000", 500), self.UNIDO("10:01:22.000"), self.IDADE("10:01:22.100", 90), self.STREAM("10:01:24.200")))
+        self.assertIn("unido pelo menos 601,9 s depois de ligar (idade 90 s no primeiro pacote; o painel foi visto ligado 522,1 s antes do pacote", t[0])
+
+    def test_o_painel_visto_que_a_idade_explica_nao_ganha_o_pelo_menos(self):
+        # visto 6 s antes do pedido, 28 s antes do pacote, idade 40 s: cabe, a volta não se prova; sem varredura sem o painel antes, fica só o módulo.
+        t = self.textos(self.bloco(self.VISTO("10:01:00.000", 6), self.UNIDO("10:01:22.000"), self.IDADE("10:01:22.100", 40), self.STREAM("10:01:24.200")))
+        self.assertNotIn("pelo menos", t[0])
+        self.assertIn("unido 39,9 s depois de ligar (idade 40 s no primeiro pacote; módulo 256 s, sem prova", t[0])
+
+    def test_a_partida_sem_nada_que_mostre_o_painel_antes_diz_modulo_256(self):
+        t = self.textos(self.bloco(self.UNIDO("10:01:07.800"), self.IDADE("10:01:08.700", 20), self.STREAM("10:01:10.000")))
+        self.assertIn("unido 19,1 s depois de ligar (idade 20 s no primeiro pacote; módulo 256 s, sem prova do painel desligado antes)", t[0])
+
+    def test_a_varredura_sem_o_painel_ha_menos_de_256_s_prova_que_a_idade_e_exata(self):
+        t = self.textos(self.bloco(self.FORA("10:01:00.000"), self.UNIDO("10:01:22.000"), self.IDADE("10:01:22.100", 20), self.STREAM("10:01:24.200")))
+        self.assertIn("unido 19,9 s depois de ligar (idade 20 s no primeiro pacote)", t[0])
+        self.assertNotIn("módulo", t[0])
+        self.assertNotIn("pelo menos", t[0])
+
+    def test_a_varredura_sem_o_painel_ha_mais_de_256_s_nao_prova_nada(self):
+        t = self.textos(self.bloco(self.FORA("10:01:00.000"), self.UNIDO("10:06:00.000"), self.IDADE("10:06:00.100", 20), self.STREAM("10:06:02.000")))
+        self.assertIn("módulo 256 s", t[0])
+
+    def test_a_varredura_sem_o_painel_com_resultado_velho_nao_prova_a_idade_exata(self):
+        # A linha das 10:03:00 diz `newest result 200 s old`: a varredura é de 09:59:40 (330 s antes do pacote das 10:05:30), então o painel ligado às 10:00:00 não estava nela.
+        # A linha está a 150 s do pacote (<= 256), mas a prova é de 350 s: a idade de 74 s não é exata (a real é 330 s) e o leitor diz «módulo 256 s».
+        velha = lambda hora, idade: pedido(hora, 1, f"scan of 9 networks, the dash not among them (newest result {idade} s old)")
+        t = self.textos(self.bloco(velha("10:03:00.000", 200), self.UNIDO("10:05:29.000"), self.IDADE("10:05:30.000", 74), self.STREAM("10:05:32.000")))
+        self.assertIn("módulo 256 s", t[0])
+        self.assertNotIn("(idade 74 s no primeiro pacote)", t[0])
+
+    def test_a_varredura_sem_o_painel_com_resultado_velho_que_cabe_nos_256_s_continua_exata(self):
+        # Linha a 150 s do pacote e resultado de 100 s: a prova é de 250 s antes do pacote, cabe.
+        velha = lambda hora, idade: pedido(hora, 1, f"scan of 9 networks, the dash not among them (newest result {idade} s old)")
+        t = self.textos(self.bloco(velha("10:03:00.000", 100), self.UNIDO("10:05:29.000"), self.IDADE("10:05:30.000", 74), self.STREAM("10:05:32.000")))
+        self.assertIn("(idade 74 s no primeiro pacote)", t[0])
+        self.assertNotIn("módulo", t[0])
+
+    def test_o_painel_visto_antes_da_varredura_sem_ele_e_de_outra_vez_que_ligou(self):
+        # visto 300 s antes, depois uma varredura sem ele 30 s antes do pacote (o painel desligou e religou): a idade de 20 s é exata.
+        t = self.textos(self.bloco(self.VISTO("10:01:00.000", 0), self.FORA("10:05:00.000"), self.UNIDO("10:05:30.000"), self.IDADE("10:05:30.100", 20), self.STREAM("10:05:32.000")))
+        self.assertNotIn("pelo menos", t[0])
+        self.assertNotIn("módulo", t[0])
+
+    def test_o_painel_que_religou_depois_de_uma_queda_curta_tem_a_idade_exata(self):
+        religou = self.textos(self.bloco(self.QUEDA("10:01:00.000"), self.UNIDO("10:03:20.000"), self.IDADE("10:03:20.800", 15), self.STREAM("10:03:22.000")))
+        self.assertIn("(idade 15 s no primeiro pacote)", religou[0])
+        self.assertNotIn("módulo", religou[0])
+
+    def test_o_painel_que_ficou_ligado_numa_queda_curta_nao_diz_ha_quanto_ligou_e_diz_modulo(self):
+        ficou = self.textos(self.bloco(self.QUEDA("10:01:00.000"), self.UNIDO("10:01:05.000"), self.IDADE("10:01:05.800", 61), self.STREAM("10:01:07.000")))
+        self.assertIn("módulo 256 s", ficou[0])
+
+    def test_a_queda_de_256_s_ou_mais_continua_com_a_ressalva_so_no_colchete(self):
+        t = self.textos(self.bloco(self.QUEDA("10:01:00.000"), self.UNIDO("10:06:00.000"), self.IDADE("10:06:00.800", 15), self.STREAM("10:06:02.000")))
+        self.assertIn("(queda de 256 s ou mais: o contador dá a volta, a idade é um mínimo)", t[0])
+        self.assertNotIn("módulo", t[0])
+        self.assertNotIn("pelo menos", t[0])
+
+    def test_a_linha_do_tempo_traz_a_ressalva_da_volta(self):
+        d = arquivo(projecao(self.VISTO("10:01:00.000", 269), self.UNIDO("10:01:22.000"), self.IDADE("10:01:22.100", 90), self.STREAM("10:01:24.200")))
+        tempo = "\n".join(ler_registro.linha_do_tempo(ler_registro.ler([d])))
+        self.assertIn("painel ligado → unido: unido pelo menos 345,9 s depois de ligar (idade 90 s", tempo)
 
     def test_a_linha_do_tempo_poe_o_texto_logo_depois_do_painel_no_wifi(self):
         d = arquivo(projecao(self.UNIDO("10:01:07.800"), self.IDADE("10:01:08.700", 20), self.STREAM("10:01:10.000")))

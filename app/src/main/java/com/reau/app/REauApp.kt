@@ -16,6 +16,18 @@ class REauApp : Application() {
         create()
     }
 
+    // Android's signs that memory is short, written to the ride log with the level's name, and a look at the phone at once (plan 35: the system closed REau for low
+    // memory on 25/11/2026 and nothing in the log said whether it had warned first). Called on the main thread: only a line and a hand-off to the projection's worker.
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        runCatching { com.reau.app.data.MemoryPressure.signals.trimmed(level, com.reau.app.util.MonotonicClock.nowMs()) }
+    }
+
+    override fun onLowMemory() {
+        super.onLowMemory()
+        runCatching { com.reau.app.data.MemoryPressure.signals.lowMemory(com.reau.app.util.MonotonicClock.nowMs()) }
+    }
+
     private fun create() {
         // Privacy: the logs and recordings in internal storage; an older version's are moved there,
         // off the main thread (recordings may be large). Before init, so the folder the log opens is the new one.

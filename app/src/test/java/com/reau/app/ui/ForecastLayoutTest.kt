@@ -50,4 +50,12 @@ class ForecastLayoutTest {
         assertTrue(screen.contains("Text(pill.written, style = MaterialTheme.typography.labelSmall, color = status.rainText, maxLines = 1, softWrap = false)"))
         assertTrue("no ruler is left", !screen.contains("RainRuler"))
     }
+
+    @Test
+    fun `the pill's tag comes before the clearing of its semantics, which would clear it too`() {
+        // A tag after clearAndSetSemantics is cleared with the rest (28/11/2026: WeatherScreenTest did not find the pill on the emulator).
+        val screen = java.io.File("src/main/java/com/reau/app/ui/WeatherScreen.kt").readText()
+        assertTrue(screen.contains("Modifier.testTag(tag).clearAndSetSemantics { contentDescription = described }"))
+        assertTrue("no tag after the clearing", !Regex("""clearAndSetSemantics \{[^}]*\}\.testTag""").containsMatchIn(screen))
+    }
 }

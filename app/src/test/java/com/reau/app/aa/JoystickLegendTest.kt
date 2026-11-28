@@ -116,7 +116,7 @@ class JoystickLegendTest {
     fun `the map legend has the dash's own up and centre, the ring's switch below and the page's sides`() {
         assertEquals(
             listOf(
-                Control.UP to EchoLabel.BACK, Control.DOWN to EchoLabel.INFO_RING, Control.LEFT to EchoLabel.WHEEL_PREVIOUS,
+                Control.UP to EchoLabel.EXIT_NAVIGATION, Control.DOWN to EchoLabel.INFO_RING, Control.LEFT to EchoLabel.WHEEL_PREVIOUS,
                 Control.RIGHT to EchoLabel.WHEEL_NEXT, Control.CENTER to EchoLabel.MEDIA_MODE,
             ),
             JoystickMap().legend(Mode.MAP),

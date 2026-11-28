@@ -15,6 +15,7 @@ import android.os.IBinder
 import android.os.SystemClock
 import com.reau.app.R
 import com.reau.app.aa.AaLinkState
+import com.reau.app.data.AppStandbyLog
 import com.reau.app.data.CrashHandler
 import com.reau.app.data.DeviceStateLog
 import com.reau.app.data.ProjectionSummary
@@ -36,6 +37,7 @@ import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 
 /** The two sides and the video, as the service drives them. The real ones are [LiveSides]. */
+@Suppress("TooManyFunctions") // the six sides plus the optional ones with defaults; splitting them would scatter what LiveSides answers (26/11/2026)
 interface ProjectionSides {
     fun startAndroidAuto()
     fun stopAndroidAuto()
@@ -61,6 +63,16 @@ interface ProjectionSides {
      * overwrite (`MarkFreezer`). Returns at once. False: nothing to keep.
      */
     fun freezeRecording(mark: Int): Boolean = false
+
+    /**
+     * The battery is at [pct] percent with no charger ([BatteryLowWatch]): the dash's video alternates the pill of the low battery, a minute on and a minute out, after a call
+     * or the volume card if one shows (the owner's decision of 26/11/2026; it was 5 s once). Asked at each look while it holds: the first starts the alternation, the next ones
+     * only change the level in its words. True when the pill was taken; false when these sides have no video to show it on.
+     */
+    fun showBatteryLow(pct: Int): Boolean = false
+
+    /** The alternation of [showBatteryLow] ends (the charger came in, the battery went up, the dash went, the projection ended): the pill is taken off the video at once. */
+    fun stopBatteryLow() = Unit
 
     /** The bike's Wi-Fi while the sides hold it, for the `device` line; null when none. */
     val bikeNetwork: Network? get() = null
@@ -97,7 +109,9 @@ interface ProjectionSides {
  * (never the main thread: stopping Android Auto's receiver may wait a few seconds).
  *
  * [start] and [stop] are all the screen needs; [projection] is where things stand, for the screen and the
- * notification. Nothing starts by itself: not after a reboot, not when the process is killed.
+ * notification. Nothing starts by itself after a reboot. One thing comes back by itself: the projection the rider had on when the system ended the
+ * process (not a force stop) is resumed once, as if Ligar had been tapped, within the limits of [ProjectionResume]; the service answers START_STICKY only
+ * while the projection is the rider's and running, and every way the rider (or the dash's absence) turns it off erases the mark that lets it come back.
  */
 @Suppress("TooManyFunctions") // one small function per case; splitting them would only scatter the same thing
 class ProjectionService : Service() {
@@ -107,6 +121,7 @@ class ProjectionService : Service() {
         const val ACTION_START_CARD = "com.reau.app.PROJECTION_START_CARD"
         const val ACTION_REFIT = "com.reau.app.PROJECTION_REFIT"
         const val ACTION_MARK = "com.reau.app.PROJECTION_MARK"
+        private val START_ACTIONS = setOf(ACTION_START, ACTION_START_CARD)
 
         /** The tag of both locks, as `dumpsys power` and `dumpsys wifi` show it. */
         const val LOCK_TAG = "reau:projection"
@@ -162,6 +177,19 @@ class ProjectionService : Service() {
 
         /** A mark of the rider's goes in a projection that is on; a refit applies only to one that is running. */
         internal fun markApplies(phase: Phase): Boolean = phase != Phase.STOPPED
+
+        /**
+         * The rider's mark: its line in the ride log first, then the ask to the sides to keep a copy of the session recording (the ring of it
+         * overwrites itself, about 11 min of a long ride). A failure of the copy costs the copy only: [log] says it.
+         */
+        internal fun keepMark(
+            sides: ProjectionSides?, marks: RiderMarks, nowMs: Long, log: (String) -> Unit,
+            note: (String) -> Unit = { RideDiagnostics.log("mark", it) },
+        ) {
+            note(marks.mark(nowMs))
+            runCatching { sides?.freezeRecording(marks.count) }
+                .onFailure { log("${RideDiagnostics.WARN}mark ${marks.count}: keeping the session recording failed: $it") }
+        }
 
         internal fun refitApplies(phase: Phase): Boolean = phase == Phase.RUNNING
 
@@ -278,6 +306,21 @@ class ProjectionService : Service() {
     // The start id of the last start that took the foreground; written on the main thread, read by the worker.
     @Volatile private var lastStart = 0
 
+    // The start id of the latest command of any kind (Ligar, Desligar, mark, refit, a restart), for the release's stopSelf (ForegroundHandover.stopId); main thread writes, worker reads.
+    @Volatile private var latestCommand = 0
+
+    // The mark that lets the projection come back after the system ended the process (ProjectionResume); read on the main thread at a restart, written on the worker.
+    private val resumeBook by lazy { ProjectionResumeBook.open(this) }
+
+    // Whether the projection is the rider's and running with the resume switched on: the service then answers START_STICKY; written on the main thread, read by the worker.
+    @Volatile private var resumable = false
+
+    // Which resume of the window this projection is (1 to 3), 0 when the rider tapped Ligar: for the log line and the notification's sub text; main thread and worker.
+    @Volatile private var resumedAttempt = 0
+
+    /** The keeper of this projection's process-state summary ([com.reau.app.data.ProcessStateSummaryKeeper]); null while no projection looks at the phone. */
+    @Volatile private var stateSummary: com.reau.app.data.ProcessStateSummaryKeeper? = null
+
     // When the rider's Desligar reached the service, until its effects are done (0: none going on). The stop is carried
     // out on the one worker and may take seconds (the receiver's bye); a Ligar tapped meanwhile waits behind it, with
     // the screen already saying "parado". Only for the log, to see that wait.
@@ -291,9 +334,16 @@ class ProjectionService : Service() {
 
     /** What the notification says after a mark (the service's context: the language the rider chose); null before the first. */
     private fun markNote(): String? = marks.markedAt?.let { getString(R.string.notif_mark_done, marks.count, it) }
+        ?: resumedAttempt.takeIf { it > 0 }?.let { getString(R.string.notif_resumed) }
 
     // The phone's state looked at while the projection is on; only the worker reads and writes it.
     private var deviceLook: ScheduledFuture<*>? = null
+
+    // The watch of the low battery of the projection being looked at, kept for its end ([endBatteryPill]); only the worker reads and writes it.
+    private var batteryLow: BatteryLowWatch? = null
+
+    // What the system's memory signs call ([com.reau.app.data.PressureSignals]): a look at the phone on the worker, with the reason it is written for.
+    private var pressureLook: ((String) -> Unit)? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -363,24 +413,32 @@ class ProjectionService : Service() {
 
     private fun startCommand(intent: Intent?, startId: Int): Int {
         val action = intent?.action
+        // Only a command that does not take the foreground (a Ligar or a restart with no intent does): with a Ligar's id, a Desligar released on the worker
+        // while that Ligar is still taking the foreground would end the new projection (25/11/2026; stopSelf with an older id does nothing, which protected it).
+        latestCommand = ForegroundHandover.latestForStop(latestCommand, startId, takesForeground = intent == null || action in START_ACTIONS)
         noteTapDuringStop(action)
         when (action) {
             ACTION_START, ACTION_START_CARD -> if (goForeground()) {
                 lastStart = startId
+                resumedAttempt = 0
+                // The rider's own Ligar: a frame from now on is not the resume's.
+                com.reau.app.data.ResumeClock.shared.disarm()
+                resumable = resumeSwitchOn()
                 val card = intent.action == ACTION_START_CARD
                 handle(startId, if (card) ProjectionEvent.StartCard else ProjectionEvent.Start, sidesFor = card)
             } else {
                 stopSelf(startId)
             }
-            ACTION_STOP -> handle(startId, ProjectionEvent.Stop)
+            ACTION_STOP -> {
+                // Not sticky from the moment the rider's Desligar arrives: a process killed during the stop is not brought back.
+                resumable = false
+                handle(startId, ProjectionEvent.Stop)
+            }
             ACTION_MARK -> worker.execute {
                 if (!markApplies(controller.state.phase)) {
                     stopSelf(startId)
                 } else {
-                    RideDiagnostics.log("mark", marks.mark(System.currentTimeMillis()))
-                    // The ring of the session recording overwrites itself (about 11 min of a long ride): the mark keeps a copy.
-                    runCatching { sides?.freezeRecording(marks.count) }
-                        .onFailure { log("${RideDiagnostics.WARN}mark ${marks.count}: keeping the session recording failed: $it") }
+                    keepMark(sides, marks, System.currentTimeMillis(), ::log)
                     ProjectionNotification.show(this, controller.state.headline, markNote(), started.value, card = controller.state.card)
                 }
             }
@@ -393,10 +451,95 @@ class ProjectionService : Service() {
                     stopSelf(startId)
                 }
             }
-            // A restart by the system (no intent): the projection is not resumed by itself.
-            else -> stopSelf(startId)
+            // A restart by the system (no intent): the projection comes back only when ProjectionResume says so; any other command stays stopped.
+            else -> if (intent != null || !resumeAfterRestart(startId)) stopSelf(startId)
         }
-        return START_NOT_STICKY
+        return ProjectionResume.returnFor(resumable)
+    }
+
+    /** Whether the rider's switch for resuming is on (read at each Ligar; a failure reads as off). */
+    private fun resumeSwitchOn(): Boolean = runCatching { SettingsStore.open(this).load().resumeAfterKill }.getOrDefault(false)
+
+    /**
+     * A restart by the system, with no intent: the process was ended with the projection on. If [ProjectionResume.decide] says yes, the projection starts
+     * as Ligar would start it, the foreground with the connected device type alone; if not, or if anything goes wrong, the mark is erased and the service stops.
+     * True when it was resumed.
+     */
+    @Suppress("TooGenericExceptionCaught") // whatever a resume throws ends here: a restart that crashes the process would be started again by the system
+    private fun resumeAfterRestart(startId: Int): Boolean {
+        val resumed = try {
+            val enabled = SettingsStore.open(this).load().resumeAfterKill
+            when (val verdict = ProjectionResume.decide(resumeBook.read(), enabled, System.currentTimeMillis())) {
+                is ProjectionResume.Verdict.Drop -> false.also { logResume(ProjectionResume.notResumedLine(verdict.why)) }
+                is ProjectionResume.Verdict.Resume -> resumeNow(verdict, startId)
+            }
+        } catch (e: Exception) {
+            logResume(ProjectionResume.notResumedLine("${e.javaClass.simpleName} while resuming"))
+            false
+        }
+        if (!resumed) forgetResume()
+        return resumed
+    }
+
+    /** The resume of [verdict], counted before anything else is tried, so a process that dies again at once is stopped by the limit. */
+    private fun resumeNow(verdict: ProjectionResume.Verdict.Resume, startId: Int): Boolean {
+        resumeBook.recordResume(System.currentTimeMillis(), verdict.resumedAtMs)
+        if (!goForeground(restart = true)) {
+            val battery = ProjectionResume.exemptionNote(batteryExemption())
+            logResume(ProjectionResume.notResumedLine("the foreground start was refused (the lines above say how; $battery)"))
+            return false
+        }
+        lastStart = startId
+        resumable = true
+        resumedAttempt = verdict.attempt
+        handle(startId, if (verdict.card) ProjectionEvent.StartCard else ProjectionEvent.Start, sidesFor = verdict.card, fresh = false)
+        return true
+    }
+
+    /**
+     * Whether REau is exempt from the battery optimization (what the rider granted with "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"); null when Android does not say.
+     * It is the one exemption Android lists for a foreground start from the background that REau can have, so the resume's log line says it (25/11/2026): the next
+     * log tells whether a refused or a late resume had it.
+     */
+    private fun batteryExemption(): Boolean? =
+        runCatching { getSystemService(android.os.PowerManager::class.java)?.isIgnoringBatteryOptimizations(packageName) }.getOrNull()
+
+    /** The rider's projection is over (turned off, stopped for the dash's absence, or refused to start), or cannot be resumed: nothing is left to bring back. */
+    private fun forgetResume() {
+        resumable = false
+        resumedAttempt = 0
+        com.reau.app.data.ResumeClock.shared.disarm()
+        runCatching { resumeBook.erase() }.onFailure { logResume("the resume mark could not be erased: ${it.javaClass.simpleName}") }
+    }
+
+    /**
+     * A resume began: the dash session says, when the dash confirms the first frame, how long that took since the system ended the process and since this one started
+     * ([com.reau.app.data.ResumeClock], plan 35, 25/11/2026). The exit is the newest one Android kept; on the worker (a binder call), once the session's log has begun.
+     */
+    private fun armResumeClock() {
+        runCatching {
+            val exit = ExitHistory.newest(this)
+            com.reau.app.data.ResumeClock.shared.arm(
+                nowMs = com.reau.app.util.MonotonicClock.nowMs(),
+                processAgeMs = SystemClock.elapsedRealtime() - android.os.Process.getStartElapsedRealtime(),
+                exitAgeMs = exit?.let { System.currentTimeMillis() - it.timestampMs },
+                exitName = exit?.let { com.reau.app.data.ExitReasons.reasonName(it.reason) },
+            )
+        }
+    }
+
+    private fun logResume(line: String) {
+        runCatching { RideDiagnostics.log("projection", line) }
+    }
+
+    /**
+     * The rider took the app off the recent apps. Android keeps the service going, and the projection with it; but a maker's manager may end the process
+     * right then, and the restart that follows is not to bring the projection back against what the rider just did: the mark says so until the rider's next
+     * Ligar ([ProjectionResume.decide]). Nothing else changes: the projection goes on, and it still stops where it always did.
+     */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        runCatching { resumeBook.taskRemoved(System.currentTimeMillis()) }
+        super.onTaskRemoved(rootIntent)
     }
 
     override fun onDestroy() {
@@ -453,8 +596,10 @@ class ProjectionService : Service() {
      * The machine takes [event] on the worker. [commandId] is the start id of the command that brought it: the
      * service is stopped with it, so a stop never ends a service that has meanwhile been asked to start again.
      */
-    private fun handle(commandId: Int, event: ProjectionEvent, sidesFor: Boolean? = null) = worker.execute {
+    private fun handle(commandId: Int, event: ProjectionEvent, sidesFor: Boolean? = null, fresh: Boolean = true) = worker.execute {
         command = commandId
+        // The rider's Ligar leaves its mark here, on the worker, after any stop still being carried out (whose release erases the mark): a resume keeps the one it has.
+        if (fresh && sidesFor != null && resumable) runCatching { resumeBook.begin(System.currentTimeMillis(), card = sidesFor) }
         if (sidesFor != null && buildsSides(sidesFor, controller.state.phase)) buildSides(card = sidesFor)
         controller.submit(event)
         if (event == ProjectionEvent.Stop && stopTappedAtMs != 0L) {
@@ -503,9 +648,10 @@ class ProjectionService : Service() {
 
     /**
      * Android expects startForeground() after every startForegroundService(). The types are tried richest first
-     * ([ForegroundTypes]: the microphone too with Gemini); false if every one was refused.
+     * ([ForegroundTypes]: the microphone too with Gemini); false if every one was refused. With [restart] (the system started the service again
+     * with no intent) the connected device type alone is asked for ([ProjectionResume.typesFor]).
      */
-    private fun goForeground(): Boolean {
+    private fun goForeground(restart: Boolean = false): Boolean {
         var why = ""
         // Gemini switched on and the permission to record given: the microphone type. The precise location permission given: the location type,
         // for the dash's Wi-Fi list with the app behind another one (and the info ring's GPS), whatever the ring or "Usar a localização".
@@ -515,7 +661,7 @@ class ProjectionService : Service() {
             recordAudioGranted = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED,
             fineLocationGranted = fineLocationGranted,
         )
-        for (types in ForegroundTypes.ladder(microphone = needs.microphone, location = needs.location)) {
+        for (types in ProjectionResume.typesFor(restart, microphone = needs.microphone, location = needs.location)) {
             val refusal = try {
                 ProjectionNotification.createChannel(this)
                 ProjectionNotification.refreshAlertChannel(this)
@@ -524,7 +670,7 @@ class ProjectionService : Service() {
                 worker.execute { pacer.alreadyShown(Headline.PREPARING) }
                 // What Android really accepted, not what was asked for (minSdk 29 has foregroundServiceType).
                 acceptedTypes = foregroundServiceType
-                foregroundNotes(acceptedTypes, needs, fineLocationGranted).forEach(::log)
+                (if (restart) ProjectionResume.foregroundNotes(acceptedTypes) else foregroundNotes(acceptedTypes, needs, fineLocationGranted)).forEach(::log)
                 return true
             } catch (e: IllegalStateException) {
                 e
@@ -543,8 +689,18 @@ class ProjectionService : Service() {
         override fun prepare(): String? {
             // One ride log per projection, in <external files>/diag, where `adb pull` reaches it.
             RideDiagnostics.start("projection")
+            // After the session's own start, so the reader finds it inside the projection it belongs to.
+            resumedAttempt.takeIf { it > 0 }?.let {
+                logResume(ProjectionResume.resumedLine(it, ProjectionResume.exemptionNote(batteryExemption())))
+                armResumeClock()
+            }
             val inUse = SettingsStore.open(this@ProjectionService).load().sanitized()
             RideDiagnostics.log("settings", SettingsInUse.line(inUse))
+            // What the rider says he did on phones of the two makers with their own steps (26/11/2026): his word, not a reading; nothing on any other phone.
+            runCatching {
+                val brand = com.reau.app.ui.KeepAliveGuide.current()
+                com.reau.app.data.KeepAliveChecklist.logAtStart(this@ProjectionService, com.reau.app.ui.KeepAliveGuide.hasNotice(brand))
+            }
             marks.reset()
             // A new summary for this projection, written when it is switched off.
             ProjectionSummary.current = RideSummary().apply { start(SystemClock.elapsedRealtime(), batteryPct = null) }
@@ -552,6 +708,8 @@ class ProjectionService : Service() {
             // Sides that could not be built, or with no compositor, cannot project; the start fails here, with the reason, and the
             // machine gives the service back (Release) instead of connecting a dash that would never get video.
             refusal()?.let { return it }
+            // The projection is back by itself and not refused: said in the headset, if the rider has the voice on (26/11/2026; the voice writes its own line when it speaks).
+            ProjectionResume.voiceCueFor(resumedAttempt)?.let { RiderVoice.speak(it) }
             // The earlier runs' reports and the locks (together once 0.4 to 0.8 s on a phone) follow Android Auto's side, so
             // the start is not slow. On this same worker, so they come before any stop asked for after this start.
             worker.execute { housekeeping() }
@@ -589,6 +747,8 @@ class ProjectionService : Service() {
         }
 
         override fun release() {
+            // The rider's Desligar, the stop for the dash's absence, a refused start: nothing is left to resume. Not when a start came after this stop (it has, or will make, its own mark).
+            if (ForegroundHandover.dropsForeground(command, lastStart)) forgetResume()
             publish { started.value = null }
             // The browser switch goes off with the projection and stays off until the rider turns it on again.
             // Not when a start came after this stop: that run is the rider's now (it turned the switch off itself when it began).
@@ -599,8 +759,11 @@ class ProjectionService : Service() {
                     log("projection: the browser switch went off with the projection")
                 }
             }
-            deviceLook?.cancel(false)
+            stopLookingAtTheDevice()
+            endBatteryPill()
             ProjectionNotification.clearPhoneHot(this@ProjectionService)
+            // The low-battery notice is about this ride: it goes with it (26/11/2026; a resume after a death by the system is the same ride and keeps it).
+            ProjectionNotification.clearBatteryLow(this@ProjectionService)
             // The Wi-Fi notice goes with the projection, and the voice lets its engine and the audio focus go (a next projection starts clean).
             ProjectionNotification.clearWifiOff(this@ProjectionService)
             // The notices about the dash that stay for the rider to read go with the projection.
@@ -624,7 +787,12 @@ class ProjectionService : Service() {
                 log("projection: a start came after this stop: the foreground stays")
             }
             RideDiagnostics.stop("projection")
-            stopSelf(command)
+            // With the id of the latest command, not only the stop's own: a mark or a refit that came after it would leave the service started and idle (25/11/2026).
+            // latestCommand is read BEFORE lastStart (26/11/2026): the main thread may handle a Ligar (lastStart rises) and then a refit (latestCommand rises) between the
+            // two reads. Read in this order the worst pair is a new lastStart with an old latestCommand, whose stopSelf does nothing (the Ligar's service stays up); read the
+            // other way round, the old lastStart with the refit's id would end the service of the new Ligar.
+            val latest = latestCommand
+            stopSelf(ForegroundHandover.stopId(command, lastStart, latest))
         }
 
         override fun startAndroidAuto() = sides?.startAndroidAuto() ?: Unit
@@ -649,23 +817,65 @@ class ProjectionService : Service() {
      */
     private fun lookAtTheDevice() {
         val reader = DeviceStateReader(this) { sides?.bikeNetwork }
-        val device = DeviceStateLog(DEVICE_PERIOD_MS) { RideDiagnostics.log("device", it) }
+        // After a sign of memory pressure the line comes at every look for a minute (PressureSignals.periodAt), then back to the 30 s.
+        val signals = com.reau.app.data.MemoryPressure.signals
+        val device = DeviceStateLog(DEVICE_PERIOD_MS, signals::periodAt) { RideDiagnostics.log("device", it) }
+        // The standby bucket and the background restriction: one line at the first look of the projection, another only when one of them changes (26/11/2026).
+        val standby = AppStandbyLog { RideDiagnostics.log("device", it) }
+        // The summary of this process's state the system hands back with its death (ProcessStateSummary, 26/11/2026): given only when it changes, not at every look.
+        val summary = com.reau.app.data.ProcessStateSummaryKeeper { reader.keepSummary(it) }
+        stateSummary = summary
         // Armed for this projection: one warning when the battery passes 44 C, another only after it fell under 41 C (BatteryHeatWatch).
         val heat = BatteryHeatWatch()
+        // Armed for this trip: one warning when the battery is at 10 % or under with no charger, never a second one (BatteryLowWatch, 26/11/2026); a projection resumed
+        // after a death by the system is the same trip, and the mark says whether the warning was already given.
+        val told = runCatching { resumeBook.batteryTold() }.getOrDefault(false)
+        val low = BatteryLowWatch(alreadyTold = told)
+        batteryLow = low
+        if (told) RideDiagnostics.log("battery", "the low-battery notice was given before the system closed REau: not given again in this ride")
         // Said once for this projection: the reader does not ask for the thermal headroom in this build (the lines have no headroom=).
         RideDiagnostics.log("device", com.reau.app.data.ThermalHeadroomNote.LINE)
         // Said once for this projection: the alert channel muted or blocked in Android (the main screen says it too).
         AlertChannelState.line(AlertChannelState.read(this))?.let { RideDiagnostics.warn("projection", it) }
-        deviceLook?.cancel(false)
-        deviceLook = worker.scheduleWithFixedDelay({
+        // [why] null: the look of every 5 s (the line only when its period is due or something relevant changed); else a memory sign's reason, and the line at once.
+        val look = { why: String? ->
             runCatching {
+                // The sign of life the resume's mark is renewed with, once a minute at most (ProjectionResumeBook).
+                resumeBook.beat(System.currentTimeMillis(), dashUp = ProjectionResume.dashUp(controller.state.dash))
                 val state = reader.read()
-                device.offer(SystemClock.elapsedRealtime(), state)
+                standby.offer(reader.appStandby())
+                summary.offer(
+                    System.currentTimeMillis(),
+                    com.reau.app.data.ProcessStateSummary.Look(
+                        true, ProjectionResume.dashUp(controller.state.dash), state.screenOn, resumedAttempt, state.batteryPct, state.charging,
+                    ),
+                )
+                // The same clock as the memory signs' (REauApp writes PressureSignals with MonotonicClock): with SystemClock.elapsedRealtime here the minute of
+                // faster lines never came, the two readings being hours apart (found in the review of 26/11/2026).
+                val nowMs = com.reau.app.util.MonotonicClock.nowMs()
+                if (why == null) device.offer(nowMs, state) else device.force(nowMs, state, why)
                 ProjectionSummary.current.device(state.thermal, state.batteryPct)
                 warnIfHot(heat, state)
+                warnIfBatteryLow(low, state)
             }
                 .onFailure { log("${RideDiagnostics.WARN}projection: reading the device state failed: $it") }
-        }, 0, DEVICE_LOOK_MS, TimeUnit.MILLISECONDS)
+        }
+        deviceLook?.cancel(false)
+        deviceLook = worker.scheduleWithFixedDelay({ look(null) }, 0, DEVICE_LOOK_MS, TimeUnit.MILLISECONDS)
+        // A memory sign comes on the main thread: the look is handed to the worker, which is where the reader (and its state) lives.
+        val onSign: (String) -> Unit = { why -> runCatching { worker.execute { look(why) } } }
+        pressureLook = onSign
+        signals.attach(onSign)
+    }
+
+    /** The projection no longer looks at the phone: the memory signs go back to writing their own line only. */
+    private fun stopLookingAtTheDevice() {
+        deviceLook?.cancel(false)
+        // The process may live on with the app open: its summary says the projection is over.
+        stateSummary?.ended()
+        stateSummary = null
+        pressureLook?.let { com.reau.app.data.MemoryPressure.signals.detach(it) }
+        pressureLook = null
     }
 
     /** The rider's notice that the phone is hot ([BatteryHeatWatch]), and its line in the ride log; the notice goes when the phone has cooled. */
@@ -688,6 +898,48 @@ class ProjectionService : Service() {
             }
             BatteryHeatWatch.Verdict.NONE -> Unit
         }
+    }
+
+    /**
+     * The rider's notice that the battery is nearly out with no charger ([BatteryLowWatch]), once per trip, and its line in the ride log: the level, and
+     * whether the notice was posted or the rider has the app's notifications off (26/11/2026; the ride of 25/11 went from 12 % to 4 % in 2 minutes). The dash's pill is
+     * another thing and has its own life: it alternates (a minute on, a minute out) at each look while the battery is low with no charger and the dash is up, and it
+     * stops, said in the log, when the charger came in, the battery went above the limit or the dash went; with the notice told already (a resumed ride) it still starts.
+     */
+    private fun warnIfBatteryLow(low: BatteryLowWatch, state: com.reau.app.data.DeviceState) {
+        val pct = state.batteryPct ?: return
+        // The pill waits for the dash: drawn with no dash connected it would run its minute unseen (26/11/2026); the phone's notice goes at once.
+        val dashUp = ProjectionResume.dashUp(controller.state.dash)
+        val due = low.offer(pct, state.charging)
+        val step = low.pillStep(dashUp)
+        val onDash = step.asks && sides?.showBatteryLow(pct) == true
+        if (due) {
+            val shown = ProjectionNotification.showBatteryLow(this, pct)
+            runCatching { resumeBook.recordBatteryTold() }
+            val pill = if (onDash) "asked" else if (low.lowNow && !dashUp) "waiting for the dash" else "none"
+            RideDiagnostics.warn(
+                "battery",
+                "battery at $pct% with no charger (at or under ${BatteryLowWatch.LOW_PCT}%): rider told the phone may shut down " +
+                    "(phone notice: ${if (shown) "shown" else "not shown, the app's notifications are off"}; dash pill: $pill)",
+            )
+        } else if (step == BatteryLowWatch.PillStep.START && onDash) {
+            val shownS = TimeUnit.MILLISECONDS.toSeconds(com.reau.app.dash.BatteryPill.SHOW_MS)
+            val outS = TimeUnit.MILLISECONDS.toSeconds(com.reau.app.dash.BatteryPill.OUT_MS)
+            RideDiagnostics.log("battery", "battery pill alternation starts at $pct% ($shownS s shown, $outS s out)")
+        }
+        if (step.stops) {
+            runCatching { sides?.stopBatteryLow() }
+            RideDiagnostics.log("battery", "battery pill alternation stops at $pct%: ${step.reason}")
+        }
+    }
+
+    /** The projection is over: the dash's pill, if it was alternating, is taken off and the log says so (26/11/2026). */
+    private fun endBatteryPill() {
+        val line = batteryLow?.endLine()
+        batteryLow = null
+        if (line == null) return
+        runCatching { sides?.stopBatteryLow() }
+        RideDiagnostics.log("battery", line)
     }
 
     /**

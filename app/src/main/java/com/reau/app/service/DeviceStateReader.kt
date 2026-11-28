@@ -1,6 +1,7 @@
 package com.reau.app.service
 
 import android.app.ActivityManager
+import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -10,14 +11,19 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.wifi.WifiInfo
 import android.os.BatteryManager
+import android.os.Build
 import android.os.PowerManager
 import android.os.Process
 import android.os.SystemClock
 import android.view.Display
 import androidx.core.content.ContextCompat
+import com.reau.app.data.AppStandby
 import com.reau.app.data.CpuWindow
 import com.reau.app.data.DeviceState
+import com.reau.app.data.LoadAverage
+import com.reau.app.data.MemoryProc
 import com.reau.app.data.PowerReadings
+import com.reau.app.data.RideDiagnostics
 
 /**
  * Reads the phone's [DeviceState] with no new permission: the battery from its sticky
@@ -30,10 +36,36 @@ class DeviceStateReader(private val context: Context, private val bikeNetwork: (
     private val connectivity = context.getSystemService(ConnectivityManager::class.java)
     private val display = context.getSystemService(DisplayManager::class.java)
     private val batteryManager = context.getSystemService(BatteryManager::class.java)
+    private val usageStats = context.getSystemService(UsageStatsManager::class.java)
     private val cpu = CpuWindow()
+    private val load = LoadAverage { RideDiagnostics.log("device", LoadAverage.UNREADABLE_LINE) }
+    private val procMemory = MemoryProc(onPressureUnreadable = { RideDiagnostics.log("device", MemoryProc.UNREADABLE_LINE) })
 
     /** The state now; what it says of the charger, the screen and doze is also kept for the line on a link's end. */
     fun read(): DeviceState = readNow().also { com.reau.app.data.PhoneNow.update(it.charging, it.screenOn, it.dozing, it.batteryTempC) }
+
+    /**
+     * REau's standby bucket and whether its background use is restricted (both API 28, own package, no permission), and the USB debugging and developer options switches;
+     * each one that fails is unknown, never a throw (26/11/2026: what the system had decided about the app was not in any log).
+     */
+    fun appStandby(): AppStandby.Reading = AppStandby.Reading(
+        bucket = runCatching { usageStats.appStandbyBucket }.getOrNull(),
+        backgroundRestricted = runCatching { activity.isBackgroundRestricted }.getOrNull(),
+        adb = globalSwitch(android.provider.Settings.Global.ADB_ENABLED),
+        devOptions = globalSwitch(android.provider.Settings.Global.DEVELOPMENT_SETTINGS_ENABLED),
+    )
+
+    /** A system switch of `Settings.Global` (public, no permission) as on or off; null when the phone does not have it or refuses the read (26/11/2026). */
+    private fun globalSwitch(name: String): Boolean? =
+        runCatching { android.provider.Settings.Global.getInt(context.contentResolver, name) != 0 }.getOrNull()
+
+    /**
+     * Gives the system REau's state summary for this process (API 30, up to 128 bytes): it comes back in the `ApplicationExitInfo` of this process's death
+     * ([com.reau.app.data.ProcessStateSummary], 26/11/2026). A failure is never a throw.
+     */
+    fun keepSummary(bytes: ByteArray) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) runCatching { activity.setProcessStateSummary(bytes) }
+    }
 
     private fun readNow(): DeviceState {
         val battery = runCatching {
@@ -72,6 +104,10 @@ class DeviceStateReader(private val context: Context, private val bikeNetwork: (
             currentMa = runCatching { PowerReadings.currentMa(batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)) }.getOrNull(),
             chargeMah = runCatching { PowerReadings.chargeMah(batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)) }.getOrNull(),
             cpuPct = runCatching { cpu.offer(Process.getElapsedCpuTime(), SystemClock.elapsedRealtime()) }.getOrNull(),
+            lowMemoryAtMb = memory?.let { (it.threshold / MB).toInt() },
+            loadAverage = load.read(),
+            memAvailableMb = procMemory.availableMb(),
+            memPressure = procMemory.pressure(),
         )
     }
 

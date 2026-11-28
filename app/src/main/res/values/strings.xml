@@ -28,9 +28,11 @@
     <string name="notif_update_title">REau %1$s available</string>
     <string name="notif_update_text">Tap to see the release page. Nothing is downloaded or installed.</string>
     <string name="notif_title_dash_stuck">The dash’s Wi-Fi is stuck</string>
-    <string name="notif_text_dash_stuck">The dash is on but not accepting the connection. Turn the motorcycle’s ignition off and on again; REau reconnects by itself</string>
+    <string name="notif_text_dash_stuck">The dash is on but not accepting the connection. Turn the motorcycle’s ignition off, wait about 20 seconds and turn it on again (a quick off and on does not clear it); REau reconnects by itself</string>
     <string name="notif_title_phone_hot">Phone is hot</string>
     <string name="notif_text_phone_hot">The phone is hot (%1$d °C). Take it out of the sun or a closed pocket, or unplug the charger, so it does not slow down</string>
+    <string name="notif_title_battery_low">Battery low</string>
+    <string name="notif_text_battery_low">Battery at %1$d%% — the phone may shut down during the ride. Plug in the charger.</string>
     <string name="notif_title_wifi_off">Phone Wi-Fi is off</string>
     <string name="notif_text_wifi_off">Phone Wi-Fi is off: turn on Wi-Fi to connect to the dash</string>
     <string name="notif_title_bind_refused">Android is refusing the dash’s network</string>
@@ -53,7 +55,7 @@
     <string name="notif_text_dash_taken">Turn off the other app’s streaming; REau tries again on its own</string>
     <string name="notif_text_dash_taken_alert">Another app is using the dash connection. Close it so REau can come back.</string>
     <string name="notif_title_dash_silent">Dash not responding</string>
-    <string name="notif_text_dash_silent">The dash stopped responding. If it does not come back, turn the ignition off and on.</string>
+    <string name="notif_text_dash_silent">The dash stopped responding. If it does not come back, turn the ignition off, wait about 20 seconds and turn it on again.</string>
     <string name="notif_title_card">Wallpaper on the dash</string>
     <string name="notif_text_card">Still image, no Android Auto</string>
     <string name="notif_text_stopping">Turning off</string>
@@ -103,6 +105,7 @@
     <string name="action_open_aa_settings">Open Android Auto settings</string>
     <string name="action_get_aa">Get Android Auto</string>
     <string name="aa_missing_note">Android Auto isn’t installed on this phone. Tap \"Get Android Auto\" to install it from Google Play, open it once to finish its setup, then come back.</string>
+    <string name="aa_updated_note">Android Auto was updated, and an update can turn its head unit server off. If you did not turn it off, turn it on again.</string>
     <string name="aa_store_none">Android Auto isn’t installed, and this phone has no app store or browser to get it from.</string>
     <string name="aa_settings_failed">Couldn’t open Android Auto’s settings. Open Android Auto from your app list.</string>
     <string name="headline_card">Wallpaper on the dash</string>
@@ -147,7 +150,7 @@
     <string name="dash_err_ssid_not_found">Dash Wi-Fi \'%1$s\' not found nearby — check that it’s on and in range</string>
     <string name="dash_err_auth_failed">The dash Wi-Fi \'%1$s\' is in range, but Android did not finish joining it (the phone may be slow to join with the screen off, the Android prompt may have been declined, or the password may be wrong). REau tries again by itself</string>
     <string name="dash_err_not_found_or_password">Couldn’t connect to \'%1$s\' — network not found or wrong password</string>
-    <string name="dash_err_dash_stuck">The dash Wi-Fi \'%1$s\' is refusing the connection. If the password is still the dash’s default one, the dash has frozen: turn the motorcycle off with the ignition key, wait about 30 seconds and turn it back on; REau keeps trying on its own</string>
+    <string name="dash_err_dash_stuck">The dash Wi-Fi \'%1$s\' is refusing the connection. If the password is still the dash’s default one, the dash has frozen: turn the motorcycle off with the ignition key, wait about 20 seconds and turn it back on; REau keeps trying on its own</string>
     <string name="dash_err_wifi_lost">Dash Wi-Fi lost — reconnecting…</string>
     <string name="dash_err_link_lost">Connection lost — reconnecting…</string>
     <!-- The joystick page -->
@@ -160,7 +163,6 @@
     <string name="headline_android_auto_no_video">Android Auto: no picture</string>
     <string name="aa_no_video_warning">Android Auto is connected but isn’t sending a picture, and the dash stays black. Force stop it (Settings › Apps › Android Auto › Force stop), then turn REau off and on again. With Android Auto 17.4 or newer, also check that its head unit server is on.</string>
     <string name="aa_unresponsive_warning">Android Auto accepts the connection but doesn’t respond. In Android Auto’s developer settings, tap ⋮ and choose \"Stop head unit server\", then ⋮ and \"Start head unit server\"; REau tries again by itself.</string>
-    <string name="aa_other_edition_warning">The old REau app, the one with the seal on its icon, is still installed on this phone and may be using Android Auto: its head unit server takes only one session at a time. This app replaces it, so you can uninstall it. If it is on, turn it off (tap Turn off in it), wait about a minute and REau connects by itself.</string>
     <string name="joystick_title">Dash joystick</string>
     <string name="joystick_intro">Choose what each joystick tap does. Applies right away, even while the projection is on.</string>
     <string name="joystick_music_on">The dash shows the song that plays (music card): the media mode has a music control.</string>
@@ -299,6 +301,17 @@
     <string name="no_dash_stop_info">When the dash’s Wi-Fi goes away and does not come back (the bike was switched off), REau keeps asking for it, with Android Auto, the video and the phone’s locks held, until you tap Turn off. With this on, the projection turns itself off after the time chosen without the dash, as the Turn off button would, and a notification says why. The count starts again whenever the dash comes back; \"No limit\" keeps the old behavior.</string>
     <string name="no_dash_stop_minutes">%1$d min</string>
     <string name="no_dash_stop_never">No limit</string>
+    <string name="resume_after_kill_title">Resume if the system closes REau (experimental)</string>
+    <string name="resume_after_kill_sub">If the phone’s system ends REau in the middle of a ride, the projection comes back by itself</string>
+    <string name="resume_after_kill">When the phone’s system closes REau in the middle of a ride and starts its service again, the projection turns itself on again, as if you had tapped Turn on: up to 3 times in 30 minutes, never after you turned it off yourself. It cannot come back after a force stop (some Xiaomi phones do one), and while resumed it has no microphone (Gemini) and no location for the Wi-Fi list. On by default, but it is a test and may be removed in a later version.</string>
+    <string name="pace_packets_title">Space out the packets to the dash (experimental)</string>
+    <string name="pace_packets_sub">At least 2 ms between any two packets, video and commands</string>
+    <string name="pace_packets">REau leaves at least 2 ms between any two packets it sends to the dash, the video’s and the commands’ together, instead of a burst back to back; some dashes restart a minute after the transmission starts, and the apps that stay up space their packets the same way. It adds a few milliseconds to a keyframe and to the answer to a button, and counts from the next projection. On by default, but it is a test and may be removed in a later version.</string>
+    <string name="video_encoder_title">Video encoder (experimental)</string>
+    <string name="video_encoder_sub">Who makes the video for the dash</string>
+    <string name="video_encoder_phone">Phone’s</string>
+    <string name="video_encoder_software">Android software</string>
+    <string name="video_encoder_info">By default the phone’s own chip makes the video to the dash. This test uses Android’s software encoder instead, which should keep the bitrate steady and tends to make smaller keyframes, at the cost of more processor use; if the phone has none, its own stays. It counts from the next time the video opens; it is a test and may be removed in a later version.</string>
     <string name="action_view_logs">View the log</string>
     <string name="log_viewer_title">Log</string>
     <string name="log_viewer_none">No logs yet.</string>
@@ -356,7 +369,6 @@
     <string name="warn_server_title">Head unit server is off</string>
     <string name="warn_closing_previous_title">Closing the previous session</string>
     <string name="warn_unresponsive_title">Android Auto isn’t responding</string>
-    <string name="warn_other_edition_title">Another REau is installed</string>
     <string name="warn_no_video_title">Android Auto has no picture</string>
     <string name="warn_battery_exemption_title">Battery optimization</string>
     <string name="warn_battery_saver_title">Battery saver is on</string>
@@ -557,7 +569,9 @@
     <string name="ring_no_gps">no GPS</string>
     <string name="section_web">Browser</string>
     <string name="web_view_title">Turn on the network server</string>
-    <string name="web_view_sub">Another device opens the address in a browser</string>
+    <string name="web_view_sub">On, the dash is not used: browser only</string>
+    <string name="web_on_dialog_title">The dash will stop being used</string>
+    <string name="web_on_dialog_text">With the network server on, REau stops using the dash and shows the picture only in the browser. Turn it on anyway?</string>
     <string name="web_view_long">With the projection running, REau opens a server on the local network: a computer or car display with a browser, on the same network, opens the address, enters the 4-digit PIN and sees Android Auto. When on, REau doesn’t look for the dash; the PIN changes every time, and after 5 wrong attempts the device waits 5 minutes. The picture is sent unencrypted, to two browsers at most, and the server turns itself off when the projection ends.</string>
     <string name="web_touch_title">Allow touch from the browser</string>
     <string name="web_touch_sub">Without this, the browser can only watch</string>
@@ -664,7 +678,7 @@
     <string name="joystick_locked_center_short">Media</string>
     <string name="joystick_action_info_ring">Info ring</string>
     <string name="joystick_locked_up">Exit navigation?</string>
-    <string name="joystick_locked_up_note">In map mode, the up arrow is the dash’s own back button: it asks whether you want to exit navigation. REau sends no action for it.</string>
+    <string name="joystick_locked_up_note">In map mode, the up arrow is the dash’s own back button: it asks whether you want to exit navigation. If you say yes, REau turns the navigation off on the dash and holds the route card back until a new navigation starts; nothing is sent to Android Auto.</string>
     <string name="joystick_info_ring_note">In map mode, the down arrow shows and hides the info ring when it is on in the settings; it does not touch the maneuver ring. With the maneuver ring hidden, the dash stops sending this button, so no action comes out of it. With another action on this button, the ring is no longer switched by it.</string>
     <string name="joystick_locked_center">Opens media control</string>
     <string name="joystick_locked_center_note">In map mode, the center button puts the dash in media control. It can’t be changed.</string>
@@ -908,19 +922,17 @@
     <string name="update_notice_title">Notify when there is an update</string>
     <string name="update_notice_sub">Once a day, with internet, REau asks GitHub (api.github.com) for the latest version, with no account and nothing about you, and tells you once per version. Nothing is downloaded or installed.</string>
 
-    <!-- A small line on the main screen while the old app with the seal on its icon (id ending in .lite) is still installed -->
-    <string name="old_app_note">The old REau app (the one with the seal on its icon) is still installed. It isn’t needed any more: you can uninstall it.</string>
-
     <string name="warn_wifi_off_title">Phone Wi-Fi is off</string>
     <string name="wifi_off_warning">Phone Wi-Fi is off: turn on Wi-Fi to connect to the dash</string>
     <string name="action_wifi_on">Turn on Wi-Fi</string>
     <string name="spoken_alerts_title">Spoken alerts in the headset</string>
     <string name="spoken_alerts_sub">Speaks the important alerts in the helmet headset</string>
     <string name="spoken_alerts">Speaks the important alerts with Android’s voice, in the helmet headset, like the navigation voice: the dash gone or stuck and back again, the phone hot and the phone’s Wi-Fi off. It lowers the music for a moment while it speaks and never repeats the same phrase within a minute. Off by default; the notifications appear whatever you choose here, and the voice is up to the phone’s text-to-speech engine and its voices.</string>
-    <string name="voice_dash_gone">Dash disconnected. Turn the motorcycle off and on.</string>
+    <string name="voice_dash_gone">Dash disconnected. Turn the motorcycle off, wait 20 seconds, then on.</string>
     <string name="voice_dash_back">Dash is back.</string>
     <string name="voice_phone_hot">Phone is hot. Take it out of the sun or a closed pocket.</string>
     <string name="voice_wifi_off">Phone Wi-Fi is off.</string>
+    <string name="voice_app_back">REau is back.</string>
     <!-- The action echo and the joystick legend: the same short names (at most 19 characters, Latin-1, as the dash reads the street name) in the dash’s gold band and on its video -->
     <string name="echo_wheel_previous">Previous item</string>
     <string name="echo_wheel_next">Next item</string>
@@ -962,7 +974,10 @@
     <string name="call_card_calling">Calling…</string>
     <string name="call_card_ended">Ended · %1$s</string>
     <string name="call_card_missed">Missed call</string>
+    <string name="battery_pill_level">Battery %1$d %%</string>
+    <string name="battery_pill_hint">Plug in the charger</string>
     <string name="echo_media_mode">Media mode</string>
+    <string name="echo_exit_navigation">Exit navigation</string>
     <string name="action_echo_title">Action name on the dash</string>
     <string name="action_echo_sub">Shows what each joystick tap did</string>
     <string name="action_echo">Each joystick tap that does something shows the action’s short name (Next song, Back, Answer) for 1.5 seconds in the title of the dash’s gold band, where the street name goes, and then the title comes back. With a handlebar joystick that is not precise, you see on the dash what the tap really did; a tap that does nothing shows nothing. On by default; a change applies at once.</string>
@@ -978,4 +993,37 @@
     <string name="tip_gemini_swap_text">Gemini talks by voice and needs an intercom in the helmet. If you do not have one, on the Dash joystick screen (Media control, the Down button) you can swap the Gemini action for “Switch map and music”: one tap takes you from the map to the music app and back.</string>
     <string name="tip_video_fps_title">Why the video does not go above 6 fps</string>
     <string name="tip_video_fps_text">The dash accepts more frames per second, but the same processor that shows the video also draws the screen and handles the buttons. In tests on the bike, at 8 fps the reserve icon started to flicker, and at 12 fps the dash began to ignore the buttons. At 6 fps everything worked without glitches, so REau never goes above it. Even so, the app comes with the Original pace (4 fps on A, 2 on B), which is lighter on the dash; for a smoother picture, pick REau (6 fps on A, 3 on B) in the \"Video pace\" setting.</string>
+    <string name="tip_destination_title">Choose the destination on the phone</string>
+    <string name="tip_destination_text">If tapping search on Android Auto does nothing, that is normal: with the projection on, Android Auto does not let you type. Choose the destination in Google Maps on the phone and the route shows up on the dash.</string>
+    <string name="keepalive_title">Keep REau running</string>
+    <string name="keepalive_intro">Some phones close apps running in the background to save battery, even while REau is projecting on the dash, and the ride is left without the dash. These are the steps for your phone to lower the chance of that happening.</string>
+    <string name="keepalive_honest">These steps lower the chance but do not guarantee it: each phone maker has its own rules, and an update can change them.</string>
+    <string name="keepalive_brand_xiaomi">Xiaomi, Redmi and POCO (HyperOS or MIUI)</string>
+    <string name="keepalive_brand_oppo">realme, OPPO and OnePlus (realme UI, ColorOS or OxygenOS)</string>
+    <string name="keepalive_brand_other">Your phone</string>
+    <string name="keepalive_step_lock">Lock REau in the recent apps: open the recent apps, press and hold REau’s card and tap the padlock.</string>
+    <string name="keepalive_step_xiaomi_battery">Open REau’s app info, tap Battery saver and choose \"No restrictions\".</string>
+    <string name="keepalive_step_autostart">Turn on Autostart for REau (in its app info, or in the Autostart list in the phone’s settings).</string>
+    <string name="keepalive_step_xiaomi_performance">Optional: in the phone’s Battery settings, choose the performance mode or plan, which holds back background apps less.</string>
+    <string name="keepalive_step_oppo_battery">Open REau’s app info, tap Battery usage and allow background activity (\"Allow background activity\").</string>
+    <string name="keepalive_step_oppo_autostart">Turn on Auto launch for REau (in its app info, or in the phone’s settings under Battery or Apps).</string>
+    <string name="keepalive_step_other_battery">Keep REau out of battery optimization: the main screen asks for it, and the permissions page shows whether it is done (\"Exempt from battery optimization\").</string>
+    <string name="keepalive_step_other_lock">If your phone can lock apps in the recent apps (a padlock on the card), lock REau.</string>
+    <string name="keepalive_open_app_info">Open REau’s app info</string>
+    <string name="permissions_keep_alive">Keep REau from being closed: steps for your phone</string>
+    <string name="action_keepalive_guide">See the steps</string>
+    <string name="warn_system_closed_title">The phone closed REau</string>
+    <string name="warn_system_closed">The phone’s system closed REau during the ride (%1$s), while it was projecting. That comes from the phone, not from the dash. See how to lower the chance of it happening again.</string>
+    <string name="keepalive_open_autostart">Open the Autostart screen</string>
+    <string name="keepalive_battery_exempt">REau is already exempt from battery optimization, which is the first thing it asks. The steps below are the phone maker’s own, and that exemption does not replace them.</string>
+    <string name="keepalive_battery_not_exempt">REau is not yet exempt from battery optimization: do that first (the main screen asks for it, and the permissions page shows it). Then do the steps below, which are the phone maker’s own.</string>
+    <string name="keepalive_check_title">What you have done</string>
+    <string name="keepalive_check_hint">Tick what you did. REau cannot check it: your answer stays on this phone and goes into the ride log, to help find out why a ride was closed.</string>
+    <string name="keepalive_item_autostart">Autostart is on</string>
+    <string name="keepalive_item_background">Background activity is allowed</string>
+    <string name="keepalive_item_lock">Padlock on REau in the recent apps</string>
+    <string name="keepalive_item_battery">Battery is set to \"No restrictions\"</string>
+    <string name="warn_keepalive_title">Keep REau running on this phone</string>
+    <string name="warn_keepalive">Your phone’s maker may close REau in the middle of a ride. A few settings, done once, lower the chance of that. See them before the next ride.</string>
+    <string name="keepalive_open_failed">Could not open the phone’s settings. Open Settings, then Apps, then REau, and follow the steps from there.</string>
 </resources>

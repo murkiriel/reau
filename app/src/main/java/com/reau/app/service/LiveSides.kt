@@ -21,6 +21,7 @@ import com.reau.app.phone.CallState
 import com.reau.app.aa.AaCommand
 import com.reau.app.aa.NavGuidance
 import com.reau.app.card.CardPainter
+import com.reau.app.dash.ActionEchoText
 import com.reau.app.dash.DashPairing
 import com.reau.app.dash.DashPorts
 import com.reau.app.dash.DashReadings
@@ -28,6 +29,7 @@ import com.reau.app.dash.DashSession
 import com.reau.app.dash.DashSocket
 import com.reau.app.dash.DashWifiManager
 import com.reau.app.dash.DashWifiSuggestions
+import com.reau.app.dash.ProtocolText
 import com.reau.app.dash.nav.AaManeuvers
 import com.reau.app.dash.nav.DrivingSide
 import com.reau.app.dash.nav.DrivingSideSource
@@ -65,7 +67,8 @@ import java.io.File
  * Both sides report to the machine through [report]: the receiver its [AaReceiver] states, the dash session its
  * states read by [ProjectionMachine.linkOf]. All the methods are called on the service's worker, one at a time.
  */
-@Suppress("TooManyFunctions") // one small function per case; splitting them would only scatter the same thing
+// one small function per case; splitting them would only scatter the same thing; the class holds every side of one projection and its watches, splitting it is a refactor of its own
+@Suppress("LargeClass", "TooManyFunctions")
 internal class LiveSides(
     context: Context,
     private val report: (ProjectionEvent) -> Unit,
@@ -80,6 +83,8 @@ internal class LiveSides(
         val aaOptions: AaReceiver.Options = AaReceiver.Options(),
         val video: VideoLoop.Settings = VideoLoop.Settings(),
         val dashSocket: (Network?) -> DashSocket = { DashSocket(it) },
+        /** The sockets on the phone's own address, for the one try when Android refuses to bind to the dash's network ([com.reau.app.dash.LocalAddressRetry]); the same pacing as [dashSocket]. */
+        val localSocket: (java.net.InetAddress) -> DashSocket = { DashSocket(null, localAddress = it) },
         val linkUp: (Context, CoroutineScope) -> DashLinkUp,
         /** Which part of Android Auto's picture goes where on the dash; null keeps the compositor's own (fill the dome). */
         val mapping: FrameFit.Mapping? = null,
@@ -164,8 +169,11 @@ internal class LiveSides(
                 // Gemini (behind its switch): the voice from the headset or the phone.
                 val voice: (() -> VoiceSource)? = { PhoneVoice(context) { RideDiagnostics.log("aa", it) } }
                     .takeIf { settings.gemini }
+                // The switch "Espaçar os pacotes" read each time the session opens its sockets (25/11/2026), not once for the projection: the retries of a ride follow it.
+                val pace = { runCatching { SettingsStore.open(context).load().pacePackets }.getOrDefault(true) }
                 return Setup(
-                    dashSocket = { DashSocket(it) },
+                    dashSocket = { DashSocket(it, pacePackets = pace()) },
+                    localSocket = { DashSocket(null, localAddress = it, pacePackets = pace()) },
                     aaConfig = settings.aaConfig,
                     aaOptions = AaReceiver.Options(
                         // Android Auto 17.3 or older: it dials in, asked by a broadcast. With a newer one the receiver dials the
@@ -323,12 +331,16 @@ internal class LiveSides(
 
     // The phone's real state in the heartbeat while the rider's switch is on; `tuned` is read at each beat.
     private val session = DashSession(
-        scope, socketFactory = setup.dashSocket, linkProbe = com.reau.app.dash.PhoneLinkProbe(context)::read,
+        scope, socketFactory = setup.dashSocket, localSocketFactory = setup.localSocket, linkProbe = com.reau.app.dash.PhoneLinkProbe(context)::read,
+        channelScan = com.reau.app.dash.PhoneLinkProbe(context)::readScan,
+        networkFacts = com.reau.app.dash.PhoneLinkProbe(context)::localFacts,
         phoneStatusProvider = {
             if (tuned?.dashPhoneStatus == true) setup.phoneStatus()?.let { PhoneStatusReader.withLocationRule(it, tuned?.useLocation == true) } else null
         },
         weatherProvider = { if (tuned?.dashWeather == true) setup.weather() else null },
         readings = setup.readings,
+        // The speed the navigation gives, beside the changes of the dash's 09 08 in the ride log.
+        speedProvider = { navSpeed.kmhAt(android.os.SystemClock.elapsedRealtime()) },
         // The phone's network to the dash still known to Android (a lost one has no capabilities): what tells a silent dash from a gone one (SilentDash).
         networkUp = { network ->
             network != null && runCatching {
@@ -480,11 +492,17 @@ internal class LiveSides(
 
     /** What the volume card shows changed (a step came, or its time ran out): the compositor draws it or takes it off, at once even with the map still. */
     private fun volumeCardChanged() {
-        compositor.setVolumeCard(volumeCard.current())
+        val showing = volumeCard.current()
+        compositor.setVolumeCard(showing)
+        // The low battery's pill waits for the volume card to go (BatteryPill).
+        batteryPill.volumeChanged(showing != null)
     }
 
     /** The system's volume broadcast, listened to while this projection runs (started in the init block, given back in [release]). */
     private val volumeWatch = VolumeWatch(context, ::volumeStepHeard)
+
+    /** The Bluetooth sound's lines for the ride log (devices that come and go, where the sound goes), listened to while this projection runs (started in the init block, given back in [release]). Only observes. */
+    private val audioDeviceWatch = AudioDeviceWatch(context)
 
     /** The phone's volume moved ([step]), from wherever: the card says it, and the log says the level (no song, no name). Nothing when the card is off. */
     private fun volumeStepHeard(step: com.reau.app.dash.VolumeCards.Step) = showVolumeCard(step, log = true)
@@ -500,10 +518,30 @@ internal class LiveSides(
         if (shown && log) RideDiagnostics.log("dash", step.logLine())
     }
 
+    // The pill of the low battery ([com.reau.app.dash.BatteryPill], 26/11/2026): it takes the call card's place on the dash's video, a minute on and a minute out for as long as the
+    // service asks for it (the owner's decision of 26/11/2026; it was 5 s once), and gives way to a call card and to the volume card. It sits between the call card's feed and the compositor, so what the feed says reaches the compositor through it. Declared before
+    // the call card's feed, which is given its callback, and before the init block.
+    private val batteryPill = com.reau.app.dash.BatteryPill(
+        show = compositor::setCallCard,
+        schedule = { delayMs, action ->
+            val job = scope.launch {
+                delay(delayMs)
+                action()
+            }
+            ({ job.cancel() })
+        },
+    )
+
+    override fun showBatteryLow(pct: Int): Boolean = batteryPill.request(
+        com.reau.app.dash.CallCards.batteryNotice(appContext.getString(R.string.battery_pill_level, pct), appContext.getString(R.string.battery_pill_hint)),
+    )
+
+    override fun stopBatteryLow() = batteryPill.stop()
+
     // The call card on the dash's video ([com.reau.app.dash.CallCards], [CallCardFeed]): follows Android Auto's word of the calls whatever the switch says; the switch only
     // decides whether it is drawn and whether the dash is still sent the call.
     private val callCard = CallCardFeed(
-        scope, compositor::setCallCard, { com.reau.app.dash.ActionEchoText.callWords(appContext) }, { RideDiagnostics.log("dash", it) },
+        scope, batteryPill::callChanged, { com.reau.app.dash.ActionEchoText.callWords(appContext) }, { RideDiagnostics.log("dash", it) },
     )
 
     /** The switch of the call card ([com.reau.app.settings.REauSettings.callCard]): the session stops sending the dash the call (and clears what it sent), the joystick has the call's keys for it. */
@@ -564,7 +602,7 @@ internal class LiveSides(
             // for testing a helmet communicator.
             if (setup.aaConfig.phone) {
                 options = options.copy(onCaller = { caller ->
-                    session.showCallerCard(caller, context.getString(R.string.caller_private))
+                    session.showCallerCard(caller, ProtocolText.context(context).getString(R.string.caller_private))
                     callCard.heard(caller, context.getString(R.string.caller_private))
                     RideDiagnostics.log("call", com.reau.app.phone.CallAudioRoute.describe(context))
                 })
@@ -622,6 +660,9 @@ internal class LiveSides(
             scope.launch { watchWaiting() }
             // The volume card listens only while this projection runs, and only in the real app (a test has no settings).
             if (setup.settings != null && !volumeWatch.start()) RideDiagnostics.warn("projection", "the volume card cannot listen to the phone's volume")
+            // The Bluetooth sound is told to the ride log while this projection runs, in the real app only: it only watches, it changes no route.
+            if (setup.settings != null) audioDeviceWatch.start()
+            if (setup.settings != null) MainThreadWatch.begin()
         }
         scope.launch { ProjectionMachine.dashLinks(session.state).collect { report(ProjectionEvent.DashChanged(it)) } }
         // The weather for the dash: looked at every minute, fetched at most every quarter of an hour, and after a failure with a growing wait (WeatherBackoff).
@@ -801,7 +842,7 @@ internal class LiveSides(
         press.echo?.let { named ->
             // The swap's title is the destination ("Music" or "Map"), known only now that the tap chose it ([swapMapMusic]).
             val label = com.reau.app.aa.SwapMapMusic.echoFor(named, swapMapMusic.lastTarget)
-            val text = volumeText ?: com.reau.app.dash.ActionEchoText.text(words, label)
+            val text = volumeText ?: com.reau.app.dash.ActionEchoText.text(ProtocolText.context(words), label)
             // A song change keeps its name in the title until the new song's name comes (up to the end of the wait).
             val taken = if (label.changesSong) session.echoSongAction(text) else session.echoAction(text)
             if (taken) RideDiagnostics.log("dash", "action echo: ${label.name}")
@@ -835,7 +876,7 @@ internal class LiveSides(
         // range moves nothing and sends none, yet the lock was renewed and the card must last as long as it. The broadcast logs the step; this one only when it moved nothing.
         showVolumeCard(com.reau.app.dash.VolumeCards.stepOf(change), log = change.before == change.after)
         // With the volume card on, the card says the level and the title does not.
-        volumeEcho = com.reau.app.dash.VolumeCards.titleEcho(volumeCard.enabled) { com.reau.app.dash.ActionEchoText.volume(words, change) }
+        volumeEcho = com.reau.app.dash.VolumeCards.titleEcho(volumeCard.enabled) { ActionEchoText.volume(ProtocolText.context(words), change) }
         session.sendStatusNow()
     }
 
@@ -1058,10 +1099,13 @@ internal class LiveSides(
                 "dash session" to { session.disconnect() },
                 "link up" to { linkUp.stop() },
                 "volume watch" to { volumeWatch.stop() },
+                "audio devices watch" to { audioDeviceWatch.stop() },
+                "main thread watch" to { MainThreadWatch.end() },
                 "sighting" to { com.reau.app.dash.DashSighting.release(sightingListener) },
                 "wifi radio" to { WifiRadio.release(radioListener) },
                 "image gap" to { com.reau.app.dash.ImageGap.clock.forget() },
                 "time to picture" to { com.reau.app.dash.TimeToPicture.marks.forget() },
+                "battery pill" to { batteryPill.drop() },
                 "scope" to { scope.cancel() },
                 "compositor" to { compositor.release() },
             ),
@@ -1218,6 +1262,7 @@ internal class LiveSides(
                 override fun sendRtp(packet: ByteArray) = session.sendRtp(packet)
                 override fun keyframeSent(bytes: Int, packets: Int) = session.keyframeSent(bytes, packets)
                 override fun keyframeStarting() = session.keyframeStarting()
+                override fun frameSent(bytes: Int, packets: Int, key: Boolean, maxGapNs: Long) = session.frameSent(bytes, packets, key, maxGapNs)
                 override val firstFrameConfirmed: Boolean get() = session.firstFrameConfirmed
                 override val decodedFrameCount: Long get() = session.decodedFrameCount
             }
@@ -1314,7 +1359,9 @@ private fun DashSession.showGuidance(guidance: NavGuidance, noNetwork: Boolean, 
     } else {
         updateNavInfo(
             nav.maneuver, nav.primaryDist, nav.primaryUnit, nav.totalDist, nav.totalUnit, nav.eta, nav.road,
-            nav.remainingSeconds, nav.next,
+            // Seconds from Android Auto go as they are; without them the session takes the time left from the arrival it shows.
+            guidance.timeToArrivalSeconds.takeIf { it >= 0 } ?: com.reau.app.dash.protocol.DashCommands.REMAINING_OMIT, nav.next,
+            clock = java.time.LocalTime.now(),
         )
     }
 }

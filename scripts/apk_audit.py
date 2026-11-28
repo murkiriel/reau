@@ -11,7 +11,7 @@ Confere também (28 a 30/10/2026, plano 20) que as bibliotecas nativas de arm64-
 Marca em destaque o que lembra rastreio, anúncio, cobrança ou atualizador (Firebase, Crashlytics, ads, billing...).
 
 Confere também a "forma de release" do APK (28/10/2026), que não vem da linha de base e sim do código deste script: o APK
-não é depurável; não traz nenhuma classe de com/reau/app/debug/, nem de com/reau/app/devtools/ fora dos três stubs vazios (ArrowTrial, DebugTriggers, FaultInjection), nem de androidx/compose/ui/tooling/ (nem as
+não é depurável; não traz nenhuma classe de com/reau/app/debug/, nem de com/reau/app/devtools/ fora dos quatro stubs vazios (ArrowTrial, BrandFake, DebugTriggers, FaultInjection), nem de androidx/compose/ui/tooling/ (nem as
 anotações @Preview: a biblioteca ui-tooling-preview é compileOnly) nem de androidx/compose/ui/test; só declara os componentes da lista
 (EXPORTED_COMPONENTS e UNEXPORTED_COMPONENTS), e só os de EXPORTED_COMPONENTS são exportados; e traz o perfil de base
 (assets/dexopt/baseline.prof). Num APK de debug essa conferência não vale: use --apk-debug.
@@ -147,15 +147,16 @@ UNEXPORTED_COMPONENTS = frozenset({
 # Classes (nomes internos, com "/") que um APK de produção não pode ter: as telas de teste do debug e as ferramentas do Compose.
 # Nada de androidx/compose/ui/tooling/, nem as anotações @Preview de .../tooling/preview/ (a ui-tooling-preview só entra no debug).
 FORBIDDEN_CLASS_PREFIXES = ("com/reau/app/debug/", "androidx/compose/ui/tooling/", "androidx/compose/ui/test")
-# O pacote das três classes que o código principal chama nos dois builds (ArrowTrial, DebugTriggers, FaultInjection): no debug são as de
+# O pacote das quatro classes que o código principal chama nos dois builds (ArrowTrial, BrandFake, DebugTriggers, FaultInjection): no debug são as de
 # verdade; na release, versões vazias (src/release). Esse pacote NÃO está em FORBIDDEN_CLASS_PREFIXES (a primeira corrida do CI, 11/11/2026,
-# falhou porque os stubs estavam em com/reau/app/debug/), mas só passam aqui as três classes pelo nome: qualquer outra do pacote, e qualquer
+# falhou porque os stubs estavam em com/reau/app/debug/), mas só passam aqui as quatro classes pelo nome: qualquer outra do pacote, e qualquer
 # classe aninhada (o FaultInjection$Fault do debug, por exemplo), é código de debug de verdade e reprova.
 DEVTOOLS_PREFIX = "com/reau/app/devtools/"
-DEVTOOLS_STUBS = frozenset({DEVTOOLS_PREFIX + "ArrowTrial", DEVTOOLS_PREFIX + "DebugTriggers", DEVTOOLS_PREFIX + "FaultInjection"})
+DEVTOOLS_STUBS = frozenset({DEVTOOLS_PREFIX + "ArrowTrial", DEVTOOLS_PREFIX + "BrandFake", DEVTOOLS_PREFIX + "DebugTriggers", DEVTOOLS_PREFIX + "FaultInjection"})
 # Textos que só as versões de verdade têm (os nomes das falhas injetadas e a linha do registro dos gatilhos): se estiverem no .dex, o
 # pacote devtools da release não é o de stubs vazios, mesmo que os nomes das classes batam.
-DEVTOOLS_REAL_ONLY_STRINGS = (b"DECODER_STALL", b"ENCODER_MUTE", b"FOCUS_CYCLE", b"debug trigger fired", b"fault injection armed")
+DEVTOOLS_REAL_ONLY_STRINGS = (b"DECODER_STALL", b"ENCODER_MUTE", b"FOCUS_CYCLE", b"debug trigger fired", b"fault injection armed",
+                             b"brand faked as")
 BASELINE_PROFILE = "assets/dexopt/baseline.prof"
 COMPONENT_TAGS = ("activity", "activity-alias", "service", "receiver", "provider")
 

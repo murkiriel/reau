@@ -1,6 +1,6 @@
 # Términos de Uso
 
-Versión 3, de 28 de octubre de 2026
+Versión 4, de 25 de noviembre de 2026
 
 ## En resumen
 
@@ -44,11 +44,12 @@ Por eso, usar REau puede, entre otras cosas: gastar batería y calentar el telé
 
 ## 6. Tus datos
 
-REau no tiene cuenta, anuncios ni recolección de datos, y no le envía nada a su autor. La pantalla "REau y tus datos" muestra lo que se queda en el teléfono y lo que sale de él, y por qué. En resumen:
+REau no tiene cuenta, anuncios ni recolección de datos, y no le envía nada a su autor; lo que va a internet (el clima y la consulta de versión, abajo) va a terceros, no a él. La pantalla "REau y tus datos" muestra lo que se queda en el teléfono y lo que sale de él, y por qué. En resumen:
 
 - Por defecto REau envía al tablero, por el Wi-Fi del tablero, la imagen, la canción que suena (con su carátula), quién llama y la batería, el GPS y la señal del teléfono; cada uno de estos se puede apagar en los ajustes.
 - El registro de diagnóstico viene activado, se queda solo en el teléfono y se borra solo después del número de días que elijas (30 por defecto; "Nunca" es una de las opciones); puedes desactivarlo. Las grabaciones del video y de las sesiones son opcionales: vienen desactivadas en la app que instalas para rodar y activadas en la compilación de prueba, se quedan solo en el teléfono y se borran con las mismas reglas del registro (los días que elijas y un tope de tamaño). Guardan lo que muestra el tablero (el mapa, la ruta y las posiciones) y los mensajes de Android Auto, así que compártelas solo sabiéndolo.
 - El clima en el tablero y el anillo de información vienen activados; cada uno tiene un interruptor y, con la ubicación concedida, el que esté encendido consulta internet con tu posición redondeada.
+- Una vez al día, con internet, REau le pregunta a GitHub (donde está publicado el proyecto) si hay una versión nueva; el botón "Buscar ahora" hace la misma pregunta cuando lo tocas. La solicitud lleva solo la versión de REau (en el User-Agent) y ningún dato tuyo, sin cuenta, sin posición y sin identificador, y la respuesta solo dice cuál es la última versión; no se descarga ni se instala nada. GitHub, como cualquier sitio, ve la dirección IP del teléfono. Para apagar la consulta diaria, apaga "Avisar cuando haya una actualización" en Ajustes, Actualizaciones.
 - "Encender el servidor de red" es opcional y viene apagado. Cuando está encendido, muestra tu Android Auto a otros dispositivos de la misma red, protegido por un PIN pero sin cifrado. No lo enciendas en la red de desconocidos.
 - Lo que Android Auto, Waze, Google Maps, Gemini y otras apps hacen con tus datos sigue los términos y las políticas de cada una, fuera del alcance de REau.
 

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Rota SINTÉTICA para testar o rota_falsa.py: uma volta por avenidas centrais de Lisboa, com poucos pontos de 3 casas decimais, uns 100 m de um ao outro (o script interpola; não é uma gravação de ninguém, e a guarda de privacidade recusa 4 casas ou mais em lat/lon). -->
+<gpx version="1.1" creator="REau rota_falsa (sintético)" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>Volta central (sintética)</name>
+    <trkseg>
+      <trkpt lat="38.714" lon="-9.141"/>
+      <trkpt lat="38.715" lon="-9.142"/>
+      <trkpt lat="38.716" lon="-9.142"/>
+      <trkpt lat="38.717" lon="-9.143"/>
+      <trkpt lat="38.718" lon="-9.143"/>
+      <trkpt lat="38.719" lon="-9.144"/>
+      <trkpt lat="38.720" lon="-9.145"/>
+      <trkpt lat="38.721" lon="-9.145"/>
+      <trkpt lat="38.722" lon="-9.146"/>
+      <trkpt lat="38.723" lon="-9.147"/>
+      <trkpt lat="38.723" lon="-9.148"/>
+      <trkpt lat="38.724" lon="-9.149"/>
+      <trkpt lat="38.725" lon="-9.150"/>
+      <trkpt lat="38.726" lon="-9.150"/>
+      <trkpt lat="38.727" lon="-9.149"/>
+      <trkpt lat="38.728" lon="-9.148"/>
+      <trkpt lat="38.729" lon="-9.148"/>
+      <trkpt lat="38.730" lon="-9.147"/>
+      <trkpt lat="38.731" lon="-9.147"/>
+      <trkpt lat="38.732" lon="-9.146"/>
+      <trkpt lat="38.733" lon="-9.146"/>
+      <trkpt lat="38.734" lon="-9.146"/>
+      <trkpt lat="38.734" lon="-9.145"/>
+      <trkpt lat="38.734" lon="-9.143"/>
+      <trkpt lat="38.734" lon="-9.142"/>
+      <trkpt lat="38.734" lon="-9.140"/>
+      <trkpt lat="38.734" lon="-9.139"/>
+      <trkpt lat="38.734" lon="-9.138"/>
+      <trkpt lat="38.734" lon="-9.136"/>
+      <trkpt lat="38.733" lon="-9.135"/>
+      <trkpt lat="38.732" lon="-9.135"/>
+      <trkpt lat="38.731" lon="-9.135"/>
+      <trkpt lat="38.730" lon="-9.135"/>
+      <trkpt lat="38.729" lon="-9.135"/>
+      <trkpt lat="38.728" lon="-9.135"/>
+      <trkpt lat="38.727" lon="-9.135"/>
+      <trkpt lat="38.726" lon="-9.135"/>
+      <trkpt lat="38.725" lon="-9.135"/>
+      <trkpt lat="38.724" lon="-9.135"/>
+      <trkpt lat="38.723" lon="-9.136"/>
+      <trkpt lat="38.721" lon="-9.136"/>
+      <trkpt lat="38.720" lon="-9.136"/>
+      <trkpt lat="38.719" lon="-9.136"/>
+      <trkpt lat="38.718" lon="-9.136"/>
+      <trkpt lat="38.717" lon="-9.136"/>
+      <trkpt lat="38.716" lon="-9.137"/>
+      <trkpt lat="38.716" lon="-9.138"/>
+      <trkpt lat="38.715" lon="-9.139"/>
+      <trkpt lat="38.714" lon="-9.140"/>
+      <trkpt lat="38.714" lon="-9.141"/>
+    </trkseg>
+  </trk>
+</gpx>

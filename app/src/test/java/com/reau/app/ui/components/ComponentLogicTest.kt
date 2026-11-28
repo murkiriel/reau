@@ -78,6 +78,16 @@ class ComponentLogicTest {
     }
 
     @Test
+    fun `the five options of the language row (Auto and four languages) go 3 + 2 at 360 dp and in one line when the room is wide`() {
+        // 360 dp minus the 16 + 16 dp of the row's padding: 328 dp; "Português" at 13.5 sp with its 8 dp padding is about 80 dp wide.
+        assertEquals(3, ComponentLogic.segmentColumns(5, 80, 328, 6))
+        // Five of 60 dp and four gaps take exactly 5 * 60 + 4 * 6 = 324 dp: they stay on one line.
+        assertEquals(5, ComponentLogic.segmentColumns(5, 60, 328, 6))
+        // At a large font (about 120 dp each) only 2 fit: 2 + 2 + 1, never a label cut.
+        assertEquals(2, ComponentLogic.segmentColumns(5, 120, 328, 6))
+    }
+
+    @Test
     fun `segments never go below one column nor above their count`() {
         assertEquals("a label wider than the row still takes a line of its own", 1, ComponentLogic.segmentColumns(3, 500, 328, 6))
         assertEquals(1, ComponentLogic.segmentColumns(1, 50, 328, 6))

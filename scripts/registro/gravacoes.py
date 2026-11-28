@@ -148,21 +148,28 @@ def contas_do_app(linhas):
 
 
 def atribuir(gravacoes, blocos):
-    """{id do bloco: [gravações]}: cada gravação vai para uma só projeção, a última que começou até `FOLGA_INICIO_S` s depois da hora do nome da gravação e ainda não acabou antes dela.
-    Gravação cujo nome não traz a hora, ou que nasceu fora de qualquer projeção lida, não vai para nenhuma. Projeção cujo registro não traz o dia fica sem gravações."""
+    """{id do bloco: [gravações]}: cada gravação vai para uma só projeção: a última que já tinha começado na hora do nome da gravação e ainda não acabou; só
+    quando nenhuma contém esse instante vale a que começa até `FOLGA_INICIO_S` s depois dele (a mais próxima), porque o relógio do nome e o do registro não
+    são o mesmo. A folga não pode ter prioridade: em 25/11/2026 a gravação das 08:28:51 (a projeção das 08:28:51 estava em curso) foi dada à projeção das
+    08:29:16, que começou 25 s depois, e a cobertura saiu 227 %. Gravação cujo nome não traz a hora, ou que nasceu fora de qualquer projeção lida, não vai
+    para nenhuma. Projeção cujo registro não traz o dia fica sem gravações."""
     janelas = []
     for b in blocos:
         inicio, fim = tempo.instante(b[0]), tempo.instante(b[-1])
         if inicio is not None and fim is not None:
             janelas.append((b, inicio, fim if fim >= inicio else fim + timedelta(days=1)))
     saida = {id(b): [] for b in blocos}
+    folga = timedelta(seconds=FOLGA_INICIO_S)
     for g in gravacoes:
         quando = inicio_do_nome(g["nome"])
         if quando is None:
             continue
-        donos = [(inicio, b) for b, inicio, fim in janelas if inicio - timedelta(seconds=FOLGA_INICIO_S) <= quando <= fim]
-        if donos:
-            saida[id(max(donos, key=lambda d: d[0])[1])].append(g)
+        em_curso = [(inicio, b) for b, inicio, fim in janelas if inicio <= quando <= fim]
+        por_vir = [(inicio, b) for b, inicio, _ in janelas if quando < inicio <= quando + folga]
+        if em_curso:
+            saida[id(max(em_curso, key=lambda d: d[0])[1])].append(g)
+        elif por_vir:
+            saida[id(min(por_vir, key=lambda d: d[0])[1])].append(g)
     return saida
 
 

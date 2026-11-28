@@ -205,6 +205,28 @@ class PrimeiroQuadroDoPainelTest(unittest.TestCase):
         self.assertFalse(any("painel confirmou o primeiro quadro entre" in x for x in tempo))
         self.assertTrue(any("primeiro quadro confirmado pelo painel" in x for x in tempo))
 
+    def test_the_apps_own_line_gives_the_measured_time_and_the_range_is_left_for_old_logs(self):
+        tempo = self.timeline(linha("10:00:10.000", "session", "AUTHENTICATING → STREAMING"), self.video("10:00:15.000", "0.0"),
+                              linha("10:00:17.420", "dash", "first frame confirmed by the dash 7420 ms after streaming began (09 06 55)"),
+                              self.video("10:00:20.800", "0.4"))
+        achadas = [x for x in tempo if "painel confirmou o primeiro quadro" in x]
+        self.assertEqual(["10:00:17.420  painel confirmou o primeiro quadro 7,4 s depois de transmitir (7420 ms, medido pelo app; confirmado pelo aviso 09 06 55)"], achadas)
+        self.assertFalse(any("entre" in x and "painel confirmou" in x for x in tempo))
+
+    def test_the_apps_line_without_the_notice_in_parentheses_is_read_too(self):
+        tempo = self.timeline(linha("10:00:10.000", "session", "AUTHENTICATING → STREAMING"),
+                              linha("10:00:11.050", "dash", "first frame confirmed by the dash 1050 ms after streaming began"))
+        self.assertTrue(any(x.endswith("painel confirmou o primeiro quadro 1,1 s depois de transmitir (1050 ms, medido pelo app)") for x in tempo), tempo)
+
+    def test_the_apps_line_is_the_confirmation_so_the_problem_of_no_confirmation_does_not_come(self):
+        d = Path(tempfile.mkdtemp())
+        (d / "ride-20261004-100000.log").write_text(projecao(linha("10:00:10.000", "session", "AUTHENTICATING → STREAMING"),
+                                                             linha("10:00:17.420", "dash", "first frame confirmed by the dash 7420 ms after streaming began (09 06 55)")),
+                                                    encoding="utf-8")
+        self.assertFalse(any("sem confirmação do primeiro quadro" in x for x in ler_registro.problemas(ler_registro.ler([d]))))
+        (d / "ride-20261004-100000.log").write_text(projecao(linha("10:00:10.000", "session", "AUTHENTICATING → STREAMING")), encoding="utf-8")
+        self.assertTrue(any("sem confirmação do primeiro quadro" in x for x in ler_registro.problemas(ler_registro.ler([d]))))
+
     def test_a_window_before_streaming_is_not_the_first_frame(self):
         tempo = self.timeline(self.video("10:00:05.000", "0.4"), linha("10:00:10.000", "session", "AUTHENTICATING → STREAMING"), self.video("10:00:15.000", "0.0"))
         self.assertFalse(any("painel confirmou" in x for x in tempo))

@@ -54,15 +54,28 @@ in developer mode. It receives the video, fits the picture to the dash's screen 
 
 ## Installing and updating
 
-Install the published APK, `REau-0.3.1.apk` (application id `com.reau.app`, name "REau"). It is a single app: REau tells which Android Auto screen is showing (map, menu, apps) from the picture itself, with a small neural network that runs on the phone.
+Install the published APK, `REau-0.4.0.apk` (application id `com.reau.app`, name "REau"). It is a single app: REau tells which Android Auto screen is showing (map, menu, apps) from the picture itself, with a small neural network that runs on the phone.
 
-Coming from the old REau Lite (package `com.reau.app.lite`)? REau 0.3.0 is a new app for you: redo the settings and the pairing with the dash, then uninstall the old Lite (the new app shows a discreet line, and a warning if Android Auto does not answer, while the old Lite is still installed). Coming from the earlier REau (package `com.reau.app`)? Just update over it: settings and pairing stay. Two installations together compete for Android Auto's single server, which takes one session at a time.
+Coming from the old REau Lite (package `com.reau.app.lite`)? REau 0.3.0 is a new app for you: redo the settings and the pairing with the dash, then uninstall the old Lite. Coming from the earlier REau (package `com.reau.app`)? Just update over it: settings and pairing stay. Two installations together compete for Android Auto's single server, which takes one session at a time.
 
 The first time, "Turn on" asks for the permissions REau still needs, and the projection starts whatever the answer; the **Permissions** screen lists them all, with a button to ask for the missing ones and another that opens REau's permissions in Android. Once a day, with the internet on, REau asks GitHub for the latest version number and shows one quiet notification per new version (Settings > Updates > "Notify when there is an update", on by default; nothing is downloaded or installed; not yet tried on the bike). To check the APK you downloaded, compare the SHA-256 fingerprint of its signing certificate with the project's: the command and the fingerprint are on the site's install page.
 
 A test (debug) build and the official one cannot replace each other: to change from one to the other, uninstall the first (after sharing its logs in Settings > Debug, because uninstalling erases the app's data). The step by step, with the permissions to allow and the FAQ, is on the site: <https://murkiriel.github.io/reau/en/>.
 
 Tip: Obtainium (a free third-party app) installs and updates REau straight from the repository's Releases: under "Add app", paste `https://github.com/Murkiriel/reau`; only published versions count, not test builds, and REau changes nothing because of it.
+
+## Connection drops
+
+Two different problems show up for the rider as a "connection problem":
+
+1. **The phone closes the app.** Xiaomi, Redmi and POCO, and also realme, OPPO and OnePlus, with their own versions of Android, have a
+   battery manager much more aggressive than stock Android's. It closes the app in the middle of a ride, with the screen off. This is the main
+   cause of the drops. The fix is a few settings on the phone itself, which the app now walks you through, and the automatic resume where the
+   system allows it.
+2. **The dash restarts.** The main cause is the dash running an older firmware version: the newer one recovers from the same hiccup. Phones
+   with a MediaTek processor make it worse, because they send a heavier video to the dash. We are testing a lighter video mode for these cases.
+
+A poor fix would be to keep the phone's screen on all the time: it drains the battery, heats the phone and leaves it unlocked in the pocket.
 
 ## Build
 

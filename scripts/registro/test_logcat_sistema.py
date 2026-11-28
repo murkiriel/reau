@@ -217,6 +217,49 @@ class PainelColadoNoSistemaTest(unittest.TestCase):
                 self.assertEqual(mascarar.mascarar(texto), ls.DASH.sub(mascarar.MASK, texto))
 
 
+class NomeEMacEmQualquerPosicaoTest(unittest.TestCase):
+    """A3 (C16): the dash's name and a MAC are hidden wherever they stand in a line the reader tells: glued to a letter or a digit on either side, between quotes, after a `%XX`
+    escape, with letters of either case in the name's four characters. The pattern asks for the whole format of the name (`RE_`, four characters, `_`, six digits) when the name is glued
+    to a letter; the odd variants and the common words are the ones of `PainelColadoNoSistemaTest`. Invented names only (built at run time)."""
+    NOME = "RE_" + "TEST" + "_" + "123456"
+    NOME_MINUSCULO = "RE_" + "test" + "_" + "123456"
+
+    def resumo(self, texto):
+        return ls._resumo_wifi(ls.Entrada(11, 8, "10:00:51.000", 1, 1, "I", "WifiService", texto))
+
+    def test_the_name_is_hidden_in_every_position(self):
+        for texto in (f"ssid=x{self.NOME}", f"SSID{self.NOME}", f"{self.NOME}7", f"a{self.NOME}b", f'ssid="{self.NOME}"', f"'{self.NOME}'", f"%22{self.NOME}%22",
+                      f"{self.NOME_MINUSCULO}", f"x{self.NOME_MINUSCULO}y", f"({self.NOME}) and [{self.NOME}]"):
+            with self.subTest(texto=texto):
+                saida = self.resumo(texto)
+                self.assertIsNotNone(saida)
+                self.assertNotIn("TEST", saida.upper().replace("RE_****_******", ""))
+                self.assertNotIn("123456", saida)
+                self.assertIn(mascarar.MASK, saida)
+
+    def test_the_mac_is_hidden_glued_to_a_letter_or_a_digit_on_either_side(self):
+        for texto in (f"bssid={MAC_FF} {self.NOME}", f"bssid=x{MAC_FF} {self.NOME}", f"{MAC_FF}x {self.NOME}", f"9{MAC_UPPER}7 {self.NOME}", f"{self.NOME}@{MAC_FF}.", f"id{MAC_FF}{self.NOME}"):
+            with self.subTest(texto=texto):
+                saida = self.resumo(texto)
+                self.assertNotIn("aa:bb", saida)
+                self.assertNotIn("0A:1B", saida)
+                self.assertIn(mascarar.MASK_MAC, saida)
+
+    def test_a_mac_alone_does_not_choose_a_line(self):
+        self.assertIsNone(self.resumo(f"bssid={MAC_FF} up"))
+
+    def test_the_whole_format_is_what_the_glued_pattern_asks_for(self):
+        # Glued to a letter, a name that is not the whole format is a common word, left alone and not told; the odd variant at the start of a word is still hidden.
+        for texto in ("xRE_TEST_12345", "xRE_TEST", "xRE_TES_123456", "SCORE", "xRE_TE-ST_123456", "REAU_TEST_123456", "re_test"):
+            with self.subTest(texto=texto):
+                self.assertIsNone(self.resumo(texto))
+        self.assertEqual(f"WifiService from {mascarar.MASK}", self.resumo("from RE_TEST_12345"))
+
+    def test_a_clock_or_a_short_group_is_not_a_mac(self):
+        self.assertEqual("10:06:54.9 up", mascarar.MAC.sub(mascarar.MASK_MAC, "10:06:54.9 up"))
+        self.assertEqual("aa:bb:cc:dd:ee up", mascarar.MAC.sub(mascarar.MASK_MAC, "aa:bb:cc:dd:ee up"))
+
+
 class EnchenteEBufferTest(unittest.TestCase):
     def test_the_thermal_flood_is_not_coverage_and_the_tags_tell_the_buffer(self):
         termica = ls.Entrada(11, 8, "10:00:00.000", 1, 1, "E", "ThermalHalWrapper", "x")

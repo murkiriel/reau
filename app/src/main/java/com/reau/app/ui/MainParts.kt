@@ -27,15 +27,11 @@ import com.reau.app.ui.components.WarningCard
 internal fun Warning(warning: Warning, state: MainUiState, onOpenAndroidAutoSettings: () -> Unit, extras: MainExtras) {
     val warn = StatusKind.CONNECTING
     when (warning) {
-        Warning.SERVER_OFF -> ServerWarning(state.androidAutoInstalled, onOpenAndroidAutoSettings)
+        Warning.SERVER_OFF -> ServerWarning(state.androidAutoInstalled, state.aaUpdatedServerOff, onOpenAndroidAutoSettings)
         Warning.UNRESPONSIVE -> UnresponsiveWarning()
         Warning.CLOSING_PREVIOUS -> WarningCard(
             warn, R.drawable.ic_ms_error, stringResource(R.string.warn_closing_previous_title),
             stringResource(R.string.aa_closing_previous_warning), null, null, tag = "aa_closing_previous_warning",
-        )
-        Warning.OTHER_EDITION -> WarningCard(
-            warn, R.drawable.ic_ms_error, stringResource(R.string.warn_other_edition_title),
-            stringResource(R.string.aa_other_edition_warning), null, null, tag = "aa_other_edition_warning",
         )
         Warning.NOT_CALLING -> WarningCard(
             StatusKind.ERROR, R.drawable.ic_ms_error, stringResource(R.string.warn_not_calling_title),
@@ -75,6 +71,8 @@ internal fun Warning(warning: Warning, state: MainUiState, onOpenAndroidAutoSett
             null, null, tag = "location_warning",
         )
         Warning.ALERTS_MUTED, Warning.ALERTS_BLOCKED -> AlertWarning(warning, state.alertRoute, extras.onOpenAlertSettings)
+        Warning.SYSTEM_CLOSED -> SystemClosedWarning(state.systemClosedAtMs, extras)
+        Warning.KEEP_ALIVE_ADVICE -> KeepAliveAdviceWarning(extras)
         Warning.NAME_NEEDED -> WarningCard(
             StatusKind.ERROR, R.drawable.ic_ms_error, stringResource(R.string.warn_name_title), stringResource(R.string.dash_name_warning),
             null, CardAction(stringResource(R.string.action_open_bike_data_short), "name_open_settings", extras.onOpenWifi),
@@ -109,12 +107,13 @@ private fun UnresponsiveWarning() {
     )
 }
 
-/** While Android Auto's head unit server is off: how to switch it on by hand, with the way to Android Auto's settings. */
+/** While Android Auto's head unit server is off: how to switch it on by hand, with the way to Android Auto's settings (and, after an update of Android Auto, why it is off). */
 @Composable
-private fun ServerWarning(aaInstalled: Boolean, onOpenAndroidAutoSettings: () -> Unit) {
-    // Without Android Auto the card says so first: its settings button is the way to the store.
+private fun ServerWarning(aaInstalled: Boolean, aaUpdated: Boolean, onOpenAndroidAutoSettings: () -> Unit) {
+    // Without Android Auto the card says so first: its settings button is the way to the store. After an update of Android Auto, it says why the server is off.
     val missing = if (aaInstalled) null else stringResource(R.string.aa_missing_note)
-    val more = listOfNotNull(missing?.let { it to "aa_missing_note" })
+    val updated = if (aaUpdated) stringResource(R.string.aa_updated_note) else null
+    val more = listOfNotNull(missing?.let { it to "aa_missing_note" }, updated?.let { it to "aa_updated_note" })
     WarningCard(
         StatusKind.ERROR, R.drawable.ic_ms_error, stringResource(R.string.warn_server_title), stringResource(R.string.server_warning),
         null, CardAction(aaButtonLabel(aaInstalled), "open_aa_settings", onOpenAndroidAutoSettings), tag = "server_warning", more = more,

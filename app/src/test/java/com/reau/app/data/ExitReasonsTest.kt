@@ -34,7 +34,8 @@ class ExitReasonsTest {
         pssKb: Long = 0,
         rssKb: Long = 0,
         description: String? = "crash",
-    ) = PastExit(timestampMs, "com.reau.app", pid, reason, status, importance, pssKb, rssKb, description)
+        stateSummary: String? = null,
+    ) = PastExit(timestampMs, "com.reau.app", pid, reason, status, importance, pssKb, rssKb, description, stateSummary)
 
     @Test
     fun `every reason Android has gets a name`() {
@@ -256,5 +257,51 @@ class ExitReasonsTest {
             exit(reason = ApplicationExitInfo.REASON_PACKAGE_UPDATED, importance = RunningAppProcessInfo.IMPORTANCE_CACHED), at + 13_000))
         assertFalse("too long ago", ExitReasons.leftAndroidAutoHanging(installed, at + ExitReasons.HANGING_FOR_MS + 1))
         assertFalse("none", ExitReasons.leftAndroidAutoHanging(null, at))
+    }
+
+    @Test
+    fun `the system's own kills while projecting can have left Android Auto hanging too`() {
+        // 25/11/2026 16:10:55: LOW_MEMORY with importance 125, and the picture never came back.
+        val lowMemory = exit(reason = ApplicationExitInfo.REASON_LOW_MEMORY)
+        assertTrue(ExitReasons.leftAndroidAutoHanging(lowMemory, at + 13_000))
+        for (reason in listOf(
+            ApplicationExitInfo.REASON_SIGNALED, ApplicationExitInfo.REASON_LOW_MEMORY, ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE,
+            ApplicationExitInfo.REASON_DEPENDENCY_DIED, ApplicationExitInfo.REASON_OTHER, ApplicationExitInfo.REASON_FREEZER,
+        )) {
+            assertTrue("reason $reason", ExitReasons.leftAndroidAutoHanging(exit(reason = reason), at + 60_000))
+        }
+        for (reason in SystemClosedRide.BY_THE_SYSTEM) {
+            assertTrue("the system's reason $reason, as SystemClosedRide tells it", ExitReasons.leftAndroidAutoHanging(exit(reason = reason), at))
+        }
+    }
+
+    @Test
+    fun `a system kill of a process that was only cached, or one long ago, still does not count`() {
+        val cached = exit(reason = ApplicationExitInfo.REASON_OTHER, importance = RunningAppProcessInfo.IMPORTANCE_CACHED)
+        assertFalse(ExitReasons.leftAndroidAutoHanging(cached, at + 13_000))
+        assertFalse(ExitReasons.leftAndroidAutoHanging(exit(reason = ApplicationExitInfo.REASON_OTHER), at + ExitReasons.HANGING_FOR_MS + 1))
+        assertTrue(ExitReasons.leftAndroidAutoHanging(exit(reason = ApplicationExitInfo.REASON_OTHER), at + ExitReasons.HANGING_FOR_MS))
+    }
+
+    @Test
+    fun `the app's own exit, a crash, an ANR and a failed start are still not an outside cut`() {
+        for (reason in listOf(
+            ApplicationExitInfo.REASON_EXIT_SELF, ApplicationExitInfo.REASON_CRASH, ApplicationExitInfo.REASON_CRASH_NATIVE,
+            ApplicationExitInfo.REASON_ANR, ApplicationExitInfo.REASON_INITIALIZATION_FAILURE, ApplicationExitInfo.REASON_PERMISSION_CHANGE,
+        )) {
+            assertFalse("reason $reason", ExitReasons.leftAndroidAutoHanging(exit(reason = reason), at + 13_000))
+        }
+    }
+
+    @Test
+    fun `the line of a death says what the process said of itself, before the description`() {
+        val line = ExitReasons.describe(exit(reason = 13, description = "[UNKNOWN] o-kill(6)", stateSummary = "REau1;p=1;d=1;o=${at / 1000 - 301};t=2;b=65;c=0"))
+        assertTrue(line, line.contains(", state \"projecting=yes dash=up screen=off off-for=301s attempt=2 battery=65% charging=no\", \"[UNKNOWN] o-kill(6)\""))
+    }
+
+    @Test
+    fun `a death with no summary, or one that is not ours, has no state in its line`() {
+        assertFalse(ExitReasons.describe(exit()).contains("state"))
+        assertFalse(ExitReasons.describe(exit(stateSummary = "something else")).contains("state"))
     }
 }

@@ -136,6 +136,27 @@ internal class MarkFreezer(
     }
 
     companion object {
+        /**
+         * The rider's mark number [mark] asks [keeper] to keep the recording [recorder] makes: the files are opened here and now (the snapshot), the
+         * bytes are copied on [io]. False when there is nothing to keep: no keeper (the option is off) or no session recording open. Not on the read thread.
+         */
+        internal fun keep(
+            keeper: MarkFreezer?, recorder: SessionRecorder?, io: java.util.concurrent.Executor, mark: Int,
+            log: (String) -> Unit = { com.reau.app.data.RideDiagnostics.log("mark", it) },
+        ): Boolean {
+            if (keeper == null) return false
+            val snapshot = recorder?.snapshot()
+            if (snapshot == null) {
+                log("mark $mark: no session recording is open to keep a copy of")
+                return false
+            }
+            io.execute {
+                runCatching { keeper.freeze(snapshot, mark) }
+                    .onFailure { log("${com.reau.app.data.RideDiagnostics.WARN}mark $mark: keeping the session recording failed: $it") }
+            }
+            return true
+        }
+
         /** The most copies kept at once, and their bytes together (each is at most the ring: 100 MB; see [Limits.forBuild] for a debug build). */
         const val MAX_MARKS = 3
         const val MAX_BYTES = 250L * 1024 * 1024

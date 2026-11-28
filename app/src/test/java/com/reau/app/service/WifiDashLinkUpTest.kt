@@ -143,11 +143,11 @@ class WifiDashLinkUpTest {
     }
 
     @Test
-    fun `connected with no name at all is a failure, said in Portuguese`() {
+    fun `connected with no name at all is a failure, said in English for the log`() {
         linkUp().go()
         wifi.value = WifiState(WifiConnStatus.CONNECTED, ssid = "")
         assertTrue(ready.isEmpty())
-        assertEquals(listOf("nome do Wi-Fi do painel desconhecido"), failed)
+        assertEquals(listOf("the dash's Wi-Fi name is not known"), failed)
     }
 
     @Test
@@ -171,6 +171,40 @@ class WifiDashLinkUpTest {
         assertFalse(said, "12345678" in said)
         assertFalse(said, "secret" in said)
         assertTrue(said, "RE_****78" in said && "ele travou" in said) // the rest of the words stay
+    }
+
+    @Test
+    fun `an error that has the log's own words gives those, not the screen's text in the rider's language`() {
+        linkUp().go()
+        wifi.value = WifiState(WifiConnStatus.ERROR, error = "O Wi‑Fi do painel 'RE_****78' não foi encontrado", cause = "initial connect refused: NOT_FOUND")
+        assertEquals(listOf("initial connect refused: NOT_FOUND"), failed)
+    }
+
+    @Test
+    fun `the cause keeps the passwords out too`() {
+        linkUp().go()
+        wifi.value = WifiState(WifiConnStatus.ERROR, error = "x", cause = "refused with secret")
+        assertEquals(listOf("refused with …"), failed)
+    }
+
+    @Test
+    fun `every reason a start fails with is English, for a log that is read in one language`() {
+        val reasons = listOf(
+            WifiDashLinkUp.FULL_NAME_NEEDED, WifiDashLinkUp.RADIO_OFF, WifiDashLinkUp.DASH_NOT_SEEN_YET, WifiDashLinkUp.RECONNECT_NOT_BACK_YET,
+            "the dash's Wi-Fi name is not known", "the dash's Wi-Fi failed",
+        )
+        for (reason in reasons) assertTrue(reason, reason.all { it.code < ASCII_END } && Regex("\\b(do|da|o|ainda|painel|nome)\\b").find(reason) == null)
+        linkUp().go()
+        wifi.value = WifiState(WifiConnStatus.ERROR)
+        assertEquals(listOf("the dash's Wi-Fi failed"), failed)
+    }
+
+    @Test
+    fun `the manager gives the log the refusal's name for a failed first connect`() {
+        val manager = java.io.File("src/main/java/com/reau/app/dash/DashWifiManager.kt").readText()
+        assertTrue(manager, "cause  = \"initial connect refused: \$refusal\"," in manager)
+        // The screen's text stays in `error`, in the rider's language.
+        assertTrue(manager, "error  = message," in manager)
     }
 
     @Test
@@ -311,5 +345,9 @@ class WifiDashLinkUpTest {
         up.bikeNetworkAvailable()
         assertEquals(0, first)
         assertEquals(2, second)
+    }
+
+    private companion object {
+        const val ASCII_END = 128
     }
 }

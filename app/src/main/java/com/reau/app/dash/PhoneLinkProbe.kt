@@ -36,6 +36,33 @@ class PhoneLinkProbe(context: Context) {
         )
     }.getOrNull()
 
+    /**
+     * The scan list Android already has in its cache, for [ChannelCrowd] (the ride log only). It never asks for a scan: that would disturb the video.
+     * Null when Android refuses it (no location permission, Wi-Fi off).
+     */
+    @android.annotation.SuppressLint("MissingPermission")
+    @Suppress("DEPRECATION") // ScanResult.SSID, as in DashScan: read only to leave the dash out of the count, never written
+    fun readScan(): List<ChannelCrowd.Row>? = runCatching {
+        wifi.scanResults.map { ChannelCrowd.Row(it.SSID.orEmpty().trim('"'), it.frequency, it.level, it.timestamp) }
+    }.getOrNull()
+
+    /**
+     * What [LocalAddressRetry] needs of [network], the one that refused a bind: whether Android still knows it as a Wi-Fi network, and the phone's IPv4 address on it
+     * (not a loopback or link-local one). Never throws: what Android refuses to say is "no".
+     */
+    fun localFacts(network: Network?): LocalAddressRetry.Facts = runCatching {
+        if (network == null) return@runCatching LocalAddressRetry.NONE
+        val caps = cm.getNetworkCapabilities(network)
+        val alive = JoinedNetwork.usable(caps != null, caps?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) == true)
+        val ip = if (alive) {
+            cm.getLinkProperties(network)?.linkAddresses?.map { it.address }
+                ?.firstOrNull { it is java.net.Inet4Address && !it.isLoopbackAddress && !it.isLinkLocalAddress }
+        } else {
+            null
+        }
+        LocalAddressRetry.Facts(alive, ip)
+    }.getOrDefault(LocalAddressRetry.NONE)
+
     private companion object {
         /** WifiInfo's own "no signal reading" (INVALID_RSSI is hidden from the public SDK). */
         const val NO_RSSI = -127

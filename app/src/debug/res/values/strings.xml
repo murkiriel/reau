@@ -22,4 +22,18 @@
     <string name="debug_arrow_stop">Stop</string>
     <string name="debug_arrow_unnamed">no name yet: write down what the dash draws</string>
     <string name="debug_arrow_hidden">hides the bubble</string>
+    <string name="debug_street_title">Test a street name in Devanagari</string>
+    <string name="debug_street_sub_off">Only with the dash connected. Start the projection and wait for the dash. Send puts the name of a street in Devanagari, as UTF-8, in the dash\'s title and street; look at whether the dash draws it.</string>
+    <string name="debug_street_sub_idle">Only with the dash connected. Send puts the name of a street in Devanagari, as UTF-8, in the dash\'s title and street (the field holds 19 bytes, so only the first word fits); Stop gives the real street back.</string>
+    <string name="debug_street_sub_sending">Sending the Devanagari street. Look at the dash, then press Stop.</string>
+    <string name="debug_street_send">Send</string>
+    <string name="debug_street_stop">Stop</string>
+    <string name="debug_brand_title">Fake the phone\'s brand</string>
+    <string name="debug_brand_sub">Makes the app read another brand, to see the \"Keep REau running\" card and page as a Xiaomi or realme rider would. The phone must have joined the dash once. The log says when a brand is faked. A restart of the app gives the real brand back.</string>
+    <string name="debug_brand_real">The real one</string>
+    <string name="debug_brand_xiaomi">As Xiaomi</string>
+    <string name="debug_brand_realme">As realme</string>
+    <string name="debug_brand_again_title">Keep-alive card</string>
+    <string name="debug_brand_again_sub">Forgets the answer to the notice, so the card comes back on the main screen (it needs a Xiaomi or realme brand, faked or real). On a Motorola faked as Xiaomi, the Autostart button fails on the maker\'s two screens and falls to the app\'s details: that is the chain working, and the log says so.</string>
+    <string name="debug_brand_again">Show the card again</string>
 </resources>

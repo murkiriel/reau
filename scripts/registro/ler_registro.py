@@ -1,6 +1,7 @@
 """Lê registros do REau puxados do celular e mostra a linha do tempo resumida, acusando os problemas conhecidos.
 
     python -B scripts\\registro\\ler_registro.py <arquivo ou pasta> [...] [--desde AAAA-MM-DD] [--ate AAAA-MM-DD] [--tudo]
+    python -B scripts\\registro\\ler_registro.py --ab <arquivo, pasta ou .zip de coleta> [...] [--desde AAAA-MM-DD] [--ate AAAA-MM-DD]
 
 Lê os arquivos `ride-*.log` (uma pasta inteira, ou arquivos soltos), em ordem de nome, e escreve:
 
@@ -105,27 +106,72 @@ Desde 15/11/2026: a chave «velocidade do GPS» liga o GPS durante a rota (antes
 speed profile (route ended | key off | …)`, e `speed profile: GPS key on, no GPS fix yet; route speed used` quando a chave pede o GPS e ele ainda não tem fix; a linha do tempo traduz as três
 e diz, ao fim de cada projeção, o tempo com o GPS ligado por causa da chave e quantos pedidos (`gps_chave.py`: um pedido sem a linha de fim é contado até o fim da projeção, e o texto diz isso).
 
+Desde 25/11/2026 (0.4.0): o app vigia a thread principal enquanto a projeção roda e escreve `[mainthread] main thread not answering for N s, at: <pilha>` (a 1 s, 3 s e 5 s de atraso) e
+`main thread answered again after N s` (quando ela volta). A linha do tempo diz «o app travou a thread principal por N s» e, enquanto presa, onde estava parada; PROBLEMAS traz os travamentos
+de 3 s ou mais, com a pilha, e diz quando a volta não foi registrada (o app fechado, p. ex. pelo Android por ANR). As linhas `device …` trazem também `lowat=<N>MB` (o limite de memória baixa do
+Android) e, quando o app pode ler `/proc/loadavg`, `load=<1 min>/<5 min>/<15 min>` (`thread_principal.py`; registro de antes não traz nada disso).
+
+Desde 25/11/2026 (0.4.0): se o sistema do celular encerra o processo do REau com a projeção ligada (não um «force stop») e reinicia o serviço, a projeção volta sozinha, no máximo 3 vezes em
+30 minutos, e o app escreve `[projection] resumed after the system ended the process (attempt N of 3)` já dentro da projeção nova (a que o app que recomeçou abre). A linha do tempo diz
+«projeção retomada depois de o sistema fechar o REau, tentativa N de 3»; a projeção de antes continua a acabar em «o app recomeçou», com o motivo da saída. Uma retomada que não houve
+(o ajuste desligado, o limite, a marca velha) fica fora de qualquer projeção e só está no arquivo bruto: `not resumed after the system ended the process: <motivo>`.
+
+Desde 26/11/2026 (A3 e A8 do plano dos pilotos Xiaomi e realme): num Xiaomi ou realme o app escreve, no início de cada projeção e quando o piloto muda um item da lista de «Manter o REau vivo»,
+`keepalive: rider says autostart=yes background=no lock=yes battery=?` (declaração do piloto, não leitura; `?` é item que ele nunca tocou). A linha do tempo diz «o piloto diz ter feito (sem conferência): …».
+O botão do ajuste do fabricante escreve `keepalive: opened <tela> (alternative N of M)` ou `… did not open …`, e o aviso único `keepalive: the one-time notice was answered (…)`; saem como «ajuste do fabricante: …».
+Na linha `[device] app standby: bucket=… background-restricted=… adb=on|off devopts=on|off` (escrita no primeiro olhar da projeção e só quando algo muda) o app diz também se a depuração USB
+(`Settings.Global.ADB_ENABLED`) e as opções de desenvolvedor estão ligadas (S1, 26/11/2026); a linha do tempo diz «depuração USB ligada, opções de desenvolvedor desligadas».
+Cada «o sistema fechou o REau» (e o fim da projeção que ele deixa sem marca) traz também o resumo que o próprio processo gravou de si antes de morrer (`, state "…"` da linha `[exit]`, vindo do
+`processStateSummary` do Android; S3): projeção, painel, tela apagada havia quantos s, tentativa de retomada, bateria e carregador.
+Quando o app fala no fone escreve `[audio] voice: <FRASE> said`; a linha do tempo diz «fala no fone: …» e, para `APP_BACK` («O REau voltou»), vem depois da linha da retomada.
+
+Desde 25/11/2026 (plano 35, passo A): a linha `[exit] past exit: …` que o processo seguinte escreve vira o problema «o sistema fechou o REau», com a hora da morte e o motivo, quando
+o motivo é do sistema (2, 3, 9, 10, 11, 12, 13 ou 14), a importância é de serviço em primeiro plano ou melhor (1 a 125) e a descrição não diz «remove task» nem «swipeupclean» (a regra
+de `SystemClosedRide.kt`). A subida de temperatura é medida dentro de um trecho de uso que um processo novo, ou um buraco de 15 min entre duas olhadas em uso (`USO_BURACO_S`), também
+fecham; e a gravação vai para a projeção que estava em curso na hora do nome dela (a folga de 60 s só vale quando nenhuma estava), sem roubar a de uma projeção que começa logo depois.
+
+Desde 26/11/2026 (A5): cada «o sistema fechou o REau» traz, do registro do processo que morreu (`mortes.py`), há quanto tempo a tela apagou (as olhadas `[device] … screen=` e as linhas
+`[system] screen on|off`), há quanto tempo a projeção estava ligada, quanto tempo depois de uma retomada da 0.4.0 (`resumed after the system ended the process`) o processo morreu, o display do logcat
+do próprio processo (`DisplayState`, quando a coleta o traz) e a descrição INTEIRA da saída, com a origem que o texto de um «Forçar parada» deixa ver (a razão `due to UserDefined:` é do gerenciador;
+sem ela pode ser o piloto nos Ajustes: suposição, dita como tal). Duas ou mais mortes com a mesma espera de tela apagada (dentro de 15 s; as de processo que já começou com a tela apagada e as que
+podem ser do piloto não entram) dão «as mortes vieram N s depois de a tela apagar (padrão)»: no realme de 25/11/2026, 298 a 303 s, o relógio de 5 min do sistema.
+
+Desde 26/11/2026 (0.4.0, teste A/B dos pilotos): `--ab` troca a leitura inteira pelo relatório do teste A/B (`ab.py`), sobre os `ride-*.log` de uma ou mais pastas, arquivos ou `.zip` de coleta
+(do zip só entram os `ride-*.log`, o `logcat-sistema*.txt` e o `dumpsys-wifi*.txt`; lê tudo, sem o corte da coleta anterior, e `--desde`/`--ate` valem). Separa as sessões (uma por projeção) pelos dois
+experimentos, o espaçamento do envio (`pacePackets` da linha `settings in use:`) ligado ou desligado e o codificador do vídeo (`videoEncoder`) do celular ou de software, e imprime, por sessão, o
+tempo em STREAMING, se o painel reiniciou (as quedas «Wi-Fi do painel reiniciou» e «painel desligou e religou» da leitura normal), o maior silêncio de vídeo (`gap max` do resumo), a idade do painel
+na volta (não existe a idade do quadro no registro), o `pace-waited`, o `tickwait`, o quadro-chave médio e máximo, a CPU do REau (`cpu=` das linhas `device`, mediana e máximo, em % de um
+núcleo) e o calor (`temp=` da bateria, o máximo); e, por braço, as sessões, os minutos em STREAMING, os reinícios por hora, as medianas e o
+aviso «amostra pequena» com menos de 10 sessões. A sessão em que o codificador de software falhou e cedeu ao do celular, a que pediu o de software num celular que não lista um e a que tem dois codificadores
+nas linhas de uso ficam num grupo «à parte», que não serve para comparar os braços. Os critérios estão em `ab.py`. Sai com 0.
+
 Em registros de versões até a 0.2.0 (o serviço que ligava o servidor sozinho não existe mais), por Ligar, o bloco `servidor do AA:` conta a caminhada que liga o servidor do Android Auto (toque, início
 da caminhada, clique em Iniciar, Voltar, fim, primeira conexão, em ms) e acusa a causa: porta fechada 5 s depois do clique, servidor
 que só atendeu quando a tela do Android Auto abriu, menu lido pela metade (Android Auto frio?). Sem linhas `aa-server` (o serviço desligado, o caso comum) não diz nada.
 """
 import re
 import sys
+import tempfile
+import zipfile
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
 # With `python -I` (or a script run from another folder) the script's own folder is not on the path: the helpers beside it are found by this file's place.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ab  # noqa: E402
 import chaves  # noqa: E402
+import codificador  # noqa: E402
 import corrente  # noqa: E402
 import detalhes  # noqa: E402
 import gps_chave  # noqa: E402
 import gravacoes  # noqa: E402
 import logcat_sistema  # noqa: E402
+import mortes  # noqa: E402
 import olhadas  # noqa: E402
 import quedas  # noqa: E402
 import tempo  # noqa: E402
+import thread_principal  # noqa: E402
 import varredura  # noqa: E402
 import wifi_sistema  # noqa: E402
 
@@ -139,6 +185,25 @@ DESLIGOU = ("---- projeção desligada", "==== session end: projection")
 # (`==== continued from …`, a troca de dia ou de tamanho) não fecha nada.
 FIM_DO_REGISTRO = (("==== log switched off", "registro desligado pelo piloto"), ("==== process end:", "o app terminou"))
 PROCESSO_RECOMECOU = (tempo.PROCESSO_COMECOU, "o app recomeçou")
+# `[exit] past exit: package updated (16) at 2026-11-25 06:02:24.550, process …` (or `… (16) ×2 from <a> to 2026-11-25 06:02:24.550, …`): the app tells, at the start of the
+# next process, why Android ended the previous one (`ExitReasons`). The reader says it in these words, by the number in the parentheses.
+SAIDA_DO_PROCESSO = re.compile(r"^past exit: .*? \((\d+)\) (?:at|×\d+ from \S+ \S+ to) \d{4}-\d\d-\d\d (\d\d:\d\d:\d\d(?:\.\d+)?)")
+RETOMADA = mortes.RETOMADA  # the app's own line when the projection came back by itself (0.4.0)
+SAIDA_DO_PROCESSO_LINHAS = 60  # how far after the `process start` the app tells its past exits
+# O sistema fechou o REau (25/11/2026: o Android matou o processo às 16:10:18 e às 16:10:55, `low memory (3)` e `was foreground service (125)`, e o leitor só
+# dizia «o app recomeçou» na linha do tempo, sem nenhum problema). A regra espelha a de `SystemClosedRide.kt` (o aviso que o app dá ao piloto): o motivo é um
+# dos do sistema, a importância é a de um serviço em primeiro plano ou melhor (1 a 125: o REau projetava, não estava parado em segundo plano) e a descrição
+# não diz que o piloto tirou o app dos recentes. Se a regra mudar lá, mude aqui.
+# BY_THE_SYSTEM: sinal, memória, recursos, pedido do usuário (o gerenciador do fabricante também o faz), parado, dependência, outro, congelado.
+SAIDA_PELO_SISTEMA = {2, 3, 9, 10, 11, 12, 13, 14}
+SAIDA_IMPORTANCIA_MAX = 125  # PROJECTING_IMPORTANCE
+SAIDA_PELO_PILOTO = ("remove task", "swipeupclean")  # BY_THE_RIDER: o piloto tirou o app dos recentes
+SAIDA_IMPORTANCIA = re.compile(r", was (.*?) \((\d+)\)")
+SAIDA_DESCRICAO = re.compile(r', "(.*)"(?:, trace in \S+)?$')
+IMPORTANCIA_DO_APP = {100: "em primeiro plano", 125: "serviço em primeiro plano"}
+MOTIVO_DA_SAIDA = {0: "motivo desconhecido", 1: "o app saiu sozinho", 2: "morto por sinal", 3: "falta de memória", 4: "falha", 5: "falha nativa", 6: "app sem resposta (ANR)",
+                   7: "falha ao iniciar", 8: "permissão mudou", 9: "uso excessivo de recursos", 10: "pedido do usuário",
+                   11: "parado pelo usuário", 12: "dependência morreu", 13: "outro motivo", 14: "congelado", 15: "estado do pacote mudou", 16: "pacote atualizado"}
 TERMICO = ["none", "light", "moderate", "severe", "critical", "emergency", "shutdown"]
 # `dark=2/3m02s (max 1m08s)` in the resumo: the interruptions of the picture on the dash (since 20/10/2026), the longest listed above this.
 DARK = re.compile(r"dark=(\d+)/(\S+) \(max (\S+)\)")
@@ -187,6 +252,12 @@ SOBE_GRAUS = 8.0
 QUENTE_GRAUS = 44.0
 # The battery stays warm from the charge for this long after the charger leaves: those looks are the charger's heat, not the use's.
 CARGA_ESFRIA_S = 600.0
+# A rise is measured inside one stretch of use: a new process (`process start`) or a hole this long between two looks in use closes the stretch, because the
+# lowest temperature of before the hole is no longer the start of the heat being measured (25/11/2026, 06:15 to 07:00: 30 → 38 °C at 06:30, then 38 → 34 °C in
+# 17 min with the screen off, and the next lit look compared with the 30 of 45 min before). The looks come every 30 s, so 15 min is 30 looks lost or a screen
+# off long enough for the battery to cool: well above any pause of the use (a red light, the 4 min of 06:19 to 06:23) and below the time the battery takes to
+# forget the heat.
+USO_BURACO_S = 900.0
 # The screen of Android Auto, by time (`aa-screen: apps (by the picture: …)`, `… confirmed by the picture`) and the rider's keys on the dash.
 TELA_AA = re.compile(r"^aa-screen: (nav|menu|apps)\b")
 TELA_NOME = {"nav": "mapa", "menu": "menu", "apps": "apps"}
@@ -225,7 +296,7 @@ ABERTURA_S = 5.0
 ABERTURA_FRAME_LENTO = re.compile(r"slow frame: \d+ ms during cold start")
 ABERTURA_FRAME_LENTO_S = 1.5
 CHAVE_CHEGOU = re.compile(r"key arrived ([\d.]+) s after the first greeting, after (\d+) resends?")
-AVISO_DE_10S = ("dash DECODED first IDR", "dash notice 09 06 55", "dash sent 09 06 55 while")
+AVISO_DE_10S = ("dash DECODED first IDR", "first frame confirmed by the dash", "dash notice 09 06 55", "dash sent 09 06 55 while")
 # Android Auto closes its link together with the phone's screen going off or on (EOF, 12:01:07 and 12:13:36 on 20/10/2026): not a fall.
 TELA_JUNTO_S = 3.0
 TELA_EVENTOS = ("screen on", "screen off", "screen unlocked")
@@ -279,6 +350,8 @@ EVENTOS = [
     ("link lost — reconnecting", "Wi-Fi da moto caiu"),
     ("dash visible but refusing", "painel visível mas recusando (Wi-Fi do painel provavelmente travado; piloto avisado)"),
     ("send tail before", "o que o app enviava antes do silêncio"),
+    # O detalhe fino dos últimos 15 s (cada quadro de vídeo, o código e o tamanho de cada comando; plano 34, item 6): a linha de cabeçalho traz o resumo, as de baixo (`fine tail t-14 s: …`) o detalhe.
+    ("fine tail before", "detalhe do app antes do silêncio"),
     ("bike network lost", "Wi-Fi da moto perdido"),
     # O Wi-Fi no instante de um vigia do painel (sinal, velocidades, banda) e o último minuto, para dizer
     # Wi-Fi fraco de painel calado. A linha é longa de propósito: o minuto de sinal é o que interessa.
@@ -292,6 +365,26 @@ EVENTOS = [
     ("Decoder restart requested", "vigia do decodificador"),
     ("the app crashed", "o app travou"),
 ]
+# O cabeçalho do detalhe fino: `fine tail before a watchdog fired (last 15 s): 3 keyframes in 61 frames, biggest 28728 B in 21 pkts, longest gap between packets 41 ms; 120 commands out, 340 in`
+DETALHE_FINO = re.compile(
+    r"fine tail before (.*?) \(last (\d+) s\): (\d+) keyframes in (\d+) frames, biggest (\d+) B in (\d+) pkts, "
+    r"longest gap between packets (\d+) ms; (\d+) commands out, (\d+) in"
+    # A janela termina na última mensagem do painel e o cabeçalho diz há quanto tempo ele estava calado (revisão do plano 34, A2, 26/11/2026).
+    r"(?:; the dash had been quiet for (\d+) s \(the window ends at its last message\))?")
+
+
+def _detalhe_fino(t):
+    """O resumo do cabeçalho do detalhe fino em português (quadros-chave, maior quadro, maior intervalo sem pacote); o texto como veio se a linha não tem o resumo
+    (nada trocado na janela, ou o corte por tamanho)."""
+    m = DETALHE_FINO.search(t)
+    if not m:
+        return t[t.index("fine tail before") + len("fine tail before"):].strip()
+    motivo, janela, chaves, quadros, maior, pacotes, intervalo, saiu, entrou, calado = m.groups()
+    quando = f"nos últimos {janela} s até a última mensagem do painel (calado há {calado} s)" if calado else f"nos últimos {janela} s"
+    return (f"{motivo}: {quando}, {chaves} quadros-chave em {quadros} quadros, maior quadro {maior} B em {pacotes} pacotes, "
+            f"maior intervalo sem pacote {intervalo} ms; {saiu} comandos enviados, {entrou} recebidos")
+
+
 # "RX watchdog:" with the colon: the dash's "no 09 06 55 after 15s" notice only mentions the watchdog in passing.
 QUEDAS = ("link lost — reconnecting", "RX watchdog:", "bike network lost", "AaReceiver: session ended (clean=false")
 # A fall whose Wi-Fi was steady until it went (the dash's own Wi-Fi vanished at once) is the bike being switched off.
@@ -802,7 +895,7 @@ def projecoes(linhas):
     Esses blocos levam o motivo em `sem_fim`; o resto do arquivo não é mais dela, mesmo que o arquivo seguinte seja da mesma coleta."""
     blocos: list[Bloco] = []
     atual: Bloco | None = None
-    for x in linhas:
+    for i, x in enumerate(linhas):
         if x.texto.startswith(LIGOU):
             if atual is not None:
                 atual.sem_fim = atual.sem_fim or "outra projeção começou sem a marca de desligar desta"
@@ -810,7 +903,8 @@ def projecoes(linhas):
             blocos.append(atual)
         elif atual is not None:
             if x.texto.startswith(PROCESSO_RECOMECOU[0]):
-                atual.sem_fim = PROCESSO_RECOMECOU[1]
+                motivo = _motivo_da_saida(linhas, i, atual[-1])
+                atual.sem_fim = PROCESSO_RECOMECOU[1] + (f": {motivo}" if motivo else "")
                 atual = None
                 continue
             atual.append(x)
@@ -821,6 +915,66 @@ def projecoes(linhas):
             elif x.texto.startswith(DESLIGOU):
                 atual = None
     return blocos
+
+
+def _motivo_da_saida(linhas, i, ultima):
+    """Por que o processo anterior acabou, pela linha `past exit` que o processo que começa em `linhas[i]` escreve: a primeira saída não antes da `ultima` linha da projeção (até 5 s
+    antes: o relógio das duas), as anteriores são de processos mais velhos. Vazio sem a linha (registro de antes dela, ou o Android sem o histórico)."""
+    inicio = linhas[i]
+    for y in linhas[i + 1:i + 1 + SAIDA_DO_PROCESSO_LINHAS]:
+        if y.texto.startswith(PROCESSO_RECOMECOU[0]):
+            break
+        m = SAIDA_DO_PROCESSO.match(y.texto)
+        if m:
+            h, mi, se = m.group(2).split(":")
+            saiu = int(h) * 3600 + int(mi) * 60 + float(se)
+            if tempo.assinado(saiu, ultima.segundos) >= -5 and tempo.assinado(inicio.segundos, saiu) >= -5:
+                resumo = mortes.resumo_do_processo(y.texto)
+                return MOTIVO_DA_SAIDA.get(int(m.group(1)), f"motivo {m.group(1)}") + (f"; o app gravou de si antes de morrer: {resumo}" if resumo else "")
+    return ""
+
+
+def _sistema_fechou(linhas, caminhos=()):
+    """Os problemas «o sistema fechou o REau»: uma linha `past exit` (o processo seguinte conta como o anterior acabou) cujo motivo é do sistema, com a
+    importância de um serviço em primeiro plano ou melhor e sem a descrição de o piloto ter tirado o app dos recentes (a regra de `SystemClosedRide.decide`,
+    sem a idade: o leitor lê registros de qualquer dia). Diz a hora da morte (a da saída, não a da linha: o app só a conta ao recomeçar), o motivo e o que o
+    processo era. Uma saída contada em dois arquivos vale uma vez. Uma saída sem importância (o app de antes da linha trazer isso) não vale: não se sabe se
+    projetava.
+    Desde 26/11/2026 (A5): cada morte traz também o que o registro do processo que morreu diz (`mortes.py`): há quanto tempo a tela apagou, há quanto tempo projetava, quanto tempo
+    depois de uma retomada da 0.4.0 e a descrição inteira da saída (que separa, no Xiaomi, o «Forçar parada» do gerenciador do que pode ser o piloto); com `caminhos`, o display do logcat
+    do processo. Duas ou mais mortes com o mesmo tempo de tela apagada (dentro de 15 s) dão a linha do padrão: no realme de 25/11, 298 a 303 s, o relógio de 5 min do sistema."""
+    saida, vistas, intervalos = [], set(), []
+    entradas_do_app = None
+    for i, x in enumerate(linhas):
+        m = SAIDA_DO_PROCESSO.match(x.texto)
+        importancia = SAIDA_IMPORTANCIA.search(x.texto)
+        if not m or not importancia:
+            continue
+        motivo, grau = int(m.group(1)), int(importancia.group(2))
+        achada = SAIDA_DESCRICAO.search(x.texto)
+        descricao = achada.group(1) if achada else ""
+        if (motivo not in SAIDA_PELO_SISTEMA or not 1 <= grau <= SAIDA_IMPORTANCIA_MAX
+                or any(p in descricao.lower() for p in SAIDA_PELO_PILOTO)):
+            continue
+        quando = m.group(2)[:8]
+        chave = (x.texto.split(", was ")[0], quando)
+        if chave in vistas:
+            continue
+        vistas.add(chave)
+        if entradas_do_app is None:
+            entradas_do_app = logcat_sistema.ler(caminhos, so_do_app=True) if caminhos else []
+        data = mortes.SAIDA_QUANDO.search(x.texto)
+        pid = mortes.SAIDA_PID.search(x.texto)
+        sobre, intervalo, do_piloto = mortes.detalhes(
+            linhas, i, mortes.segundos_do_dia(m.group(2)), LIGOU, DESLIGOU, descricao, motivo, entradas_do_app,
+            int(pid.group(1)) if pid else None, (int(data.group(2)), int(data.group(3))) if data else None,
+            mortes.resumo_do_processo(x.texto))
+        if intervalo is not None and not do_piloto:
+            intervalos.append((intervalo, quando))
+        nome = IMPORTANCIA_DO_APP.get(grau, importancia.group(1))
+        saida.append(f"{quando}: o sistema fechou o REau — {MOTIVO_DA_SAIDA.get(motivo, f'motivo {motivo}')} ({motivo}), com o app como {nome} ({grau}); "
+                     f"o app só soube ao recomeçar, às {x.hora[:8]} ({x.arquivo}); {sobre}")
+    return saida + ([padrao] if (padrao := mortes.padrao(intervalos)) else [])
 
 
 def _do_desligamento(x, bloco):
@@ -1114,6 +1268,34 @@ def _aviso_calor(texto):
     return texto
 
 
+_MOTIVO_CARTAO_BATERIA = {
+    "charger in": "o carregador foi ligado",
+    "battery above the limit": "a bateria subiu acima de 10 %",
+    "dash gone, it starts again when the dash is back": "o painel caiu (volta a alternar quando ele reconectar)",
+    "projection over": "a projeção acabou",
+}
+
+
+def _aviso_bateria(texto):
+    """As linhas da bateria fraca (<= 10 % sem carregador; BatteryLowWatch, plano 35 passo E, 26/11/2026): o aviso no celular e o cartão no painel.
+
+    O cartão no painel (decisão do dono de 26/11/2026) alterna: 60 s na tela, 60 s fora, enquanto a bateria está fraca sem carregador. A linha do aviso diz se o cartão foi
+    pedido; `battery pill alternation starts` marca quando a alternância recomeça (carregador tirado, bateria caiu de novo, painel de volta, retomada) e `... stops` quando para, com o motivo."""
+    m = re.search(r"battery pill alternation starts at (\d+)% \((\d+) s shown, (\d+) s out\)", texto)
+    if m:
+        return f"cartão de bateria fraca no painel passa a alternar com a bateria a {m.group(1)} % ({m.group(2)} s na tela, {m.group(3)} s fora)"
+    m = re.search(r"battery pill alternation stops(?: at (\d+)%)?: (.+)$", texto)
+    if m:
+        nivel = f" com a bateria a {m.group(1)} %" if m.group(1) else ""
+        return f"cartão de bateria fraca no painel para de alternar{nivel}: {_MOTIVO_CARTAO_BATERIA.get(m.group(2).strip(), m.group(2).strip())}"
+    m = re.search(r"battery at (\d+)% with no charger .*phone notice: (shown|not shown[^;]*); dash pill: (asked|none|waiting for the dash)", texto)
+    if not m:
+        return texto
+    celular = "feito" if m.group(2) == "shown" else "NÃO feito (as notificações do app estão desligadas)"
+    painel = {"asked": "pedido (alterna: 60 s na tela, 60 s fora)", "waiting for the dash": "espera o painel conectar"}.get(m.group(3), "nenhum")
+    return f"aviso de bateria fraca: {m.group(1)} % sem carregador; aviso no celular: {celular}; cartão no painel: {painel}"
+
+
 def _marca_gravacao(texto):
     """A linha que a Marca do piloto escreve sobre a gravação da sessão do Android Auto: guardada (nome do par), cópia no lugar de outra, ou não feita.
 
@@ -1162,13 +1344,22 @@ def versoes_do_app(linhas):
     return [f"app {v}: {len(a)} {'abertura' if len(a) == 1 else 'aberturas'} ({', '.join(a)})" for v, a in por.items()]
 
 
+# Desde o plano 35 (25/11/2026) o app escreve o instante: `first frame confirmed by the dash 7420 ms after streaming began (09 06 55)`.
+PRIMEIRO_QUADRO_DO_APP = re.compile(r"^first frame confirmed by the dash (\d+) ms after streaming began(?: \(([^)]*)\))?")
 VIDEO_COM_PAINEL = re.compile(r"^video fps target=.*?\((\d+)frames/([\d.]+)s\).*?\bdash=([\d.]+)")
 
 
 def _primeiro_quadro_do_painel(bloco):
-    """(linha `video fps`, texto) do primeiro quadro que o painel confirmou, calculado: a primeira janela de 5 s depois do `→ STREAMING` com `dash=` acima de zero (o painel quase nunca
-    confirma quadro: `dash=0.4` uma vez por viagem). O instante exato está nessa janela, não é escrito pelo app; por isso o texto diz de quanto a quanto. None se o app já escreveu a
-    linha do primeiro quadro (`dash DECODED first IDR`, que o leitor já conta), se não transmitiu ou se o painel nunca confirmou."""
+    """(linha, texto) do primeiro quadro que o painel confirmou. Desde o plano 35 o app escreve o instante (`first frame confirmed by the dash N ms after streaming began`): o texto
+    traz o tempo medido por ele e a linha é a dele. Num registro antigo, que não tem essa linha, é calculado: a primeira janela de 5 s depois do `→ STREAMING` com `dash=` acima de
+    zero (o painel quase nunca confirma quadro: `dash=0.4` uma vez por viagem); o instante exato está nessa janela, por isso o texto diz de quanto a quanto. None se o app já escreveu
+    a linha do primeiro quadro de antes (`dash DECODED first IDR`, que o leitor já conta), se não transmitiu ou se o painel nunca confirmou."""
+    do_app = next(((x, PRIMEIRO_QUADRO_DO_APP.match(x.texto)) for x in bloco if PRIMEIRO_QUADRO_DO_APP.match(x.texto)), None)
+    if do_app is not None:
+        x, m = do_app
+        ms = int(m.group(1))
+        aviso = f"; confirmado pelo aviso {m.group(2)}" if m.group(2) else ""
+        return x, f"painel confirmou o primeiro quadro {tempo.dec(ms / 1000)} s depois de transmitir ({ms} ms, medido pelo app{aviso})"
     if any("dash DECODED first IDR" in x.texto for x in bloco):
         return None
     transmitindo = next((x for x in bloco if "→ STREAMING" in x.texto), None)
@@ -1235,6 +1426,9 @@ def linha_do_tempo(linhas):
                 por_ritmo = _video_por_ritmo(bloco)
                 if por_ritmo:
                     saida.append(f"{x.hora}  {por_ritmo}")
+                do_codificador = codificador.texto(bloco)  # the encoder of the video, its rate, its SPS and the shape of the stream (26/11/2026; nothing in an older log)
+                if do_codificador:
+                    saida.append(f"{x.hora}  {do_codificador}")
                 telas = _tela_por_tempo(bloco)
                 if telas:
                     saida.append(f"{x.hora}  {telas}")
@@ -1245,6 +1439,8 @@ def linha_do_tempo(linhas):
                 saida.append(f"{x.hora}  {_marca_gravacao(t)}")  # what the mark did to the session recording (plan 22)
             elif x.etiqueta == "heat":
                 saida.append(f"{x.hora}  {_aviso_calor(t)}")  # the phone-is-hot notice (plan 22)
+            elif x.etiqueta == "battery":
+                saida.append(f"{x.hora}  {_aviso_bateria(t)}")  # the low-battery notice, on the phone and on the dash (plan 35, step E)
             elif x.etiqueta == "settings" and t.startswith(("settings in use: ", "connection experiments ON: ")):
                 saida.append(f"{x.hora}  {t}")  # the settings the ride was made with, at the start of each projection, and the connection experiments that were on
             elif x.etiqueta == "wifi" and t.startswith("connected "):
@@ -1269,7 +1465,9 @@ def linha_do_tempo(linhas):
             elif not _nao_e_queda(x, bloco):
                 for procura, diz in EVENTOS:
                     if procura in t:
-                        if diz.startswith(("Wi-Fi na falha", "o que o app enviava")):
+                        if diz.startswith("detalhe do app"):
+                            saida.append(f"{x.hora}  {diz}: {_detalhe_fino(t)}")
+                        elif diz.startswith(("Wi-Fi na falha", "o que o app enviava")):
                             saida.append(f"{x.hora}  {diz}: {t[t.index(procura) + len(procura):].strip()}")
                         else:
                             saida.append(f"{x.hora}  {diz}: {t[:110]}" if diz.startswith(("vigia", "o app", "auth:")) else f"{x.hora}  {diz}")
@@ -1485,11 +1683,53 @@ def _tela_por_tempo(bloco):
         f"{TELA_NOME[t]} {tempo.duracao_texto(s)} ({100 * s / total:.0f}%)" for t, s in sorted(soma.items(), key=lambda p: -p[1]))
 
 
+# A música na frente (26/11/2026, 08:07:07 a 08:13:46: a tela de música do Android Auto, com o Spotify tocando, foi acusada como "o mapa tomado por um app"; o dono
+# confirmou que era música): o app diz `aa-screen: app spotify (…)` quando a imagem reconhece o Spotify na frente (até a próxima `aa-screen: app …`) e o modo música
+# diz `music mode on: Spotify playing` até o `music mode off: …`. Só vale o que o app escreveu; sem essas linhas, a regra de "apps sem tecla" continua como era.
+APP_NA_FRENTE = re.compile(r"^aa-screen: app (\w+)\b")
+MODO_MUSICA = re.compile(r"^music mode (on|off)\b")
+MUSICA_COBRE_DO_TRECHO = 0.5  # a música na frente por esta fração do trecho sem tecla basta para dizer que a tela de apps era ela
+
+
+def _musica_na_frente(bloco):
+    """Os trechos [(início, fim)] em s em que o app disse ter a música na frente: o Spotify reconhecido pela imagem (`aa-screen: app spotify` até a próxima
+    `aa-screen: app …`) ou o modo música ligado (`music mode on` até o `music mode off`); um trecho aberto vai até o fim da projeção."""
+    fim = bloco[-1].segundos
+    saida = []
+    for etiqueta, regra, abre in (("aa-screen", APP_NA_FRENTE, lambda m: m.group(1) == "spotify"), ("dash", MODO_MUSICA, lambda m: m.group(1) == "on")):
+        inicio = None
+        for x in bloco:
+            m = regra.match(x.texto) if x.etiqueta == etiqueta else None
+            if not m:
+                continue
+            if abre(m) and inicio is None:
+                inicio = x.segundos
+            elif not abre(m) and inicio is not None:
+                saida.append((inicio, x.segundos))
+                inicio = None
+        if inicio is not None:
+            saida.append((inicio, fim))
+    return saida
+
+
+def _segundos_de_musica(bloco, a, b):
+    """Quantos s do trecho [a, b] têm a música na frente (a união dos trechos, sem contar duas vezes o que os dois sinais dizem)."""
+    pedacos = sorted((max(i, a), min(f, b)) for i, f in _musica_na_frente(bloco) if min(f, b) > max(i, a))
+    total, ate = 0.0, a
+    for i, f in pedacos:
+        i = max(i, ate)
+        if f > i:
+            total += f - i
+            ate = f
+    return total
+
+
 def _apps_sem_tecla(bloco):
     """A tela "apps" que a leitura da imagem escolheu (não uma tecla do painel) e ficou por mais de 2 min com a rota ativa (mensagens
     `Nav: position|state` chegando) sem nenhuma tecla do painel (nem toque no celular) nesse tempo (01/11/2026, 18:47:36 a 19:18: o app leu o mapa como app;
     teve uma tecla do joystick sem efeito no meio, por isso vale o trecho sem tecla, não a tela inteira). Quem entrou em "apps" por tecla
-    (`apps (a select in the menu)`) é o dono num app de verdade: não conta."""
+    (`apps (a select in the menu)`) é o dono num app de verdade: não conta. Com a música na frente na maior parte do trecho (`_musica_na_frente`) também não conta
+    (26/11/2026: era a tela de música do Android Auto)."""
     teclas = [x.segundos for x in bloco if (x.etiqueta == "dash" and TECLA_DO_PAINEL.match(x.texto) and TECLA_AVISO not in x.texto)
               or TOQUE_NO_CELULAR in x.texto]
     saida = []
@@ -1502,7 +1742,8 @@ def _apps_sem_tecla(bloco):
         # The longest stretch with no key; the Nav messages that came in it.
         a, b = max(zip(pontos, pontos[1:]), key=lambda p: p[1] - p[0])
         navs = [y for y in bloco if a <= y.segundos <= b and NAV_CHEGANDO.search(y.texto)]
-        if b - a > APPS_SEM_TECLA_S and navs:
+        # The music screen is an app for real, with the route still arriving: the app said the music was in front for most of the stretch, so it is not a map taken as an app.
+        if b - a > APPS_SEM_TECLA_S and navs and _segundos_de_musica(bloco, a, b) < MUSICA_COBRE_DO_TRECHO * (b - a):
             saida.append(f"{x.hora}: tela \"apps\" por {tempo.duracao_texto(fim - inicio)}, {tempo.duracao_texto(b - a)} deles sem nenhuma tecla do painel (nem toque no celular) e com a "
                          f"rota ativa ({len(navs)} mensagens Nav:): a leitura da imagem provavelmente tomou o mapa por um app")
     return saida
@@ -1595,7 +1836,7 @@ def _painel_visto_tarde(bloco):
     return saida
 
 
-def problemas(linhas):
+def problemas(linhas, caminhos=()):
     saida = []
     for bloco in projecoes(linhas):
         inicio = f"{bloco[0].hora} ({bloco[0].arquivo})"
@@ -1625,9 +1866,10 @@ def problemas(linhas):
         saida += _laco_de_reconexao(bloco)
         saida += _sem_imagem(bloco) + _buracos(bloco) + _quedas(bloco) + _temperatura(bloco) + _sem_resposta(bloco)
         saida += _painel_travado(bloco) + _eperm_repetido(bloco) + _eperm_espera(bloco)
-        saida += _envio_por_politica(bloco)
+        saida += _envio_por_politica(bloco) + thread_principal.problemas(bloco)
         saida += _apps_sem_tecla(bloco) + _quadros_chave_altos(bloco) + _painel_visto_tarde(bloco) + _apps_recorte_errado_problemas(bloco)
         saida += [f"projeção de {inicio}: servidor do AA — {causa}" for causa in _servidor_aa(bloco)[1]]
+    saida += _sistema_fechou(linhas, caminhos)
     # The test of item 1a (the Wi-Fi list with the app behind) fails here, with the reasons; its whole account is in `teste_1a`.
     return saida + varredura.problemas_do_teste(varredura.teste_1a(linhas)) + olhadas.problemas(projecoes(linhas))
 
@@ -2113,25 +2355,52 @@ def _em_uso(texto):
 
 
 def _trechos_de_uso(bloco):
-    """As temperaturas da bateria nas olhadas em uso (sem carregador, tela ligada), em trechos: o carregador (uma olhada com `charging=yes`,
-    `charger in` ou `charger out`) fecha o trecho, e as olhadas até 10 min depois do último sinal dele são o calor da carga, não do uso."""
-    trechos, atual, carga_em = [], [], None
+    """As temperaturas da bateria nas olhadas em uso (sem carregador, tela ligada), em trechos de (graus, sem painel): o carregador (uma olhada com `charging=yes`,
+    `charger in` ou `charger out`) fecha o trecho, e as olhadas até 10 min depois do último sinal dele são o calor da carga, não do uso. Sem painel é a olhada com `bike=none`
+    (o Wi-Fi do painel não está unido); uma olhada sem o campo (registro de antes dele) conta como com painel. Um processo novo (`process start`) e um buraco
+    de `USO_BURACO_S` ou mais entre duas olhadas em uso também fecham o trecho: a menor temperatura de antes deles não é o começo do calor que se mede."""
+    trechos, atual, carga_em, ultima = [], [], None, None
     for x in bloco:
+        if x.texto.startswith(tempo.PROCESSO_COMECOU):
+            if atual:
+                trechos.append(atual)
+            atual, ultima = [], None  # o calor da carga (`carga_em`) não esfria só porque o processo mudou
+            continue
         carregador = (x.etiqueta == "system" and x.texto.startswith(("charger in", "charger out"))) or (
             x.texto.startswith("device ") and _device(x.texto, "charging") == "yes")
         if carregador:
             if atual:
                 trechos.append(atual)
-            atual, carga_em = [], x.segundos
+            atual, carga_em, ultima = [], x.segundos, None
         elif x.texto.startswith("device "):
             if carga_em is not None and 0 <= x.segundos - carga_em < CARGA_ESFRIA_S:
                 continue
             g = _device(x.texto, "temp")
             if g and g != "?" and _em_uso(x.texto):
-                atual.append(float(g))
+                if ultima is not None and tempo.dif(x.segundos, ultima) >= USO_BURACO_S and atual:
+                    trechos.append(atual)
+                    atual = []
+                atual.append((float(g), _device(x.texto, "bike") == "none"))
+                ultima = x.segundos
     if atual:
         trechos.append(atual)
     return trechos
+
+
+def _subidas_de_uso(bloco):
+    """As subidas de `SOBE_GRAUS` ou mais dentro de um trecho de uso, de duas qualidades: (com painel, sem painel), cada uma a lista de (menor, maior) dos trechos. A subida
+    é medida em cada olhada contra a menor de antes dela no trecho, e é de quem está na olhada em que ela se vê: a que se vê com o painel unido (ou sem o campo `bike=`) é a do
+    uso com o painel; a que só se vê com `bike=none` é a da tela acesa e do Android Auto decodificando sem painel (25/11/2026, 30 → 38 °C numa parada de 14 min)."""
+    com, sem = [], []
+    for trecho in _trechos_de_uso(bloco):
+        graus = [g for g, _ in trecho]
+        sobe = [g - min(graus[:i + 1]) >= SOBE_GRAUS for i, g in enumerate(graus)]
+        if any(s and not sem_painel for s, (_, sem_painel) in zip(sobe, trecho)):
+            com.append((min(graus), max(graus)))
+        elif any(sobe):
+            ultima = max(i for i, s in enumerate(sobe) if s)
+            sem.append((min(graus[:ultima + 1]), max(g for g, s in zip(graus, sobe) if s)))
+    return com, sem
 
 
 def _temperatura(bloco):
@@ -2141,12 +2410,12 @@ def _temperatura(bloco):
     niveis = [TERMICO.index(t) for t in termicos if t in TERMICO]
     if niveis and max(niveis) >= TERMICO.index("moderate") and max(niveis) > niveis[0]:
         saida.append(f"temperatura subindo: estado térmico {TERMICO[niveis[0]]} → {TERMICO[max(niveis)]}")
-    # Sem o carregador e com a tela ligada, e dentro de um trecho só (o carregador entrando, ou saindo, reinicia a conta): subida de 8 °C ou mais.
-    for graus in _trechos_de_uso(bloco):
-        sobe = max(g - min(graus[:i + 1]) for i, g in enumerate(graus))
-        if sobe >= SOBE_GRAUS:
-            saida.append(f"temperatura subindo: bateria de {min(graus):.1f} °C a {max(graus):.1f} °C (sem carregador, tela ligada)")
-            break
+    # Sem o carregador e com a tela ligada, e dentro de um trecho só (o carregador entrando, ou saindo, reinicia a conta): subida de 8 °C ou mais com o painel unido. A que só
+    # se vê sem painel não é problema: `_temperatura_sem_painel` a conta como informação.
+    com_painel, _ = _subidas_de_uso(bloco)
+    if com_painel:
+        menor, maior = com_painel[0]
+        saida.append(f"temperatura subindo: bateria de {menor:.1f} °C a {maior:.1f} °C (sem carregador, tela ligada)")
     # Acima de 44 °C em qualquer olhada, com ou sem carregador: perto de onde o Android reduz a carga.
     quentes = [(x, float(g)) for x in olhadas for g in [_device(x.texto, "temp")] if g and g != "?" and float(g) > QUENTE_GRAUS]
     if quentes:
@@ -2310,9 +2579,20 @@ def _economia(bloco):
     return saida
 
 
+def _temperatura_sem_painel(bloco):
+    """A bateria que subiu 8 °C ou mais com a tela acesa e sem painel (`bike=none`) e sem carregador: é o esperado (o Android Auto segue decodificando o vídeo e a tela está
+    acesa), não defeito. Uma linha por projeção; o alarme é só a subida vista com o painel unido ou a bateria acima de 44 °C (`_temperatura`)."""
+    _, sem_painel = _subidas_de_uso(bloco)
+    if not sem_painel:
+        return []
+    menor, maior = sem_painel[0]
+    return [f"temperatura subiu de {menor:.1f} °C a {maior:.1f} °C sem carregador, com a tela acesa e sem painel: o Android Auto segue decodificando o vídeo e a tela está acesa "
+            f"(causa provável; não alarma, só a subida com o painel unido ou acima de {QUENTE_GRAUS:g} °C)"]
+
+
 def _informes(bloco):
-    """Tudo o que o registro de uma projeção conta e não é defeito: o painel que calou primeiro, o menu sem tecla, os cartões de chamada, o doze e a economia de bateria."""
-    return _painel_calou_primeiro(bloco) + _menu_sem_tecla(bloco) + _cartoes_de_chamada(bloco) + _doze(bloco) + _economia(bloco)
+    """Tudo o que o registro de uma projeção conta e não é defeito: o painel que calou primeiro, o menu sem tecla, os cartões de chamada, o doze, a economia de bateria e a temperatura que sobe sem painel."""
+    return _painel_calou_primeiro(bloco) + _menu_sem_tecla(bloco) + _cartoes_de_chamada(bloco) + _doze(bloco) + _economia(bloco) + _temperatura_sem_painel(bloco)
 
 
 def _eventos_do_painel(t):
@@ -2487,6 +2767,71 @@ def _eventos_da_leva5(etiqueta, t):
     return []
 
 
+# As linhas `[audio]` do som do Bluetooth (0.4.0): `bluetooth device added: A2DP out (rates 44100/48000, channels 2) - now 1 bluetooth output(s), 0 input(s)`.
+BT_APARELHO = re.compile(r"^bluetooth devices? (added|removed): (.*) - now (\d+) bluetooth output\(s\), (\d+) input\(s\)$")
+BT_NO_INICIO = re.compile(r"^bluetooth audio at start: (?!no device)(.*) - (\d+) bluetooth output\(s\), (\d+) input\(s\)$")
+
+
+def _eventos_do_bluetooth(t):
+    """A linha do tempo para o aparelho de áudio Bluetooth que entra ou sai (`[audio] bluetooth device added/removed`) e os que já estavam na partida; só o tipo e a direção (o app nunca diz nome nem endereço)."""
+    m = BT_APARELHO.match(t)
+    if m:
+        tipos = "; ".join(x.split(" (")[0] for x in m.group(2).split("; "))
+        diz = "conectado" if m.group(1) == "added" else "desconectado"
+        return [f"Bluetooth: aparelho de áudio {diz} ({tipos}); agora {m.group(3)} saída(s) e {m.group(4)} entrada(s)"]
+    m = BT_NO_INICIO.match(t)
+    if m:
+        tipos = "; ".join(x.split(" (")[0] for x in m.group(1).split("; "))
+        return [f"Bluetooth: aparelho de áudio já conectado na partida ({tipos}); {m.group(2)} saída(s) e {m.group(3)} entrada(s)"]
+    if t.startswith("audio becoming noisy"):
+        return ["Bluetooth: o Android avisou que o som vai mudar de saída (um fone ou um enlace Bluetooth saiu)"]
+    return []
+
+
+KEEPALIVE_DIZ = re.compile(r"^keepalive: rider says autostart=(\S+) background=(\S+) lock=(\S+) battery=(\S+)$")
+KEEPALIVE_PALAVRAS = {"yes": "sim", "no": "não", "?": "?"}
+FALA_NO_FONE = re.compile(r"^voice: (\w+) said$")
+
+
+def _keepalive(t):
+    """As linhas `keepalive:` do app (26/11/2026, A3): o que o piloto diz ter feito no celular (sem conferência: é a palavra dele) e o que o botão do ajuste do fabricante abriu."""
+    m = KEEPALIVE_DIZ.match(t)
+    if m:
+        nomes = ("inicialização automática", "atividade em segundo plano", "cadeado nos recentes", "bateria sem restrições")
+        itens = ", ".join(f"{n}={KEEPALIVE_PALAVRAS.get(v, v)}" for n, v in zip(nomes, m.groups()))
+        return [f"o piloto diz ter feito (sem conferência): {itens}"]
+    return ["ajuste do fabricante: " + t[len("keepalive: "):]]
+
+
+# `[device] app standby: bucket=working_set background-restricted=no adb=on devopts=off`: written at the first look of a projection and when one of them changes; the last two
+# fields (USB debugging and developer options, 26/11/2026) are not in the lines of a build before them.
+STANDBY_DIZ = re.compile(r"^app standby: bucket=(\S+) background-restricted=(\S+)(?: adb=(\S+) devopts=(\S+))?$")
+STANDBY_BALDE = {"unknown": "sem leitura"}
+STANDBY_SIM_NAO = {"yes": "sim", "no": "não", "?": "sem leitura"}
+STANDBY_LIGADO = {"on": "ligada", "off": "desligada", "?": "sem leitura"}
+STANDBY_LIGADAS = {"on": "ligadas", "off": "desligadas", "?": "sem leitura"}
+
+
+def _balde_do_app(t):
+    """A linha `app standby:` (A4 de 26/11/2026) na linha do tempo: o balde de uso e a restrição de segundo plano que o Android deu ao app e, desde a mesma noite, a depuração USB e as opções
+    de desenvolvedor (S1: a depuração USB pode mudar o trato do sistema do fabricante com o app ao bloquear a tela; o celular do dono a tem ligada e o dos pilotos talvez não, e o registro nunca dizia)."""
+    m = STANDBY_DIZ.match(t)
+    if not m:
+        return []
+    frase = f"o Android pôs o app no balde de uso {STANDBY_BALDE.get(m.group(1), m.group(1))}, restrição de segundo plano: {STANDBY_SIM_NAO.get(m.group(2), m.group(2))}"
+    if m.group(3):
+        frase += f"; depuração USB {STANDBY_LIGADO.get(m.group(3), m.group(3))}, opções de desenvolvedor {STANDBY_LIGADAS.get(m.group(4), m.group(4))}"
+    return [frase]
+
+
+def _fala_no_fone(t):
+    """A linha que o app escreve quando uma frase foi mesmo dita no fone (`voice: APP_BACK said`; A8, 26/11/2026)."""
+    m = FALA_NO_FONE.match(t)
+    if not m:
+        return []
+    return ["fala no fone: o app voltou sozinho, «O REau voltou» (APP_BACK)" if m.group(1) == "APP_BACK" else f"fala no fone: {m.group(1)}"]
+
+
 def _eventos_novos(x, bloco):
     """As linhas de linha do tempo para o que o leitor não contava antes: `has not joined`, as chamadas (`[call]`), o doze e a economia de bateria."""
     t = x.texto
@@ -2500,8 +2845,27 @@ def _eventos_novos(x, bloco):
         if t.startswith("end: "):
             return [f"chamada encerrada pelo joystick ({t[5:60]})"]
         return []
+    if x.etiqueta == "device" and t.startswith("app standby: "):
+        return _balde_do_app(t)
+    if x.etiqueta == "audio":
+        return _fala_no_fone(t) or _eventos_do_bluetooth(t)
+    if x.etiqueta in ("ui", "settings") and t.startswith("keepalive: "):
+        return _keepalive(t)
+    retomada = RETOMADA.match(t) if x.etiqueta == "projection" else None
+    if retomada:
+        return [f"projeção retomada depois de o sistema fechar o REau, tentativa {retomada.group(1)} de {retomada.group(2)}"]
+    # O tempo da morte à imagem: a linha que o app escreve quando o painel confirma o primeiro quadro de uma projeção retomada (plano 35, 25/11/2026).
+    if x.etiqueta == "projection" and t.startswith("resumed projection: the dash confirmed the first frame"):
+        return ["retomada: " + t[len("resumed projection: "):]]
+    # Os avisos de pouca memória do Android (`onTrimMemory(RUNNING_LOW, 10): …`, `onLowMemory(): …`; plano 35): só os de pressão, que são os que apertam as linhas [device].
+    if x.etiqueta == "memory" and ": memory is short" in t:
+        return ["o Android avisou de pouca memória: " + t.split(":", 1)[0]]
+    if x.etiqueta == thread_principal.ETIQUETA:
+        return thread_principal.eventos(t)
     if x.etiqueta == "dash":
         return _eventos_do_painel(t) or _eventos_da_leva5(x.etiqueta, t)
+    if x.etiqueta == codificador.ETIQUETA and codificador.eventos(t):
+        return codificador.eventos(t)
     if x.etiqueta in ("stream", "aa"):
         return _eventos_da_leva5(x.etiqueta, t)
     if x.etiqueta == "system" and t in ("doze on", "doze off"):
@@ -2584,6 +2948,66 @@ def corridas(linhas):
     return saida
 
 
+def sessoes_ab(linhas):
+    """Uma entrada por projeção para o teste A/B (`ab.py`): o braço (espaçamento do envio × codificador do vídeo) e os números da sessão. As quedas são as de `corridas` (sem o painel que
+    desligou com a moto); o painel reiniciou é o que a linha do tempo diz dela («Wi-Fi do painel reiniciou») ou «painel desligou e religou»; a idade do painel é a do primeiro pacote
+    depois de cada interrupção que voltou (`quedas.interrupcoes`)."""
+    blocos = projecoes(linhas)
+    saida = []
+    for bloco, configuracao in zip(blocos, ab.configuracao_por_projecao(linhas, blocos)):
+        grupos = _grupos_de_queda(bloco)
+        sem_moto = [g for g in grupos if not _painel_desligou(g, bloco)]
+        reiniciou = sum(1 for g in sem_moto if "Wi-Fi do painel reiniciou" in _resumo_da_queda(g, bloco)[0])
+        religou = sum(1 for g in grupos if _painel_religou(g, bloco) is not None)
+        idades = [i["idade"] for i in quedas.interrupcoes(bloco, grupos) if not i["final"] and i["idade"] is not None]
+        saida.append(ab.fatos(bloco, configuracao, len(sem_moto), reiniciou, religou, idades))
+    return saida
+
+
+ARQUIVOS_DO_ZIP = ("ride-*.log", "logcat-sistema*.txt", "dumpsys-wifi*.txt")
+
+
+def _abre_zips(caminhos, destino):
+    """Os caminhos com cada `.zip` trocado por uma pasta nova dentro de `destino` com o que o leitor lê dele (`ARQUIVOS_DO_ZIP`, pelo nome do arquivo, de qualquer pasta do zip). Só o nome do
+    arquivo é usado: um nome com caminho dentro do zip não escreve fora da pasta."""
+    saida = []
+    for k, c in enumerate(caminhos):
+        if not str(c).lower().endswith(".zip"):
+            saida.append(c)
+            continue
+        pasta = Path(destino) / f"zip{k}"
+        pasta.mkdir()
+        with zipfile.ZipFile(c) as z:
+            for item in z.infolist():
+                nome = Path(item.filename.replace("\\", "/")).name
+                if not item.is_dir() and any(Path(nome).match(padrao) for padrao in ARQUIVOS_DO_ZIP) and not (pasta / nome).exists():
+                    (pasta / nome).write_bytes(z.read(item))
+        saida.append(str(pasta))
+    return saida
+
+
+def main_ab(argv):
+    """O `--ab`: o relatório do teste A/B (`ab.py`) em vez da leitura normal. Devolve o código de saída."""
+    caminhos, desde, ate, _ = _opcoes(argv)
+    if isinstance(caminhos, str):
+        print(caminhos, file=sys.stderr)
+        return 2
+    if not caminhos:
+        print(__doc__)
+        return 2
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            lidos = _abre_zips(caminhos, tmp)
+        except (zipfile.BadZipFile, OSError) as e:
+            print(f"ler_registro.py: não consegui abrir o zip: {e}", file=sys.stderr)
+            return 2
+        linhas = ler(lidos, desde, ate, corte_padrao=False)
+        marcar_fim_de_viagem(lidos, linhas)
+        saida = ab.texto(sessoes_ab(linhas))
+    print("\n".join(saida) or "nenhuma projeção nos arquivos")
+    return 0
+
+
 def _instante_da_opcao(texto, fim_do_dia=False):
     """`2026-11-05`, `2026-11-05T07:00` ou `2026-11-05 07:00` como datetime; um dia sem hora vale o começo dele (ou o fim, em `--ate`). None se não for uma data."""
     for formato in ("%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
@@ -2622,6 +3046,8 @@ def main(argv):
     if any(a in ("-h", "--help") for a in argv):
         print(__doc__)
         return 0
+    if "--ab" in argv:
+        return main_ab([a for a in argv if a != "--ab"])
     if not argv:
         print(__doc__)
         return 2
@@ -2649,7 +3075,7 @@ def main(argv):
         print(f"por data e build — {g}")
     print("\n".join(linha_do_tempo(linhas)) or "nenhuma projeção nos arquivos")
     janela = (desde, ate) if desde is not None or ate is not None else None
-    achados = problemas(linhas) + do_sistema(caminhos, linhas, janela) + do_dumpsys_wifi(caminhos, linhas, janela) + da_escrita_no_painel(caminhos, linhas)
+    achados = problemas(linhas, caminhos) + do_sistema(caminhos, linhas, janela) + do_dumpsys_wifi(caminhos, linhas, janela) + da_escrita_no_painel(caminhos, linhas)
     achados += [a for a, do_app in _crash_da_coleta(caminhos, linhas) if do_app]
     achados = explicar_pedidos_expirados(achados, caminhos, linhas, janela)
     moto = [a for a in achados if MOTO_DESLIGADA in a]

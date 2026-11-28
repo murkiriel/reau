@@ -112,8 +112,8 @@ class NoAccessibilityTest {
         assertEquals("resources named lite", emptyList<String>(), stray)
         val manifest = File(src, "main/AndroidManifest.xml").readText().replace(Regex("<!--.*?-->", RegexOption.DOT_MATCHES_ALL), "")
         assertFalse("the label is the app's name", Regex("""android:label="[^"]*lite""", RegexOption.IGNORE_CASE).containsMatchIn(manifest))
-        // The only mention of the old package is the <queries> entry that lets the app see it (OtherEdition).
-        assertEquals(1, Regex("com\\.reau\\.app\\.lite").findAll(manifest).count())
+        // Not even the old package's id is left: the app does not look for it any more (no <queries> entry).
+        assertEquals(0, Regex("com\\.reau\\.app\\.lite").findAll(manifest).count())
     }
 
     /** Every combination the projection can be in, so that every headline and line of the main screen is met. */

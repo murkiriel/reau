@@ -1,6 +1,6 @@
 # Terms of Use
 
-Version 3, October 28, 2026
+Version 4, November 25, 2026
 
 ## In short
 
@@ -44,11 +44,12 @@ So using REau may, among other things: drain the battery and heat the phone; cha
 
 ## 6. Your data
 
-REau has no account, no ads and no data collection, and it sends nothing to its author. The screen "REau and your data" shows what stays on the phone and what leaves it, and why. In short:
+REau has no account, no ads and no data collection, and it sends nothing to its author; what goes to the internet (the weather and the version check, below) goes to third parties, not to the author. The screen "REau and your data" shows what stays on the phone and what leaves it, and why. In short:
 
 - By default REau sends the dash, over the dash's Wi-Fi, the picture, the song that is playing (with its album art), who is calling and the phone's battery, GPS and signal; each of these can be switched off in the settings.
 - The diagnostic log is on by default, stays on the phone only and deletes itself after the number of days you choose (30 by default; "never" is one of the options); you can switch it off. The recordings of the video and of the sessions are optional: off by default in the app you install to ride and on in the test build, they stay on the phone only and are deleted by the same rules as the log (the days you choose, a size cap). They hold what the dash shows (the map, the route and your positions) and Android Auto's messages, so share them only knowing that.
 - The weather on the dash and the info ring are on by default; each has a switch, and once the location is allowed, whichever is on queries the internet with your rounded position.
+- Once a day, with internet, REau asks GitHub (where the project is published) whether there is a new version; the "Check now" button asks the same when you tap it. The request carries only the REau version (in the User-Agent) and no data of yours, with no account, no position and no identifier, and the answer only says which version is the latest; nothing is downloaded or installed. GitHub, like any website, sees the phone's IP address. To turn the daily check off, switch off "Notify when there is an update" in Settings, Updates.
 - "Turn on the network server" is optional and is off by default. When on, it shows your Android Auto to other devices on the same network, protected by a PIN but without encryption. Do not turn it on on a stranger's network.
 - What Android Auto, Waze, Google Maps, Gemini and other apps do with your data follows the terms and policies of each one, out of REau's reach.
 

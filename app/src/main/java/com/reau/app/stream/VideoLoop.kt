@@ -5,6 +5,7 @@ import com.reau.app.data.RideDiagnostics
 import com.reau.app.dash.BitrateMode
 import com.reau.app.dash.DashConfig
 import com.reau.app.dash.video.DashEncoder
+import com.reau.app.dash.video.VideoEncoder
 import com.reau.app.settings.REauSettings
 import com.reau.app.util.CodecErrors
 import com.reau.app.util.StageStats
@@ -67,6 +68,9 @@ internal class VideoLoop(
         /** A keyframe of [bytes] bytes went out in [packets] RTP packets (only for the dash session's record of what it sent last). */
         fun keyframeSent(bytes: Int, packets: Int) = Unit
 
+        /** A frame of [bytes] bytes went out in [packets] RTP packets, the longest gap between two of them [maxGapNs] (for the fine tail of the ride log). */
+        fun frameSent(bytes: Int, packets: Int, key: Boolean, maxGapNs: Long) = Unit
+
         /** A keyframe starts to go out (the dash session keeps its routine sends away from the burst). */
         fun keyframeStarting() = Unit
 
@@ -90,6 +94,8 @@ internal class VideoLoop(
         val clockSlowPercent: Int = 0,
         val bitrateBps: Int = DashConfig.MAX_STREAM_BITRATE_BPS,
         val bitrateMode: BitrateMode? = null,
+        /** Which encoder makes the video ([REauSettings.videoEncoder]; the experimental test of 26/11/2026): the phone's own unless the rider asked for Android's software one. */
+        val videoEncoder: VideoEncoder = VideoEncoder.PHONE,
         val keyframeSec: Int = DashConfig.KEYFRAME_INTERVAL_AUTO,
         val windowMs: Long = StreamGovernor.WINDOW_MS,
         val recordFrames: Int = 0,
@@ -109,6 +115,7 @@ internal class VideoLoop(
             clockSlowPercent = rider.clockSlowPercent,
             bitrateBps = rider.streamBitrateBps,
             bitrateMode = rider.bitrateMode,
+            videoEncoder = rider.videoEncoder,
             keyframeSec = rider.keyframeSec,
             lightScreenFps = REauSettings.lightScreenFps(rider.videoPace),
             frame = rider.frameSize,
@@ -165,6 +172,8 @@ internal class VideoLoop(
             tap = rec?.let { it::write },
             onKeyframe = dash::keyframeSent,
             onKeyframeStart = dash::keyframeStarting,
+            onFrame = dash::frameSent,
+            log = log,
             sendRtp = { packet ->
                 dash.sendRtp(packet)
                 // Cheap when no touch is being followed (a flag): the line of a touch is written when its first packet goes out.
@@ -235,6 +244,8 @@ internal class VideoLoop(
         governor = null
         // What each pace cost in bits over the whole stream, before the loop's own stop line.
         ending.paceSummary()?.let(log)
+        // What the frames looked like over the whole stream (the keyframes, the slices, the worst second; 26/11/2026).
+        output?.shapeLine()?.let(log)
         com.reau.app.data.ProjectionSummary.current.streaming(on = false, SystemClock.elapsedRealtime())
         poller?.shutdownNow()
         poller = null
@@ -263,6 +274,7 @@ internal class VideoLoop(
             if (rebuildDue(failedPolls)) {
                 failedPolls = 0
                 log("${RideDiagnostics.WARN}encoder failed for ${REBUILD_AFTER_FAILED_POLLS * POLL_MS} ms: rebuilding it")
+                stopAskingForSoftware()
                 rebuild(g.rebuildAction())
             }
             val timed = encoded.getOrNull()
@@ -375,6 +387,19 @@ internal class VideoLoop(
         )
     }
 
+    /**
+     * The encoder that just failed while it ran: if it was Android's software one the rider asked for, the rebuild (and any later one of this session) takes the phone's
+     * own instead of the one that failed, which would otherwise be asked for again every few seconds until the rider turned the option off (review of 26/11/2026, S1).
+     * The change belongs to this loop only: the rider's choice stays in [LiveSides]' video settings, so every new stream (a new loop: the next dash session, or the
+     * rider changing the pace, the rate or the keyframe interval) asks for the software encoder again, and if it fails again it is dropped again (review of 26/11/2026, C3).
+     */
+    private fun stopAskingForSoftware() {
+        val next = encoderAfterFailure(settings.videoEncoder, encoder?.softwareInUse == true)
+        if (next == settings.videoEncoder) return
+        settings = settings.copy(videoEncoder = next)
+        log("${RideDiagnostics.WARN}software encoder failed: the phone's own from now on")
+    }
+
     private fun logThermal(status: Int) =
         log("thermal ${ThermalCeiling.nameOf(status)}: ceiling ${ThermalCeiling.capFor(status, settings.ceilingFps)} of ${settings.ceilingFps}")
 
@@ -385,6 +410,9 @@ internal class VideoLoop(
         // What the phone offers and what the codec accepted go to the ride log once for a stream: the first encoder tells it, a rebuilt one does not.
         created.reportCodecs = reportCodecsOfNextEncoder
         reportCodecsOfNextEncoder = false
+        // The rider's experimental choice of the encoder (26/11/2026), taken when the stream starts; a rebuilt encoder keeps it,
+        // except after the software one failed in this session (stopAskingForSoftware): then the phone's own, until the session ends (review of 26/11/2026, C1).
+        created.preference = settings.videoEncoder
         if (created.prepare(fps, bitrateBps, encoderKeyframeSec, settings.bitrateMode)) return created
         log("${RideDiagnostics.ERROR}encoder prepare failed: ${created.lastPrepareError}")
         return null
@@ -399,6 +427,10 @@ internal class VideoLoop(
             val load = DashConfig.loadMbPerSec(fps, frame)
             return "fixed video $fps fps / ${bitrateBps / 1000} kbps cap / ${frame.width}x${frame.height} (load $load MB/s)"
         }
+
+        /** The encoder to ask for after [asked] failed while it ran: the software one is not asked for again ([softwareRan]: it was the one in use), the phone's own is kept. */
+        internal fun encoderAfterFailure(asked: VideoEncoder, softwareRan: Boolean): VideoEncoder =
+            if (asked == VideoEncoder.SOFTWARE && softwareRan) VideoEncoder.PHONE else asked
 
         /** The WARN line of the fall back to the dash's own frame, with the pace and ceiling that are kept. */
         internal fun fallbackLine(frame: DashConfig.FrameSize, fps: Int, bitrateBps: Int): String =

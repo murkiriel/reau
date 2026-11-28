@@ -1,5 +1,6 @@
 package com.reau.app.weather
 
+import com.reau.app.service.DayNight
 import java.io.File
 import java.util.Locale
 import org.junit.Assert.assertEquals
@@ -83,9 +84,10 @@ class RainAmountTest {
 
     @Test
     fun `the request asks for the rain by the hour and the day, and the screen reads and describes them`() {
-        val keeper = File("src/main/java/com/reau/app/weather/WeatherKeeper.kt").readText()
-        assertTrue(keeper.contains("precipitation_probability,precipitation,weather_code,uv_index"))
-        assertTrue(keeper.contains("precipitation_probability_max,precipitation_sum,"))
+        // The request is what the keeper builds (26/11/2026: it was the keeper's source), not what the file says.
+        val url = WeatherKeeper.url(DayNight.Place(-23.5, -46.6))
+        assertTrue(url, url.contains("precipitation_probability,precipitation,weather_code,uv_index"))
+        assertTrue(url, url.contains("precipitation_probability_max,precipitation_sum,"))
         val models = File("src/main/java/com/reau/app/weather/WeatherModels.kt").readText()
         assertTrue(models.contains("""o.optJSONArray("precipitation")"""))
         assertTrue(models.contains("""o.optJSONArray("precipitation_sum")"""))

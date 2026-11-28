@@ -7,6 +7,7 @@ when a check fails). git is the real one, on the temporary repository only. The 
 secrets, and the tests check that no output repeats them. Run from the repo root:  python3 -I -m unittest discover -s scripts -p "test_release.py" -v
 """
 import os
+import shutil
 import stat
 import subprocess
 import tempfile
@@ -65,6 +66,7 @@ class Release:
         (self.repo / ".gitignore").write_text("/build\n/app/build\n", encoding="utf-8")
         executable(self.repo / "gradlew", """#!/usr/bin/env bash
 echo "gradlew $*" >> "$FAKE_LOG"
+echo "env REAU_KEYSTORE=${REAU_KEYSTORE:-vazio} REAU_KEY_PASSWORD=${REAU_KEY_PASSWORD:-vazio}" >> "$FAKE_LOG"
 if [ -n "${FAKE_GRADLE_FAILS:-}" ]; then exit 1; fi
 mkdir -p app/build/outputs/apk/release
 printf 'APK de mentira' > app/build/outputs/apk/release/app-release.apk
@@ -84,6 +86,19 @@ sys.exit(int(os.environ.get("FAKE_AUDIT_EXIT", "0")))
         self.notes.write_text("Notas da release.\n", encoding="utf-8")
         self.apk = tmp / "pronto.apk"
         self.apk.write_bytes(b"APK ja montado")
+
+    def guard_git(self) -> None:
+        """Puts a `git` on the PATH that logs every call and refuses (exit 99) the ones that change anything, then hands the rest to the real git."""
+        real = shutil.which("git")
+        executable(self.bin / "git", f"""#!/usr/bin/env bash
+echo "git $*" >> "$FAKE_LOG"
+case "$1" in
+  status | rev-parse | log | diff | show | describe | ls-files | cat-file | tag) ;;
+  *) echo "PROIBIDO git $*" >> "$FAKE_LOG"; exit 99 ;;
+esac
+if [ "$1" = tag ] && [ $# -gt 1 ]; then echo "PROIBIDO git $*" >> "$FAKE_LOG"; exit 99; fi
+exec {real} "$@"
+""")
 
     def git(self, *args: str) -> str:
         return subprocess.run(["git", *args], cwd=self.repo, env={**os.environ, **GIT_ENV}, capture_output=True, text=True, check=True).stdout.strip()
@@ -286,6 +301,132 @@ class ReleaseRunTest(ReleaseCase):
         done = self.r.run("0.3.1", "--so-conferir", "--apk", str(self.r.apk))
         self.assertEqual(1, done.returncode)
         self.assertIn("não é o do projeto", done.stderr)
+
+
+class DryRunTest(ReleaseCase):
+    """--ensaio (and --dry-run): the whole path, with the checks and the build for real and nothing that changes the repository, the output
+    folder or GitHub. git and gh on the PATH are guards that log every call and fail on anything that changes something."""
+
+    def setUp(self):
+        super().setUp()
+        self.r.guard_git()
+        # The dry run builds with the debug key, so its APK carries another certificate than the project's (the official one would stop it, below).
+        fake_apksigner(self.r.sdk / "build-tools" / "36.1.0" / "apksigner", OTHER)
+        self.before = (self.r.git("rev-parse", "HEAD"), self.r.git("tag", "--list"), self.r.git("status", "--porcelain"))
+
+    def assertNothingChanged(self, done):
+        self.assertFalse(any("PROIBIDO" in c for c in self.r.calls()), self.r.calls())
+        self.assertFalse(self.r.called("gh"), self.r.calls())
+        self.assertFalse((self.r.repo / "build").exists())
+        self.assertFalse(self.r.called("git commit") or self.r.called("git push") or self.r.called("git merge"))
+        self.assertEqual(self.before, (self.r.git("rev-parse", "HEAD"), self.r.git("tag", "--list"), self.r.git("status", "--porcelain")))
+        for secret in SECRETS.values():
+            self.assertNotIn(secret, done.stdout + done.stderr)
+
+    def test_it_runs_the_checks_and_the_build_but_only_prints_what_changes_things(self):
+        done = self.r.run("0.3.1", "--ensaio")
+        self.assertEqual(0, done.returncode, done.stdout + done.stderr)
+        self.assertNothingChanged(done)
+        self.assertTrue(self.r.called("git status"))
+        self.assertTrue(self.r.called("gradlew"))
+        self.assertTrue(self.r.called("apksigner"))
+        self.assertTrue(self.r.called("audit"))
+        out = self.r.repo / "build" / "release-0.3.1"
+        self.assertIn(f"[ensaio] faria: mkdir -p {out}", done.stdout)
+        self.assertIn(f"[ensaio] faria: cp -f {self.r.repo}/app/build/outputs/apk/release/app-release.apk {out}/REau-0.3.1.apk", done.stdout)
+        self.assertIn(f"[ensaio] faria: (cd {out} && sha256sum REau-0.3.1.apk > SHA256SUMS)", done.stdout)
+        self.assertIn("Ensaio terminado: nada foi publicado.", done.stdout)
+        self.assertIn("Sem --publicar: nada foi enviado", done.stdout)
+
+    def test_dry_run_is_a_synonym(self):
+        done = self.r.run("0.3.1", "--dry-run")
+        self.assertEqual(0, done.returncode, done.stdout + done.stderr)
+        self.assertIn("Ensaio terminado: nada foi publicado.", done.stdout)
+        self.assertNothingChanged(done)
+
+    def test_the_release_key_is_never_given_to_the_build_and_the_debug_key_is_asked_for(self):
+        done = self.r.run("0.3.1", "--ensaio")
+        self.assertEqual(0, done.returncode, done.stdout + done.stderr)
+        self.assertIn("gradlew -PreauDebugSigned=true :app:assembleRelease", self.r.calls())
+        self.assertIn("env REAU_KEYSTORE=vazio REAU_KEY_PASSWORD=vazio", self.r.calls())
+        self.assertNotIn(str(self.r.keystore), "\n".join(self.r.calls()))
+
+    def test_the_certificate_of_the_debug_key_is_not_a_problem_and_the_official_one_is_named(self):
+        fake_apksigner(self.r.sdk / "build-tools" / "36.1.0" / "apksigner", OTHER)
+        done = self.r.run("0.3.1", "--ensaio")
+        self.assertEqual(0, done.returncode, done.stdout + done.stderr)
+        self.assertIn(OTHER, done.stdout)
+        self.assertIn(f"exige o certificado do projeto: {OFFICIAL}", done.stdout)
+
+    def test_the_project_certificate_in_a_dry_run_stops_it(self):
+        # The release key must never reach the dry run's build: if the APK comes out with the project's certificate, it got there some other way.
+        fake_apksigner(self.r.sdk / "build-tools" / "36.1.0" / "apksigner", OFFICIAL)
+        done = self.r.run("0.3.1", "--ensaio")
+        self.assertEqual(1, done.returncode, done.stdout + done.stderr)
+        self.assertIn("saiu assinado com o certificado do projeto", done.stderr)
+        self.assertIn("Ensaio interrompido: nada foi publicado.", done.stderr)
+        self.assertNothingChanged(done)
+
+    def test_a_description_in_the_callers_environment_is_not_printed(self):
+        done = self.r.run("0.3.1", "--ensaio", env={"DESCRICAO": "texto de fora"})
+        self.assertEqual(0, done.returncode, done.stdout + done.stderr)
+        self.assertNotIn("texto de fora", done.stdout)
+
+    def test_publishing_only_prints_the_gh_command(self):
+        done = self.r.run("0.3.1", "--ensaio", "--publicar", "--notas", str(self.r.notes))
+        self.assertEqual(0, done.returncode, done.stdout + done.stderr)
+        self.assertNothingChanged(done)
+        out = self.r.repo / "build" / "release-0.3.1"
+        self.assertIn(f"[ensaio] faria: gh release create v0.3.1 --draft --verify-tag --title REau\\ 0.3.1 --notes-file {self.r.notes} "
+                      f"{out}/REau-0.3.1.apk {out}/SHA256SUMS", done.stdout)
+        self.assertIn("Ensaio terminado: nada foi publicado.", done.stdout)
+        self.assertNotIn("rascunho criado", done.stdout)
+
+    def test_the_output_folder_is_not_created_even_when_chosen(self):
+        out = self.r.tmp / "minha-saida"
+        done = self.r.run("0.3.1", "--ensaio", "--saida", str(out))
+        self.assertEqual(0, done.returncode, done.stdout + done.stderr)
+        self.assertFalse(out.exists())
+        self.assertIn(f"[ensaio] faria: mkdir -p {out}", done.stdout)
+        self.assertNothingChanged(done)
+
+    def test_problems_do_not_stop_it_but_are_listed_and_the_exit_is_1(self):
+        self.r.git("tag", "-d", "v0.3.1")
+        self.before = (self.r.git("rev-parse", "HEAD"), self.r.git("tag", "--list"), self.r.git("status", "--porcelain"))
+        (self.r.repo / "sobra.txt").write_text("x", encoding="utf-8")
+        self.before = self.before[:2] + (self.r.git("status", "--porcelain"),)
+        done = self.r.run("0.3.1", "--ensaio", "--publicar", "--notas", str(self.r.notes), remove=("REAU_KEY_PASSWORD",))
+        self.assertEqual(1, done.returncode, done.stdout + done.stderr)
+        self.assertNothingChanged(done)
+        self.assertIn("não está limpa", done.stderr)
+        self.assertIn("a tag v0.3.1 não existe", done.stderr)
+        self.assertIn("REAU_KEY_PASSWORD", done.stderr)
+        self.assertIn("Pendências", done.stdout)
+        self.assertIn("Ensaio terminado: nada foi publicado.", done.stdout)
+        self.assertTrue(self.r.called("gradlew"))
+
+    def test_a_failed_build_still_stops_and_says_nothing_was_published(self):
+        done = self.r.run("0.3.1", "--ensaio", env={"FAKE_GRADLE_FAILS": "1"})
+        self.assertEqual(1, done.returncode)
+        self.assertIn("o Gradle falhou", done.stderr)
+        self.assertIn("Ensaio interrompido: nada foi publicado.", done.stderr)
+        self.assertNothingChanged(done)
+
+    def test_it_does_not_combine_with_only_check_and_the_help_names_it(self):
+        done = self.r.run("0.3.1", "--ensaio", "--so-conferir", "--apk", str(self.r.apk))
+        self.assertEqual(2, done.returncode)
+        self.assertEqual([], self.r.calls())
+        helped = self.r.run("--help")
+        self.assertEqual(0, helped.returncode)
+        self.assertIn("--ensaio", helped.stderr)
+        self.assertIn("--dry-run", helped.stderr)
+
+    def test_without_the_dry_run_the_guards_would_have_been_hit(self):
+        """Proves the guard works: the real run calls gh, so the test above that finds no gh call means something."""
+        fake_apksigner(self.r.sdk / "build-tools" / "36.1.0" / "apksigner", OFFICIAL)  # a real run is signed with the release key
+        done = self.r.run("0.3.1", "--publicar", "--notas", str(self.r.notes))
+        self.assertEqual(0, done.returncode, done.stdout + done.stderr)
+        self.assertTrue(self.r.called("gh release create"))
 
 
 class ShellcheckTest(unittest.TestCase):

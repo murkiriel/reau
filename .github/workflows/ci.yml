@@ -113,6 +113,9 @@ jobs:
       - name: Testes do script de auditoria
         run: python3 -B -m unittest discover -s scripts -p "test_apk_audit.py" -v
 
+      - name: Testes do script que compara dois APKs
+        run: python3 -B -m unittest discover -s scripts -p "test_apk_compare.py" -v
+
       # A linha de base (scripts/apk_audit_baseline.json) é a do APK de produção. O build "release" do projeto sai
       # assinado com a chave de debug que o próprio Android Gradle Plugin cria no runner (não há keystore nem segredo
       # no repositório; sem a chave do projeto o build só assina assim com -PreauDebugSigned=true); o APK não é
@@ -124,6 +127,35 @@ jobs:
       # release (depurável, classe de debug ou do Compose tooling/test, componente fora da lista de apk_audit.py, sem perfil de base).
       - name: Auditar o APK
         run: python3 -B scripts/apk_audit.py app/build/outputs/apk/release/app-release.apk
+
+      # Build reproduzível (25/11/2026): o mesmo código tem de gerar os mesmos bytes, para qualquer pessoa poder conferir que o APK publicado sai do código público.
+      # O APK é montado uma segunda vez, do zero, numa cópia do commit em OUTRO caminho (assim um caminho absoluto embutido no APK também apareceria), e os dois são
+      # comparados sem o bloco de assinatura (scripts/apk_compare.py): a assinatura v2/v3 leva um sal aleatório e muda a cada build, o resto não pode mudar nem um byte.
+      # Na prova local de 25/11/2026 os dois APKs batem (o "clean" e a cópia em outro caminho dão o mesmo SHA-256 sem a assinatura). Falha se diferirem e diz quais entradas.
+      - name: Guardar o primeiro APK
+        run: cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/primeiro.apk"
+
+      - name: Montar o APK release de novo, numa cópia do código em outro caminho
+        run: |
+          git clone --quiet --depth 1 "file://$GITHUB_WORKSPACE" "$RUNNER_TEMP/segunda-copia"
+          cd "$RUNNER_TEMP/segunda-copia"
+          ./gradlew --console=plain --max-workers=2 -PreauDebugSigned=true :app:assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/segundo.apk"
+
+      - name: Conferir que os dois APKs batem (fora a assinatura)
+        run: python3 -B scripts/apk_compare.py "$RUNNER_TEMP/primeiro.apk" "$RUNNER_TEMP/segundo.apk"
+
+      # Os dois APKs (uns 40 MB cada) só ficam guardados se algo falhou, para quem for ver a diferença com `python3 scripts/apk_compare.py` ou `unzip -l`.
+      - name: Guardar os dois APKs se não bateram
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: apks-do-build-duplo
+          path: |
+            ${{ runner.temp }}/primeiro.apk
+            ${{ runner.temp }}/segundo.apk
+          if-no-files-found: ignore
+          retention-days: 3
 
       # A verificação de dependências do Gradle às vezes recusa um .pom baixado do Maven (22/11/2026, quatro vezes num dia, o do plugin de cobertura que saiu depois,
       # e repetir o job passa); o relatório diz qual arquivo chegou e de onde, para decidir com calma.

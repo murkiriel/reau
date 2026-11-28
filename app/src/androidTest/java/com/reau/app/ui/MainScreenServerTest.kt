@@ -22,8 +22,8 @@ class MainScreenServerTest {
     private val serverOff = Projection(phase = Phase.RUNNING, androidAuto = AaLinkState.SERVER_OFF)
     private var aaSettings = 0
 
-    private fun show(projection: Projection) {
-        compose.setContent { MainScreen(MainUiState(projection), {}, { aaSettings++ }, {}, MainExtras()) }
+    private fun show(projection: Projection, updated: Boolean = false) {
+        compose.setContent { MainScreen(MainUiState(projection, aaUpdatedServerOff = updated), {}, { aaSettings++ }, {}, MainExtras()) }
     }
 
     @Test
@@ -33,6 +33,21 @@ class MainScreenServerTest {
         compose.onNodeWithTag("open_aa_settings").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("open_aa_settings").performClick()
         assertEquals(1, aaSettings)
+    }
+
+    @Test
+    fun afterAnUpdateOfAndroidAutoTheCardSaysWhyTheServerIsOffAndKeepsTheButton() {
+        show(serverOff, updated = true)
+        compose.onNodeWithTag("server_warning").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("aa_updated_note", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("open_aa_settings").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun withoutAnUpdateTheCardHasNoUpdateLine() {
+        show(serverOff)
+        compose.onNodeWithTag("server_warning").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("aa_updated_note", useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test

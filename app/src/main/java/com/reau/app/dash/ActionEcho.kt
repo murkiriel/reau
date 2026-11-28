@@ -31,9 +31,8 @@ object ActionEcho {
 }
 
 /**
- * What a tap can say on the dash: one for each action of the joystick's page but "nothing", the calls' three, the dash's own back (which is
- * [BACK] once and [HOME] twice within [com.reau.app.aa.JoystickMap.DOUBLE_BACK_MS]), and, for the legend only, the map mode's centre
- * ([MEDIA_MODE]). [res] is the short text, in the three languages ([ActionEchoText]).
+ * What a tap can say on the dash: one for each action of the joystick's page but "nothing", the calls' three, and, for the legend only, the dash's own
+ * map mode up ([EXIT_NAVIGATION]: it asks, and REau sends nothing to Android Auto for it) and centre ([MEDIA_MODE]). [res] is the short text, in the three languages ([ActionEchoText]).
  */
 enum class EchoLabel(val res: Int) {
     WHEEL_PREVIOUS(R.string.echo_wheel_previous),
@@ -61,6 +60,9 @@ enum class EchoLabel(val res: Int) {
      */
     SWAP_TO_MUSIC(R.string.echo_swap_to_music),
     SWAP_TO_MAP(R.string.echo_swap_to_map),
+
+    /** The dash's own: the map mode's up asks "Exit navigation?" and its yes ends the navigation on the dash (shown in the legend, never echoed). */
+    EXIT_NAVIGATION(R.string.echo_exit_navigation),
 
     /** The dash's own: the map mode's centre puts it in its media mode (shown in the legend, never echoed). */
     MEDIA_MODE(R.string.echo_media_mode),

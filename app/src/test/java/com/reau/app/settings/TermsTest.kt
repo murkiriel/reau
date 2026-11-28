@@ -1,6 +1,7 @@
 package com.reau.app.settings
 
 import com.reau.app.settings.Terms.Block
+import com.reau.app.update.UpdateNotice
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -44,6 +45,8 @@ class TermsTest {
         assertEquals(Terms.TAB_ES, Terms.tabOf("ES-mx"))
         assertEquals(Terms.TAB_EN, Terms.tabOf("en"))
         assertEquals("any other language reads English", Terms.TAB_EN, Terms.tabOf("fr"))
+        assertEquals("the app in Hindi shows the terms in English: the terms are in no Hindi until a native speaker reads one", Terms.TAB_EN, Terms.tabOf("hi"))
+        assertEquals(Terms.TAB_EN, Terms.tabOf("hi-IN"))
     }
 
     @Test
@@ -51,6 +54,33 @@ class TermsTest {
         assertTrue(portuguese, "Versão ${Terms.VERSION}, de " in portuguese)
         assertTrue(english, "Version ${Terms.VERSION}, " in english)
         assertTrue(spanish, "Versión ${Terms.VERSION}, " in spanish)
+    }
+
+    @Test
+    fun `the terms are at version 4 or later, the one that says the app asks GitHub for a new version`() {
+        assertTrue("the version of the terms went back below 4 (25/11/2026)", Terms.VERSION >= 4)
+        assertTrue(portuguese, "Versão 4, de 25 de novembro de 2026" in portuguese || Terms.VERSION > 4)
+        assertTrue(english, "Version 4, November 25, 2026" in english || Terms.VERSION > 4)
+        assertTrue(spanish, "Versión 4, de 25 de noviembre de 2026" in spanish || Terms.VERSION > 4)
+    }
+
+    @Test
+    fun `section 6 of the three texts says the daily check of GitHub, what the request carries, that GitHub sees the IP and which switch turns it off`() {
+        // What the code does (ReleaseCheck, UpdateNotice): one GET a day to GitHub with the REau version in the User-Agent, off with the switch "Notify when there is an update".
+        assertEquals(24L * 60 * 60 * 1000, UpdateNotice.PERIOD_MS)
+        fun title(strings: String) = Regex("""name="update_notice_title">([^<]+)<""").find(File(strings).readText())!!.groupValues[1]
+        val cases = listOf(
+            Triple(portuguese, "src/main/res/values-pt/strings.xml", listOf("Uma vez por dia", "GitHub", "User-Agent", "endereço de IP")),
+            Triple(english, "src/main/res/values/strings.xml", listOf("Once a day", "GitHub", "User-Agent", "IP address")),
+            Triple(spanish, "src/main/res/values-es/strings.xml", listOf("Una vez al día", "GitHub", "User-Agent", "dirección IP")),
+        )
+        for ((text, strings, words) in cases) {
+            val section = text.substringAfter("\n## 6. ").substringBefore("\n## 7. ")
+            val item = section.lines().singleOrNull { "GitHub" in it && it.startsWith("- ") }
+            assertTrue("no item about GitHub in section 6 of $strings", item != null)
+            for (word in words) assertTrue("'$word' missing from the GitHub item: $item", word in item!!)
+            assertTrue("the item does not name the switch '${title(strings)}'", "\"${title(strings)}\"" in item!!)
+        }
     }
 
     @Test

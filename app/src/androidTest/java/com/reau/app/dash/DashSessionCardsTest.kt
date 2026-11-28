@@ -70,8 +70,8 @@ class DashSessionCardsTest {
         val sent = fake.countOf(0x05, 0x0D)
         assertTrue("about 2 or 3 music cards in 2.6 s, got $sent", sent in 2..4)
         val card = fake.received.last { it.type == 0x05 && it.sub == 0x0D }.value
-        // Album, title, artist, in that order; changed on purpose.
-        assertArrayEquals("Album\u0000Song\u0000Band".toByteArray(Charsets.UTF_8), card)
+        // Title, album, artist, in that order (26/11/2026: the dash draws the 1st and the 3rd).
+        assertArrayEquals("Song\u0000Album\u0000Band".toByteArray(Charsets.UTF_8), card)
         // ...with its flags: music on, no album art, playing.
         fun last(sub: Int) = fake.received.last { it.type == 0x05 && it.sub == sub }.value.toList()
         assertEquals(listOf(0x55.toByte()), last(0x17))

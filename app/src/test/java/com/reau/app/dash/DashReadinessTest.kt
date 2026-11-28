@@ -1,5 +1,6 @@
 package com.reau.app.dash
 
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -64,12 +65,63 @@ class DashReadinessTest {
     }
 
     @Test
-    fun `while the dash is not ready the greeting goes again every 2 s, until the key shows`() {
-        assertFalse(DashReadiness.resendDue(1_999, keySeen = false, resends = 0))
-        assertTrue(DashReadiness.resendDue(2_000, keySeen = false, resends = 0))
+    fun `while the dash is not ready the greeting goes again every 1 s, until the key shows`() {
+        assertFalse(DashReadiness.resendDue(999, keySeen = false, resends = 0))
+        assertTrue(DashReadiness.resendDue(1_000, keySeen = false, resends = 0))
         assertFalse("the key is there", DashReadiness.resendDue(10_000, keySeen = true, resends = 0))
-        assertTrue(DashReadiness.resendDue(2_000, keySeen = false, resends = DashReadiness.MAX_WAIT_RESENDS - 1))
-        assertFalse(DashReadiness.resendDue(2_000, keySeen = false, resends = DashReadiness.MAX_WAIT_RESENDS))
+        assertTrue(DashReadiness.resendDue(1_000, keySeen = false, resends = DashReadiness.MAX_WAIT_RESENDS - 1))
+        assertFalse(DashReadiness.resendDue(1_000, keySeen = false, resends = DashReadiness.MAX_WAIT_RESENDS))
+    }
+
+    @Test
+    fun `the pace is 1 s and the count of greetings covers the same 28 s window as 14 greetings every 2 s did`() {
+        assertEquals(1_000L, DashReadiness.WAIT_RESEND_MS)
+        assertEquals(28, DashReadiness.MAX_WAIT_RESENDS)
+        assertEquals("the same window as before (14 x 2 s)", 14 * 2_000L, DashReadiness.MAX_WAIT_RESENDS * DashReadiness.WAIT_RESEND_MS)
+        // The longest wait there is: a dash first seen at 0 s is ready at 26 s; its greetings (25 of them, at 1 s ... 25 s) fit in the count with room.
+        val waiting = greetings(0).filter { it < DashReadiness.READY_COUNT * 1_000L }
+        assertEquals((1..25).map { it * 1_000L }, waiting)
+        assertTrue(waiting.size <= DashReadiness.MAX_WAIT_RESENDS)
+    }
+
+    @Test
+    fun `a dash 5 s old is greeted every 1 s until it is ready at 21 s, once more at that moment, then every 3 s`() {
+        val went = greetings(5)
+        assertEquals((1..20).map { it * 1_000L }, went.filter { it < 21_000 })
+        assertTrue("the greeting of the moment it is ready: $went", 21_000L in went)
+        assertEquals(listOf(24_000L, 27_000L, 30_000L), went.filter { it > 21_000 })
+    }
+
+    @Test
+    fun `once the key was seen nothing is greeted again, at any age of the dash`() {
+        for (first in listOf(0, 5, 12, 25, 26, 40, null)) {
+            val greeting = DashReadiness.Greeting(patientEveryMs = 3_000, patientMax = 4)
+            for (t in 100L..40_000L step 100) {
+                assertFalse("age $first at $t ms", greeting.due(first, 0, t, sinceLastBurstMs = t, keySeen = true))
+            }
+        }
+    }
+
+    @Test
+    fun `the greetings stop at the first moment the key shows, in the middle of the wait`() {
+        val greeting = DashReadiness.Greeting(patientEveryMs = 3_000, patientMax = 4)
+        var last = 0L
+        val went = mutableListOf<Long>()
+        for (t in 100L..30_000L step 100) {
+            val keySeen = t >= 3_500 // the dash answers after the third resent greeting
+            if (greeting.due(5, 0, t, t - last, keySeen)) { went += t; last = t }
+        }
+        assertEquals(listOf(1_000L, 2_000L, 3_000L), went)
+    }
+
+    @Test
+    fun `the loop of the session sends no greeting once the auth is confirmed or the key was seen`() {
+        val session = File("src/main/java/com/reau/app/dash/DashSession.kt").readText()
+        val loop = session.substringAfter("val greeting = DashReadiness.Greeting(").substringBefore("if (!authConfirmed) {")
+        assertTrue("the wait ends with the auth", "while (!authConfirmed &&" in loop)
+        assertTrue("a greeting is not sent after the auth was confirmed", "if (!authConfirmed && (onNotice || due))" in loop)
+        assertTrue("the key seen is told to the rule", "auth?.keySeen == true)" in loop && "greeting.due(first, firstHeartbeatAtMs, now, now - lastBurstMs, auth?.keySeen == true)" in loop)
+        assertTrue("the 10 s mark does not ask either with the key seen", "&& auth?.keySeen != true" in loop)
     }
 
     /** The greetings of one entry, 100 ms at a time, as the loop of DashSession drives them; the moments (ms) they went. */
@@ -89,9 +141,9 @@ class DashReadinessTest {
     }
 
     @Test
-    fun `a dash with a counter of 12 is greeted every 2 s while it is not ready and once more the moment it is ready at 14 s`() {
+    fun `a dash with a counter of 12 is greeted every 1 s while it is not ready and once more the moment it is ready at 14 s`() {
         val went = greetings(12)
-        assertEquals(listOf(2_000L, 4_000L, 6_000L, 8_000L, 10_000L, 12_000L), went.filter { it < 14_000 })
+        assertEquals((1..13).map { it * 1_000L }, went.filter { it < 14_000 })
         assertTrue("the greeting right when it is ready: $went", 14_000L in went)
         // then the patient pace from there, every 3 s; the greeting of the moment it became ready is the first of its four
         assertEquals(listOf(17_000L, 20_000L, 23_000L), went.filter { it > 14_000 })

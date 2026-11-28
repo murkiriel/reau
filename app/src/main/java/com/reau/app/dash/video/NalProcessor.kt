@@ -23,11 +23,24 @@ class NalProcessor(private val onNal: (ByteArray, Boolean) -> Unit) {
     var withheldIdr = 0
         private set
 
+    /** The SPS as the encoder made it, before [spsForDash] touched it (the last one seen; for the ride log's line about the stream, 26/11/2026). Null before the first. */
+    var originalSps: ByteArray? = null
+        private set
+
+    /** The SPS as it goes to the dash (after [spsForDash]); null before the first. */
+    val sentSps: ByteArray? get() = sps
+
+    /** How many slice NAL units (types 1 to 5) the last [process] call had: one per frame is what the dash is known to take; counted for the ride log (26/11/2026). */
+    var lastSlices = 0
+        private set
+
     fun process(annexB: ByteArray) {
+        lastSlices = 0
         for (nal in split(annexB)) {
             if (nal.isEmpty()) continue
+            if ((nal[0].toInt() and 0x1F) in 1..5) lastSlices++
             when (val type = nal[0].toInt() and 0x1F) {
-                7    -> sps = spsForDash(nal)
+                7    -> { originalSps = nal; sps = spsForDash(nal) }
                 8    -> pps = nal
                 5    -> emitIdr(nal)
                 6, 9 -> Unit // SEI, AUD — discard

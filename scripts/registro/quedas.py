@@ -5,8 +5,9 @@ para ser unido e para transmitir. Puro: recebe as linhas de uma projeção (qual
 O app escreve, desde 08/11/2026, uma linha quando a imagem volta (`image back: 223.4 s without it since the last dash packet before the loss; with the dash on: 86.5 s
 (it came on 136.9 s into the loss)`); sem ela (registro de antes) o tempo sai calculado, da queda (o último pacote do painel, que a linha `link lost` traz) ao `→ STREAMING` seguinte, e o
 tempo com o painel ligado da idade dele no primeiro pacote (`dash heartbeat age N s at the first packet`: o painel ligou N s antes). O contador dá a volta aos 256 s: numa queda mais
-longa o tempo do painel é "pelo menos".
+longa o tempo do painel é "pelo menos". O mesmo vale para o "unido X depois de ligar" (`ligado_unido`): ver `_volta_do_contador`.
 """
+import math
 import re
 import sys
 from pathlib import Path
@@ -23,6 +24,11 @@ CONTADOR_VOLTA_S = 256
 COM_PAINEL_LONGO_S = 60.0
 UNIDO = ("connected ", "using already-connected WiFi")
 JANELA_IDADE_S = 30.0
+# The dash in a scan (`the dash: 'RE_****30' -48 dBm 2452 MHz seen 269 s ago`: the Android saw its Wi-Fi up to then) and the scans that did not find it.
+PAINEL_VISTO = re.compile(r"the dash: '[^']*' -?\d+ dBm \d+ MHz seen (\d+) s ago")
+PAINEL_AUSENTE = ("the dash not among them", "→ not found")
+# `(newest result N s old)` in the same line: the scan can be N s older than the line that tells of it (Android throttles the apps' scans), so the proof of «the dash was off» is from N s earlier.
+RESULTADO_VELHO = re.compile(r"newest result (\d+) s old")
 
 
 def _com_o_painel(fim_s, perda_s, idade_s, depois_da_queda_s):
@@ -120,6 +126,23 @@ def _quem_uniu(texto):
     return "o app não viu o painel na varredura antes de ele ser unido (a linha `connected` não diz de quem foi a união: pode ter sido o pedido do REau ou o celular sozinho)"
 
 
+def _volta_do_contador(janela, linha_idade, n):
+    """Se a idade `n` do primeiro pacote pode ter dado a volta aos 256 s: `("certa", segundos_visto)` se o painel foi visto ligado (`seen N s ago` da varredura) há mais tempo
+    que a idade diz, e então a idade vale só como resto; `("exata", None)` se o último sinal do painel ausente (varredura sem ele) é de 256 s ou menos antes do pacote (o painel
+    ligou depois dele), contando a idade da varredura (`newest result N s old`: a prova é de N s antes da linha, então a distância da linha ao pacote mais N tem de caber nos 256 s;
+    `→ not found` não traz idade e vale pela hora da linha); `("possivel", None)` se o registro não diz nem uma coisa nem outra. `janela`: as linhas desde a união anterior até a da idade; o painel visto antes do
+    último sinal de ausente é de outra vez que ele ligou."""
+    ausente = max((k for k, y in enumerate(janela) if any(a in y.texto for a in PAINEL_AUSENTE)), default=-1)
+    vistos = [tempo.assinado(linha_idade.segundos, y.segundos) + int(m.group(1)) for y in janela[ausente + 1:] for m in [PAINEL_VISTO.search(y.texto)] if m]
+    if vistos and max(vistos) > n + 1:  # +1: the age and the `seen N s ago` are whole seconds
+        return "certa", max(vistos)
+    if ausente >= 0:
+        velho = RESULTADO_VELHO.search(janela[ausente].texto)
+        if tempo.assinado(linha_idade.segundos, janela[ausente].segundos) + (int(velho.group(1)) if velho else 0) <= CONTADOR_VOLTA_S:
+            return "exata", None
+    return "possivel", None
+
+
 def ligado_unido(bloco, interrupcoes_):
     """{id da linha `connected`: texto} de `painel ligado → unido`, pela idade do painel no primeiro pacote: quanto o painel levou, desde que ligou, para ser unido e para transmitir;
     e de que partida ou queda é: a partida, o painel que religou (a idade zera) ou o Wi-Fi que caiu e voltou com o painel ligado. Só os `connected` com a idade lida até
@@ -136,19 +159,32 @@ def ligado_unido(bloco, interrupcoes_):
         n, linha_idade = achada
         liga_antes = n - tempo.assinado(linha_idade.segundos, x.segundos)  # o painel ligou `liga_antes` s antes do `connected`
         streaming = next((y for y in bloco[k + 1:] if "→ STREAMING" in y.texto), None)
-        partes = [f"unido {tempo.segundos_texto(liga_antes)} depois de ligar (idade {n} s no primeiro pacote)"]
-        if streaming is not None:
-            partes.append(f"transmitindo {tempo.segundos_texto(liga_antes + tempo.dif(streaming.segundos, x.segundos))} depois de ligar")
         queda = next((i for i in interrupcoes_ if i["voltou"] is not None and tempo.assinado(x.segundos, i["perda"]) >= 0
                       and tempo.assinado(i["voltou"].segundos, x.segundos) >= 0), None)
+        religou_depois = False
         if queda is None:
             contexto = "partida"
         else:
             depois_da_queda = tempo.dif(x.segundos, queda["perda"]) - liga_antes
-            contexto = (f"o painel religou {tempo.segundos_texto(depois_da_queda)} depois da queda das {queda['queda'].hora[:8]}" if depois_da_queda > 0
+            religou_depois = depois_da_queda > 0
+            contexto = (f"o painel religou {tempo.segundos_texto(depois_da_queda)} depois da queda das {queda['queda'].hora[:8]}" if religou_depois
                         else f"o painel ficou ligado: o Wi-Fi caiu às {queda['queda'].hora[:8]} e voltou")
             if tempo.dif(x.segundos, queda["perda"]) >= CONTADOR_VOLTA_S:
                 contexto += " (queda de 256 s ou mais: o contador dá a volta, a idade é um mínimo)"
+        # The age wraps at 256 s: the sentence says so unless the log shows the dash came on less than 256 s before (a queda it came on after, shorter than that, or a scan without it).
+        pelo_menos, nota = "", ""
+        if not religou_depois:  # (a dash that came on after a fall has the age right if the fall was shorter than 256 s, and says so in its brackets if not)
+            volta, visto_s = _volta_do_contador(bloco[bloco.index(anterior):bloco.index(linha_idade) + 1], linha_idade, n)
+            if volta == "certa":
+                # The age is the remainder: the least time that fits it and the sighting (`visto_s` s before the first packet) is `liga_antes` plus whole turns of the counter.
+                liga_antes += CONTADOR_VOLTA_S * math.ceil((visto_s - n) / CONTADOR_VOLTA_S)
+                pelo_menos = "pelo menos "
+                nota = f"; o painel foi visto ligado {tempo.segundos_texto(visto_s)} antes do pacote e o contador dá a volta aos 256 s"
+            elif volta == "possivel":
+                nota = "; módulo 256 s, sem prova do painel desligado antes"
+        partes = [f"unido {pelo_menos}{tempo.segundos_texto(liga_antes)} depois de ligar (idade {n} s no primeiro pacote{nota})"]
+        if streaming is not None:
+            partes.append(f"transmitindo {pelo_menos}{tempo.segundos_texto(liga_antes + tempo.dif(streaming.segundos, x.segundos))} depois de ligar")
         viu = any(y.etiqueta == "wifi" and ("the dash: '" in y.texto or "showed up in the scan" in y.texto)
                   for y in bloco[bloco.index(anterior):k])
         if not viu:

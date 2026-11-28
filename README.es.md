@@ -56,15 +56,30 @@ Wi-Fi del tablero.
 
 ## Instalar y actualizar
 
-Instala el APK publicado, `REau-0.3.1.apk` (applicationId `com.reau.app`, nombre "REau"). Es una sola app: REau sabe qué pantalla de Android Auto se muestra (mapa, menú, apps) por la propia imagen, con una red neuronal pequeña que corre en el teléfono.
+Instala el APK publicado, `REau-0.4.0.apk` (applicationId `com.reau.app`, nombre "REau"). Es una sola app: REau sabe qué pantalla de Android Auto se muestra (mapa, menú, apps) por la propia imagen, con una red neuronal pequeña que corre en el teléfono.
 
-¿Vienes de la antigua REau Lite (paquete `com.reau.app.lite`)? REau 0.3.0 es una app nueva para ti: rehaz los ajustes y el emparejamiento con el tablero y luego desinstala la Lite antigua (la app nueva muestra una línea discreta y, si Android Auto no responde, un aviso, mientras la Lite antigua siga instalada). ¿Vienes del REau anterior (paquete `com.reau.app`)? Solo actualiza encima: los ajustes y el emparejamiento se quedan. Dos instalaciones juntas compiten por el único servidor de Android Auto, que acepta una sesión a la vez.
+¿Vienes de la antigua REau Lite (paquete `com.reau.app.lite`)? REau 0.3.0 es una app nueva para ti: rehaz los ajustes y el emparejamiento con el tablero y luego desinstala la Lite antigua. ¿Vienes del REau anterior (paquete `com.reau.app`)? Solo actualiza encima: los ajustes y el emparejamiento se quedan. Dos instalaciones juntas compiten por el único servidor de Android Auto, que acepta una sesión a la vez.
 
 La primera vez, "Encender" pide los permisos que REau aún necesita, y la proyección empieza sea cual sea la respuesta; la pantalla **Permisos** los lista todos, con un botón para pedir los que faltan y otro que abre los permisos de REau en Android. Una vez al día, con internet, REau le pregunta a GitHub cuál es el número de la última versión y muestra una notificación discreta por cada versión nueva (Ajustes > Actualizaciones > "Avisar cuando haya una actualización", activado por defecto; no se descarga ni instala nada; aún no probado en la moto). Para comprobar el APK que descargaste, compara la huella SHA-256 del certificado con que está firmado con la del proyecto: el comando y la huella están en la página de instalación del sitio.
 
 Una compilación de prueba (debug) y la oficial no se reemplazan entre sí: para pasar de una a la otra, desinstala la primera (después de compartir sus registros en Ajustes > Depuración, porque desinstalar borra los datos de la app). El paso a paso, con los permisos que hay que conceder, y las preguntas frecuentes están en el sitio: <https://murkiriel.github.io/reau/es/>.
 
 Consejo: Obtainium (una app libre de terceros) instala y actualiza REau directamente desde las Releases del repositorio: en "Añadir app", pega `https://github.com/Murkiriel/reau`; solo valen las versiones publicadas, sin las builds de prueba, y REau no cambia nada por ello.
+
+## Caídas de conexión
+
+Son dos problemas distintos que el piloto ve como "problema de conexión":
+
+1. **El teléfono cierra la aplicación.** Xiaomi, Redmi y POCO, y también realme, OPPO y OnePlus, con sus sistemas personalizados, tienen un
+   gestor de batería mucho más agresivo que el de Android original. Cierra la app en medio del viaje, con la pantalla apagada. Es la mayor
+   causa de las caídas. La solución pasa por ajustes en el propio teléfono, que la app ahora enseña, y por la reanudación automática donde el
+   sistema lo permite.
+2. **El tablero se reinicia.** La causa principal es que el tablero use una versión antigua del firmware: la más nueva se recupera del mismo
+   tropiezo. Los teléfonos con procesador MediaTek lo empeoran, porque envían un video más pesado al tablero. Estamos probando un modo de
+   video más liviano para estos casos.
+
+Una mala solución sería dejar la pantalla del teléfono encendida todo el tiempo: gasta batería, calienta el teléfono y lo deja desbloqueado
+en el bolsillo.
 
 ## Compilación
 

@@ -22,7 +22,7 @@ class AaManeuversTest {
     }
 
     @Test
-    fun `the start of the route is the pin 0x3C, as the official app sends it, and no longer the straight arrow`() {
+    fun `the start of the route is the pin 0x3C, and no longer the straight arrow`() {
         assertEquals(0x3C, glyph(1))
         assertEquals(0x3C, glyph(1, exit = 7))
         assertTrue(DashManeuverGlyphs.isVisible(glyph(1)))
@@ -51,8 +51,8 @@ class AaManeuversTest {
     }
 
     @Test
-    fun `ramps on are the official app's own bytes, slight then normal then sharp, left then right`() {
-        // Typed out by hand from the official app's table (ON_RAMP_*: left is the higher byte of each pair). Not yet seen on the bike.
+    fun `ramps on have bytes of their own, slight then normal then sharp, left then right`() {
+        // Typed out by hand (ON_RAMP_*: left is the higher byte of each pair). Not yet seen on the bike.
         assertEquals(listOf(0x20, 0x1F, 0x1E, 0x1D, 0x22, 0x21), (13..18).map { glyph(it) })
         assertEquals("slight left", 0x20, glyph(13))
         assertEquals("slight right", 0x1F, glyph(14))

@@ -39,6 +39,14 @@ class DashSocket(
     // passes these two) is byte-for-byte unaffected; see DashSocketTest's golden checks.
     private val ctrlDest: InetSocketAddress = InetSocketAddress(InetAddress.getByName(BROADCAST), CTRL_PORT),
     private val rtpDest: InetSocketAddress = InetSocketAddress(InetAddress.getByName(DASH_IP), RTP_PORT),
+    // The phone's own address on the dash's network, for the one try REau makes when Android refuses to bind a socket to that network
+    // ([LocalAddressRetry]): the control and video sockets are bound to it, not to the network (the receive socket stays on every address). Null (every other caller): the sockets are exactly what they were.
+    private val localAddress: InetAddress? = null,
+    // The rider's switch "pace the packets" ([com.reau.app.settings.REauSettings.pacePackets]), read by the caller when it opens the sockets (25/11/2026): on, no two packets to the dash
+    // (RTP and commands together) leave less than 2 ms apart ([SendPacer]). Every caller that passes nothing gets it on, as the setting's default is.
+    pacePackets: Boolean = true,
+    // The pacer itself, given by a test with a clock and a wait of its own.
+    internal val pacer: SendPacer = SendPacer(pacePackets),
 ) : AutoCloseable {
     companion object {
         const val DASH_IP    = "192.168.1.1"
@@ -49,6 +57,7 @@ class DashSocket(
         private const val BUF             = 65535
         private const val RECV_TIMEOUT_MS = 500
         private const val TAG             = "DashSocket"
+        private const val NS_PER_MS       = 1_000_000L
         // While the Wi-Fi is down every send fails (ENETUNREACH), and a ride's outage is tens of thousands
         // of them. Once a channel has failed this many sends in a row, most calls no longer hit the socket
         // (nor write the hex log): one in every [PROBE_EVERY] still does, and the first that succeeds ends
@@ -116,20 +125,23 @@ class DashSocket(
             tx = DatagramSocket(null).also {
                 it.reuseAddress = true
                 it.broadcast = true
-                it.bind(InetSocketAddress(CTRL_PORT))
+                it.bind(localAddress?.let { ip -> InetSocketAddress(ip, CTRL_PORT) } ?: InetSocketAddress(CTRL_PORT))
                 network?.bindSocket(it)
             }
             rx = DatagramSocket(null).also {
                 it.reuseAddress = true
                 it.soTimeout = RECV_TIMEOUT_MS
+                // On every address, with the local address too (25/11/2026): a socket bound to the phone's unicast address does not receive a datagram sent to the
+                // broadcast address, and the dash's replies may come that way (its own control packets go to the broadcast address). Control and video stay on the local address.
                 it.bind(InetSocketAddress(RX_PORT))
                 network?.bindSocket(it)
             }
-            rtp = DatagramSocket().also { network?.bindSocket(it) }
+            rtp = (localAddress?.let { ip -> DatagramSocket(InetSocketAddress(ip, 0)) } ?: DatagramSocket()).also { network?.bindSocket(it) }
             val marked = "control CS6=${mark(tx, TOS_CONTROL)} video AF41=${mark(rtp, TOS_VIDEO)}"
             Log.i(TAG, "Sockets open — TX :$CTRL_PORT→${ctrlDest.address.hostAddress}:${ctrlDest.port}, " +
                 "RX :$RX_PORT, RTP→${rtpDest.address.hostAddress}:${rtpDest.port}, DSCP $marked")
             com.reau.app.data.RideDiagnostics.log("dash", "sockets marked for Wi-Fi priority: $marked")
+            com.reau.app.data.RideDiagnostics.log("dash", pacingLine())
             txSocket  = tx
             rxSocket  = rx
             rtpSocket = rtp
@@ -155,6 +167,13 @@ class DashSocket(
         packets.mapNotNull(::wire).forEach(::afterWire)
     }
 
+    /** What the session's first lines say about the pacing of the packets: whether it is on, and the gap. */
+    private fun pacingLine() = if (pacer.enabled) {
+        "packet pacing on: at least ${SendPacer.GAP_NS / NS_PER_MS} ms between any two packets (video and commands)"
+    } else {
+        "packet pacing off: packets leave back to back"
+    }
+
     /** The packet on the wire, or null when it was not sent (the link is suppressed, or the send failed: counted and logged here). */
     @Suppress("TooGenericExceptionCaught") // a failed send is counted and logged; the link may be down
     private fun wire(data: ByteArray): ByteArray? {
@@ -168,6 +187,8 @@ class DashSocket(
         // UDP fire-and-forget: a dropped/unreachable link (ENETUNREACH, EBADF) must never
         // crash the app — the session will fail and reconnect.
         return try {
+            // Before the send and in no lock: the pacer's timeline is shared with the video, and each caller waits alone for its own slot (25/11/2026).
+            pacer.pace()
             txSocket.send(DatagramPacket(pkt, pkt.size, ctrlDest.address, ctrlDest.port))
             pkt
         } catch (e: Exception) {
@@ -258,6 +279,8 @@ class DashSocket(
             if (rtpProbeCounter % PROBE_EVERY != 0) { rtpSuppressedTotal++; return }
         }
         try {
+            // The same timeline as the commands' ([wire]): the two sockets leave through one radio, so 2 ms between any two packets (25/11/2026).
+            pacer.pace()
             rtpSocket.send(DatagramPacket(data, data.size, rtpDest.address, rtpDest.port))
             stats?.sendTail?.rtp(data.size)
             rtpStall.sent()
@@ -342,6 +365,8 @@ class DashSocket(
     internal fun testOnlyTxFailStreak(): Int = synchronized(txLock) { txFailStreak }
     internal fun testOnlyTxSuppressedTotal(): Int = synchronized(txLock) { txSuppressedTotal }
     internal fun testOnlyTxProbeCounter(): Int = synchronized(txLock) { txProbeCounter }
+    /** Test-only: runs [block] holding the control channel's bookkeeping lock, to see which paths wait for it. */
+    internal fun <T> testOnlyUnderTxLock(block: () -> T): T = synchronized(txLock) { block() }
     internal fun testOnlyRtpSuppressedTotal(): Int = rtpSuppressedTotal
 
     /** Test-only: the RTP channel as after [SUPPRESS_AFTER_STREAK] failures, on a socket that can send (to see it come back). */
@@ -352,6 +377,7 @@ class DashSocket(
     /** Test-only: a video send that failed with [e] at [nowMs], as the socket's own failure is handled by [sendRtp]. */
     internal fun testOnlyRtpSendFailed(e: Exception, nowMs: Long = MonotonicClock.nowMs()) = rtpSendFailed(e, nowMs)
     internal fun testOnlyCtrlDest(): InetSocketAddress = ctrlDest
+    internal fun testOnlyBoundTo(): List<InetAddress> = listOf(txSocket, rxSocket, rtpSocket).map { it.localAddress }
     internal fun testOnlyRtpDest(): InetSocketAddress = rtpDest
 
     override fun close() {

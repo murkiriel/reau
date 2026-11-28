@@ -97,7 +97,7 @@ class AapSslHandshakeTest {
         assertTrue(handshake(conn, newSsl()))
 
         val line = synchronized(lines) { lines.single { "SSL handshake negotiated" in it } }
-        // For the comparison between the Conscrypt of the complete edition and the lite one: `adb logcat -s AapSslHandshakeTest`.
+        // For comparing the Conscrypt version between builds: `adb logcat -s AapSslHandshakeTest`.
         android.util.Log.i("AapSslHandshakeTest", "version=${ConscryptInitializer.version()} $line")
         assertTrue("got $line", "protocol=TLSv1.2" in line)
         assertTrue("got $line", "provider=Conscrypt" in line)

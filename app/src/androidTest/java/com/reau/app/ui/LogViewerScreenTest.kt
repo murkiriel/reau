@@ -4,13 +4,15 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onChildren
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -54,14 +56,17 @@ class LogViewerScreenTest {
         waitForTag("log_text")
         // 12,000 lines are ~350 KB: more than the 256 KB shown, so the start is left out and it says so.
         compose.onNodeWithTag("log_skipped").assertIsDisplayed().assertTextContains("KB", substring = true)
-        compose.onNodeWithTag("log_text").performScrollTo().assertTextContains("line 12000", substring = true)
+        // The list opens on the newest, and only the items on the screen are composed (the 256 KB are some hundreds of items).
+        compose.onNodeWithText("line 12000", substring = true).assertIsDisplayed()
+        val composed = compose.onNodeWithTag("log_text").onChildren().fetchSemanticsNodes().size
+        assertTrue("$composed items composed", composed in 1..MAX_COMPOSED)
     }
 
     @Test
     fun backGoesFromTheFileToTheListThenOut() {
         compose.onNodeWithTag("log_file_1").performClick()
         waitForTag("log_text")
-        compose.onNodeWithTag("log_text").assertTextContains("an old trace", substring = true)
+        compose.onNodeWithText("an old trace", substring = true).assertIsDisplayed()
         compose.onNodeWithTag("back").performClick()
         waitForTag("log_file_0")
         compose.onNodeWithTag("log_file_0").assertIsDisplayed()
@@ -83,5 +88,6 @@ class LogViewerScreenTest {
 
     private companion object {
         const val WAIT_MS = 5_000L
+        const val MAX_COMPOSED = 60
     }
 }

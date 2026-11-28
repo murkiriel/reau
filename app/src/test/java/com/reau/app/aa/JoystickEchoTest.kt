@@ -121,15 +121,16 @@ class JoystickEchoTest {
         assertEquals(EchoLabel.CONFIRM, press.echo)
     }
 
-    // ── back and home ──
+    // ── the dash's back ──
 
     @Test
-    fun `the dash's back echoes back, and twice within 700 ms echoes the apps menu`() {
+    fun `the dash's back, its yes to Exit navigation, echoes nothing, once or twice`() {
         val m = JoystickMap()
-        assertEquals(EchoLabel.BACK, m.press(dashBack, 10_000).echo)
-        assertEquals(EchoLabel.HOME, m.press(dashBack, 10_500).echo)
-        assertEquals("a pair is used once", EchoLabel.BACK, m.press(dashBack, 10_900).echo)
-        assertEquals("far from the last", EchoLabel.BACK, m.press(dashBack, 30_000).echo)
+        for (at in listOf(10_000L, 10_500L, 10_900L, 30_000L)) {
+            val press = m.press(dashBack, at)
+            assertNull("at $at", press.echo)
+            assertEquals("at $at", emptyList<AaCommand>(), press.sent)
+        }
     }
 
     // ── the calls ──

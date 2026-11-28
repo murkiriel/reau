@@ -21,6 +21,9 @@ class LogMaskTest {
     private fun mac(vararg pairs: String) = pairs.joinToString(":")
     private val macA = mac("aa", "bb", "cc", "dd", "ee", "ff")
     private val macB = mac("12", "34", "56", "78", "9A", "bc")
+    private val macHyphen = macA.replace(":", "-")
+    private val macShort = listOf("10", "aa", "bb", "cc", "dd", "ee").joinToString("-")
+    private val macBare = macA.replace(":", "")
     private val dash = "RE_" + "AB12" + "_" + "345678"
 
     // -- the dash's name -------------------------------------------------------------------------------------------------
@@ -134,6 +137,41 @@ class LogMaskTest {
             // a common network name and a MAC
             "SSID: \"CasaDoZe\" up" to "SSID: \"<rede>\" up",
             "bssid $macA ok" to "bssid ${LogMask.MASK_MAC} ok",
+            // a MAC glued to a letter or a digit, with hyphens, and with no separator after its keyword; a date, a hash and a longer run stay
+            "bssid=x$macA" to "bssid=x${LogMask.MASK_MAC}",
+            "${macA}x up" to "${LogMask.MASK_MAC}x up",
+            "bssid $macHyphen up" to "bssid ${LogMask.MASK_MAC} up",
+            "BSSID: $macBare" to "BSSID: ${LogMask.MASK_MAC}",
+            "wlan_mac=\"${macBare.uppercase()}\"" to "wlan_mac=\"${LogMask.MASK_MAC}\"",
+            // review of the plan 34, A5 (26/11/2026): a word that ends in hex digits glued to a MAC does not make its last pair leak
+            "mac-$macHyphen" to "m${LogMask.MASK_MAC}",
+            "device-${listOf("00", "11", "22", "33", "44", "55").joinToString("-")}" to "devi${LogMask.MASK_MAC}",
+            "mac:$macA" to "m${LogMask.MASK_MAC}",
+            "x $macHyphen-123" to "x ${LogMask.MASK_MAC}-123",
+            // review of 26/11/2026, C5: a word that ends in a hex digit and a hyphen before the MAC no longer lets the whole MAC through; a date still stays
+            "bssid-$macHyphen" to "bssid-${LogMask.MASK_MAC}",
+            "wlan0-$macHyphen" to "wlan0-${LogMask.MASK_MAC}",
+            "feed-$macHyphen" to "feed-${LogMask.MASK_MAC}",
+            "id-${listOf("1a", "2b", "3c", "4d", "5e", "6f").joinToString("-")}" to "id-${LogMask.MASK_MAC}",
+            "ts2026-11-26-10-30-15-45 ok" to "ts2026-11-26-10-30-15-45 ok",
+            "x 2026-11-26-10-30-15-45-59 ok" to "x 2026-11-26-10-30-15-45-59 ok",
+            "v0.4.0-12-34-56 build" to "v0.4.0-12-34-56 build",
+            "commit $macBare built" to "commit $macBare built",
+            "macro=$macBare" to "macro=$macBare",
+            "mac=${macBare}0" to "mac=${macBare}0",
+            "2026-11-26-10-30-15 ok" to "2026-11-26-10-30-15 ok",
+            "2026-11-26-10-30-15-45 ok" to "2026-11-26-10-30-15-45 ok",
+            // review of 26/11/2026, S5: a MAC after a year and a month does not leak (the pair of a month is a digit pair, the MAC's own pairs have letters), the dates stay
+            "2026-12-$macHyphen" to "2026-${LogMask.MASK_MAC}",
+            "x 2026-12-${macHyphen.uppercase()} up" to "x 2026-${LogMask.MASK_MAC} up",
+            "mac=$macShort" to "mac=${LogMask.MASK_MAC}",
+            "($macShort)" to "(${LogMask.MASK_MAC})",
+            "1-$macShort" to "1-${LogMask.MASK_MAC}",
+            "x 12-$macHyphen" to "x ${LogMask.MASK_MAC}",
+            "2026-11-26-10-30-15-123" to "2026-11-26-10-30-15-123",
+            "reau-2026-11-26-10-30-15-123.log" to "reau-2026-11-26-10-30-15-123.log",
+            "2026-11-26 10-30-15" to "2026-11-26 10-30-15",
+            "log-2026-11-26-10-30-15-45" to "log-2026-11-26-10-30-15-45",
         )
     }
 

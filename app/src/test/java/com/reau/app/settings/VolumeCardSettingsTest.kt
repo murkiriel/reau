@@ -40,8 +40,7 @@ class VolumeCardSettingsTest {
     fun `the settings line of the ride log says it, with a name of letters only`() {
         assertTrue(" volumeCard=true " in SettingsInUse.line(REauSettings()))
         assertTrue(" volumeCard=false " in SettingsInUse.line(REauSettings(volumeCard = false)))
-        assertTrue("volumeCard".all { it.isLetter() })
-        assertTrue(File("src/main/java/com/reau/app/settings/SettingsStore.kt").readText().contains("private const val KEY_VOLUME_CARD = \"volumeCard\""))
+        StoredKey.assertKeptUnder("volumeCard", { REauSettings(volumeCard = it) }, { it.volumeCard })
     }
 
     private fun string(folder: String, name: String) =

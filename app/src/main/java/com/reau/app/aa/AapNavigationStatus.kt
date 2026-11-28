@@ -255,7 +255,11 @@ internal class AapControlNavigation(private val onGuidance: (NavGuidance) -> Uni
             val stepText = meters(step?.hasDistance() == true, step?.distance ?: NavigationStatus.NavigationDistance.getDefaultInstance())
             val destinationText = meters(destination?.hasDistance() == true, destination?.distance ?: NavigationStatus.NavigationDistance.getDefaultInstance())
             val time = step?.takeIf { it.hasTimeToStepSeconds() }?.let { "${it.timeToStepSeconds}s" } ?: "none"
-            return "step=$stepText time=$time destination=$destinationText"
+            // What Android Auto says of the arrival, when it does: the ride of 25/11/2026 could not tell whether the one-minute flicker of the
+            // time left came from these seconds or from the arrival time, because the log did not have them.
+            val left = destination?.takeIf { it.hasTimeToArrivalSeconds() }?.let { " arrival=${it.timeToArrivalSeconds}s" }.orEmpty()
+            val clock = destination?.takeIf { it.hasEstimatedTimeAtArrival() }?.let { " eta=${it.estimatedTimeAtArrival}" }.orEmpty()
+            return "step=$stepText time=$time destination=$destinationText$left$clock"
         }
     }
 }

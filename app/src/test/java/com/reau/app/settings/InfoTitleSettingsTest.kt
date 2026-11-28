@@ -66,9 +66,8 @@ class InfoTitleSettingsTest {
         assertTrue(" infoRingInPlace=false infoTitle=true webView=" in SettingsInUse.line(REauSettings()))
         assertTrue(" infoRingInPlace=false infoTitle=false webView=" in SettingsInUse.line(REauSettings(infoTitle = false)))
         assertTrue(" infoTitle=true " in SettingsInUse.line(REauSettings(infoRing = true, infoTitle = true)) + " ")
-        assertTrue("infoTitle".all { it.isLetter() })
+        StoredKey.assertKeptUnder("infoTitle", { REauSettings(infoTitle = it) }, { it.infoTitle })
         assertEquals(listOf("infoTitle: true -> false"), REauSettings().changesTo(REauSettings(infoTitle = false)))
-        assertTrue(source("settings/SettingsStore.kt"), "private const val KEY_INFO_TITLE = \"infoTitle\"" in source("settings/SettingsStore.kt"))
     }
 
     @Test

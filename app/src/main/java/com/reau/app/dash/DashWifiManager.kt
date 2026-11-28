@@ -47,6 +47,7 @@ private const val MS_PER_SECOND = 1_000L
  *
  * Auto-reconnects on link loss until disconnect() is called.
  */
+@Suppress("LargeClass") // its split is the DashWifiManager stage C, which waits for the bench proof (F07); until then it grows by its log lines (26/11/2026)
 class DashWifiManager(
     private val context: Context,
     private val scope: CoroutineScope,
@@ -57,6 +58,8 @@ class DashWifiManager(
         private const val TAG              = "DashWifiManager"
         /** How many refused networks are remembered (they are few: one per refusal, cleared when the rider switches off). */
         private const val MAX_REFUSED      = 8
+        /** A reading of the system for the request's log line that took this long is said in the line (the system was busy; see [logRequestContext]). */
+        private const val SLOW_CONTEXT_READ_MS = 250L
     }
 
     private val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -485,16 +488,30 @@ class DashWifiManager(
      * Log only, for a request the system's dialog leaves "searching": which request this is and how long REau has been at
      * it, how long since the last one was let go unanswered, whether the screen is on and unlocked (the system's dialog
      * needs it) and what the scan says of the dash, with the age of that sighting.
+     *
+     * What the line needs from the system (the power and keyguard managers, the Wi-Fi list, the keystore of the join memory) is read on the
+     * scope, not here: this runs under [requestLock] before the request goes out, and those calls wait for the system service. The Wi-Fi list
+     * did, 3.3 s, while the system's Wi-Fi was busy dropping the request let go a moment before (ride of 25/11/2026, 10:46:07 to 10:46:10: "5 ms
+     * after the last was let go" for a request that went out 3.3 s after it was decided; 1.1 s at 10:18:32 and 0.95 s at 20:11:43). A line that is only read
+     * by the rider's reader must never hold the request (changed 26/11/2026). The line says when its reading was slow.
      */
-    @SuppressLint("MissingPermission")
     private fun logRequestContext(timeout: Int) {
         if (firstRequestMs == 0L) firstRequestMs = requestStartMs
         val now = SystemClock.elapsedRealtime()
         val sinceFirst = (MonotonicClock.nowMs() - firstRequestMs) / 1_000
         val gap = if (releasedUnansweredMs == 0L) "first" else "${now - releasedUnansweredMs} ms after the last was let go unanswered"
-        val line = "requestNetwork '${maskSsid(pendingSsid)}' everConnected=$everConnected timeout=${timeout}ms; " +
-            "request #$requests (${sinceFirst}s since the first, $gap), screen ${screenWords()}, ${lastScanEvidence()}, " +
-            "approvedBefore=${approvedBefore()}"
+        val head = "requestNetwork '${maskSsid(pendingSsid)}' everConnected=$everConnected timeout=${timeout}ms; " +
+            "request #$requests (${sinceFirst}s since the first, $gap), "
+        scope.launch { runCatching { logRequestContextLine(head) } }
+    }
+
+    /** The second half of [logRequestContext]'s line, read from the system (see there), and the line. */
+    @SuppressLint("MissingPermission")
+    private fun logRequestContextLine(head: String) {
+        val readAt = SystemClock.elapsedRealtime()
+        val tail = "screen ${screenWords()}, ${lastScanEvidence()}, approvedBefore=${approvedBefore()}"
+        val tookMs = SystemClock.elapsedRealtime() - readAt
+        val line = head + tail + if (tookMs >= SLOW_CONTEXT_READ_MS) "; reading this took $tookMs ms" else ""
         Log.i(TAG, line)
         com.reau.app.data.RideDiagnostics.log("wifi", line)
     }
@@ -673,6 +690,8 @@ class DashWifiManager(
             status = WifiConnStatus.REQUESTING,
             ssid   = pendingSsid,
             error  = context.getString(com.reau.app.R.string.dash_err_wifi_lost),
+            // The log's words, in fixed English ([WifiState.cause]): the screen's text above is in the rider's language (26/11/2026).
+            cause  = "dash network unavailable mid-session: the dash's AP is missing, retrying",
         )
         reconnectActedMs = MonotonicClock.nowMs()
         noteFailedTry()
@@ -707,6 +726,8 @@ class DashWifiManager(
             ssid   = pendingSsid,
             error  = message,
             dashVisible = refusal == Refusal.DASH_STUCK || refusal == Refusal.SEEN_NOT_JOINED,
+            // The log's words for the failure ([WifiState.cause]): the refusal's name, not the screen's text in the rider's language.
+            cause  = "initial connect refused: $refusal",
         )
         wantConnected = false
     }
@@ -828,6 +849,8 @@ class DashWifiManager(
         // What was going out in the seconds before the silence: RTP per second, the biggest burst, the last keyframe and command.
         DashHeard.tail?.reportOnce("the Wi-Fi was lost", notes.facts?.let { "on this network for ${(now - it.upAtMs).coerceAtLeast(0) / MS_PER_SECOND} s" })
             ?.let { com.reau.app.data.RideDiagnostics.log("wifi", it) }
+        // And the detail of the last 15 s: each frame, each command's code and size (never what it said); a log never takes the projection down.
+        runCatching { DashHeard.fine?.reportOnce("the Wi-Fi was lost")?.forEach { com.reau.app.data.RideDiagnostics.log("wifi", it) } }
         // The next connection of this projection is compared with the channel this one had (kept if it is not known now).
         notes.lost()
         com.reau.app.service.SystemEvents.log(com.reau.app.service.SystemEvents.bikeNetwork(false))
@@ -836,6 +859,8 @@ class DashWifiManager(
             status = WifiConnStatus.REQUESTING,
             ssid   = pendingSsid,
             error  = context.getString(com.reau.app.R.string.dash_err_link_lost),
+            // The log's words, in fixed English ([WifiState.cause]): the screen's text above is in the rider's language (26/11/2026).
+            cause  = "dash network lost, retrying",
         )
         reconnectActedMs = MonotonicClock.nowMs()
         if (wantConnected) {
@@ -998,6 +1023,8 @@ class DashWifiManager(
                 status = WifiConnStatus.REQUESTING,
                 ssid   = pendingSsid,
                 error  = context.getString(com.reau.app.R.string.dash_err_link_lost),
+                // The log's words, in fixed English ([WifiState.cause]): the screen's text above is in the rider's language (26/11/2026).
+                cause  = "dash network refused the bind, retrying",
             )
             reconnectActedMs = MonotonicClock.nowMs()
             if (verdict.step == BindRefusals.Step.ASK_AGAIN) {

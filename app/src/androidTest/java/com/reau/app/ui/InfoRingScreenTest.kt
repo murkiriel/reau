@@ -36,7 +36,9 @@ import org.junit.runner.RunWith
 class InfoRingScreenTest {
     @get:Rule val compose = createComposeRule()
 
-    private var settings by mutableStateOf(PlanSettings.PLAN.copy(useLocation = false))
+    // Every card is on by default since 21/11/2026 (InfoRingDefaultCardsTest); the boxes start here from the three of 12/11/2026
+    // (RingData.DEFAULT), so that a ticked and an unticked box are both on the screen.
+    private var settings by mutableStateOf(PlanSettings.PLAN.copy(useLocation = false, infoRingData = RingData.DEFAULT))
 
     @Before
     fun setUp() {
@@ -104,7 +106,7 @@ class InfoRingScreenTest {
     }
 
     @Test
-    fun theRingStartsWithRainWindAndThunderOnlyAndAnotherCardIsOneTickAway() {
+    fun fromRainWindAndThunderOnlyAnotherCardIsOneTickAway() {
         settings = settings.copy(infoRing = true)
         compose.waitForIdle()
         compose.onNodeWithTag("info_ring_data_rain").performScrollTo().assertIsOn()
@@ -182,7 +184,7 @@ class InfoRingScreenTest {
     }
 
     @Test
-    fun theCarouselIsOnWithSevenSecondsAndTheTimeGoesFiveToThirty() {
+    fun theCarouselIsOnWithSevenSecondsAndTheTimeGoesSevenToThirty() {
         settings = settings.copy(infoRing = true)
         compose.waitForIdle()
         compose.onNodeWithTag("info_ring_carousel").performScrollTo().assertIsOn()
@@ -190,10 +192,11 @@ class InfoRingScreenTest {
         compose.onNodeWithTag("info_ring_seconds_plus").performClick()
         assertEquals(8, settings.infoRingSeconds)
         compose.onNodeWithTag("info_ring_seconds_value").assertTextEquals("8 s")
-        repeat(3) { compose.onNodeWithTag("info_ring_seconds_minus").performClick() }
-        assertEquals(5, settings.infoRingSeconds)
         compose.onNodeWithTag("info_ring_seconds_minus").performClick()
-        assertEquals("not under five", 5, settings.infoRingSeconds)
+        assertEquals(7, settings.infoRingSeconds)
+        // Not under seven (23/11/2026; it was five).
+        compose.onNodeWithTag("info_ring_seconds_minus").performClick()
+        assertEquals("not under seven", 7, settings.infoRingSeconds)
         settings = settings.copy(infoRingSeconds = 30)
         compose.waitForIdle()
         compose.onNodeWithTag("info_ring_seconds_plus").performClick()

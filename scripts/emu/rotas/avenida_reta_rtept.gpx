@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Rota SINTÉTICA, só com rtept e poucos pontos (o script interpola; 3 casas decimais, porque a guarda de privacidade recusa 4 ou mais em lat/lon): da Praça dos Restauradores até a Praça Marquês de Pombal, em Lisboa. -->
+<gpx version="1.0" creator="REau rota_falsa (sintético)">
+  <rte>
+    <name>Avenida reta (sintética)</name>
+    <rtept lat="38.714" lon="-9.141"/>
+    <rtept lat="38.720" lon="-9.145"/>
+    <rtept lat="38.725" lon="-9.150"/>
+  </rte>
+</gpx>

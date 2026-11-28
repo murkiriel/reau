@@ -156,11 +156,10 @@ class JoystickGesturesTest {
     }
 
     @Test
-    fun `back alone is back, back twice is home, as before`() {
+    fun `back, the dash's yes to Exit navigation, sends no key to Android Auto, alone or twice`() {
         val m = JoystickMap()
-        assertEquals(listOf(AaCommand.Key(4)), m.press(back, 0).sent)
-        assertEquals(listOf(AaCommand.Key(3)), m.press(back, 500).sent)
-        assertEquals(listOf(AaCommand.Key(4)), m.press(back, 900).sent)
+        for (at in listOf(0L, 500L, 900L, 5_000L)) assertEquals("at $at", emptyList<AaCommand>(), m.press(back, at).sent)
+        assertEquals(listOf("exit navigation confirmed on the dash -> nothing to Android Auto"), JoystickMap().press(back, 0).lines)
     }
 
     // ── the calls, on the same sides, one tap ──────────────────────────────────────────────────────────────

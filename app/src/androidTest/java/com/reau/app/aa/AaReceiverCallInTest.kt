@@ -16,8 +16,8 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * The link to Android Auto 17.3 and older, where the receiver listens and Android Auto dials in (the Lite edition's way,
- * AaCallsIn asks it to). The Android Auto here is the fake one in its dialling mode: each ask ([AaReceiver.CallIn.poke])
+ * The link to Android Auto 17.3 and older, where the receiver listens and Android Auto dials in (the way of the older
+ * versions, AaCallsIn asks it to). The Android Auto here is the fake one in its dialling mode: each ask ([AaReceiver.CallIn.poke])
  * makes a new fake call the receiver's port.
  */
 @RunWith(AndroidJUnit4::class)

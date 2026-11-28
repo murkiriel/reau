@@ -127,39 +127,10 @@ class MainLookTest {
         assertEquals(emptyList<Warning>(), MainLook.warnings(Projection(), fine, vpn = false))
     }
 
-    /**
-     * Seen 18/10 with both editions installed and on: the second one's Android Auto "did not respond" and nothing said why.
-     * The old lite app is named only when it is installed AND Android Auto accepts and does not answer, again and again.
-     */
     @Test
     fun `the line under a mute server's headline says the menu by hand, and no other state changes with it`() {
         assertEquals(R.string.sub_unresponsive, MainLook.sub(running(aa = AaLinkState.UNRESPONSIVE)))
         assertEquals(R.string.sub_closing_previous, MainLook.sub(running(aa = AaLinkState.CLOSING_PREVIOUS)))
         assertEquals(R.string.sub_server_off, MainLook.sub(running(aa = AaLinkState.SERVER_OFF)))
-    }
-
-    @Test
-    fun `the other edition is named only when it is installed and Android Auto does not answer`() {
-        val fine = BatteryUi(saverOn = false, exempt = true)
-        for (state in AaLinkState.entries) {
-            val suspect = state == AaLinkState.UNRESPONSIVE || state == AaLinkState.CLOSING_PREVIOUS
-            assertEquals(state.name, suspect, MainLook.otherEditionSuspect(state, otherEdition = true))
-            assertEquals("${state.name} without the other edition", false, MainLook.otherEditionSuspect(state, otherEdition = false))
-            assertEquals(
-                state.name,
-                suspect,
-                Warning.OTHER_EDITION in MainLook.warnings(running(aa = state), fine, otherEdition = true),
-            )
-            assertEquals(state.name, false, Warning.OTHER_EDITION in MainLook.warnings(running(aa = state), fine))
-        }
-        assertEquals(
-            listOf(Warning.UNRESPONSIVE, Warning.OTHER_EDITION),
-            MainLook.warnings(running(aa = AaLinkState.UNRESPONSIVE), fine, otherEdition = true),
-        )
-        assertEquals(
-            listOf(Warning.CLOSING_PREVIOUS, Warning.OTHER_EDITION),
-            MainLook.warnings(running(aa = AaLinkState.CLOSING_PREVIOUS), fine, otherEdition = true),
-        )
-        assertEquals(emptyList<Warning>(), MainLook.warnings(Projection(), fine, otherEdition = true))
     }
 }

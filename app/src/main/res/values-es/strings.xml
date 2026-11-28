@@ -27,9 +27,11 @@
     <string name="notif_update_title">REau %1$s disponible</string>
     <string name="notif_update_text">Toca para ver la página de la versión. No se descarga ni se instala nada.</string>
     <string name="notif_title_dash_stuck">El Wi-Fi del tablero se trabó</string>
-    <string name="notif_text_dash_stuck">El tablero está encendido pero no acepta la conexión. Apaga y vuelve a encender el contacto de la moto; REau se reconecta sola</string>
+    <string name="notif_text_dash_stuck">El tablero está encendido pero no acepta la conexión. Apaga el contacto de la moto, espera unos 20 segundos y vuelve a encenderlo (apagar y encender rápido no lo destraba); REau se reconecta sola</string>
     <string name="notif_title_phone_hot">El teléfono está caliente</string>
     <string name="notif_text_phone_hot">El teléfono está caliente (%1$d °C). Sácalo del sol o del bolsillo cerrado, o desconecta el cargador, para que no reduzca el rendimiento</string>
+    <string name="notif_title_battery_low">Batería baja</string>
+    <string name="notif_text_battery_low">Batería al %1$d%% — el teléfono puede apagarse durante el viaje. Conecta el cargador.</string>
     <string name="notif_title_wifi_off">Wi-Fi del teléfono apagado</string>
     <string name="notif_text_wifi_off">Wi-Fi del teléfono apagado: enciende el Wi-Fi para conectar al tablero</string>
     <string name="notif_title_bind_refused">Android rechaza la red del tablero</string>
@@ -53,7 +55,7 @@
     <string name="notif_text_dash_taken">Apaga la transmisión de la otra app; REau lo intenta de nuevo sola</string>
     <string name="notif_text_dash_taken_alert">Otra app está usando la conexión del tablero. Ciérrala para que REau vuelva.</string>
     <string name="notif_title_dash_silent">Tablero sin respuesta</string>
-    <string name="notif_text_dash_silent">El tablero dejó de responder. Si no vuelve, apaga y enciende el contacto.</string>
+    <string name="notif_text_dash_silent">El tablero dejó de responder. Si no vuelve, apaga el contacto, espera unos 20 segundos y vuelve a encenderlo.</string>
     <string name="notif_title_card">Fondo en el tablero</string>
     <string name="notif_text_card">Imagen fija, sin Android Auto</string>
     <string name="notif_text_stopping">Apagando</string>
@@ -103,6 +105,7 @@
     <string name="action_open_aa_settings">Abrir los ajustes de Android Auto</string>
     <string name="action_get_aa">Obtener Android Auto</string>
     <string name="aa_missing_note">Android Auto no está instalado en este teléfono. Toca \"Obtener Android Auto\" para instalarlo desde Google Play, ábrelo una vez para terminar su configuración y vuelve aquí.</string>
+    <string name="aa_updated_note">Android Auto se actualizó, y una actualización puede apagar el servidor de unidad principal. Si no lo apagaste tú, vuelve a encenderlo.</string>
     <string name="aa_store_none">Android Auto no está instalado y este teléfono no tiene tienda de apps ni navegador para obtenerlo.</string>
     <string name="aa_settings_failed">No se pudieron abrir los ajustes de Android Auto. Abre Android Auto desde tu lista de apps.</string>
     <string name="headline_card">Fondo en el tablero</string>
@@ -147,7 +150,7 @@
     <string name="dash_err_ssid_not_found">No se encontró cerca el Wi-Fi del tablero \'%1$s\' — revisa que esté encendido y al alcance</string>
     <string name="dash_err_auth_failed">El Wi-Fi del tablero \'%1$s\' está al alcance, pero Android no terminó de unirse a él (el teléfono puede tardar en unirse con la pantalla apagada, puede que se haya rechazado el aviso de Android o que la contraseña sea incorrecta). REau lo intenta de nuevo sola</string>
     <string name="dash_err_not_found_or_password">No se pudo conectar a \'%1$s\' — red no encontrada o contraseña incorrecta</string>
-    <string name="dash_err_dash_stuck">El Wi-Fi del tablero \'%1$s\' rechaza la conexión. Si la contraseña sigue siendo la de fábrica del tablero, el tablero se congeló: apaga la moto con la llave, espera unos 30 segundos y vuelve a encenderla; REau sigue intentando sola</string>
+    <string name="dash_err_dash_stuck">El Wi-Fi del tablero \'%1$s\' rechaza la conexión. Si la contraseña sigue siendo la de fábrica del tablero, el tablero se congeló: apaga la moto con la llave, espera unos 20 segundos y vuelve a encenderla; REau sigue intentando sola</string>
     <string name="dash_err_wifi_lost">Se perdió el Wi-Fi del tablero — reconectando…</string>
     <string name="dash_err_link_lost">Se perdió la conexión — reconectando…</string>
     <!-- The joystick page -->
@@ -160,7 +163,6 @@
     <string name="headline_android_auto_no_video">Android Auto: sin imagen</string>
     <string name="aa_no_video_warning">Android Auto está conectado pero no envía imagen, y el tablero sigue negro. Fuerza su detención (Ajustes › Apps › Android Auto › Forzar detención) y luego apaga y vuelve a encender REau. Con Android Auto 17.4 o más nuevo, revisa también que su servidor de unidad principal esté encendido.</string>
     <string name="aa_unresponsive_warning">Android Auto acepta la conexión pero no responde. En la configuración para desarrolladores de Android Auto, toca ⋮ y elige \"Detener servidor de unidad principal\", luego ⋮ y \"Iniciar servidor de unidad principal\"; REau lo intenta de nuevo sola.</string>
-    <string name="aa_other_edition_warning">La app REau antigua, la del ícono con sello, sigue instalada en este teléfono y puede estar usando Android Auto: su servidor de unidad principal atiende una sola sesión a la vez. Esta app la reemplaza, así que puedes desinstalarla. Si está encendida, apágala (toca Apagar en ella), espera cerca de un minuto y REau se conecta sola.</string>
     <string name="joystick_title">Joystick del tablero</string>
     <string name="joystick_intro">Elige qué hace cada toque del joystick. Se aplica de inmediato, incluso con la proyección encendida.</string>
     <string name="joystick_music_on">El tablero muestra la canción que suena (tarjeta de música): el modo multimedia tiene un control de música.</string>
@@ -288,6 +290,17 @@
     <string name="no_dash_stop_info">Cuando el Wi-Fi del tablero desaparece y no vuelve (la moto se apagó), REau sigue pidiéndolo, con Android Auto, el video y los bloqueos del teléfono activos, hasta que toques Apagar. Con esto activado, la proyección se apaga sola tras el tiempo elegido sin el tablero, como lo haría el botón Apagar, y una notificación dice por qué. La cuenta empieza de nuevo cada vez que el tablero vuelve; \"Sin límite\" mantiene el comportamiento anterior.</string>
     <string name="no_dash_stop_minutes">%1$d min</string>
     <string name="no_dash_stop_never">Sin límite</string>
+    <string name="resume_after_kill_title">Retomar si el sistema cierra REau (experimental)</string>
+    <string name="resume_after_kill_sub">Si el sistema del teléfono cierra REau en medio del viaje, la proyección vuelve sola</string>
+    <string name="resume_after_kill">Cuando el sistema del teléfono cierra REau en medio del viaje y vuelve a iniciar su servicio, la proyección se enciende sola otra vez, como si hubieras tocado Encender: hasta 3 veces en 30 minutos, nunca después de que la apagues tú. No vuelve tras una detención forzada (algunos Xiaomi la hacen) y, retomada, queda sin micrófono (Gemini) y sin ubicación para la lista de Wi-Fi. Viene activado, pero es una prueba y puede salir en una próxima versión.</string>
+    <string name="pace_packets_title">Espaciar los paquetes al tablero (experimental)</string>
+    <string name="pace_packets_sub">Al menos 2 ms entre dos paquetes cualesquiera, video y comandos</string>
+    <string name="pace_packets">REau deja al menos 2 ms entre dos paquetes cualesquiera que envía al tablero, los del video y los de los comandos juntos, en vez de una ráfaga pegada; algunos tableros se reinician un minuto después de que empieza la transmisión, y las apps que se mantienen estables espacian los paquetes igual. Esto suma unos milisegundos a un cuadro clave y a la respuesta a un botón, y vale desde la próxima proyección. Viene activado, pero es una prueba y puede salir en una próxima versión.</string>
+    <string name="video_encoder_title">Codificador de video (experimental)</string>
+    <string name="video_encoder_sub">Quién hace el video para el tablero</string>
+    <string name="video_encoder_phone">Del teléfono</string>
+    <string name="video_encoder_software">Software de Android</string>
+    <string name="video_encoder_info">De forma predeterminada, el chip del propio teléfono hace el video para el tablero. Esta prueba usa en su lugar el codificador de software de Android, que debe mantener la tasa estable y suele hacer cuadros clave más pequeños, con más uso del procesador; si el teléfono no tiene uno, se queda el suyo. Vale desde la próxima vez que se abra el video; es una prueba y puede salir en una próxima versión.</string>
     <string name="action_view_logs">Ver el registro</string>
     <string name="log_viewer_title">Registro</string>
     <string name="log_viewer_none">Aún no hay registros.</string>
@@ -344,7 +357,6 @@
     <string name="warn_server_title">El servidor de unidad principal está apagado</string>
     <string name="warn_closing_previous_title">Cerrando la sesión anterior</string>
     <string name="warn_unresponsive_title">Android Auto no responde</string>
-    <string name="warn_other_edition_title">Hay otra REau instalada</string>
     <string name="warn_no_video_title">Android Auto no tiene imagen</string>
     <string name="warn_battery_exemption_title">Optimización de batería</string>
     <string name="warn_battery_saver_title">El ahorro de batería está activado</string>
@@ -546,7 +558,9 @@
     <string name="ring_no_gps">sin GPS</string>
     <string name="section_web">Navegador</string>
     <string name="web_view_title">Encender el servidor de red</string>
-    <string name="web_view_sub">Otro dispositivo abre la dirección en un navegador</string>
+    <string name="web_view_sub">Encendido, el tablero no se usa: solo navegador</string>
+    <string name="web_on_dialog_title">El tablero dejará de usarse</string>
+    <string name="web_on_dialog_text">Con el servidor de red encendido, REau deja de usar el tablero y muestra la imagen solo en el navegador. ¿Encender de todos modos?</string>
     <string name="web_view_long">Con la proyección en marcha, REau abre un servidor en la red local: un computador o una pantalla de carro con navegador, en la misma red, abre la dirección, ingresa el PIN de 4 dígitos y ve Android Auto. Cuando está activado, REau no busca el tablero; el PIN cambia cada vez, y tras 5 intentos fallidos el dispositivo espera 5 minutos. La imagen se envía sin cifrar, a dos navegadores como máximo, y el servidor se apaga solo cuando termina la proyección.</string>
     <string name="web_touch_title">Permitir el toque desde el navegador</string>
     <string name="web_touch_sub">Sin esto, el navegador solo puede mirar</string>
@@ -653,7 +667,7 @@
     <string name="joystick_locked_center_short">Multimedia</string>
     <string name="joystick_action_info_ring">Anillo de información</string>
     <string name="joystick_locked_up">¿Salir de la navegación?</string>
-    <string name="joystick_locked_up_note">En el modo mapa, la flecha hacia arriba es el botón de retroceso propio del tablero: pregunta si quieres salir de la navegación. REau no envía ninguna acción para ella.</string>
+    <string name="joystick_locked_up_note">En el modo mapa, la flecha hacia arriba es el botón de retroceso propio del tablero: pregunta si quieres salir de la navegación. Si dices que sí, REau apaga la navegación en el tablero y retiene la tarjeta de ruta hasta que empiece una navegación nueva; no se envía nada a Android Auto.</string>
     <string name="joystick_info_ring_note">En el modo mapa, la flecha hacia abajo muestra y oculta el anillo de información cuando está activado en los ajustes; no toca el anillo de maniobras. Con el anillo de maniobras oculto, el tablero deja de enviar este botón y no sale ninguna acción de él. Con otra acción en este botón, el anillo ya no se conmuta con él.</string>
     <string name="joystick_locked_center">Abre el control multimedia</string>
     <string name="joystick_locked_center_note">En el modo mapa, el botón central pone el tablero en control multimedia. No se puede cambiar.</string>
@@ -898,19 +912,17 @@
     <string name="update_notice_title">Avisar cuando haya una actualización</string>
     <string name="update_notice_sub">Una vez al día, con internet, REau le pregunta a GitHub (api.github.com) cuál es la última versión, sin cuenta y sin nada sobre ti, y avisa una vez por versión. No se descarga ni se instala nada.</string>
 
-    <!-- A small line on the main screen while the old app with the seal on its icon (id ending in .lite) is still installed -->
-    <string name="old_app_note">La app REau antigua (la del ícono con sello) sigue instalada. Ya no hace falta: puedes desinstalarla.</string>
-
     <string name="warn_wifi_off_title">Wi-Fi del teléfono apagado</string>
     <string name="wifi_off_warning">Wi-Fi del teléfono apagado: enciende el Wi-Fi para conectar al tablero</string>
     <string name="action_wifi_on">Encender el Wi-Fi</string>
     <string name="spoken_alerts_title">Avisos hablados en el auricular</string>
     <string name="spoken_alerts_sub">Dice los avisos importantes en el auricular del casco</string>
     <string name="spoken_alerts">Dice los avisos importantes con la voz de Android, en el auricular del casco, como la voz de la navegación: el tablero que se fue o se trabó y volvió, el teléfono caliente y el Wi-Fi del teléfono apagado. Baja la música un instante mientras habla y nunca repite la misma frase en menos de un minuto. Viene apagado; las notificaciones aparecen de todos modos, y la voz depende del motor de voz del teléfono y de las voces instaladas.</string>
-    <string name="voice_dash_gone">Tablero desconectado. Apaga y enciende la moto.</string>
+    <string name="voice_dash_gone">Tablero desconectado. Apaga la moto, espera 20 segundos y enciende.</string>
     <string name="voice_dash_back">Tablero de vuelta.</string>
     <string name="voice_phone_hot">Celular caliente. Sácalo del sol o del bolsillo cerrado.</string>
     <string name="voice_wifi_off">Wi-Fi del teléfono apagado.</string>
+    <string name="voice_app_back">REau volvió.</string>
     <!-- El eco de la acción y la leyenda del joystick: los mismos nombres cortos (hasta 19 caracteres, Latin-1, como el tablero lee el nombre de la calle) en la franja dorada y en el video del tablero -->
     <string name="echo_wheel_previous">Elemento anterior</string>
     <string name="echo_wheel_next">Elemento siguiente</string>
@@ -952,7 +964,10 @@
     <string name="call_card_calling">Llamando…</string>
     <string name="call_card_ended">Finalizada · %1$s</string>
     <string name="call_card_missed">Llamada perdida</string>
+    <string name="battery_pill_level">Batería %1$d %%</string>
+    <string name="battery_pill_hint">Conecta el cargador</string>
     <string name="echo_media_mode">Modo multimedia</string>
+    <string name="echo_exit_navigation">Salir navegación</string>
     <string name="action_echo_title">Nombre de la acción en el tablero</string>
     <string name="action_echo_sub">Muestra qué hizo cada toque del joystick</string>
     <string name="action_echo">Cada toque del joystick que hace algo muestra el nombre corto de la acción (Canción siguiente, Atrás, Contestar) durante 1,5 segundos en el título de la franja dorada del tablero, donde va el nombre de la calle, y luego el título vuelve. Con un joystick de manillar que no es preciso, ves en el tablero lo que el toque realmente hizo; un toque que no hace nada no muestra nada. Activado por defecto; el cambio se aplica de inmediato.</string>
@@ -968,4 +983,37 @@
     <string name="tip_gemini_swap_text">Gemini conversa por voz y necesita un intercomunicador en el casco. Si no tienes uno, en la pantalla Joystick del tablero (Control multimedia, botón “Abajo”) puedes cambiar la acción de Gemini por “Alternar mapa y música”: un toque lleva del mapa a la app de música y de vuelta.</string>
     <string name="tip_video_fps_title">Por qué el video no pasa de 6 fps</string>
     <string name="tip_video_fps_text">El tablero acepta más cuadros por segundo, pero el mismo procesador que muestra el video también dibuja la pantalla y atiende los botones. En las pruebas en la moto, a 8 fps el ícono de la reserva empezó a parpadear y a 12 fps el tablero empezó a ignorar los botones. A 6 fps todo funcionó sin fallas, por eso REau nunca pasa de ahí. Aun así, la app viene con el ritmo Original (4 fps en el A, 2 en el B), más liviano para el tablero; para una imagen más fluida, elige REau (6 fps en el A, 3 en el B) en el ajuste \"Ritmo del video\".</string>
+    <string name="tip_destination_title">Elige el destino desde el teléfono</string>
+    <string name="tip_destination_text">Si al tocar buscar en Android Auto no pasa nada, es normal: con la proyección encendida Android Auto no deja escribir. Elige el destino en Google Maps del teléfono y la ruta aparece en el tablero.</string>
+    <string name="keepalive_title">Mantener REau vivo</string>
+    <string name="keepalive_intro">Algunos teléfonos cierran las apps que corren en segundo plano para ahorrar batería, incluso con REau proyectando en el tablero, y el viaje se queda sin tablero. Estos son los pasos para que tu teléfono reduzca la probabilidad de que pase.</string>
+    <string name="keepalive_honest">Estos pasos reducen la probabilidad, pero no la eliminan: cada fabricante de teléfonos tiene sus propias reglas, y una actualización puede cambiarlas.</string>
+    <string name="keepalive_brand_xiaomi">Xiaomi, Redmi y POCO (HyperOS o MIUI)</string>
+    <string name="keepalive_brand_oppo">realme, OPPO y OnePlus (realme UI, ColorOS u OxygenOS)</string>
+    <string name="keepalive_brand_other">Tu teléfono</string>
+    <string name="keepalive_step_lock">Bloquea REau en las apps recientes: abre las apps recientes, mantén pulsada la tarjeta de REau y toca el candado.</string>
+    <string name="keepalive_step_xiaomi_battery">Abre la información de la app de REau, toca Ahorro de batería y elige \"Sin restricciones\".</string>
+    <string name="keepalive_step_autostart">Activa el Inicio automático para REau (en la información de la app, o en la lista de Inicio automático de los ajustes del teléfono).</string>
+    <string name="keepalive_step_xiaomi_performance">Opcional: en los ajustes de Batería del teléfono, elige el modo o plan de rendimiento, que frena menos las apps en segundo plano.</string>
+    <string name="keepalive_step_oppo_battery">Abre la información de la app de REau, toca Uso de batería y permite la actividad en segundo plano (\"Permitir actividad en segundo plano\").</string>
+    <string name="keepalive_step_oppo_autostart">Activa el Inicio automático para REau (en la información de la app, o en los ajustes del teléfono, en Batería o Apps).</string>
+    <string name="keepalive_step_other_battery">Deja a REau fuera de la optimización de batería: la pantalla principal lo pide, y la página de permisos muestra si ya está hecho (\"Exenta de la optimización de batería\").</string>
+    <string name="keepalive_step_other_lock">Si tu teléfono permite bloquear apps en las apps recientes (un candado en la tarjeta), bloquea REau.</string>
+    <string name="keepalive_open_app_info">Abrir la información de la app de REau</string>
+    <string name="permissions_keep_alive">Evitar que cierren REau: pasos para tu teléfono</string>
+    <string name="action_keepalive_guide">Ver los pasos</string>
+    <string name="warn_system_closed_title">El teléfono cerró REau</string>
+    <string name="warn_system_closed">El sistema del teléfono cerró REau durante el viaje (%1$s), mientras proyectaba. Eso viene del teléfono, no del tablero. Mira cómo reducir la probabilidad de que vuelva a pasar.</string>
+    <string name="keepalive_open_autostart">Abrir la pantalla de Inicio automático</string>
+    <string name="keepalive_battery_exempt">REau ya está exenta de la optimización de batería, que es lo primero que pide. Los pasos de abajo son los del fabricante del teléfono, y esa exención no los sustituye.</string>
+    <string name="keepalive_battery_not_exempt">REau aún no está exenta de la optimización de batería: haz eso primero (la pantalla principal lo pide, y la página de permisos lo muestra). Después haz los pasos de abajo, que son los del fabricante del teléfono.</string>
+    <string name="keepalive_check_title">Lo que ya hiciste</string>
+    <string name="keepalive_check_hint">Marca lo que hiciste. REau no puede comprobarlo: tu respuesta se queda en este teléfono y va al registro del viaje, para ayudar a saber por qué se cerró un viaje.</string>
+    <string name="keepalive_item_autostart">Inicio automático activado</string>
+    <string name="keepalive_item_background">Actividad en segundo plano permitida</string>
+    <string name="keepalive_item_lock">Candado en REau en las apps recientes</string>
+    <string name="keepalive_item_battery">Batería en \"Sin restricciones\"</string>
+    <string name="warn_keepalive_title">Mantén REau activa en este teléfono</string>
+    <string name="warn_keepalive">El fabricante de tu teléfono puede cerrar REau en medio de un viaje. Unos ajustes, hechos una vez, reducen esa probabilidad. Míralos antes del próximo viaje.</string>
+    <string name="keepalive_open_failed">No se pudo abrir los ajustes del teléfono. Abre Ajustes, luego Apps, luego REau, y sigue los pasos desde ahí.</string>
 </resources>

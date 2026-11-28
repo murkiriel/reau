@@ -13,7 +13,8 @@ import java.io.Reader
  * - The dash's Wi-Fi name, `RE_<4 letters or digits>_<6 digits>`, even glued to other text or escaped in an address (`%22RE_…%22`), and any other
  *   name that starts the way a dash's does (at the start of a word, after a character that is not of a word, or after a `%XX` escape; `MODE_RE_ABCD`
  *   is left), become [MASK].
- * - Every MAC address (six pairs of hex digits split by colons) becomes [MASK_MAC].
+ * - Every MAC address (six pairs of hex digits split by colons or by hyphens, even glued to a letter or a digit; the hyphen form not after a hex digit nor after two digits and a hyphen,
+ *   which a date and time `2026-11-26-10-30-15` would be; and twelve hex digits with no separator, after `bssid`, `mac`, `macaddr` or `hwaddr` and `=` or `:`) becomes [MASK_MAC].
  * - The names of the Wi-Fi networks that are not the dash's (home, work): the name that follows `SSID`, `ssid=`, `configKey=` or `SSID:`, quoted or
  *   not, becomes [MASK_NETWORK]. A name found that way is also hidden everywhere else in the same export (where a line says it without the
  *   keyword), and [extraNames] (the paired dash's own, which may not start with `RE_`) are hidden wherever they stand. A name of fewer than
@@ -33,7 +34,20 @@ object LogMask {
     // so an ordinary identifier that holds `RE_` (`MODE_RE_ABCD`, `PURE_REF`) stays. DASH has no edge at all: it is hidden glued to any text before or after.
     private val OTHER = Regex("""(?:(?<=%[0-9A-Fa-f]{2})|\b)RE_[A-Za-z0-9_]{4,}""")
     private val DASH = Regex("""RE_[A-Za-z0-9]{4}_\d{6}""")
-    private val MAC = Regex("""\b(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}\b""")
+    // A MAC has no edge, like the script's (53d3ad2, 25/11/2026; the `\b` here was left behind): glued to a letter or a digit it is hidden too. The hyphen form has a
+    // left edge, because a date and time holds six pairs split by hyphens (26/11/2026, review B4): it does not start right after a hex digit, and a run of SIX PAIRS OF DIGITS
+    // does not start right after a year (`2026-`) or a year and a month (`2026-11-`), where the date's own pairs begin. Only digits: a pair with a hex LETTER cannot be part of a
+    // date, so `2026-12-aa-bb-cc-dd-ee-ff` is hidden (review of 26/11/2026, S5; the edge used to be any two digits and a hyphen, which left it whole). A hex LETTER or a single
+    // digit before the hyphen (`bssid-`, `wlan0-`, `feed-`, `id-1a-`) is a word, and the MAC after it is hidden (review of 26/11/2026, C5). With no separator it is hidden only after
+    // its keyword, and only when it is exactly twelve digits (a longer run is a hash).
+    // One line on purpose: scripts/registro/mascarar.py holds the same pattern and the mutation catalog finds its pieces whole.
+    @Suppress("MaxLineLength")
+    private val MAC = Regex("""(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}|(?<![0-9A-Fa-f])(?<!^\d\d-)(?!(?:(?<=\d{4}-)|(?<=\d{4}-\d\d-))(?:\d\d-){5}\d\d)(?:[0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}""")
+    // A word that ends in two hex digits glued to a MAC (`mac-aa-bb-cc-dd-ee-ff`, `device-00-11-22-33-44-55`) makes [MAC] match one position early (the `ac` of `mac` is a pair)
+    // and leave the last pair out, which leaked. The pair that follows the MAC after the same kind of sign, whole, is hidden with it: it hides too much, never too little
+    // (review of the plan 34, A5, 26/11/2026). The date `2026-11-26-10-30-15-45` is left as it was: the left edge of the hyphen form refuses it before.
+    private val MAC_AND_ONE_MORE = Regex("(?:" + MAC.pattern + ")" + """(?:[:-][0-9A-Fa-f]{2}(?![0-9A-Fa-f]))?""")
+    private val BARE_MAC = Regex("""(?i)(?<![a-z])((?:bssid|mac(?:addr(?:ess)?)?|hwaddr)\s*[=:]\s*["']?)[0-9a-f]{12}(?![0-9a-f])""")
 
     // `SSID: "Name"`, `ssid="Name"`, `configKey="Name"WPA_PSK`, `SSID 'Name'`: the quoted name after the keyword.
     private val QUOTED = Regex("""(?i)\b(ssid|configKey)(\s*[=:]?\s*)(["'])([^"'\n]*)\3""")
@@ -63,7 +77,7 @@ object LogMask {
     fun mask(text: String, names: Collection<String> = emptySet()): String {
         var out = text
         if (out.contains("RE_")) out = DASH.replace(OTHER.replace(out, MASK), MASK)
-        if (out.contains(':')) out = MAC.replace(out, MASK_MAC)
+        out = hideMacs(out)
         if (hasKeyword(out)) {
             out = QUOTED.replace(out) { m ->
                 val name = m.groupValues[4]
@@ -78,6 +92,16 @@ object LogMask {
         }
         for (name in names.filter { it.length >= MINIMUM_NAME }.sortedByDescending { it.length }) {
             if (out.contains(name)) out = Regex("""(?<![\p{L}\p{N}_])${Regex.escape(name)}(?![\p{L}\p{N}_])""").replace(out, MASK_NETWORK)
+        }
+        return out
+    }
+
+    /** [text] with every MAC address replaced (see [MAC] and [BARE_MAC]). */
+    private fun hideMacs(text: String): String {
+        var out = text
+        if (out.contains(':') || out.contains('-')) out = MAC_AND_ONE_MORE.replace(out, MASK_MAC)
+        if (out.contains("mac", ignoreCase = true) || out.contains("bssid", ignoreCase = true) || out.contains("hwaddr", ignoreCase = true)) {
+            out = BARE_MAC.replace(out) { m -> m.groupValues[1] + MASK_MAC }
         }
         return out
     }

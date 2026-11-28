@@ -59,13 +59,6 @@ class VideoClockTest {
     }
 
     @Test
-    fun `the clock knob offers on time and three slower settings, 5 percent among them`() {
-        // The knob is an experiment, so it starts at "on time", and 5% — what the old loop did — is
-        // one of its choices.
-        assertEquals(listOf(0, 3, 5, 8), com.reau.app.dash.DashConfig.STREAM_CLOCK_SLOW_OPTIONS)
-    }
-
-    @Test
     fun `a value outside the knob's range is brought inside it`() {
         assertEquals(62.0, DashLogic.nextVideoPts(0.0, frameMs = 62, slowPercent = -5), 0.0)
         assertEquals(55.8, DashLogic.nextVideoPts(0.0, frameMs = 62, slowPercent = 40), 1e-9)

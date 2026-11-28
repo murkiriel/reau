@@ -17,7 +17,7 @@ A contribution is an idea, or code under the AGPL-3.0 or a license that combines
 the like), with its origin named: the project, the file, the commit and the license, in the pull request and in the
 header of the copied file. Never paste into an issue, a pull request, a test, a comment or a file:
 
-- anything from the official Royal Enfield app: decompiled or disassembled code, its images, icons, layouts, fonts, texts and
+- anything from the dash manufacturer's app: decompiled or disassembled code, its images, icons, layouts, fonts, texts and
   translations, its keys, certificates and tokens, its firmware or update files, or screenshots of it;
 - code, text or images from a project that has no license (no license means all rights reserved) or whose license does
   not combine with the AGPL-3.0 (for example a non-commercial license, or GPL-2.0-only);
@@ -45,6 +45,8 @@ emulator, as the README says; `scripts/emu/` has the scripts.
 The Python scripts have their own tests (`python3 -B -m unittest discover -p "test_*.py"` inside `scripts/`, `scripts/registro/`,
 `scripts/dev/`, `scripts/emu/`, `scripts/painel_falso/` and `bench/`; the last one needs Pillow, pinned in `scripts/requirements.txt`), and the
 continuous integration runs them too. It also checks their style: `ruff check .` at the root (rules in `ruff.toml`), `mypy --ignore-missing-imports *.py` inside each scripts folder and `shellcheck -S warning` on the `.sh` files; the versions of ruff and mypy are in `scripts/requirements-estilo.txt`.
+
+To watch the navigation reach the panel without leaving home, `scripts/emu/rota_falsa.py` is a fake GPS: it walks a route (a GPX file, or a JSON list `[[lat, lon], ...]`; there are two synthetic ones in `scripts/emu/rotas/`) and injects the position every second. On the emulator (the default): `python3 scripts/emu/rota_falsa.py scripts/emu/rotas/volta_central.gpx` (`--nmea` sends GPGGA and GPRMC instead of `geo fix`; `--serial` or `ANDROID_SERIAL` pick an emulator other than `emulator-5554`). On a phone, once per device, with the cable or wireless debugging: `adb shell appops set --uid 2000 MOCK_LOCATION allow`, and then `--alvo celular`; when it ends (or on Ctrl+C) the test provider is removed, and `--alvo celular --limpar` also puts the appop back to `default`. Google Maps must be navigating (destination chosen, "Start") for the REau to receive the route: the script only moves the position. Other options: `--kmh`, `--intervalo`, `--inicio` (metres or `p12`, a point of the route), `--repetir`, `--acelerar N` and `--seco`, which only prints the adb commands. Coordinates go only to stdout and to the adb command line, never to a file.
 
 The APK is audited too: `python3 -B scripts/apk_audit.py <apk>` compares the permissions, libraries, native libraries and URL hosts that an APK carries with `scripts/apk_audit_baseline.json`, and checks that a release APK has the release shape (not debuggable, no debug classes, only the listed components). The continuous integration builds the release (`-PreauDebugSigned=true`, since the repository has no signing key) and runs it; when something new is meant to enter the APK, look at what it is and accept it with `--gravar`.
 
@@ -171,11 +173,13 @@ clean tree, at the commit that the tag `v<version>` points to, and nothing chang
 - it builds with `./gradlew :app:assembleRelease`, runs `apksigner verify` (the v2 signature must verify, and the certificate's SHA-256 must be `63f5c3ba687699b0b4288a878bd8372bed2c9632222d7f673ea71073aa208970`, the one every Release has had, which `ApkAttestationTest` and the install page also hold) and `scripts/apk_audit.py` (nothing new against the baseline);
 - it copies the APK as `REau-0.3.1.apk`, with a `SHA256SUMS`, to `build/release-0.3.1/` (`--saida` changes the folder);
 - with `--publicar` it creates the Release on GitHub as a DRAFT (`gh release create v0.3.1 --draft --verify-tag`), with those two files; without it, it only prints the command it would run, and `--so-conferir --apk FILE` only runs the checks on an APK that is already built.
+- `--ensaio` (or `--dry-run`) walks the whole path with no side effect, so it can be run before tagging: the checks and the build run for real (the build with the debug key, `-PreauDebugSigned=true`, never the release key, so the APK's certificate is not the project's), and what would change the repository, the output folder or GitHub is only printed as `[ensaio] faria: <command>`. A check that fails becomes a pending item listed at the end (the exit is 1) instead of stopping the script, and it ends with `Ensaio terminado: nada foi publicado.` (or `Ensaio interrompido: nada foi publicado.` when a step such as the build breaks)
 
 What stays with the maintainer, since the script publishes nothing and pushes nothing:
 
 - read the draft on GitHub (title, text and the two files) and publish it;
 - download what was published (`gh release download v0.3.1`) and check it: `sha256sum -c SHA256SUMS`, and the certificate with `apksigner verify --print-certs`;
+- the build is reproducible, and the CI proves it on every push: the job "Auditoria dos APKs" builds the release twice, the second time from scratch in another copy of the commit, and `scripts/apk_compare.py` fails if the two differ in anything but the signature (it is signed with a random salt, so it changes at every build). To check that a published APK comes from the public code, check out the tag (a clone with its `.git`: the build writes the commit, 12 characters, in the log header, and with no `.git` it writes `?` and the bytes differ), build it with JDK 21 (`./gradlew :app:assembleRelease -PreauDebugSigned=true`) and run `python3 scripts/apk_compare.py REau-0.3.1.apk app/build/outputs/apk/release/app-release.apk`: the two SHA-256 it prints (of each APK without its signature) must be the same;
 - move `main` forward to the tag (`git merge --ff-only v0.3.1`) and push it, so the default branch shows the code that was released.
 
 ## What not to change without a test on the bike

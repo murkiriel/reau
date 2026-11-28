@@ -5,6 +5,7 @@ import com.reau.app.aa.AaVideo
 import com.reau.app.dash.BitrateMode
 import com.reau.app.dash.DashConfig
 import com.reau.app.dash.NavProfileMode
+import com.reau.app.dash.video.VideoEncoder
 import com.reau.app.video.AaMargins
 import com.reau.app.video.ButtonOverlay
 import com.reau.app.video.FrameFit
@@ -105,6 +106,25 @@ data class REauSettings(
      * one of [NO_DASH_STOP_MINUTES]; 0 is never. 20 by default. Read when a retry comes due, so a change counts from the next one.
      */
     val noDashStopMinutes: Int = DEFAULT_NO_DASH_STOP_MINUTES,
+    /**
+     * If the phone's system ends REau's process in the middle of a ride (a maker's battery manager) and starts the projection's service again, the projection
+     * comes back by itself, as if the rider had tapped Ligar ([com.reau.app.service.ProjectionResume]: at most 3 times in 30 minutes, and never after
+     * the rider's Desligar). It cannot come back from a force stop, which no app survives. On by default; read when the system restarts the service,
+     * so a change counts from the next kill.
+     */
+    val resumeAfterKill: Boolean = true,
+    /**
+     * REau leaves at least 2 ms between any two UDP packets to the dash, the video's RTP and the commands together ([com.reau.app.dash.SendPacer]; the owner's decision of
+     * 25/11/2026: the dash of some riders restarts a minute after the transmission starts, and the apps that stay up space their sends the same way). On by default; off, the packets
+     * leave back to back as before. Read when the session opens its sockets ([com.reau.app.service.LiveSides]), so a change counts from the next projection.
+     */
+    val pacePackets: Boolean = true,
+    /**
+     * The experimental test of the video's encoder (the owner's decision of 26/11/2026): [VideoEncoder.PHONE], the encoder the phone's own list puts first (the hardware one, as
+     * always), or [VideoEncoder.SOFTWARE], the one Android ships, which should keep constant bitrate and tends to make smaller keyframes (the test will show); the phone's own when it lists none.
+     * The phone's own by default. Read when the video opens, so a change counts from the next stream, never live.
+     */
+    val videoEncoder: VideoEncoder = VideoEncoder.PHONE,
     /**
      * The joystick answers and ends calls; on by default, but it does nothing until the phone permissions are given (they are asked
      * on the permissions page, or when the rider switches it on again after turning it off).

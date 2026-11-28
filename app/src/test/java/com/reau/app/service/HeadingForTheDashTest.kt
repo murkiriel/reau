@@ -15,7 +15,7 @@ class HeadingForTheDashTest {
 
     private fun listening() {
         watcher.want(true, { true }) { { } }
-        watcher.satellitesSeen(7, 19)
+        watcher.satellitesSeen(7)
     }
 
     private fun heading() = PhoneStatusReader.headingOf(watcher.read())
@@ -54,10 +54,10 @@ class HeadingForTheDashTest {
         listening()
         watcher.fixSeen(5f, 90f, 12f)
         now += 10_000L
-        watcher.satellitesSeen(7, 19)
+        watcher.satellitesSeen(7)
         assertEquals(90, heading())
         now += 1L
-        watcher.satellitesSeen(7, 19)
+        watcher.satellitesSeen(7)
         assertEquals(DashCommands.BEARING_NONE, heading())
     }
 
@@ -85,6 +85,6 @@ class HeadingForTheDashTest {
 
     @Test
     fun `the reading of the GPS is what the rule reads`() {
-        assertEquals(45, PhoneStatusReader.headingOf(GpsReading(5, 10, 8f, 45f, 2f)))
+        assertEquals(45, PhoneStatusReader.headingOf(GpsReading(5, 8f, 45f, 2f)))
     }
 }

@@ -153,7 +153,9 @@ object RideDiagnostics {
                 sessionStartMs = System.currentTimeMillis()
                 // Which APK wrote the log: name, code and the commit it was built from.
                 val app = "app ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}, ${BuildConfig.GIT_COMMIT})"
-                val device = "${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
+                // The maker's system version too (26/11/2026): "Android 16" alone cannot tell the maker's layers or their versions apart.
+                val device = "${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), " +
+                    SystemBuild.line(Build.DISPLAY, Build.VERSION.INCREMENTAL)
                 raw("==== process start: $reason — $app, $device ====")
                 noteSpace()
                 flushPending()

@@ -88,7 +88,7 @@ class LegibilityScreensTest {
     @Test
     fun ligarIsInSightWithThreeWarningsOnASmallPhoneAtAnyFontScaleAndTheme() {
         val state = serverOffWithThreeWarnings
-        assertEquals(3, MainLook.warnings(state.projection, state.battery, state.vpnHoldsREau, false, false).size)
+        assertEquals(3, MainLook.warnings(state.projection, state.battery, state.vpnHoldsREau, false).size)
         show { MainScreen(state, {}, {}, {}, clock = { 61_000L }) }
         eachWay { way ->
             val button = compose.onNodeWithTag("toggle")

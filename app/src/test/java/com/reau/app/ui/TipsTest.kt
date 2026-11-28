@@ -64,7 +64,7 @@ class TipsTest {
 
     @Test
     fun `the third tip is the one about the video not going past 6 fps, right after the Gemini one`() {
-        assertEquals(listOf("waze_zoom", "gemini_swap", "video_fps"), Tips.ALL.map { it.tag })
+        assertEquals(listOf("waze_zoom", "gemini_swap", "video_fps"), Tips.ALL.map { it.tag }.take(3))
         val tip = Tips.ALL[2]
         assertEquals(R.string.tip_video_fps_title, tip.title)
         assertEquals(R.string.tip_video_fps_text, tip.text)
@@ -128,6 +128,35 @@ class TipsTest {
                 val body = text(folder, name)!!
                 assertFalse("$folder/$name: $body", firmware.containsMatchIn(body))
             }
+        }
+    }
+
+    @Test
+    fun `the destination tip is the fourth and tells in four languages that Android Auto blocks typing and to use Google Maps on the phone`() {
+        assertEquals(listOf("waze_zoom", "gemini_swap", "video_fps", "destination"), Tips.ALL.map { it.tag })
+        val tip = Tips.ALL[3]
+        assertEquals(R.string.tip_destination_title, tip.title)
+        assertEquals(R.string.tip_destination_text, tip.text)
+        assertTrue("after the video one", screen.indexOf("Tip(\"video_fps\"") in 0 until screen.indexOf("Tip(\"destination\""))
+        assertEquals("Escolha o destino pelo celular", text("values-pt", "tip_destination_title"))
+        // What a rider told on 26/11/2026: tapping search did nothing, and the destination set in Google Maps on the phone worked.
+        val key = mapOf("values" to "does not let you type", "values-pt" to "não deixa digitar", "values-es" to "no deja escribir", "values-hi" to "टाइप करने नहीं देता")
+        for ((folder, phrase) in key) {
+            val body = text(folder, "tip_destination_text")!!
+            assertTrue("$folder: $body", body.contains(phrase) && body.contains("Google Maps") && body.contains("Android Auto"))
+            assertTrue("$folder: a title", !text(folder, "tip_destination_title").isNullOrBlank())
+        }
+    }
+
+    @Test
+    fun `the questions page of each language answers the search that does nothing, right after the one about the destination in Waze`() {
+        val docs = File("../docs").takeIf { it.isDirectory } ?: File("docs")
+        val phrase = mapOf("en" to "does not let you type", "pt" to "não deixa digitar", "es" to "no deja escribir")
+        for ((language, said) in phrase) {
+            val page = File(docs, "$language/faq.html").readText()
+            val answer = page.substringAfter("id=\"s6-q11\"").substringBefore("</article>")
+            assertTrue("$language: the question is there", page.contains("id=\"s6-q11\"") && answer.contains(said) && answer.contains("Google Maps"))
+            assertTrue("$language: after the Waze one", page.indexOf("id=\"s6-q3\"") in 0 until page.indexOf("id=\"s6-q11\""))
         }
     }
 

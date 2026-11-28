@@ -68,8 +68,9 @@ class SystemWifiTest(unittest.TestCase):
             names = sorted(p.name for p in (out / "sistema").glob("*"))
             self.assertEqual([
                 "appops-reau.mascarado.txt", "appops-reau.txt", "dumpsys-connectivity.mascarado.txt", "dumpsys-connectivity.txt",
-                "dumpsys-wifi.mascarado.txt", "dumpsys-wifi.txt", "location-reau.mascarado.txt", "location-reau.txt",
-                "logcat-tamanho-dos-buffers.txt", "wifi-linhas.mascarado.txt", "wifi-linhas.txt",
+                "dumpsys-meminfo.txt", "dumpsys-wifi.mascarado.txt", "dumpsys-wifi.txt", "exit-info-gearhead.txt", "exit-info-reau.txt",
+                "location-reau.mascarado.txt", "location-reau.txt", "logcat-events.mascarado.txt", "logcat-events.txt",
+                "logcat-kernel.mascarado.txt", "logcat-kernel.txt", "logcat-tamanho-dos-buffers.txt", "wifi-linhas.mascarado.txt", "wifi-linhas.txt",
             ], names)
             commands = log.read_text(encoding="utf-8").splitlines()
             self.assertIn("-s ABC123 shell dumpsys wifi", commands)
@@ -132,6 +133,56 @@ class LocationAccessTest(unittest.TestCase):
                 self.assertNotIn("appops reset", line)
 
 
+class MemoryAndDeathsTest(unittest.TestCase):
+    """Plan 35, step A (25/11/2026): what the system says of the memory and of the deaths of the REau's process (the events and kernel buffers of the logcat,
+    `dumpsys meminfo`, `dumpsys activity exit-info` of the REau and of Android Auto) is collected by adb, read only, in sistema/."""
+
+    def test_the_events_and_kernel_buffers_the_memory_and_the_exit_info_of_both_apps_are_asked_and_kept_in_sistema(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            log = fake_adb(tmp, ["ABC123"])
+            out = tmp / "saida"
+            env = {**os.environ, "ADB": str(tmp / "adb"), "REAU_SAIDA": str(out)}
+            done = subprocess.run(["bash", str(SCRIPT), "ABC123"], env=env, capture_output=True, text=True)
+            self.assertEqual(0, done.returncode, done.stderr)
+            commands = log.read_text(encoding="utf-8").splitlines()
+            for asked in ("logcat -b events -d -v threadtime", "logcat -b kernel -d -v threadtime", "shell dumpsys meminfo",
+                          "shell dumpsys activity exit-info com.reau.app", "shell dumpsys activity exit-info com.google.android.projection.gearhead"):
+                self.assertIn(f"-s ABC123 {asked}", commands)
+            for name in ("logcat-events", "logcat-kernel", "dumpsys-meminfo", "exit-info-reau", "exit-info-gearhead"):
+                self.assertEqual("fake", (out / "sistema" / f"{name}.txt").read_text(encoding="utf-8").strip(), name)
+            # the kernel and the events may carry the Wi-Fi name and the MAC: masked copies; the memory and the exit history speak only of processes
+            self.assertTrue((out / "sistema" / "logcat-kernel.mascarado.txt").exists())
+            self.assertTrue((out / "sistema" / "logcat-events.mascarado.txt").exists())
+            self.assertFalse((out / "sistema" / "dumpsys-meminfo.mascarado.txt").exists())
+            self.assertFalse((out / "sistema" / "exit-info-reau.mascarado.txt").exists())
+
+    def test_the_dash_name_and_the_mac_of_the_kernel_log_are_masked_in_the_copy_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            fake_adb(tmp, ["ABC123"])
+            adb = tmp / "adb"
+            # a fake that answers the kernel buffer with a line carrying a synthetic dash name and a synthetic MAC (put together here: a whole one
+            # written in a versioned file trips PrivacyGuardTest)
+            mac = ":".join(["aa", "bb", "cc", "dd", "ee", "ff"])
+            body = adb.read_text(encoding="utf-8").replace(
+                "echo fake", f'case "$*" in *"-b kernel"*) echo "wlan0: connected to RE_AB12_345678 {mac}"; exit 0;; esac\necho fake', 1)
+            adb.write_text(body, encoding="utf-8")
+            out = tmp / "saida"
+            env = {**os.environ, "ADB": str(adb), "REAU_SAIDA": str(out)}
+            done = subprocess.run(["bash", str(SCRIPT), "ABC123"], env=env, capture_output=True, text=True)
+            self.assertEqual(0, done.returncode, done.stderr)
+            original = (out / "sistema" / "logcat-kernel.txt").read_text(encoding="utf-8")
+            masked = (out / "sistema" / "logcat-kernel.mascarado.txt").read_text(encoding="utf-8")
+            self.assertIn("RE_AB12_345678", original)
+            self.assertNotIn("RE_AB12_345678", masked)
+            self.assertNotIn(mac, masked)
+
+    def test_the_script_never_changes_the_size_of_the_logcat_buffers(self):
+        code = [l for l in SCRIPT.read_text(encoding="utf-8").splitlines() if not l.lstrip().startswith("#")]
+        self.assertFalse([l for l in code if " -G " in f" {l} " or "logcat -c" in l], code)
+
+
 class ReadOnlyTest(unittest.TestCase):
     def test_every_command_sent_to_the_phone_is_a_read(self):
         done, commands, files = run(["ABC123"])
@@ -150,9 +201,10 @@ class ReadOnlyTest(unittest.TestCase):
         for command in commands:
             rest = command.removeprefix("-s ABC123 ")
             if rest.startswith("shell dumpsys"):
-                self.assertRegex(rest, r"^shell dumpsys (package \S+|deviceidle whitelist|power|battery|wifi|connectivity|location|activity processes)$", command)
+                self.assertRegex(rest, r"^shell dumpsys (package \S+|deviceidle whitelist|power|battery|wifi|connectivity|location|meminfo|activity processes"
+                                       r"|activity exit-info \S+)$", command)
             if rest.startswith("logcat"):
-                self.assertRegex(rest, r"^logcat (-b (all|crash) -d -v threadtime|-b (main|system|crash) -d -v threadtime -m 3|-g)$", command)
+                self.assertRegex(rest, r"^logcat (-b (all|crash|events|kernel) -d -v threadtime|-b (main|system|crash) -d -v threadtime -m 3|-g)$", command)
 
     def test_a_folder_that_is_missing_does_not_stop_the_others_and_the_warning_names_the_recordings(self):
         done, _, _ = run(["ABC123"])

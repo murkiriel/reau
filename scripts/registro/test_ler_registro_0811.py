@@ -55,7 +55,7 @@ def sem_registro(problemas):
 
 
 class QuemUniuOPainel(unittest.TestCase):
-    """O `NOMINATOR_SPECIFIER` é de qualquer app: de quem é a união vem do `uid` (08/11: o app antigo, o app oficial da Royal Enfield e o sistema, não o REau)."""
+    """O `NOMINATOR_SPECIFIER` é de qualquer app: de quem é a união vem do `uid` (08/11: o app antigo, o app da fabricante e o sistema, não o REau)."""
 
     def test_so_a_uniao_do_uid_do_reau_e_problema_a_dos_outros_apps_e_do_sistema_e_aviso(self):
         raiz = coleta(dumpsys(

@@ -690,7 +690,7 @@ class InfoRingTest {
     fun `the phone has no card until it says something, and then the battery, the link and the GPS come in that order`() {
         assertTrue(phonePages(PhoneReadings()).isEmpty())
         val all = phonePages(
-            PhoneReadings(BatteryDetail(80, false, false), LinkReading(LinkKind.WIFI), GpsReading(9, 20, 4f, 90f, 10f)),
+            PhoneReadings(BatteryDetail(80, false, false), LinkReading(LinkKind.WIFI), GpsReading(9, 4f, 90f, 10f)),
         )
         assertEquals(listOf(RingKind.BATTERY, RingKind.LINK, RingKind.GPS), kinds(all))
         assertEquals(listOf(RingIcon.BATTERY, RingIcon.LINK, RingIcon.GPS), all.map { it.icon })
@@ -746,7 +746,7 @@ class InfoRingTest {
 
     @Test
     fun `the GPS signal in bars follows the error of the fix, and none with no satellite in it`() {
-        fun bars(error: Float?, used: Int = 8) = InfoRing.gpsBars(GpsReading(used, 20, error, null, null))
+        fun bars(error: Float?, used: Int = 8) = InfoRing.gpsBars(GpsReading(used, error, null, null))
         assertEquals(4, bars(3f))
         assertEquals(4, bars(5f))
         assertEquals(3, bars(5.1f))
@@ -761,7 +761,7 @@ class InfoRingTest {
 
     @Test
     fun `the heading counts only while the phone moves, whole degrees from 0 to 359`() {
-        fun bearing(deg: Float?, speed: Float?) = InfoRing.gpsBearing(GpsReading(8, 20, 5f, deg, speed))
+        fun bearing(deg: Float?, speed: Float?) = InfoRing.gpsBearing(GpsReading(8, 5f, deg, speed))
         assertEquals(null, bearing(90f, 0.99f))
         assertEquals(90, bearing(90f, 1.0f))
         assertEquals(null, bearing(null, 10f))
@@ -775,14 +775,14 @@ class InfoRingTest {
 
     @Test
     fun `the GPS card says the point of the compass and the satellites, a dash while standing still, and no GPS with no fix`() {
-        val moving = gps(GpsReading(12, 24, 4f, 45f, 8f))
+        val moving = gps(GpsReading(12, 4f, 45f, 8f))
         assertEquals("NE 12 sat", line(moving))
         assertEquals(listOf(true, false), moving.line.map { it.big })
         assertEquals(GpsDetail(4, 12, 45, 4), moving.detail)
         assertEquals(listOf(4, RingTone.NONE), listOf(moving.level, moving.tone))
-        assertEquals("— 9 sat", line(gps(GpsReading(9, 20, 6f, 90f, 0.2f))))
-        assertEquals("O 7 sat", line(gps(GpsReading(7, 20, 10f, 270f, 5f))))
-        val none = gps(GpsReading(0, 5, null, null, null))
+        assertEquals("— 9 sat", line(gps(GpsReading(9, 6f, 90f, 0.2f))))
+        assertEquals("O 7 sat", line(gps(GpsReading(7, 10f, 270f, 5f))))
+        val none = gps(GpsReading(0, null, null, null))
         assertEquals("sem GPS", line(none))
         assertEquals(listOf(3, RingTone.ATTENTION), listOf(none.level, none.tone))
     }
@@ -791,7 +791,7 @@ class InfoRingTest {
     fun `the phone's cards join the weather's, the urgent ones first`() {
         val p = InfoRing.pages(
             forecast(), null, now, true, WeatherUnits(), words,
-            PhoneReadings(BatteryDetail(8, false, false), LinkReading(LinkKind.OFFLINE), GpsReading(9, 20, 4f, 10f, 9f)),
+            PhoneReadings(BatteryDetail(8, false, false), LinkReading(LinkKind.OFFLINE), GpsReading(9, 4f, 10f, 9f)),
         )
         assertEquals(RingKind.BATTERY, p.first().kind)
         assertEquals(1, p.first().level)

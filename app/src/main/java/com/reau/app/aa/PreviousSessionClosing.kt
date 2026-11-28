@@ -35,9 +35,9 @@ object PreviousSessionClosing {
     /**
      * Whether Android Auto may still be closing a session REau did not see end, counted from [maybeSinceMs]: the start of
      * the first receiver of this process that has had no handshake answered since (see [AaRestartGap.maybeClosingSinceMs]).
-     * Another app can end a session on the same server just before REau starts: the other edition of REau, which shares the
-     * port, was turned off a moment before this one was turned on (seen 18/10: the full edition came up a second after the
-     * Lite's Desligar and had three mute rounds with no stop of its own to count from). Not an answer, only a doubt: it
+     * Another app can end a session on the same server just before REau starts: a REau that was
+     * turned off a moment before this one was turned on (seen 18/10, with the two editions of that time: one came up a second after the
+     * other's Desligar and had three mute rounds with no stop of its own to count from). Not an answer, only a doubt: it
      * ends after [WINDOW_MS] like the other, so a server that stays mute is still called stuck, and it is not renewed by
      * a receiver that starts inside the same mute stretch.
      */

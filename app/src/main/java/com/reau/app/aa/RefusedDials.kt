@@ -24,7 +24,7 @@ internal class RefusedDials(private val callIn: Boolean) {
 
     /**
      * The line to log while the dials keep finding nothing, at most once every [SAY_EVERY_MS] (null: nothing to say yet). Until 25/10/2026 the
-     * log said the first refusal and then nothing until a connection came: two Lite runs of that day ended with the rider turning it off
+     * log said the first refusal and then nothing until a connection came: two runs of that day ended with the rider turning it off
      * after 8 to 10 s of silence, and the log could not say whether the dials went on.
      */
     fun progress(nowMs: Long): String? {
