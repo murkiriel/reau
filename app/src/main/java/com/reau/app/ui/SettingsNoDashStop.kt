@@ -21,3 +21,11 @@ internal fun NoDashStop(s: REauSettings, change: (REauSettings) -> Unit) {
         now = true, info = Info(stringResource(R.string.no_dash_stop_title), stringResource(R.string.no_dash_stop_info)), tag = "no_dash_stop",
     )
 }
+
+/** 2 ms between any two packets to the dash (video and commands); on by default, read when the sockets open, so it counts from the next projection (no "now" chip). */
+@Composable
+internal fun PacePackets(s: REauSettings, change: (REauSettings) -> Unit) {
+    SettingSwitch(R.string.pace_packets_title, R.string.pace_packets_sub, R.string.pace_packets, s.pacePackets, "pace_packets") {
+        change(s.copy(pacePackets = it))
+    }
+}

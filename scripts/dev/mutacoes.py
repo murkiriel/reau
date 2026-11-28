@@ -5548,6 +5548,42 @@ MUTATIONS += [
      "        routeHold.inactive(MonotonicClock.nowMs()) // no guidance any more", "        // no guidance any more", ["DashSessionExitNavigationTest"]),
 ]
 
+# O espaçamento de 2 ms entre pacotes ao painel, vindo da 0.4.0 (plano 35 S) para a série de pilotos 0.3.100, ao lado da caixa-preta: a anotação da caixa-preta segue o envio de verdade.
+MUTATIONS += [
+    ("plano35/S Espaçador de pacotes: o intervalo entre dois pacotes ao painel vira zero", MAIN + "dash/SendPacer.kt",
+     "const val GAP_NS = 2_000_000L", "const val GAP_NS = 0L", ["SendPacerTest", "DashSocketPacingTest"]),
+    ("plano35/S Espaçador de pacotes: o vídeo (RTP) sai sem passar pelo espaçador", MAIN + "dash/DashSocket.kt",
+     "            pacer.pace()\n            val box = stats?.blackBox\n", "            val box = stats?.blackBox\n", ["DashSocketPacingTest"]),
+    ("plano35/S Espaçador de pacotes: os comandos saem sem passar pelo espaçador", MAIN + "dash/DashSocket.kt",
+     "            pacer.pace()\n            txSocket.send(", "            txSocket.send(", ["DashSocketPacingTest"]),
+    ("plano35/S Espaçador de pacotes: o ajuste do piloto não chega ao socket (sempre ligado)", MAIN + "service/LiveSides.kt",
+     "dashSocket = { DashSocket(it, pacePackets = pace()) },", "dashSocket = { DashSocket(it) },", ["DashSocketPacingTest", "ExperimentsGoneTest"]),
+    ("plano35/S Espaçador de pacotes: o ajuste lido do disco é ignorado", MAIN + "settings/SettingsStore.kt",
+     "pacePackets = prefs.getBoolean(KEY_PACE_PACKETS, defaults.pacePackets),", "pacePackets = defaults.pacePackets,", ["PacePacketsSettingTest"]),
+    ("plano35/S Espaçador de pacotes: o padrão do ajuste vira desligado", MAIN + "settings/REauSettings.kt",
+     "val pacePackets: Boolean = true,", "val pacePackets: Boolean = false,", ["PacePacketsSettingTest", "SettingsInUseTest"]),
+    ("plano35/S Espaçador de pacotes: o espaçador espera o intervalo inteiro mesmo depois de uma pausa", MAIN + "dash/SendPacer.kt",
+     "val slot = if (last == NONE) nowNs else maxOf(nowNs, last + gapNs)", "val slot = if (last == NONE) nowNs else last + gapNs", ["SendPacerTest"]),
+    ("plano35/S Espaçador de pacotes: a estatística não recebe o espaçador (a linha não diz pace)", MAIN + "dash/DashSession.kt",
+     "                stats.pacer = sock.pacer\n", "", ["DashSocketPacingTest"]),
+    ("plano35/S Espaçamento: o comando espera a sua vaga depois de sair", MAIN + "dash/DashSocket.kt",
+     "            pacer.pace()\n            txSocket.send(DatagramPacket(pkt, pkt.size, ctrlDest.address, ctrlDest.port))\n",
+     "            txSocket.send(DatagramPacket(pkt, pkt.size, ctrlDest.address, ctrlDest.port))\n            pacer.pace()\n", ["DashSocketPacingTest"]),
+    ("plano35/S Espaçamento: o vídeo espera a sua vaga depois de sair", MAIN + "dash/DashSocket.kt",
+     "            pacer.pace()\n            val box = stats?.blackBox\n            val startUs = box?.nowUs() ?: 0L\n            rtpSocket.send(DatagramPacket(data, data.size, rtpDest.address, rtpDest.port))\n",
+     "            val box = stats?.blackBox\n            val startUs = box?.nowUs() ?: 0L\n            rtpSocket.send(DatagramPacket(data, data.size, rtpDest.address, rtpDest.port))\n            pacer.pace()\n", ["DashSocketPacingTest"]),
+    ("plano35/S Espaçamento: o comando espera a sua vaga dentro da trava do canal", MAIN + "dash/DashSocket.kt",
+     "            pacer.pace()\n            txSocket.send(DatagramPacket(pkt, pkt.size, ctrlDest.address, ctrlDest.port))\n",
+     "            synchronized(txLock) { pacer.pace() }\n            txSocket.send(DatagramPacket(pkt, pkt.size, ctrlDest.address, ctrlDest.port))\n", ["DashSocketPacingTest"]),
+    ("plano35/S Caixa-preta e espaçamento: o relógio da caixa-preta é lido antes da espera do vídeo (a espera conta como duração do envio)", MAIN + "dash/DashSocket.kt",
+     "            pacer.pace()\n            val box = stats?.blackBox\n            val startUs = box?.nowUs() ?: 0L\n",
+     "            val box = stats?.blackBox\n            val startUs = box?.nowUs() ?: 0L\n            pacer.pace()\n", ["DashSocketPacingTest"]),
+    ("plano35/S Espaçamento: o título do ajuste em inglês perde o (experimental)", "app/src/main/res/values/strings.xml",
+     "Space out the packets to the dash (experimental)</string>", "Space out the packets to the dash</string>", ["ExperimentalMarkTest", "PacePacketsSettingTest"]),
+    ("plano35/S Espaçamento: o texto longo em espanhol perde a frase de que é uma prueba", "app/src/main/res/values-es/strings.xml",
+     "Viene activado, pero es una prueba y puede salir en una próxima versión.</string>", "Viene activado.</string>", ["ExperimentalMarkTest"]),
+]
+
 
 def command_for(classes):
     """The command that runs a mutation's tests: Python test files (`test_*.py`) with unittest, JVM unit test classes with Gradle. A bare name (`test_apk_audit.py`) is found

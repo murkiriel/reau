@@ -164,8 +164,10 @@ internal class LiveSides(
                 // Gemini (behind its switch): the voice from the headset or the phone.
                 val voice: (() -> VoiceSource)? = { PhoneVoice(context) { RideDiagnostics.log("aa", it) } }
                     .takeIf { settings.gemini }
+                // The switch "Espaçar os pacotes" read each time the session opens its sockets (25/11/2026), not once for the projection: the retries of a ride follow it.
+                val pace = { runCatching { SettingsStore.open(context).load().pacePackets }.getOrDefault(true) }
                 return Setup(
-                    dashSocket = { DashSocket(it) },
+                    dashSocket = { DashSocket(it, pacePackets = pace()) },
                     aaConfig = settings.aaConfig,
                     aaOptions = AaReceiver.Options(
                         // Android Auto 17.3 or older: it dials in, asked by a broadcast. With a newer one the receiver dials the

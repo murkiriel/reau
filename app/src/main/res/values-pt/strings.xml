@@ -287,6 +287,9 @@
     <string name="no_dash_stop_info">Quando o Wi-Fi do painel some e não volta (a moto foi desligada), o REau continua pedindo por ele, com o Android Auto, o vídeo e as travas do celular ligados, até você tocar em Desligar. Com isto ligado, a projeção se desliga sozinha depois do tempo escolhido sem o painel, como o botão Desligar faria, e uma notificação diz o motivo. A contagem recomeça sempre que o painel volta; \"Sem limite\" mantém o jeito antigo.</string>
     <string name="no_dash_stop_minutes">%1$d min</string>
     <string name="no_dash_stop_never">Sem limite</string>
+    <string name="pace_packets_title">Espaçar os pacotes para o painel (experimental)</string>
+    <string name="pace_packets_sub">Pelo menos 2 ms entre dois pacotes quaisquer, vídeo e comandos</string>
+    <string name="pace_packets">O REau deixa pelo menos 2 ms entre dois pacotes quaisquer que manda ao painel, os do vídeo e os dos comandos juntos, em vez de uma rajada colada; alguns painéis reiniciam um minuto depois de a transmissão começar, e os apps que ficam estáveis espaçam os pacotes do mesmo jeito. Isso soma alguns milissegundos a um quadro-chave e à resposta a um botão, e vale a partir da próxima projeção. Vem ligado, mas é um teste e pode sair numa próxima versão.</string>
     <string name="action_view_logs">Ver o registro</string>
     <string name="log_viewer_title">Registro</string>
     <string name="log_viewer_none">Ainda não há registros.</string>

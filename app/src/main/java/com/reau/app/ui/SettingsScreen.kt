@@ -241,6 +241,8 @@ private fun OnDashGroup(s: REauSettings, change: (REauSettings) -> Unit) {
         // The side of the road, for the arrows Android Auto gives no direction or side to (a roundabout without one, a U-turn): automatic or chosen.
         { DrivingSideChoice(s, change) },
         { NoDashStop(s, change) },
+        // 2 ms between any two packets to the dash (video and commands); read when the session opens its sockets, so it counts from the next projection.
+        { PacePackets(s, change) },
         // The notices said in the headset: off by default; read at each phrase, so it counts at once.
         {
             SettingSwitch(R.string.spoken_alerts_title, R.string.spoken_alerts_sub, R.string.spoken_alerts, s.spokenAlerts, "spoken_alerts", now = true) {

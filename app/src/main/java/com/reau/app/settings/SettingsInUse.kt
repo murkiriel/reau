@@ -16,7 +16,7 @@ object SettingsInUse {
         "videoPace", "fpsCeiling", "streamBitrateBps", "bitrateMode", "keyframeSec", "clockSlowPercent",
         "recordVideo", "recordSessions", "cardImage", "mapTheme", "drivingSideMode",
         "maneuverData", "maneuverFpsProfile", "speedFpsProfile", "navProfileMode",
-        "autoJoinWifi", "detailedLog", "rideLog", "useLocation", "logKeepDays", "noDashStopMinutes",
+        "autoJoinWifi", "detailedLog", "rideLog", "useLocation", "logKeepDays", "noDashStopMinutes", "pacePackets",
         "answerCalls", "phoneTouch", "dashMusic", "dashCaller", "gemini",
         "actionEcho", "joystickLegend", "volumeCard", "callCard", "aaNewProtocol", "clearAaFocus", "dashMask", "spokenAlerts",
         "statsOverlay", "buttonOverlay", "fpsTestCard", "fpsTestCardFps",
