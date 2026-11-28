@@ -7,18 +7,23 @@ plugins {
     jacoco
 }
 
-// Semantic version 0.y.z: versionName is "0.3.99" on a release build and "0.3.99-dev+yy.MM.dd-HH.mm" on a debug build, whose
+// Semantic version 0.y.z: versionName is "0.3.100" on a release build and "0.3.100-dev+yy.MM.dd-HH.mm" on a debug build, whose
 // timestamp tells one debug build from another.
 //
 // versionCode of a RELEASE is fixed in this file, so that two builds of one commit give the same APK (it used to be the minutes of the
 // clock). The scheme: 30_000_000 + major * 1_000_000 + minor * 10_000 + patch * 100, which leaves 99 numbers for a rebuild of the same
 // version, and 99 as the limit of minor and patch. The base 30_000_000 is above 29_887_215, the highest versionCode ever published (0.2.0,
 // when it was the minutes), because Android only installs over an app whose versionCode is lower; so 0.3.0 is 30_030_000, 0.3.1 is
-// 30_030_100, 0.4.0 is 30_040_000, 1.0.0 is 31_000_000. The test builds for pilots on top of 0.3.1 are 0.3.90, 0.3.91, ... (30_039_000, 30_039_100, ...), the 0.3.99 being the current one: above 0.3.1 and below 0.4.0. Changing the version means changing the two lines below together:
+// 30_030_100, 0.4.0 is 30_040_000, 1.0.0 is 31_000_000. The test builds for pilots on top of 0.3.1 are 0.3.90, 0.3.91, ... (30_039_000, 30_039_100, ...), up to 0.3.99
+// (30_039_900): above 0.3.1 and below 0.4.0. Changing the version means changing the two lines below together.
+//
+// The ONE exception to the formula, for the pilots' series only: after 0.3.99 comes 0.3.100, which the formula would give 30_040_000, the code of 0.4.0, and 0.4.0 has to install
+// over every pilot build (Android only installs over a LOWER code). So the pilots' names 0.3.100 to 0.3.108 take the "99 numbers for a rebuild" above 0.3.99, ten at a time:
+// 30_039_900 + (patch - 99) * 10, that is 0.3.100 is 30_039_910, 0.3.101 is 30_039_920, ... 0.3.108 is 30_039_990, always below 30_040_000. No other name leaves the formula.
 // VersionCodeSchemeTest checks that they agree, that the number grows and that it stays above the published ones.
 // versionCode of a DEBUG build is still the minutes since the Unix epoch, so each debug build installs over the previous one.
-val appVersionName = "0.3.99"
-val releaseVersionCode = 30_039_900
+val appVersionName = "0.3.100"
+val releaseVersionCode = 30_039_910
 val buildTimestamp: String = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yy.MM.dd-HH.mm"))
 val debugVersionCode = (System.currentTimeMillis() / 60_000L).toInt()
 // The commit the APK was built from, for the ride log header; "?" outside a git checkout.

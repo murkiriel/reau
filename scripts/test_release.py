@@ -248,6 +248,23 @@ class ReleaseRunTest(ReleaseCase):
         for secret in SECRETS.values():
             self.assertNotIn(secret, done.stdout + done.stderr)
 
+    def test_a_pilot_version_with_a_three_digit_patch_is_released_like_any_other(self):
+        # 0.3.100 (versionCode 30_039_910, the pilots' exception to the formula): the name has three digits in the patch, the section and the tag are found by it whole,
+        # and the 0.3.1 section of the same changelog is not taken for it (nor the other way round).
+        (self.r.repo / "app" / "build.gradle.kts").write_text('val appVersionName = "0.3.100"\nval releaseVersionCode = 30_039_910\n', encoding="utf-8")
+        for name in ("CHANGELOG.md", "CHANGELOG.pt-br.md", "CHANGELOG.es.md"):
+            path = self.r.repo / name
+            path.write_text(path.read_text(encoding="utf-8").replace("## [0.3.1] - 2026-12-01", "## [0.3.100] - 2026-12-01\n\n## [0.3.1] - 2026-11-30"), encoding="utf-8")
+        self.r.git("commit", "-q", "-am", "pilot 0.3.100")
+        self.r.git("tag", "-a", "v0.3.100", "-m", "REau 0.3.100")
+        done = self.r.run("0.3.100")
+        self.assertEqual(0, done.returncode, done.stdout + done.stderr)
+        self.assertEqual(["REau-0.3.100.apk", "SHA256SUMS"], sorted(p.name for p in (self.r.repo / "build" / "release-0.3.100").iterdir()))
+        # The shorter name must not be satisfied by the longer one's section: 0.3.10 has none.
+        short = self.r.run("0.3.10")
+        self.assertEqual(1, short.returncode, short.stdout + short.stderr)
+        self.assertIn("a tag v0.3.10", short.stderr)
+
     def test_the_output_folder_can_be_chosen(self):
         out = self.r.tmp / "minha-saida"
         done = self.r.run("0.3.1", "--saida", str(out))
