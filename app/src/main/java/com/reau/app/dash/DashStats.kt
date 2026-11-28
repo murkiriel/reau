@@ -16,7 +16,10 @@ import java.util.TreeMap
  * totals go on. Counts and codes only: no payload, nothing personal.
  */
 class DashStats(
-    /** The flight recorder; given by a test that wants its own clock (first, so `DashStats { ... }` still reads as the [onFirst] lambda). */
+    /**
+     * The flight recorder: the last datagrams in both directions with the phone's clock in microseconds, kept always, for the lines written when the dash goes silent
+     * ([BlackBoxReport]); given by a test that wants its own clock (first, so `DashStats { ... }` still reads as the [onFirst] lambda).
+     */
     val blackBox: BlackBox = BlackBox(),
     private val onFirst: (String) -> Unit = {},
 ) {
@@ -40,7 +43,6 @@ class DashStats(
     /** The last seconds of what REau sent (RTP per second, the biggest burst, the last keyframe and command), for the line written when the dash goes quiet. */
     val sendTail = SendTail()
 
-    /** The last datagrams in both directions with the phone's clock in microseconds, kept always, for the lines written when the dash goes silent ([BlackBoxReport]). */
     /**
      * The socket's pacer ([SendPacer]), set when the session opens its sockets: the window's line says whether the packets are paced, what the pacer waited in the window
      * and the longest wait of one packet (25/11/2026). Null (a test with no socket) leaves the line as it was.

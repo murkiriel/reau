@@ -180,13 +180,14 @@ class DashSocket(
         }
         // Every PROBE_EVERY-th call of a suppressed link falls through and actually hits the socket, so a
         // recovered link is detected on its own instead of staying suppressed forever.
+        // Before the send and in no lock: the pacer's timeline is shared with the video, and each caller waits alone for its own slot (25/11/2026). The black box
+        // note comes after the send ([wire]'s end), so what it notes is the moment of the send, after this wait. The rolling seq is taken AFTER the wait, so the
+        // packets leave in the order of their seq (taken before, a command that waited its 2 ms let a later one, with the next seq, leave first).
+        pacer.pace()
         val pkt = K1GPacket.patchSeq(data, seq.getAndIncrement())
         // UDP fire-and-forget: a dropped/unreachable link (ENETUNREACH, EBADF) must never
         // crash the app — the session will fail and reconnect.
         val sent = try {
-            // Before the send and in no lock: the pacer's timeline is shared with the video, and each caller waits alone for its own slot (25/11/2026). The black box
-            // note comes after the send ([wire]'s end), so what it notes is the moment of the send, after this wait.
-            pacer.pace()
             txSocket.send(DatagramPacket(pkt, pkt.size, ctrlDest.address, ctrlDest.port))
             true
         } catch (e: Exception) {

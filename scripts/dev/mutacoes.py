@@ -5596,7 +5596,7 @@ MUTATIONS += [
     ("plano35/S Espaçador de pacotes: o vídeo (RTP) sai sem passar pelo espaçador", MAIN + "dash/DashSocket.kt",
      "            pacer.pace()\n            val box = stats?.blackBox\n", "            val box = stats?.blackBox\n", ["DashSocketPacingTest"]),
     ("plano35/S Espaçador de pacotes: os comandos saem sem passar pelo espaçador", MAIN + "dash/DashSocket.kt",
-     "            pacer.pace()\n            txSocket.send(", "            txSocket.send(", ["DashSocketPacingTest"]),
+     "        pacer.pace()\n        val pkt = K1GPacket.patchSeq(", "        val pkt = K1GPacket.patchSeq(", ["DashSocketPacingTest"]),
     ("plano35/S Espaçador de pacotes: o ajuste do piloto não chega ao socket (sempre ligado)", MAIN + "service/LiveSides.kt",
      "dashSocket = { DashSocket(it, pacePackets = pace()) },", "dashSocket = { DashSocket(it) },", ["DashSocketPacingTest", "ExperimentsGoneTest"]),
     ("plano35/S Espaçador de pacotes: o ajuste lido do disco é ignorado", MAIN + "settings/SettingsStore.kt",
@@ -5608,14 +5608,16 @@ MUTATIONS += [
     ("plano35/S Espaçador de pacotes: a estatística não recebe o espaçador (a linha não diz pace)", MAIN + "dash/DashSession.kt",
      "                stats.pacer = sock.pacer\n", "", ["DashSocketPacingTest"]),
     ("plano35/S Espaçamento: o comando espera a sua vaga depois de sair", MAIN + "dash/DashSocket.kt",
-     "            pacer.pace()\n            txSocket.send(DatagramPacket(pkt, pkt.size, ctrlDest.address, ctrlDest.port))\n",
+     "        pacer.pace()\n        val pkt = K1GPacket.patchSeq(data, seq.getAndIncrement())\n        // UDP fire-and-forget: a dropped/unreachable link (ENETUNREACH, EBADF) must never\n"
+     "        // crash the app — the session will fail and reconnect.\n        val sent = try {\n            txSocket.send(DatagramPacket(pkt, pkt.size, ctrlDest.address, ctrlDest.port))\n",
+     "        val pkt = K1GPacket.patchSeq(data, seq.getAndIncrement())\n        val sent = try {\n"
      "            txSocket.send(DatagramPacket(pkt, pkt.size, ctrlDest.address, ctrlDest.port))\n            pacer.pace()\n", ["DashSocketPacingTest"]),
     ("plano35/S Espaçamento: o vídeo espera a sua vaga depois de sair", MAIN + "dash/DashSocket.kt",
      "            pacer.pace()\n            val box = stats?.blackBox\n            val startUs = box?.nowUs() ?: 0L\n            rtpSocket.send(DatagramPacket(data, data.size, rtpDest.address, rtpDest.port))\n",
      "            val box = stats?.blackBox\n            val startUs = box?.nowUs() ?: 0L\n            rtpSocket.send(DatagramPacket(data, data.size, rtpDest.address, rtpDest.port))\n            pacer.pace()\n", ["DashSocketPacingTest"]),
     ("plano35/S Espaçamento: o comando espera a sua vaga dentro da trava do canal", MAIN + "dash/DashSocket.kt",
-     "            pacer.pace()\n            txSocket.send(DatagramPacket(pkt, pkt.size, ctrlDest.address, ctrlDest.port))\n",
-     "            synchronized(txLock) { pacer.pace() }\n            txSocket.send(DatagramPacket(pkt, pkt.size, ctrlDest.address, ctrlDest.port))\n", ["DashSocketPacingTest"]),
+     "        pacer.pace()\n        val pkt = K1GPacket.patchSeq(",
+     "        synchronized(txLock) { pacer.pace() }\n        val pkt = K1GPacket.patchSeq(", ["DashSocketPacingTest"]),
     ("plano35/S Caixa-preta e espaçamento: o relógio da caixa-preta é lido antes da espera do vídeo (a espera conta como duração do envio)", MAIN + "dash/DashSocket.kt",
      "            pacer.pace()\n            val box = stats?.blackBox\n            val startUs = box?.nowUs() ?: 0L\n",
      "            val box = stats?.blackBox\n            val startUs = box?.nowUs() ?: 0L\n            pacer.pace()\n", ["DashSocketPacingTest"]),
@@ -5822,6 +5824,13 @@ MUTATIONS += [
      'Send the dash only what changed (experimental)</string>', 'Send the dash only what changed</string>', ['ExperimentalMarkTest', 'SendOnChangeSettingTest']),
     ('SendOnChange: o texto longo em português perde a frase de que é um teste', "app/src/main/res/values-pt/strings.xml",
      'Vem ligado, mas é um teste e pode sair numa próxima versão.</string>\n    <string name="action_view_logs">', 'Vem ligado.</string>\n    <string name="action_view_logs">', ['ExperimentalMarkTest']),
+]
+
+# 28/11/2026, revisão da 0.3.100: o seq do comando tomado depois da espera do espaçador.
+MUTATIONS += [
+    ("Espaçamento e seq: o seq do comando é tomado antes da espera", MAIN + "dash/DashSocket.kt",
+     "        pacer.pace()\n        val pkt = K1GPacket.patchSeq(data, seq.getAndIncrement())\n",
+     "        val pkt = K1GPacket.patchSeq(data, seq.getAndIncrement())\n        pacer.pace()\n", ["DashSocketPacingTest"]),
 ]
 
 

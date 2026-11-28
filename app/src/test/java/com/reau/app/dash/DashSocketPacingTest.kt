@@ -201,6 +201,45 @@ class DashSocketPacingTest {
         assertTrue("a send from another thread goes through while the second waits (no lock held)", otherFinished)
     }
 
+    /** The rolling seq byte of each K1G packet [dash] heard, in the order they arrived (the byte after the 4-byte magic `K1G `). */
+    private fun seqsHeard(dash: DatagramSocket): List<Int> {
+        val seqs = ArrayList<Int>()
+        val buffer = ByteArray(2_048)
+        dash.soTimeout = HEARD_QUIET_MS
+        while (true) {
+            val p = DatagramPacket(buffer, buffer.size)
+            try {
+                dash.receive(p)
+            } catch (_: SocketTimeoutException) {
+                return seqs
+            }
+            val bytes = buffer.copyOf(p.length)
+            val k = (0..bytes.size - 4).first { i -> bytes[i] == 'K'.code.toByte() && bytes[i + 1] == '1'.code.toByte() && bytes[i + 2] == 'G'.code.toByte() && bytes[i + 3] == ' '.code.toByte() }
+            seqs += bytes[k + 4].toInt() and 0xFF
+        }
+    }
+
+    @Test
+    fun `the commands leave in the order of their seq, a later command that passes one waiting for its slot taking the next seq`() {
+        val dash = DatagramSocket(InetSocketAddress(InetAddress.getLoopbackAddress(), 0)).also { fakeDash = it }
+        val dashAddress = InetSocketAddress(InetAddress.getLoopbackAddress(), dash.localPort)
+        var inTheWait = false
+        lateinit var s: DashSocket
+        val flag = com.reau.app.dash.protocol.DashCommands.projectionFrame()
+        val pacer = SendPacer(true, nanoTime = { clock.get() }, waitUntil = { deadline ->
+            clock.set(maxOf(clock.get(), deadline))
+            // In the wait of the second command, another one is sent from another thread and leaves first (its own wait comes back here and is not looked at).
+            if (!inTheWait) {
+                inTheWait = true
+                thread { s.send(flag) }.join(OTHER_THREAD_MS)
+            }
+        })
+        s = DashSocket(ctrlDest = dashAddress, rtpDest = dashAddress, pacer = pacer).also { socket = it }
+        s.send(flag)
+        s.send(flag)
+        assertEquals("on the wire in the order of their seq", listOf(0, 1, 2), seqsHeard(dash))
+    }
+
     @Test
     fun `the setting reaches the socket each time the session opens its sockets`() {
         val live = text("service/LiveSides.kt")
