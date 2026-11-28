@@ -62,7 +62,7 @@ class LegibilityShotsTest {
             MainScreen(MainUiState(running, "17.9.664004", startedAtMs = 0, dashName = "RE_AB12_345678"), {}, {}, {}, clock = { 252_000L })
         },
         Shot("ajustes_idioma", "language") { SettingsScreen(REauSettings(), SettingsActions({}, {}, {}, {})) },
-        Shot("encaixe_contadores", "density_plus") {
+        Shot("encaixe_contadores", "density_220") {
             val s = REauSettings()
             AndroidAutoScreen({}, touch = true, mask = AaScreenMask(true, s.mapping, 800, 480) {}, fit = AaScreenFit(s) {})
         },

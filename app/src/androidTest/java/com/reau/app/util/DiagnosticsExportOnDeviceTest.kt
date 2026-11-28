@@ -46,7 +46,10 @@ class DiagnosticsExportOnDeviceTest {
         @Suppress("DEPRECATION") val uri = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)!!
         assertEquals("${context.packageName}.fileprovider", uri.authority)
         val inFolder = diag.listFiles()!!.filter { it.isFile }.map { it.name }.sorted()
-        assertEquals("every file of the folder", inFolder, entries(uri).sorted())
+        // Plus the header the zip opens with (what the app was when it was exported), which is no file of the folder.
+        val inZip = entries(uri)
+        assertEquals("the header first", DiagnosticsExport.HEADER_ENTRY, inZip.firstOrNull())
+        assertEquals("every file of the folder", inFolder, inZip.drop(1).sorted())
     }
 
     @Test

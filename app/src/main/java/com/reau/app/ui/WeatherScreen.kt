@@ -303,7 +303,8 @@ private fun RainPill(pill: RainAmount.Pill, tag: String) {
     val described = stringResource(R.string.weather_rain_amount_cd, pill.number)
     val status = LocalREauStatus.current
     Box(
-        Modifier.clearAndSetSemantics { contentDescription = described }.testTag(tag)
+        // The tag before the clearing: a tag after clearAndSetSemantics is cleared with the rest, and the tests no longer find the pill.
+        Modifier.testTag(tag).clearAndSetSemantics { contentDescription = described }
             .background(status.rainChip, CircleShape).border(ForecastLayout.PILL_BORDER.dp, Color(weatherGlyphColor(WeatherGlyphLayer.RAIN)), CircleShape)
             .padding(horizontal = ForecastLayout.PILL_PADDING.dp, vertical = 2.dp),
     ) {

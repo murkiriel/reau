@@ -21,6 +21,9 @@ class ProjectionMarkTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val originalSides = ProjectionService.sidesFactory
     private val diag = File(context.filesDir, "diag")
+
+    /** The button's name in the language of the run (the emulator may be in English: "Mark"). */
+    private val markTitle = context.getString(com.reau.app.R.string.notif_action_mark)
     private val marker = "mark-test-${System.nanoTime()}"
 
     @After
@@ -54,14 +57,17 @@ class ProjectionMarkTest {
         await("the notification") { notification() != null }
         Thread.sleep(2_000) // the headline settled: what changes the notification next is the mark itself
 
-        val mark = notification()!!.actions?.firstOrNull { it.title.toString() == "Marcar" }
+        val mark = notification()!!.actions?.firstOrNull { it.title.toString() == markTitle }
         assertNotNull("a Marcar action on the notification: ${notification()!!.actions?.map { it.title }}", mark)
         mark!!.actionIntent.send()
         await("the first mark in the log") { "[mark] MARCA DO PILOTO 1" in logSinceMarker() }
         mark.actionIntent.send()
         await("the second, numbered") { "[mark] MARCA DO PILOTO 2" in logSinceMarker() }
+        // "Marca 2 gravada às <hora>" in Portuguese, "Saved at <time> as mark 2" in English: the text around the time.
+        val (before, after) = context.getString(com.reau.app.R.string.notif_mark_done, 2, "\u0000").split("\u0000")
         await("the notification says it at once", timeoutMs = 2_000) {
-            notification()?.extras?.getCharSequence(Notification.EXTRA_SUB_TEXT)?.startsWith("Marca 2 gravada às") == true
+            notification()?.extras?.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()
+                ?.let { it.startsWith(before) && it.endsWith(after) && it.length > before.length + after.length } == true
         }
     }
 
@@ -72,7 +78,7 @@ class ProjectionMarkTest {
         ProjectionService.start(context)
         await("running") { ProjectionService.projection.value.phase == Phase.RUNNING }
         await("the notification") { notification() != null }
-        notification()!!.actions!!.first { it.title.toString() == "Marcar" }.actionIntent.send()
+        notification()!!.actions!!.first { it.title.toString() == markTitle }.actionIntent.send()
         Thread.sleep(1_000) // the first projection's mark written
         ProjectionService.stop(context)
         await("stopped") { ProjectionService.projection.value.phase == Phase.STOPPED }
@@ -80,8 +86,8 @@ class ProjectionMarkTest {
         RideDiagnostics.logAndWait("test", marker)
         ProjectionService.start(context)
         await("running again") { ProjectionService.projection.value.phase == Phase.RUNNING }
-        await("the notification again") { notification()?.actions?.any { it.title.toString() == "Marcar" } == true }
-        notification()!!.actions!!.first { it.title.toString() == "Marcar" }.actionIntent.send()
+        await("the notification again") { notification()?.actions?.any { it.title.toString() == markTitle } == true }
+        notification()!!.actions!!.first { it.title.toString() == markTitle }.actionIntent.send()
         await("the second projection's first mark is number one") { "[mark] MARCA DO PILOTO 1" in logSinceMarker() }
         assertTrue("and not two: ${logSinceMarker()}", "MARCA DO PILOTO 2" !in logSinceMarker())
     }

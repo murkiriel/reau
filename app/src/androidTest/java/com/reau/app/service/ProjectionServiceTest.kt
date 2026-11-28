@@ -381,7 +381,7 @@ class ProjectionServiceTest {
         // No app's name ("Waze no painel" said Waze whatever played).
         val text = notifications.activeNotifications.first { it.id == ProjectionNotification.ID }
             .notification.extras.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString()
-        assertEquals("Android Auto no painel", text)
+        assertEquals(context.getString(com.reau.app.R.string.notif_text_streaming), text)
 
         ProjectionService.stop(context)
         await("gone with the service") { title() == null }

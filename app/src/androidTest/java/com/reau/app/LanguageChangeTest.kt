@@ -25,7 +25,9 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class LanguageChangeTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order = 0) val granted = GrantedBeforeLaunch()
+
+    @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 

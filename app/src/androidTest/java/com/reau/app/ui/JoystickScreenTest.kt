@@ -184,6 +184,8 @@ class JoystickScreenTest {
 
     @Test
     fun theCallTabSaysWhatChangesOnACall() {
+        // Without the call card (on by default since it came; CallPage): up and down are the volume, the sides are not sent.
+        settings = settings.copy(callCard = false)
         callTab()
         compose.onNodeWithTag("joystick_call_in_call").performClick()
         callPad("center").assertTextContains("Desliga")
@@ -192,6 +194,17 @@ class JoystickScreenTest {
         callPad("left").assertTextContains("Sem toque")
         compose.onNodeWithTag("joystick_call_ringing").performClick()
         callPad("up").assertTextContains("Segue o modo")
+    }
+
+    @Test
+    fun withTheCallCardTheSidesAreTheVolumeOnACall() {
+        settings = settings.copy(callCard = true)
+        callTab()
+        compose.onNodeWithTag("joystick_call_in_call").performClick()
+        callPad("center").assertTextContains("Desliga")
+        callPad("right").assertTextContains("Volume +")
+        callPad("left").assertTextContains("Volume −")
+        callPad("up").assertTextContains("Nada")
     }
 
     @Test
