@@ -4,14 +4,15 @@ import com.reau.app.weather.RingTone
 
 /**
  * Where the dash's info ring sits on the 526×300 frame, and its measures, from the info ring's design (all in frame pixels, the
- * ring's own origin at the corner of its 120×120 box). The dash draws nothing on the right, so it is the mirror of the dash's own
- * manoeuvre bubble ([DashMask.BUBBLE_X]) on the left: a disk of radius 60 centred at (441, 233).
+ * ring's own origin at the corner of its 120×120 box). The dash draws nothing on the right, so its centre is the mirror of the dash's own
+ * manoeuvre bubble ([DashMask.BUBBLE_X]) on the left: a disk of radius 60 centred at (447, 228). The ring keeps its own design size, a
+ * little under the bubble's radius of 68 (the bubble's measure includes its gold outline), so it never reaches past where the bubble was.
  */
 object InfoRingSpot {
     const val SIZE = 120
     const val RADIUS = 60f
-    const val CENTER_X = DashGlass.FRAME_W - 85
-    const val CENTER_Y = 233
+    const val CENTER_X = DashGlass.FRAME_W - DashMask.BUBBLE_X.toInt()
+    const val CENTER_Y = DashMask.BUBBLE_Y.toInt()
 
     /** The box's top-left corner on the frame. */
     const val X = CENTER_X - SIZE / 2

@@ -11,9 +11,9 @@ class PendingFramesStageTest {
     fun `each frame's time in the encoder is kept, not only the sum`() {
         val p = PendingFrames()
         p.submitted(framePtsMs = 0, nowNs = 0)
-        p.emitted(14 * ms)
+        p.emitted(14 * ms, 0)
         p.submitted(framePtsMs = 250, nowNs = 250 * ms)
-        p.emitted(250 * ms + 19_200_000L)
+        p.emitted(250 * ms + 19_200_000L, 250)
         val taken = p.takeStats()
         assertEquals(2, taken.latency.count)
         assertEquals(19.2, taken.latency.maxMs, 1e-9)
@@ -23,10 +23,10 @@ class PendingFramesStageTest {
     @Test
     fun `a frame the encoder gave no timing for adds nothing, and the next take starts again`() {
         val p = PendingFrames()
-        p.emitted(5 * ms) // nothing was submitted: no entry, no time
+        p.emitted(5 * ms, 0) // nothing was submitted: no entry, no time
         assertEquals(0, p.takeStats().latency.count)
         p.submitted(framePtsMs = 0, nowNs = 0)
-        p.emitted(8 * ms)
+        p.emitted(8 * ms, 0)
         assertEquals(1, p.takeStats().latency.count)
         assertEquals(0, p.takeStats().latency.count)
     }

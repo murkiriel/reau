@@ -39,6 +39,7 @@ internal class PendingFrames {
     private var late = 0
     private var latencySumNs = 0L
     private var submittedCount = 0
+    private var gapNs = 0L
     private val latencies = StageClock()
 
     /** Presentation time of the last frame that came out (0 before the first). */
@@ -47,21 +48,35 @@ internal class PendingFrames {
     /** One frame is about to be posted to the encoder's input. */
     @Synchronized
     fun submitted(framePtsMs: Long, nowNs: Long) {
+        if (submittedNs.isNotEmpty()) gapNs = nowNs - submittedNs.last()
         ptsMs.addLast(framePtsMs)
         submittedNs.addLast(nowNs)
         submittedCount++
     }
 
     /**
-     * One encoded frame came out: returns the time it was submitted with. A frame the encoder
-     * swallowed would leave its entry at the head for good and shift every later frame one slot
-     * back, so entries waiting longer than [STALE_NS] with a newer one behind them are discarded
-     * first (the encoder answers in tens of milliseconds).
+     * One encoded frame came out carrying [outPtsMs], the presentation time the codec gives back in its `BufferInfo` (what the compositor
+     * stamped on the frame, in milliseconds: `eglPresentationTimeANDROID` takes ns, the codec returns us). Returns the time it was submitted with.
+     *
+     * The frame is matched by that time, not by its place in the line: Android may drop frames on the way in (`GraphicBufferSource: Dropping
+     * frame that's going backward in time`) and the encoder may swallow others, and each one leaves an entry behind that, in a plain FIFO,
+     * shifted every later output one slot back for the rest of the stream (a log at 2 to 4 fps showed `encode=270-530 ms late=20` until the
+     * end while the encoder answered normally). So the entries OLDER than the one matched are dropped as swallowed, the matched one is taken, and
+     * "late" is only a frame submitted before this output that is still waiting behind it.
+     *
+     * With no entry of that time (a codec that rewrites the times, or an output whose entry was discarded) it goes by the line's head, as before,
+     * with one more cleanup: an entry older than two ticks (see [tickNs]) with a newer one behind it is discarded first, besides the ones
+     * older than [STALE_NS].
      */
     @Synchronized
-    fun emitted(nowNs: Long): Emitted {
-        while (ptsMs.size > 1 && nowNs - submittedNs.first() > STALE_NS) {
-            ptsMs.removeFirst(); submittedNs.removeFirst()
+    fun emitted(nowNs: Long, outPtsMs: Long): Emitted {
+        val at = ptsMs.indexOf(outPtsMs)
+        if (at > 0) repeat(at) { ptsMs.removeFirst(); submittedNs.removeFirst() }
+        if (at < 0) {
+            val staleNs = minOf(STALE_NS, 2 * tickNs())
+            while (ptsMs.size > 1 && nowNs - submittedNs.first() > staleNs) {
+                ptsMs.removeFirst(); submittedNs.removeFirst()
+            }
         }
         if (ptsMs.isEmpty()) return Emitted(lastPtsMs, late = false)
         lastPtsMs = ptsMs.removeFirst()
@@ -74,6 +89,9 @@ internal class PendingFrames {
         return Emitted(lastPtsMs, isLate)
     }
 
+    /** One tick of the stream as the line shows it: the gap between the last two submissions, never under [MIN_TICK_NS]. */
+    private fun tickNs(): Long = maxOf(gapNs, MIN_TICK_NS)
+
     /** Totals since the previous call, then starts counting again. */
     @Synchronized
     fun takeStats(): Stats = Stats(frames, late, latencySumNs).also {
@@ -84,5 +102,8 @@ internal class PendingFrames {
 
     companion object {
         const val STALE_NS = 1_000_000_000L
+
+        /** The shortest tick the cleanup of an unmatched output assumes: a burst of frames must not make a frame in flight look stale. */
+        const val MIN_TICK_NS = 40_000_000L
     }
 }

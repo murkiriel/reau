@@ -18,7 +18,7 @@ import org.junit.runner.RunWith
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
- * The info ring is in the video that goes to the dash: a disk of radius 60 at (441, 233), on the right, and gone once taken off. The
+ * The info ring is in the video that goes to the dash: a disk of radius 60 at (447, 228), on the right, and gone once taken off. The
  * compositor runs with no Android Auto picture (black frames), feeds the real encoder, and what comes out is decoded and looked at.
  */
 @RunWith(AndroidJUnit4::class)
@@ -65,7 +65,7 @@ class InfoRingVideoTest {
         val picture = run { it.setInfoRing(frame(RingTone.DANGER)) }
         // Inside the disk, left of the icon; and on the left of the frame, where the dash's own bubble is, nothing is drawn.
         assertTrue("red at the ring: ${Integer.toHexString(picture.colorAt(InfoRingSpot.CENTER_X - 48, InfoRingSpot.CENTER_Y))}", isRed(picture.colorAt(InfoRingSpot.CENTER_X - 48, InfoRingSpot.CENTER_Y)))
-        assertTrue("black on the bubble's side", isDark(picture.colorAt(85, 233)))
+        assertTrue("black on the bubble's side", isDark(picture.colorAt(DashMask.BUBBLE_X.toInt(), DashMask.BUBBLE_Y.toInt())))
         assertTrue("black above the ring", isDark(picture.colorAt(InfoRingSpot.CENTER_X, InfoRingSpot.CENTER_Y - 75)))
     }
 

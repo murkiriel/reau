@@ -96,4 +96,13 @@ class CodecDiagnosticsAreWiredTest {
     fun `the video loop hands the encoder's frame times to the governor`() {
         assertTrue(loop.contains("encode = timed?.latency ?: StageStats.EMPTY"))
     }
+
+    @Test
+    fun `the encoder matches each output to its frame by the time the codec gives back, the same one its RTP time is`() {
+        val emit = encoder.substringAfter("private fun emitOutput(").substringBefore("return isFrame")
+        assertTrue(emit.contains("lastPtsMs = info.presentationTimeUs / 1000\n"))
+        assertTrue(emit.contains("pending.emitted(System.nanoTime(), lastPtsMs)"))
+        assertTrue("the time is read before the match", emit.indexOf("lastPtsMs = info.presentationTimeUs / 1000") < emit.indexOf("pending.emitted("))
+        assertTrue("and goes on to the frame's callback", emit.contains("onFrame(data, isKeyFrame(info.flags), lastPtsMs)"))
+    }
 }

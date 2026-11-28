@@ -12,12 +12,36 @@ class InfoRingLookTest {
     @Test
     fun `the ring is the mirror of the dash's maneuver bubble, on the right where the dash draws nothing`() {
         assertEquals(DashGlass.FRAME_W - DashMask.BUBBLE_X.toInt(), InfoRingSpot.CENTER_X)
-        assertEquals(441, InfoRingSpot.CENTER_X)
+        assertEquals(447, InfoRingSpot.CENTER_X)
         assertEquals(DashMask.BUBBLE_Y.toInt(), InfoRingSpot.CENTER_Y)
-        assertEquals(DashMask.BUBBLE_R, InfoRingSpot.RADIUS, 0f)
-        assertEquals(381, InfoRingSpot.X)
-        assertEquals(173, InfoRingSpot.Y)
+        assertEquals(228, InfoRingSpot.CENTER_Y)
+        assertEquals(387, InfoRingSpot.X)
+        assertEquals(168, InfoRingSpot.Y)
         assertEquals(120, InfoRingSpot.SIZE)
+    }
+
+    @Test
+    fun `the ring keeps its design size, inside the bubble's measure`() {
+        // The bubble's 68 includes its gold outline; the ring's own 60 is the design's and is not stretched to it.
+        assertEquals(60f, InfoRingSpot.RADIUS, 0f)
+        assertTrue(InfoRingSpot.RADIUS <= DashMask.BUBBLE_R)
+        assertEquals(InfoRingSpot.SIZE / 2f, InfoRingSpot.RADIUS, 0f)
+    }
+
+    @Test
+    fun `in the bubble's place the box is centred on the bubble, and wholly on the glass`() {
+        assertEquals(19, InfoRingSpot.PLACE_X)
+        assertEquals(DashMask.BUBBLE_X.toInt(), InfoRingSpot.PLACE_X + InfoRingSpot.SIZE / 2)
+        assertEquals(DashMask.BUBBLE_Y.toInt(), InfoRingSpot.Y + InfoRingSpot.SIZE / 2)
+        // The bubble itself, to its outer edge, is on the glass the rider sees, and so is the ring drawn in its place.
+        for (degrees in 0 until 360) {
+            val a = Math.toRadians(degrees.toDouble())
+            for (r in listOf(DashMask.BUBBLE_R.toDouble(), InfoRingSpot.RADIUS.toDouble())) {
+                val x = DashMask.BUBBLE_X + r * Math.cos(a)
+                val y = DashMask.BUBBLE_Y + r * Math.sin(a)
+                assertTrue("$degrees degrees, radius $r at ($x, $y)", DashGlass.isVisible(x, y))
+            }
+        }
     }
 
     @Test

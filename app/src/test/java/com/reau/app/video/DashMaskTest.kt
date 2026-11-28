@@ -23,9 +23,9 @@ class DashMaskTest {
         near(400f, m.glass.cx, "glass x: (263 - 78) × 2.16216")
         near(400f, m.glass.cy, "glass y: (263 - 78) × 2.16216")
         near(568.65f, m.glass.r, "glass radius: 263 × 2.16216")
-        near(15.14f, m.bubble.cx, "ring x: (85 - 78) × 2.16216")
-        near(335.14f, m.bubble.cy, "ring y: (233 - 78) × 2.16216")
-        near(129.73f, m.bubble.r, "ring radius: 60 × 2.16216")
+        near(2.16f, m.bubble.cx, "ring x: (79 - 78) × 2.16216")
+        near(324.32f, m.bubble.cy, "ring y: (228 - 78) × 2.16216")
+        near(147.03f, m.bubble.r, "ring radius: 68 × 2.16216")
         near(480f, m.frame.bottom, "the frame's bottom: (300 - 78) × 2.16216")
         near(-168.65f, m.frame.left, "the frame's left: -78 × 2.16216")
     }

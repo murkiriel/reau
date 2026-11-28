@@ -320,8 +320,8 @@ class DashEncoder(
                 // The time is the one the frame was posted to the input surface with, as the codec gives it back.
                 // The SPS/PPS buffer is no frame: it takes no entry and carries the last frame's time.
                 if (isFrame) {
-                    pending.emitted(System.nanoTime())
                     lastPtsMs = info.presentationTimeUs / 1000
+                    pending.emitted(System.nanoTime(), lastPtsMs)
                 }
                 onFrame(data, isKeyFrame(info.flags), lastPtsMs)
             }

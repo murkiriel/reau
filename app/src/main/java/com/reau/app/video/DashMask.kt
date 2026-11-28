@@ -24,11 +24,12 @@ object DashMask {
     }
 
     /**
-     * The dash's manoeuvre bubble in its frame: a circle of radius 60 at (85, 233), read on a photo of a real dash.
+     * The dash's manoeuvre bubble in its frame: a circle of radius 68 at (79, 228), measured by homography on four photos of a real
+     * dash (about 3 px of error), the gold outline included: the radius reaches the outer edge of that outline.
      */
-    const val BUBBLE_X = 85f
-    const val BUBBLE_Y = 233f
-    const val BUBBLE_R = 60f
+    const val BUBBLE_X = 79f
+    const val BUBBLE_Y = 228f
+    const val BUBBLE_R = 68f
 
     /**
      * Where the dash falls on the preview screen: [picture] is Android Auto's whole frame as the preview draws it,

@@ -267,7 +267,7 @@ class PictureSizeTest {
         // decided on the owner's word: the same pixels, so the 2 columns and 4 rows only extend the picture and the background
         assertEquals((526 - 100) / 2 to (300 - 40) / 2, LegendLayout.corner(100, 40))
         assertEquals((526 - 100) / 2 to (300 - 40 - 10), StaleBadgeInk.corner(100, 40))
-        assertEquals(526 - 85, InfoRingSpot.CENTER_X)
+        assertEquals(526 - 79, InfoRingSpot.CENTER_X)
     }
 
     @Test
