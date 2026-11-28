@@ -293,6 +293,9 @@
     <string name="keyframe_cap_title">Teto do quadro-chave para o painel (experimental)</string>
     <string name="keyframe_cap_sub">Baixa o bitrate quando um quadro-chave passa de 48 kB</string>
     <string name="keyframe_cap">O painel decodifica o vídeo por software num processador fraco, e um quadro-chave grande é o pico de trabalho e de tráfego que pode travar a rede dele. Quando um quadro-chave passa de 48 kB, o REau baixa o bitrate que pede ao codificador para os próximos saírem menores, e o devolve aos poucos quando voltam a ficar abaixo; num celular cujos quadros-chave já ficam abaixo disso nada muda, e vale a partir da próxima projeção. Vem ligado, mas é um teste e pode sair numa próxima versão.</string>
+    <string name="send_on_change_title">Mandar ao painel só o que mudou (experimental)</string>
+    <string name="send_on_change_sub">Comandos só quando mudam; só o vídeo é periódico</string>
+    <string name="send_on_change">O painel guarda o último valor que recebe, então o REau manda os comandos (estado, cartão de rota, música, chamada, hora) só quando mudam, e os sinais de projeção e de navegação uma vez, em vez de a cada segundo ou quatro vezes por segundo; só o vídeo é periódico. Vale a partir da próxima projeção. Vem ligado, mas é um teste e pode sair numa próxima versão.</string>
     <string name="action_view_logs">Ver o registro</string>
     <string name="log_viewer_title">Registro</string>
     <string name="log_viewer_none">Ainda não há registros.</string>

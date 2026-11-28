@@ -26,6 +26,16 @@ class DashSocketSendResultTest {
     }
 
     @Test
+    fun `a batch is reported as sent only when every packet of it reached the wire`() {
+        val loopback = InetSocketAddress(InetAddress.getLoopbackAddress(), 9)
+        val s = DashSocket(ctrlDest = loopback, rtpDest = loopback).also { socket = it }
+        assertTrue(s.sendBatch(listOf(packet, packet)))
+        assertTrue("an empty batch has nothing left to send", s.sendBatch(emptyList()))
+        repeat(5) { s.testOnlySendFailed(java.io.IOException("link down")) }
+        assertFalse(s.sendBatch(listOf(packet, packet)))
+    }
+
+    @Test
     fun `a packet held back by a link that is down is reported as not sent`() {
         val loopback = InetSocketAddress(InetAddress.getLoopbackAddress(), 9)
         val s = DashSocket(ctrlDest = loopback, rtpDest = loopback).also { socket = it }

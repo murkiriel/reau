@@ -72,7 +72,7 @@ class SettingsScreenNowTest {
         "record_video", "record_sessions",
         "bitrate_mode", "keyframe", "maneuver_fps_profile", "speed_fps_profile",
         "open_joystick", "card_now", "view_logs", "share", "delete",
-        "announce_motorcycle", "pace_packets", "keyframe_cap",
+        "announce_motorcycle", "pace_packets", "keyframe_cap", "send_on_change",
     )
 
     private data class Row(val tag: String, val titlePt: String, val titleEn: String)

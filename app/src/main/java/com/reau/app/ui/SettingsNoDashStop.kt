@@ -30,6 +30,14 @@ internal fun KeyframeCapSwitch(s: REauSettings, change: (REauSettings) -> Unit) 
     }
 }
 
+/** Only what changed goes to the dash, not everything on timers; on by default, read when the session opens its sockets, so it counts from the next projection (no "now" chip). */
+@Composable
+internal fun SendOnChangeSwitch(s: REauSettings, change: (REauSettings) -> Unit) {
+    SettingSwitch(R.string.send_on_change_title, R.string.send_on_change_sub, R.string.send_on_change, s.sendOnChange, "send_on_change") {
+        change(s.copy(sendOnChange = it))
+    }
+}
+
 /** 2 ms between any two packets to the dash (video and commands); on by default, read when the sockets open, so it counts from the next projection (no "now" chip). */
 @Composable
 internal fun PacePackets(s: REauSettings, change: (REauSettings) -> Unit) {

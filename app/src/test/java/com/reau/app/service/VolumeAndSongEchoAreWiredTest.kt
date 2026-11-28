@@ -69,7 +69,7 @@ class VolumeAndSongEchoAreWiredTest {
         assertTrue(update, "songNow = title" in update)
         assertTrue(update, "if (cardChanged) sendCardsNow()" in update)
         val status = session.between("fun sendStatusNow() {", "/** The route card sent now")
-        assertTrue(status, "_state.value != DashState.STREAMING" in status && "DashCommands.heartbeat(weather = weatherProvider(), status = phoneStatusProvider(), call = callNow())" in status)
+        assertTrue(status, "_state.value != DashState.STREAMING" in status && "runCatching { sendStatus(sock, phoneStatusProvider()) }" in status && "DashCommands.heartbeat(weather = weatherProvider(), status = status, call = callNow())" in status)
         val song = session.between("fun songChangeAsked() {", "/** [name] (cut and in the dash's letters already)")
         assertTrue(song, "if (callerName == null) songEcho.asked(songNow)" in song)
         assertTrue("the wait ends with the session", session.between("fun disconnect", "socket?.let { sock ->").contains("songEcho.cancel()"))

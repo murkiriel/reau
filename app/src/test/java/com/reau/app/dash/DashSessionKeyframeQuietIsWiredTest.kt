@@ -38,7 +38,8 @@ class DashSessionKeyframeQuietIsWiredTest {
         // The heartbeat and the clock (06 06) are built after the wait, which is the first line of the tick.
         val tick = loops[0].substringAfter("while (isActive) {")
         assertTrue(tick.indexOf("quietBeforeRoutine()") < tick.indexOf("phoneStatusProvider()"))
-        assertTrue(tick.indexOf("quietBeforeRoutine()") < tick.indexOf("DashCommands.timeSync()"))
+        assertTrue(tick.indexOf("quietBeforeRoutine()") < tick.indexOf("sendClock(sock, n)"))
+        assertTrue("the clock is built in the call the tick makes after the wait", session.between("private fun sendClock(", "private fun launchStatusHeartbeat(").contains("DashCommands.timeSync("))
     }
 
     @Test

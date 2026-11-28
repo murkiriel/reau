@@ -118,6 +118,13 @@ data class REauSettings(
      */
     val keyframeCap: Boolean = true,
     /**
+     * Only what changed goes to the dash (the owner's decision of 28/11/2026): the video is the one periodic send of a projection and keeps it alive; the projection and navigation flags
+     * (05 56, 06 05) are said once and again after each new link, the status (battery, volumes, call, weather, heading), the route card, the nav packet and the music and call cards
+     * when their content changes, the time when its minute does, and the bike's data is asked for once in the session. The dash holds the last value of each until it is replaced. On by default; off,
+     * everything goes on its old timers (4 Hz, 1 Hz, every 30 s, every 15 min). Read when the session opens its sockets ([com.reau.app.service.LiveSides]), so a change counts from the next projection.
+     */
+    val sendOnChange: Boolean = true,
+    /**
      * The joystick answers and ends calls; on by default, but it does nothing until the phone permissions are given (they are asked
      * on the permissions page, or when the rider switches it on again after turning it off).
      */

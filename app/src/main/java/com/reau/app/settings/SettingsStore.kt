@@ -235,6 +235,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             noDashStopMinutes = prefs.getInt(KEY_NO_DASH_STOP_MINUTES, defaults.noDashStopMinutes),
             pacePackets = prefs.getBoolean(KEY_PACE_PACKETS, defaults.pacePackets),
             keyframeCap = prefs.getBoolean(KEY_KEYFRAME_CAP, defaults.keyframeCap),
+            sendOnChange = prefs.getBoolean(KEY_SEND_ON_CHANGE, defaults.sendOnChange),
             answerCalls = prefs.getBoolean(KEY_ANSWER_CALLS, defaults.answerCalls),
             phoneTouch = prefs.getBoolean(KEY_PHONE_TOUCH, defaults.phoneTouch),
             dashMusic = prefs.getBoolean(KEY_DASH_MUSIC, defaults.dashMusic),
@@ -348,6 +349,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             putInt(KEY_NO_DASH_STOP_MINUTES, s.noDashStopMinutes)
             putBoolean(KEY_PACE_PACKETS, s.pacePackets)
             putBoolean(KEY_KEYFRAME_CAP, s.keyframeCap)
+            putBoolean(KEY_SEND_ON_CHANGE, s.sendOnChange)
             putBoolean(KEY_ANSWER_CALLS, s.answerCalls)
             putBoolean(KEY_PHONE_TOUCH, s.phoneTouch)
             putBoolean(KEY_DASH_MUSIC, s.dashMusic)
@@ -479,6 +481,8 @@ class SettingsStore(private val prefs: SharedPreferences) {
         private const val KEY_PACE_PACKETS = "pace_packets"
         /** "Teto do quadro-chave" (28/11/2026): the keyframe held near 48 kB by lowering the bitrate; on unless the rider turned it off. */
         private const val KEY_KEYFRAME_CAP = "keyframe_cap"
+        /** "Mandar ao painel só o que mudou" (28/11/2026): the commands go on change, not on timers; on unless the rider turned it off. */
+        private const val KEY_SEND_ON_CHANGE = "send_on_change"
         private const val KEY_ANSWER_CALLS = "answer_calls"
         private const val KEY_PHONE_TOUCH = "phone_touch"
         private const val KEY_DASH_MUSIC = "dash_music"

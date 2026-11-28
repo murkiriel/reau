@@ -41,10 +41,11 @@ class ExperimentalMarkTest {
             .filter { ExperimentalMark.marks(text(it)) }
             .toSet()
         // The experimental switches are gone (20/11/2026) and "Anunciar como moto" is a plain setting: no row is red today, except the one of the 0.3.97 test build
-        // (the pilots' "Modo de bloqueio do REau (teste)") and, from the 0.3.100 test build, "Espaçar os pacotes para o painel (experimental)" (the 0.4.0's, not yet proved on the bike) and "Teto do quadro-chave para o painel (experimental)".
-        assertEquals(setOf("lock_mode_title", "pace_packets_title", "keyframe_cap_title"), marked)
+        // (the pilots' "Modo de bloqueio do REau (teste)") and, from the 0.3.100 test build, "Espaçar os pacotes para o painel (experimental)" (the 0.4.0's, not yet proved on the bike), "Teto do quadro-chave para o painel (experimental)" and "Mandar ao painel só o que mudou (experimental)".
+        assertEquals(setOf("lock_mode_title", "pace_packets_title", "keyframe_cap_title", "send_on_change_title"), marked)
         assertTrue(text("pace_packets_title").endsWith("(experimental)"))
         assertTrue(text("keyframe_cap_title").endsWith("(experimental)"))
+        assertTrue(text("send_on_change_title").endsWith("(experimental)"))
         assertFalse("the motorcycle row is a normal one", ExperimentalMark.marks(text("announce_motorcycle_title"), text("announce_motorcycle_sub")))
         // A row becomes red again only by saying so in its own text (a new experiment); the ring's line does not.
         assertFalse(ExperimentalMark.marks(text("ring_title"), text("ring_sub")))
@@ -58,7 +59,7 @@ class ExperimentalMarkTest {
             "values" to "is a test and may be removed in a later version", "values-pt" to "é um teste e pode sair numa próxima versão",
             "values-es" to "es una prueba y puede salir en una próxima versión",
         )
-        for (name in listOf("pace_packets", "keyframe_cap")) {
+        for (name in listOf("pace_packets", "keyframe_cap", "send_on_change")) {
             for ((folder, phrase) in said) {
                 val xml = File("src/main/res/$folder/strings.xml").readText()
                 val long = Regex("""<string name="$name">(.*?)</string>""").find(xml)!!.groupValues[1]

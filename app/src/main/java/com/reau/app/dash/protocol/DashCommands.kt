@@ -47,7 +47,7 @@ object DashCommands {
      * 0A 02 — "read the version": the only request the app makes of the dash for its data (the burst above sends the
      * same one at every connection). The dash answers with the firmware partitions (`0B 02`);
      * the settings (group 03) and the bike's state (group 0C) it says by itself. DashSession asks again every
-     * [DashSession.DATA_REFRESH_TICKS] s while connected, so the screen "Dados da moto" stays fresh.
+     * [DashSession.DATA_REFRESH_TICKS] s while connected, so the screen "Dados da moto" stays fresh (with "send only what changed" on, only the burst's).
      */
     fun versionQuery(): ByteArray =
         K1GPacket.build(K1GPacket.tlv(0x0A, 0x02, 0xAA, 0x55, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00))
@@ -57,10 +57,9 @@ object DashCommands {
      * of its own: it shows whatever the phone last fed it, so the dash keeps
      * feeding it. better-dash replays a hardcoded capture time (0x0e 0x33 0x34 =
      * 14:51:52) once, which left the dash clock wrong AND frozen. Build it from the
-     * real clock; DashSession re-sends it every 30 s.
+     * real clock; DashSession re-sends it every 30 s (or, with "send only what changed", when the minute changes: [clockShown]).
      */
-    fun timeSync(): ByteArray {
-        val cal = java.util.Calendar.getInstance()
+    fun timeSync(cal: java.util.Calendar = java.util.Calendar.getInstance()): ByteArray {
         return K1GPacket.build(
             K1GPacket.tlv(
                 0x06, 0x06,
@@ -70,6 +69,13 @@ object DashCommands {
             )
         )
     }
+
+    /**
+     * What the dash shows of [timeSync]: the hour and the minute. The seconds are fed too but never drawn, so a send is due when this changes (the
+     * switch "send only what changed"), not every 30 s.
+     */
+    fun clockShown(cal: java.util.Calendar = java.util.Calendar.getInstance()): ByteArray =
+        byteArrayOf(cal.get(java.util.Calendar.HOUR_OF_DAY).toByte(), cal.get(java.util.Calendar.MINUTE).toByte())
 
     /** Device announce — device name shown on the dash's "Connected to X" screen. */
     fun hostnameAnnounce(hostname: String): ByteArray {
@@ -102,7 +108,10 @@ object DashCommands {
     fun navPlaceholder() = K1GPacket.build(K1GPacket.tlv(0x06, 0x0A, 0x00, 0x00))
 
     // ── Projection control ────────────────────────────────────────────────
-    /** Projection keep-alive; MUST repeat at the encoder frame rate (4 Hz). */
+    /**
+     * Projection flag 05 56 = 0x55. Sent at the encoder's frame rate (4 Hz) until the 0.3.100 test build; with the switch "send only what changed" it is a
+     * latch, said once when the projection starts and again after every new link, the video being what keeps the projection alive.
+     */
     fun projectionFrame() = "0016000200000000020100054B314720000556000155".hexToBytes()
     fun projectionOn()    = "0016000200000000020100054B314720000605000155".hexToBytes()
     fun projectionStop()  = "0016000200000000020100054B3147200005560001AA".hexToBytes()

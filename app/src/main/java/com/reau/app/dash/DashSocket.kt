@@ -156,10 +156,12 @@ class DashSocket(
     /**
      * Sends [packets] one after another with nothing between them but the wire: the statistics and the logs of all of them come after the
      * last. For the answer to a button, where every millisecond before the ring changes is seen by the rider (the log's lock is shared with
-     * the video and Android Auto threads, which write all the time).
+     * the video and Android Auto threads, which write all the time). True when every one of them reached the wire.
      */
-    fun sendBatch(packets: List<ByteArray>) {
-        packets.mapNotNull(::wire).forEach(::afterWire)
+    fun sendBatch(packets: List<ByteArray>): Boolean {
+        val wired = packets.mapNotNull(::wire)
+        wired.forEach(::afterWire)
+        return wired.size == packets.size
     }
 
     /** What the session's first lines say about the pacing of the packets: whether it is on, and the gap. */

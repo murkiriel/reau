@@ -71,6 +71,11 @@ class DashSession(
     private val networkUp: (android.net.Network?) -> Boolean = { false },
     /** The run of silent sessions; the process-wide one in the app, a test's own in a test. */
     private val silentDash: SilentDash = SilentDash.shared,
+    /**
+     * The rider's switch "send only what changed" ([com.reau.app.settings.REauSettings.sendOnChange]), read each time the session opens its sockets, so a retry of a
+     * ride follows it. Off (the default here, what every test gets): everything goes on its timers as it always did. On: only the video is periodic ([SendOnChange]).
+     */
+    private val sendOnChange: () -> Boolean = { false },
 ) {
     /**
      * The waits of a session: [keyPatienceMs] for the dash's key before the greeting goes again, [rxWatchdogMs] of silence before the
@@ -83,6 +88,9 @@ class DashSession(
         /** The video failing at every send for longer than this is a loss of the link ([RtpStall]). */
         val rtpStallMs: Long = RtpStall.LIMIT_MS,
     )
+
+    /** What the dash was told in this session and has not forgotten: the commands go only when it changes ([SendOnChange]); everything with the switch off. */
+    internal val change = SendOnChange()
 
     /** What this session and the dash exchanged. */
     val stats = DashStats(onFirst = { com.reau.app.data.RideDiagnostics.log("dash", it) })
@@ -627,9 +635,14 @@ class DashSession(
         if (caller != null) {
             // The call card: the state then the name, encrypted under the session key.
             val state = callNow()
-            runCatching { sock.send(DashCommands.callState(state)) }
-            runCatching { sock.send(DashCommands.callStateAfter()) }
-            auth?.sessionKey?.let { key -> runCatching { sock.send(DashCommands.callNotify(caller, key)) } }
+            // What says the call is its state and the name; the name's packet is encrypted under a fresh random IV each time, so its bytes never repeat.
+            val call = byteArrayOf(state.code.toByte()) + caller.toByteArray()
+            change.attempt(SendOnChange.CALL, call) {
+                val went = runCatching { sock.send(DashCommands.callState(state)) }.getOrDefault(false)
+                runCatching { sock.send(DashCommands.callStateAfter()) }
+                auth?.sessionKey?.let { key -> runCatching { sock.send(DashCommands.callNotify(caller, key)) } }
+                went
+            }
             if (!callCardShown || state != lastCardState) {
                 com.reau.app.data.RideDiagnostics.log("dash", "call card shown (${state.name.lowercase()})")
             }
@@ -638,17 +651,24 @@ class DashSession(
         } else if (callCardShown) {
             runCatching { sock.send(DashCommands.callState(DashCommands.CallState.NONE)) }
             runCatching { sock.send(DashCommands.callStateAfter()) }
+            change.forget(SendOnChange.CALL) // the next call is a first one
             com.reau.app.data.RideDiagnostics.log("dash", "call card cleared")
             callCardShown = false
         }
         val music = nowPlayingPackets.takeIf { musicCardAllowed || musicModePlaying }
         if (music != null) {
-            music.forEach { runCatching { sock.send(it) } }
+            // Each of the four (the light, the text, the cover's flag, the play state) by its own first TLV, so a play or a pause sends the 05 19 alone.
+            for (packet in music) {
+                change.attempt(DashStats.sentKey(packet) ?: SendOnChange.MUSIC, packet) { runCatching { sock.send(packet) }.getOrDefault(false) }
+            }
             if (!musicShown) com.reau.app.data.RideDiagnostics.log("dash", "music card shown")
             musicShown = true
             return coverDue()
         } else if (musicShown) {
-            runCatching { sock.send(DashCommands.musicActive(false)) }
+            val off = DashCommands.musicActive(false)
+            change.attempt(DashStats.sentKey(off) ?: SendOnChange.MUSIC, off) { runCatching { sock.send(off) }.getOrDefault(false) }
+            // The card that comes back later shows whole, even with the song it had.
+            SendOnChange.MUSIC_BODY.forEach(change::forget)
             com.reau.app.data.RideDiagnostics.log("dash", "music card cleared")
             musicShown = false
         }
@@ -765,8 +785,17 @@ class DashSession(
         if (_state.value != DashState.STREAMING) return
         val sock = socket ?: return
         scope.launch(Dispatchers.IO) {
-            runCatching { sock.send(DashCommands.heartbeat(weather = weatherProvider(), status = phoneStatusProvider(), call = callNow())) }
+            runCatching { sendStatus(sock, phoneStatusProvider()) }
         }
+    }
+
+    /**
+     * The status packet (the battery, the volumes, the call, the weather, the heading) as it is now, sent when it differs from the one the dash has (always, with the
+     * switch off). True when a send was made.
+     */
+    private fun sendStatus(sock: DashSocket, status: DashCommands.PhoneStatus?): Boolean {
+        val packet = DashCommands.heartbeat(weather = weatherProvider(), status = status, call = callNow())
+        return change.attempt(SendOnChange.STATUS, packet) { runCatching { sock.send(packet) }.getOrDefault(false) }
     }
 
     /**
@@ -778,6 +807,9 @@ class DashSession(
     internal fun exitNavigationConfirmed(sock: DashSocket) {
         // The hold knows by itself whether Android Auto's guidance is active, under its own lock (not `nav != null` read before it).
         val sent = routeHold.hold { sock.send(DashCommands.exitProjectionIdle()) }
+        // The dash left the navigation (06 05 = 0xAA): the card and the nav packet that bring it back are new to it, even if they say what they said before.
+        change.forget(SendOnChange.ROUTE_CARD)
+        change.forget(SendOnChange.NAV)
         // The hold is on either way: with the "nav off" lost the dash stays in the navigation, but a card sent now would only keep it there.
         val navOff = if (sent) "nav off sent" else "nav off NOT sent (send failed)"
         com.reau.app.data.RideDiagnostics.log("dash", "exit navigation confirmed on the dash: $navOff, route card held until a new guidance")
@@ -796,7 +828,13 @@ class DashSession(
 
     /** The route card to the dash, unless the dash's exit was confirmed and no new guidance has come ([routeHold]); a failed send is not an error here. */
     private fun sendRouteCard(sock: DashSocket) {
-        runCatching { routeHold.sendUnlessHeld { sock.send(liveRouteCard(projectionOn = true)) } }
+        runCatching { routeHold.sendUnlessHeld { sendLiveCard(sock) } }
+    }
+
+    /** The live route card, sent when it differs from the one the dash has (06 05 = 0x55, the "navigating" latch, rides in it); always, with the switch off. */
+    private fun sendLiveCard(sock: DashSocket) {
+        val card = liveRouteCard(projectionOn = true)
+        change.attempt(SendOnChange.ROUTE_CARD, card) { sock.send(card) }
     }
 
     /**
@@ -884,6 +922,8 @@ class DashSession(
         com.reau.app.data.RideDiagnostics.log("session", "→ STREAMING")
         TimeToPicture.marks.streaming(MonotonicClock.nowMs())
         ImageGap.clock.streaming(MonotonicClock.nowMs())?.let { com.reau.app.data.RideDiagnostics.log("session", it) }
+        // Everything is said again to the dash that starts to show (what went while it was authenticating was not for its picture), then the loops go on.
+        change.reset()
         // Projection-on route card + faster keep-alive begin now
         launchProjectionHeartbeat()
         launchRouteCardKeepAlive()
@@ -1045,6 +1085,9 @@ class DashSession(
                 linkHistory.clear()
                 linkBaselineLogged = false
                 launchStatsLine()
+                // A new link: the dash has been told nothing yet, so every command is the first again.
+                change.begin(runCatching(sendOnChange).getOrDefault(false))
+                com.reau.app.data.RideDiagnostics.log("dash", "send-on-change ${if (change.enabled) "on" else "off"}")
                 auth = DashAuth(ssid)
                 rxFailures.ok()
                 authConfirmed = false
@@ -1364,7 +1407,10 @@ class DashSession(
                 // is logged (the log's lock is shared with the video and Android Auto threads), so the ring changes as soon as it can.
                 val answers = repliesToButton(btn, zoomLabel)
                 val ringChanged = ringAfterPress(btn.toInt() and 0xFF)
-                sock.sendBatch(if (ringChanged && !routeHold.isHeld) answers + liveRouteCard(projectionOn = true) else answers)
+                val card = if (ringChanged && !routeHold.isHeld) liveRouteCard(projectionOn = true) else null
+                val batch = if (card != null && change.offer(SendOnChange.ROUTE_CARD, card)) answers + card else answers
+                val allWired = sock.sendBatch(batch)
+                if (card != null && change.cardWent(batch.size, answers.size, allWired)) change.sent(SendOnChange.ROUTE_CARD, card)
                 val event = com.reau.app.dash.protocol.DashButtonEvent.fromByte(btn)
                 if (event is com.reau.app.dash.protocol.DashButtonEvent.JoystickBack) exitNavigationConfirmed(sock)
                 if (ringChanged) logRingByPress(btn.toInt() and 0xFF, (System.nanoTime() - readAtNs) / NS_PER_MS)
@@ -1427,6 +1473,21 @@ class DashSession(
         com.reau.app.data.RideDiagnostics.log("dash", "notice $name #$n, $into, ${_state.value}: $did")
     }
 
+    /**
+     * Keeps the dash clock correct: it only shows what the phone feeds it. Every 30 s as it always was; with the switch "send only what changed" on, when the hour or the
+     * minute it shows changes (and at the first turn of the session), since the dash has no clock of its own.
+     */
+    private fun sendClock(sock: DashSocket, tick: Int) {
+        if (change.enabled) {
+            val now = java.util.Calendar.getInstance()
+            change.attempt(SendOnChange.CLOCK, DashCommands.clockShown(now)) {
+                runCatching { sock.send(DashCommands.timeSync(now)) }.getOrDefault(false)
+            }
+        } else if (tick % 30 == 0) {
+            runCatching { sock.send(DashCommands.timeSync()) }
+        }
+    }
+
     private fun launchStatusHeartbeat(sock: DashSocket, mine: Int) {
         heartbeatJob?.cancel()
         heartbeatJob = scope.launch(Dispatchers.IO) {
@@ -1435,14 +1496,13 @@ class DashSession(
             while (isActive) {
                 val slid = quietBeforeRoutine()
                 val status = phoneStatusProvider()
-                runCatching { sock.send(DashCommands.heartbeat(weather = weatherProvider(), status = status, call = callNow())) }
-                stats.heartbeat() // the 1 Hz status heartbeat
+                // The status packet: every second as it always was, or only when it differs from the one the dash has (switch "send only what changed").
+                if (runCatching { sendStatus(sock, status) }.getOrDefault(true)) stats.heartbeat() // counts the status packets sent
                 // The second 1 Hz status packet the dash accepts is the weather's: the heartbeat above already carries both
                 // fields (06 08, 06 10), so it is not sent.
-                // Keep the dash clock correct — it only shows what the phone feeds it.
-                if (n % 30 == 0) runCatching { sock.send(DashCommands.timeSync()) }
-                // The bike's data, asked for again every 15 minutes while connected (the first time is the initial burst).
-                if (dataRefreshDue(n, _state.value)) {
+                sendClock(sock, n)
+                // The bike's data, asked for again every 15 minutes while connected (the first time is the initial burst); with the switch on, only the burst's ask.
+                if (!change.enabled && dataRefreshDue(n, _state.value)) {
                     runCatching { sock.send(DashCommands.versionQuery()) }
                     com.reau.app.data.RideDiagnostics.log("dash", "bike data asked again (0A 02, ${n / DATA_REFRESH_TICKS} of every 15 min)")
                 }
@@ -1616,8 +1676,9 @@ class DashSession(
         projHbJob = scope.launch(Dispatchers.IO) {
             while (isActive && _state.value == DashState.STREAMING) {
                 val slid = quietBeforeRoutine()
-                socket?.send(DashCommands.projectionFrame())
-                stats.heartbeat()
+                // The projection flag (05 56 = 0x55): 4 Hz as it was, or a latch said once and again after each new link (switch "send only what changed").
+                val flag = DashCommands.projectionFrame()
+                if (change.attempt(SendOnChange.PROJECTION, flag) { socket?.send(flag) == true }) stats.heartbeat()
                 delay((PROJ_HB_MS - slid).coerceAtLeast(1L))
             }
         }
@@ -1628,7 +1689,7 @@ class DashSession(
         routeCardJob = scope.launch(Dispatchers.IO) {
             while (isActive && _state.value == DashState.STREAMING) {
                 val slid = quietBeforeRoutine()
-                socket?.let { routeHold.sendUnlessHeld { it.send(liveRouteCard(projectionOn = true)) } }
+                socket?.let { sock -> routeHold.sendUnlessHeld { sendLiveCard(sock) } }
                 delay((ROUTE_CARD_MS - slid).coerceAtLeast(1L))
             }
         }
@@ -1639,10 +1700,23 @@ class DashSession(
         navInfoJob = scope.launch(Dispatchers.IO) {
             while (isActive && _state.value == DashState.STREAMING) {
                 val slid = quietBeforeRoutine()
-                socket?.let { sock -> routeHold.sendUnlessHeld { navPacketNow()?.let(sock::send) } }
+                socket?.let { sock -> routeHold.sendUnlessHeld { sendNavPacket(sock) } }
                 delay((ROUTE_CARD_MS - slid).coerceAtLeast(1L))
             }
         }
+    }
+
+    /**
+     * The nav packet sent when it differs from the one the dash has. With no guidance there is nothing to send, and what the dash holds of the last one is
+     * forgotten, so the next guidance's first packet goes whatever it says.
+     */
+    private fun sendNavPacket(sock: DashSocket) {
+        val packet = navPacketNow()
+        if (packet == null) {
+            change.forget(SendOnChange.NAV)
+            return
+        }
+        change.attempt(SendOnChange.NAV, packet) { sock.send(packet) }
     }
 
     /** The nav packet (05 02: the maneuver's bubble, the distances) as it goes to the dash now; null with no guidance (and no arrow test). */

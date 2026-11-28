@@ -331,6 +331,8 @@ internal class LiveSides(
         },
         weatherProvider = { if (tuned?.dashWeather == true) setup.weather() else null },
         readings = setup.readings,
+        // The switch "Mandar ao painel só o que mudou", read each time the session opens its sockets (the retries of a ride follow it).
+        sendOnChange = { runCatching { SettingsStore.open(appContext).load().sendOnChange }.getOrDefault(true) },
         // The phone's network to the dash still known to Android (a lost one has no capabilities): what tells a silent dash from a gone one (SilentDash).
         networkUp = { network ->
             network != null && runCatching {

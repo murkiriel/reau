@@ -305,6 +305,9 @@
     <string name="keyframe_cap_title">Cap the keyframe size for the dash (experimental)</string>
     <string name="keyframe_cap_sub">Lowers the bitrate when a keyframe goes over 48 kB</string>
     <string name="keyframe_cap">The dash decodes the video in software on a weak processor, and a big keyframe is the peak of work and traffic that may stall its network. When a keyframe goes over 48 kB, REau lowers the bitrate it asks of the encoder so the next ones come out smaller, and gives it back little by little when they fall under again; on a phone whose keyframes already stay under that nothing changes, and it counts from the next projection. On by default, but it is a test and may be removed in a later version.</string>
+    <string name="send_on_change_title">Send the dash only what changed (experimental)</string>
+    <string name="send_on_change_sub">Commands only when they change; only the video is periodic</string>
+    <string name="send_on_change">The dash keeps the last value it is given, so REau sends its commands (status, route card, music, call, time) only when they change, and the projection and navigation flags once, instead of every second or four times a second; only the video is periodic. It counts from the next projection. On by default, but it is a test and may be removed in a later version.</string>
     <string name="action_view_logs">View the log</string>
     <string name="log_viewer_title">Log</string>
     <string name="log_viewer_none">No logs yet.</string>

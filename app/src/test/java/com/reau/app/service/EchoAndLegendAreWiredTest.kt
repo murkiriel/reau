@@ -65,7 +65,7 @@ class EchoAndLegendAreWiredTest {
         assertTrue(send, "_state.value == DashState.STREAMING" in send && "sendRouteCard(sock)" in send)
         // The card goes through the route hold (the rider's yes to "Exit navigation?" keeps it back), and is what the route card is made of.
         val card = session.between("private fun sendRouteCard(sock: DashSocket) {", "/**")
-        assertTrue(card, "routeHold.sendUnlessHeld { sock.send(liveRouteCard(projectionOn = true)) }" in card)
+        assertTrue(card, "routeHold.sendUnlessHeld { sendLiveCard(sock) }" in card)
         assertTrue("disconnect", session.between("fun disconnect", "socket?.let { sock ->").contains("echo.drop()"))
         assertTrue("fail", session.between("statsJob?.cancel(); cardsJob?.cancel(); echo.drop()", "sessionJob?.cancel()").isNotEmpty())
     }
