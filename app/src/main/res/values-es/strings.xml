@@ -976,7 +976,7 @@
     <string name="group_screen_keep">Teléfono bloqueado</string>
     <string name="lock_mode_title">Modo de bloqueo de REau (prueba)</string>
     <string name="lock_mode_sub">Muestra el botón Bloquear la pantalla, enciende la pantalla cuando se apaga y muestra REau sobre el bloqueo. Gasta más batería</string>
-    <string name="lock_mode_info">Encendido, el botón “Bloquear la pantalla” aparece en la pantalla principal (con el tablero listo) y, con REau al frente, la pantalla entra en el bloqueo de REau en vez de apagarse sola, sin pedir el PIN. Si se apaga igual (el botón de encendido), REau la vuelve a encender y aparece sobre el bloqueo, si estaba al frente; en el bolsillo, el sensor de proximidad apaga la pantalla sin bloquear el teléfono. Es una prueba: viene apagado, gasta más batería y solo vale con la proyección encendida.</string>
+    <string name="lock_mode_info">Encendido, el botón “Bloquear la pantalla” aparece en la pantalla principal (con el tablero listo) y, con REau al frente, la pantalla entra en el bloqueo de REau en vez de apagarse sola, sin pedir el PIN. Si se apaga igual (el botón de encendido), REau la vuelve a encender y aparece sobre el bloqueo, si estaba al frente; en el bolsillo, el sensor de proximidad apaga la pantalla sin bloquear el teléfono. Es una prueba: viene encendido, gasta más batería y solo vale con la proyección encendida.</string>
     <string name="screen_keep_lock_projecting">Proyectando en el tablero</string>
     <string name="screen_keep_lock_swipe">Toca para desbloquear</string>
     <string name="screen_keep_lock_pause">Apagar la pantalla en este viaje</string>

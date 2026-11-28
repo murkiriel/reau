@@ -9,7 +9,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The one switch "Modo de bloqueio do REau (teste)" of the 0.3.96 test build: off by default, kept under a key of its own (what the 0.3.9x builds saved of the three
+ * The one switch "Modo de bloqueio do REau (teste)" of the 0.3.96 test build: on by default since 0.3.100 (the owner's decision of 28/11/2026; it was off from 0.3.96 to 0.3.99), kept under a key of its own (what the 0.3.9x builds saved of the three
  * earlier choices is never read), logged, and in the settings screen in the three languages.
  */
 class ScreenKeepSettingTest {
@@ -17,8 +17,29 @@ class ScreenKeepSettingTest {
         Regex("""<string name="$name">(.*?)</string>""", RegexOption.DOT_MATCHES_ALL).find(File("src/main/res/$folder/strings.xml").readText())!!.groupValues[1]
 
     @Test
-    fun `the switch comes off on a new install and with nothing stored`() {
-        for (s in listOf(REauSettings(), SettingsStore(KeystoreBackedPrefsTest.FakePrefs()).load(), REauSettings().sanitized())) assertFalse(s.lockMode)
+    fun `the switch comes on on a new install and with nothing stored`() {
+        for (s in listOf(REauSettings(), SettingsStore(KeystoreBackedPrefsTest.FakePrefs()).load(), REauSettings().sanitized())) assertTrue(s.lockMode)
+        assertFalse("sanitizing does not take the rider's choice away", REauSettings(lockMode = false).sanitized().lockMode)
+    }
+
+    @Test
+    fun `a phone that stored the other settings but never this key reads it on, and one that stored it off keeps it off`() {
+        val older = KeystoreBackedPrefsTest.FakePrefs().also { it.edit().putInt("density", 200).putInt("no_dash_stop_minutes", 5).apply() }
+        assertTrue(SettingsStore(older).load().lockMode)
+        // Every save writes every key, so an off stored by the 0.3.96-0.3.99 builds cannot be told from a deliberate one: it is kept.
+        val stored = KeystoreBackedPrefsTest.FakePrefs()
+        stored.edit().putInt("density", 200).putBoolean("lock_mode_on", false).apply()
+        assertFalse(SettingsStore(stored).load().lockMode)
+    }
+
+    @Test
+    fun `the comment and the three info texts say it is on by default`() {
+        val source = File("src/main/java/com/reau/app/settings/REauSettings.kt").readText()
+        val doc = source.substringBefore("val lockMode: Boolean = true,").substringAfterLast("/**")
+        assertTrue(doc, "on by default since 0.3.100" in doc)
+        assertTrue("It is a test: it comes on," in string("values", "lock_mode_info"))
+        assertTrue("É um teste: vem ligado," in string("values-pt", "lock_mode_info"))
+        assertTrue("Es una prueba: viene encendido," in string("values-es", "lock_mode_info"))
     }
 
     @Test
@@ -35,7 +56,8 @@ class ScreenKeepSettingTest {
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
         for (key in listOf("screen_keep", "screen_keep_on", "screen_keep_lock_ui")) prefs.map[key] = true
         prefs.map["screen_keep_mode"] = "EVERY_60_S"
-        assertFalse("the old trues do not hold it on", SettingsStore(prefs).load().lockMode)
+        prefs.map["lock_mode_on"] = false
+        assertFalse("the old trues do not hold it on over its own key", SettingsStore(prefs).load().lockMode)
         prefs.map["lock_mode_on"] = true
         assertTrue("only its own key does", SettingsStore(prefs).load().lockMode)
         val names = REauSettings::class.java.declaredFields.map { it.name }
@@ -44,9 +66,9 @@ class ScreenKeepSettingTest {
 
     @Test
     fun `the settings line of the ride log says the value and the change is said`() {
-        assertTrue(" lockMode=false" in SettingsInUse.line(REauSettings()))
-        assertTrue("lockMode=true" in SettingsInUse.line(REauSettings(lockMode = true)))
-        assertEquals(listOf("lockMode: false -> true"), REauSettings().changesTo(REauSettings(lockMode = true)))
+        assertTrue(" lockMode=true" in SettingsInUse.line(REauSettings()))
+        assertTrue("lockMode=false" in SettingsInUse.line(REauSettings(lockMode = false)))
+        assertEquals(listOf("lockMode: true -> false"), REauSettings().changesTo(REauSettings(lockMode = false)))
         assertTrue("lockMode" in SettingsInUse.LOGGED)
     }
 
