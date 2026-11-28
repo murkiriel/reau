@@ -20,6 +20,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
     fun load(): REauSettings {
         conservativeVideoOnce()
         ringCardsOnce()
+        lockModeOnce()
         val loaded = loadAllButThePlaces()
         val content = loaded.content
         // The default place only while that fit was never saved; a crop saved centred has no place stored.
@@ -58,6 +59,20 @@ class SettingsStore(private val prefs: SharedPreferences) {
     private fun ringCardsOnce() {
         if (prefs.contains(KEY_RING_CARDS) || prefs.all.isEmpty()) return
         prefs.edit { putBoolean(KEY_RING_CARDS, true) }
+    }
+
+    /**
+     * The REau lock mode came on by default in 0.3.100, but every save of the settings writes every key, so a phone that opened the settings in
+     * 0.3.96 to 0.3.99 has `lock_mode_on=false` stored without ever choosing it and would stay off. The first run of 0.3.100 turns it on once on a
+     * phone that has settings stored; from then on the mark is stored with everything else ([save]) and the rider's choice, on or off, is kept.
+     * A new install (nothing stored) is left alone: the default is already on.
+     */
+    private fun lockModeOnce() {
+        if (prefs.contains(KEY_LOCK_MODE_0_3_100) || prefs.all.isEmpty()) return
+        prefs.edit {
+            putBoolean(KEY_LOCK_MODE, true)
+            putBoolean(KEY_LOCK_MODE_0_3_100, true)
+        }
     }
 
     /**
@@ -377,6 +392,7 @@ class SettingsStore(private val prefs: SharedPreferences) {
             putString(KEY_WEB_AUDIO, s.webAudio.name)
             putBoolean(KEY_ANNOUNCE_MOTORCYCLE, s.announceMotorcycle)
             putBoolean(KEY_LOCK_MODE, s.lockMode)
+            putBoolean(KEY_LOCK_MODE_0_3_100, true)
             putBoolean(KEY_UPDATE_NOTICE, s.updateNotice)
         }
     }
@@ -499,6 +515,8 @@ class SettingsStore(private val prefs: SharedPreferences) {
         // A new name in 0.3.96: the three choices of the lit screen became one switch that is off by default, and what the 0.3.9x builds saved with every other setting
         // (`screen_keep`, `screen_keep_on`, `screen_keep_lock_ui`, `screen_keep_mode`) must not hold it: they stay in the file unread.
         private const val KEY_LOCK_MODE = "lock_mode_on"
+        /** The mark that the lock mode was turned on once for the phones that stored it off before it came on by default ([lockModeOnce]). */
+        private const val KEY_LOCK_MODE_0_3_100 = "lock_mode_on_0_3_100"
         private const val KEY_UPDATE_NOTICE = "update_notice"
         private const val OLD_KEY_AA_SLOW_PACE = "aa_slow_pace"
         private const val OLD_KEY_AA_SLOW_PACE_FPS = "aa_slow_pace_fps"

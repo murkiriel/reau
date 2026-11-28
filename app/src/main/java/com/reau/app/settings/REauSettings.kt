@@ -280,7 +280,7 @@ data class REauSettings(
      * "Modo de bloqueio do REau (teste)", only in the 0.3.9x test builds, on by default since 0.3.100 (the owner's decision of 28/11/2026; it was off from 0.3.96 to 0.3.99): one switch for the whole function. On, it shows the main screen's button
      * "Bloquear a tela", turns the screen on again, for 10 s, when the display goes off during the projection (so that the phone's own task killer, realme or Xiaomi, never
      * finds "screen off and app in the background", [com.reau.app.service.ScreenKeeper]) and shows REau's own screen over the lock screen when it lights ([com.reau.app.ui.LockOverHost],
-     * only if REau was in front). Read at each screen-off and at each look at the main screen, so a change counts at once.
+     * only if REau was in front). A phone that stored it off before 0.3.100 gets it on once ([SettingsStore]). Read at each screen-off and at each look at the main screen, so a change counts at once.
      */
     val lockMode: Boolean = true,
     /**

@@ -23,13 +23,36 @@ class ScreenKeepSettingTest {
     }
 
     @Test
-    fun `a phone that stored the other settings but never this key reads it on, and one that stored it off keeps it off`() {
+    fun `a phone that stored the other settings reads it on, and one that stored it off from before 0_3_100 gets it on once`() {
         val older = KeystoreBackedPrefsTest.FakePrefs().also { it.edit().putInt("density", 200).putInt("no_dash_stop_minutes", 5).apply() }
         assertTrue(SettingsStore(older).load().lockMode)
-        // Every save writes every key, so an off stored by the 0.3.96-0.3.99 builds cannot be told from a deliberate one: it is kept.
+        // Every save before 0.3.100 wrote every key, so an off stored by the 0.3.96-0.3.99 builds cannot be told from a deliberate one: it is turned on, once.
         val stored = KeystoreBackedPrefsTest.FakePrefs()
         stored.edit().putInt("density", 200).putBoolean("lock_mode_on", false).apply()
-        assertFalse(SettingsStore(stored).load().lockMode)
+        assertTrue(SettingsStore(stored).load().lockMode)
+        assertEquals("written, not only read", true, stored.map["lock_mode_on"])
+        assertEquals(true, stored.map["lock_mode_on_0_3_100"])
+    }
+
+    @Test
+    fun `after the one turning on the rider's off is kept, on every load and every save`() {
+        val prefs = KeystoreBackedPrefsTest.FakePrefs()
+        prefs.edit().putInt("density", 200).putBoolean("lock_mode_on", false).apply()
+        assertTrue(SettingsStore(prefs).load().lockMode)
+        SettingsStore(prefs).save(REauSettings(lockMode = false))
+        repeat(3) { assertFalse(SettingsStore(prefs).load().lockMode) }
+        SettingsStore(prefs).save(REauSettings(lockMode = true))
+        assertTrue(SettingsStore(prefs).load().lockMode)
+    }
+
+    @Test
+    fun `a new install is not touched, and its first save carries the mark so its off is kept`() {
+        val prefs = KeystoreBackedPrefsTest.FakePrefs()
+        assertTrue(SettingsStore(prefs).load().lockMode)
+        assertTrue("nothing written by a load of nothing", prefs.map.isEmpty())
+        SettingsStore(prefs).save(REauSettings(lockMode = false))
+        assertEquals(true, prefs.map["lock_mode_on_0_3_100"])
+        assertFalse(SettingsStore(prefs).load().lockMode)
     }
 
     @Test
@@ -56,6 +79,7 @@ class ScreenKeepSettingTest {
         val prefs = KeystoreBackedPrefsTest.FakePrefs()
         for (key in listOf("screen_keep", "screen_keep_on", "screen_keep_lock_ui")) prefs.map[key] = true
         prefs.map["screen_keep_mode"] = "EVERY_60_S"
+        prefs.map["lock_mode_on_0_3_100"] = true
         prefs.map["lock_mode_on"] = false
         assertFalse("the old trues do not hold it on over its own key", SettingsStore(prefs).load().lockMode)
         prefs.map["lock_mode_on"] = true
